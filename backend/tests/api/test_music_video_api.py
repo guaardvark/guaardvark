@@ -39,6 +39,10 @@ def _no_dispatch(monkeypatch):
         "backend.api.music_video_api.get_video_generator",
         lambda: type("VG", (), {"service_available": True})(),
     )
+    # The box's own Plugins page settings never decide a test's outcome.
+    monkeypatch.setattr("backend.services.plugin_bridge.job_plugin_blocker", lambda plugin_id: None)
+    # Finished-cut history is read fresh in every test, never from a cache.
+    monkeypatch.setattr("backend.api.music_video_api.CUT_HISTORY_TTL_S", 0.0)
 
 
 def _song_doc(tmp_path):
@@ -135,6 +139,31 @@ def test_approve_advances_to_generating(client, app, tmp_path):
     assert resp.get_json()["current_stage"] == "generating"
 
 
+def test_approve_refused_while_the_video_editor_is_off(client, app, tmp_path, monkeypatch):
+    # Assembly needs the Video Editor plugin; with it turned off the render
+    # would run for hours and then fail, so approval says so up front.
+    monkeypatch.setattr(
+        "backend.services.plugin_bridge.job_plugin_blocker",
+        lambda plugin_id: ("The Video Editor plugin is turned off", "Turn it on from the Plugins page"),
+    )
+    with app.app_context():
+        doc = _song_doc(tmp_path)
+        svc = MusicVideoService(db.session)
+        mv = svc.create(name="x", song_document_id=doc.id, song_path=str(tmp_path / "song.wav"),
+                        style_prompt="x", project_id=None)
+        mv.current_stage = "awaiting_approval"
+        mv.status = "awaiting_approval"
+        mv.cut_plan = [{"index": 0, "start_s": 0.0, "end_s": 2.0, "energy": 1.0, "section_label": "a"}]
+        db.session.commit()
+        mv_id = mv.id
+    resp = client.post(f"/api/music-video/{mv_id}/approve")
+    assert resp.status_code == 409
+    body = resp.get_json()
+    assert body["plugin_id"] == "video_editor"
+    assert "Video Editor" in body["error"] and "approve again" in body["error"]
+    assert client.get(f"/api/music-video/{mv_id}").get_json()["current_stage"] == "awaiting_approval"
+
+
 def test_get_surfaces_estimate_at_gate(client, app, tmp_path):
     with app.app_context():
         doc = _song_doc(tmp_path)
@@ -152,7 +181,33 @@ def test_get_surfaces_estimate_at_gate(client, app, tmp_path):
     assert data["clip_count"] == 40
     assert data["clips_done"] == 0
     assert data["estimate"]["clips_to_generate"] == 40
-    assert data["estimate"]["estimated_seconds"] == 40 * 75
+    # No finished cuts yet: the default model's measured figure.
+    from backend.services.video_model_registry import DEFAULT_I2V_MODEL, music_video_cut_seconds
+    per_cut = music_video_cut_seconds(DEFAULT_I2V_MODEL)["seconds"]
+    assert data["estimate"]["basis"] == "model"
+    assert data["estimate"]["estimated_seconds"] == 40 * per_cut
+
+
+def test_estimate_prefers_cuts_finished_on_this_box(client, app, tmp_path):
+    with app.app_context():
+        doc = _song_doc(tmp_path)
+        svc = MusicVideoService(db.session)
+        done = svc.create(name="done", song_document_id=doc.id, song_path=str(tmp_path / "song.wav"),
+                          style_prompt="x", project_id=None, settings={"i2v_model": "wan22-14b-i2v"})
+        done.clips = [{"index": i, "start": i, "end": i + 1, "status": "done", "elapsed_s": s}
+                      for i, s in enumerate((600.0, 700.0, 800.0))]
+        mv = svc.create(name="x", song_document_id=doc.id, song_path=str(tmp_path / "song.wav"),
+                        style_prompt="x", project_id=None, settings={"i2v_model": "wan22-14b-i2v"})
+        mv.cut_plan = [{"index": i, "start_s": i, "end_s": i + 1, "energy": 1.0, "section_label": "a"}
+                       for i in range(10)]
+        mv.clips = [{"index": i, "start": i, "end": i + 1, "clip_path": None, "status": "pending"}
+                    for i in range(10)]
+        db.session.commit()
+        mv_id = mv.id
+    est = client.get(f"/api/music-video/{mv_id}").get_json()["estimate"]
+    assert est["basis"] == "history"
+    assert est["seconds_per_clip"] == 700.0
+    assert est["estimated_seconds"] == 10 * 700
 
 
 def test_cancel_generating_music_video(client, app, tmp_path):

@@ -114,6 +114,7 @@ def test_start_sh_runs_the_decision_by_path(tmp_path):
 @pytest.mark.parametrize("body, expected", [
     ('{"success": true, "data": {"success": true, "message": "Plugin started successfully"}}', "yes|Plugin started successfully"),
     ('{"success": true, "data": {"success": false, "gated": true, "error": "cooling down"}}', "no|cooling down"),
+    ('{"success": false, "message": "cooling down", "error": {"code": "PLUGIN_GATED", "message": "cooling down", "context": {"gated": true}}}', "no|cooling down"),
     ('{"success": false, "error": "Start script failed: x"}', "no|Start script failed: x"),
     ("", "no|no answer from the backend"),
 ])

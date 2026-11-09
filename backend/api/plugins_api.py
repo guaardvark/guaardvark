@@ -3,6 +3,7 @@
 
 import collections
 import logging
+import math
 import re
 import subprocess
 from pathlib import Path
@@ -155,6 +156,27 @@ def plugin_health(plugin_id):
         return error_response(str(e), 500, "HEALTH_CHECK_ERROR")
 
 
+def _gate_refusal(result: dict):
+    """A start, stop or restart the operation gate held back (cooling down,
+    another plugin operation in progress, the GPU in use): 409 with the gate's
+    reason.
+
+    The manager's result rides in error.context, so ``gated`` and
+    ``cooldown_remaining`` are there for a countdown; Retry-After carries the
+    wait too. Nothing was started or stopped, so this is never a 2xx.
+    """
+    cooldown = float(result.get('cooldown_remaining') or 0)
+    response, status = error_response(
+        result.get('error') or 'Plugin operation held back; try again shortly',
+        409,
+        "PLUGIN_GATED",
+        data=result,
+    )
+    if cooldown > 0:
+        response.headers['Retry-After'] = str(math.ceil(cooldown))
+    return response, status
+
+
 @plugins_bp.route("/<plugin_id>/start", methods=["POST"])
 def start_plugin(plugin_id):
     """Start a plugin."""
@@ -172,14 +194,8 @@ def start_plugin(plugin_id):
                 data=result,
                 message=result.get('message', 'Plugin started')
             )
-        # Gate rejections (cooldown / GPU exclusivity) are NOT errors — they're
-        # expected backpressure. Return 200 with success=false so the frontend
-        # can show a friendly snackbar instead of an error toast.
         if result.get('gated'):
-            return success_response(
-                data=result,
-                message=result.get('error', 'Plugin operation rate-limited')
-            )
+            return _gate_refusal(result)
         return error_response(
             result.get('error', 'Failed to start plugin'),
             400,
@@ -213,10 +229,7 @@ def stop_plugin(plugin_id):
                 message=result.get('message', 'Plugin stopped')
             )
         if result.get('gated'):
-            return success_response(
-                data=result,
-                message=result.get('error', 'Plugin operation rate-limited')
-            )
+            return _gate_refusal(result)
         return error_response(
             result.get('error', 'Failed to stop plugin'),
             400,
@@ -244,6 +257,8 @@ def restart_plugin(plugin_id):
                 data=result,
                 message=result.get('message', 'Plugin restarted')
             )
+        elif result.get('gated'):
+            return _gate_refusal(result)
         else:
             return error_response(
                 result.get('error', 'Failed to restart plugin'),
