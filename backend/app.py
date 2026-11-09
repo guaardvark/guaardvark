@@ -2122,6 +2122,8 @@ def health_db():
     from backend.utils import migration_utils
 
     status = migration_utils.get_health()
+    if status.get("status") == "db_unreachable":
+        return jsonify({**status, "message": f"Database unreachable: {status.get('error')}"}), 503
     return jsonify(status), 200
 
 
