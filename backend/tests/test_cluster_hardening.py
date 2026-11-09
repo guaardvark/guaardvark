@@ -163,3 +163,28 @@ def test_get_target_uses_fleetmap_address_and_online():
     assert t is not None and t.host == "10.0.0.9" and t.port == 5050
     fm.set_online("a", False)
     assert ProxyTargetResolver()._get_target("a") is None
+
+
+# ---- GB10: an NVIDIA GPU on the machine's own memory -----------------------
+
+def _gb10(services):
+    return {"arch": "aarch64",
+            "gpu": {"vendor": "nvidia", "vram_mb": None, "unified_memory_gb": 119.7},
+            "services": {s: {"installed": True} for s in services}}
+
+
+def test_gb10_is_admitted_for_image_video_and_chat_on_arm():
+    profiles = {"spark": _gb10(["comfyui", "ollama"])}
+    builder = RoutingTableBuilder()
+    from backend.services.cluster_routing import WORKLOAD_SPECS
+    for workload in ("image_generation", "video_generation", "llm_chat"):
+        assert builder._filter_candidates(workload, WORKLOAD_SPECS[workload], None, profiles) == ["spark"]
+
+
+def test_other_arm_nodes_stay_off_image_and_video():
+    profiles = {"arm": _nvidia("arm", 16000, ["comfyui"], arch="aarch64"),
+                "arm-amd": _amd("arm-amd", 16000, ["comfyui"], arch="aarch64")}
+    builder = RoutingTableBuilder()
+    from backend.services.cluster_routing import WORKLOAD_SPECS
+    for workload in ("image_generation", "video_generation"):
+        assert builder._filter_candidates(workload, WORKLOAD_SPECS[workload], None, profiles) == []
