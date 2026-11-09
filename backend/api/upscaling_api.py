@@ -613,7 +613,8 @@ def upscale_document():
     if document is None:
         return error_response("Document not found", 404)
     try:
-        source = get_physical_path(document.path)
+        from backend.services.document_path_resolver import resolve_document_path
+        source = resolve_document_path(document) or get_physical_path(document.path)
     except Exception:
         return error_response("Document path is outside the library", 400)
     if not source.is_file():
