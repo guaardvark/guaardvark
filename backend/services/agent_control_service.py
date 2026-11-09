@@ -179,6 +179,9 @@ class AgentAction:
     # This brings general tools (web, code, media, etc.) together with screen skills/recipes for true natural language control in /agent mode.
     tool_name: str = ""
     tool_params: dict = field(default_factory=dict)
+    # Where a sighted brain sees the target it is clicking, in its own
+    # coordinate dialect (box_2d, bbox_2d or x/y), read from its decision.
+    native_point: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -233,6 +236,9 @@ class AgentResult:
     # Notes the user sent while the task ran that arrived after its last
     # step, so the model never read them. The chat reply says so.
     late_notes: List[str] = field(default_factory=list)
+    # The model's own last words on the task: its done proof or reasoning.
+    # The chat narration reads these instead of guessing from action names.
+    final_words: str = ""
 
 
 @dataclass
@@ -338,6 +344,10 @@ class BrainEye:
     unified: bool
     eye_mechanism: str   # native | sibling_vlm | none
     reason: str
+    # The brain sees the screenshot itself. Then its own look is the authority:
+    # it decides from the image, its next look judges each action, and its
+    # "done" ends the task. A lent eye only helps it aim.
+    sees: bool = False
 
 
 def _read_saved_active_model() -> str:
@@ -744,6 +754,10 @@ class AgentControlService:
         ten places are not one action repeated ten times."""
         if action.action_type == "click_at":
             return tuple(action.coordinates or ())
+        if getattr(action, "native_point", None) and action.coordinates:
+            # A click the model aimed itself, then aimed again after seeing
+            # the first one miss, is a correction, not a repeat.
+            return tuple(action.coordinates)
         if action.action_type == "draw":
             return tuple(tuple(p) for p in (action.points or []))
         return ()
@@ -797,10 +811,51 @@ class AgentControlService:
         return bool(getattr(self, "_points_on", False))
 
     def _schema_full(self) -> str:
-        return self._SCHEMA_FULL_POINTS if self._points_allowed else self._SCHEMA_FULL
+        schema = self._SCHEMA_FULL_POINTS if self._points_allowed else self._SCHEMA_FULL
+        native = self._native_point_spec()
+        if native:
+            schema = schema.replace('"target_description": "...", ',
+                                    '"target_description": "...", ' + native[0], 1)
+        return schema
 
     def _point_block(self) -> str:
-        return self._point_rule() + "\n\n" if self._points_allowed else ""
+        block = self._point_rule() + "\n\n" if self._points_allowed else ""
+        native = self._native_point_spec()
+        if native:
+            block = self._NATIVE_POINT_RULE.format(field=native[1]) + "\n\n" + block
+        return block
+
+    # The sighted brain places its own clicks. Before this it could only name
+    # a target, and a second vision call guessed the place from the name
+    # (AGENT_TEST_001, 2026-11-09: it saw five circles in a paint file and
+    # every click landed beside one).
+    _NATIVE_POINT_RULE = (
+        "You see this screenshot yourself, so you aim your own clicks: with click, "
+        "right_click or double_click give target_description and {field}. The click "
+        "lands at its centre. Look at the next screenshot to see where it landed; if "
+        "it missed, click again where you now see the target."
+    )
+
+    def _native_point_style(self) -> Optional[Tuple[str, str]]:
+        """(style, order) the brain points in, when that is known; else None and
+        its clicks go to the servo by name."""
+        try:
+            from backend.services.model_capability_resolver import coords_for
+            from backend.services.model_capability_data import DEFAULT_STYLE
+            conv = coords_for(self._brain_eye.brain, getattr(self, "_screen_size", None))
+            if not conv.order:
+                return None
+            return (conv.style or DEFAULT_STYLE, conv.order)
+        except Exception as e:
+            logger.debug(f"[AGENT] no native point dialect: {e}")
+            return None
+
+    def _native_point_spec(self) -> Optional[Tuple[str, str]]:
+        style = getattr(self, "_native_style", None)
+        if not style:
+            return None
+        from backend.services.model_capability_data import decision_point_field
+        return decision_point_field(*style)
 
     def _point_rule(self) -> str:
         size = getattr(self, "_screen_size", None)
@@ -824,6 +879,32 @@ class AgentControlService:
             "disagree, follow the note. Keep going; do not start the task over unless a note "
             "says to.\n" + "\n".join(lines) + "\n\n"
         )
+
+    _NOTE_CITED = re.compile(r"\b(?:user'?s?|your|the)\s+(?:latest\s+|last\s+|new\s+)?note\b",
+                             re.IGNORECASE)
+
+    def _done_on_note(self, decision) -> bool:
+        """True when a "done" rests on a note the person sent during the task.
+
+        The model has read the note and says the task is finished because of it:
+        its proof or reasoning quotes the note or names it. That is the person
+        speaking, which no screen check can confirm or should overrule.
+        """
+        with self._lock:
+            notes = [n["text"] for n in self._steer_notes if n["seen_at_step"] is not None]
+        if not notes:
+            return False
+        said = f"{decision.action.success_proof or ''} {decision.action.reasoning or ''}"
+
+        def _norm(t: str) -> str:
+            return " ".join(re.sub(r"[^a-z0-9]+", " ", t.lower()).split())
+
+        said_n = _norm(said)
+        for text in notes:
+            n = _norm(text)
+            if n and n[:60] in said_n:
+                return True
+        return bool(self._NOTE_CITED.search(said))
 
     def get_status(self) -> Dict[str, Any]:
         """Get current agent control status."""
@@ -907,7 +988,7 @@ class AgentControlService:
             # "clicked but nothing happened" runs out of candidate-recipe
             # learning (response_2026-05-19 §C). For non-success runs we
             # leave verified=False (default).
-            if result.success and result.steps:
+            if result.success and result.steps and not result.verified_reason:
                 last_step = result.steps[-1]
                 last_action_kind = getattr(last_step.action, "action_type", "")
                 if last_action_kind == "done":
@@ -976,6 +1057,11 @@ class AgentControlService:
             self._banned_targets = {}
             self._obstacle_counts = {}
             self._field_point = None
+            # What recovered from which failure is evidence about this task's
+            # screen. Carried over, an Escape that "worked" twice in one task
+            # was recommended to every task after it.
+            self._recovery_memory = {}
+            self._pending_failure_label = ""
 
         # Attempts per click target this task: the second try at the same
         # target asks the servo for precision (arms its correction loop).
@@ -997,6 +1083,12 @@ class AgentControlService:
             logger.error(f"[AGENT] no drivable eye: {self._brain_eye.reason}")
             return finish(AgentResult(success=False, reason=f"no_drivable_eye: {self._brain_eye.reason}",
                                       task=task))
+        # A brain that sees the screenshot is the authority on what is on it.
+        # When it is also the eye, it places its own clicks: it says where it
+        # sees the target, in its own coordinate dialect.
+        self._brain_sees = bool(getattr(self._brain_eye, "sees", False))
+        self._native_points = self._brain_sees and bool(self._brain_eye.unified)
+        self._native_style = self._native_point_style() if self._native_points else None
         logger.info(
             "[AGENT] Brain: %s (%s) | Eye: %s (%s) — %s",
             self._brain_eye.brain, "sighted" if self._brain_eye.unified else "blind",
@@ -1185,9 +1277,11 @@ class AgentControlService:
 
                 scene_desc = ""  # Will be populated by either unified or split path
 
-                # Unified when the brain can see and point for itself; otherwise
-                # the eye describes and points and the brain decides.
-                unified_model = self._brain_eye.brain if self._brain_eye.unified else ""
+                # A brain that sees decides from the screenshot itself, whether
+                # or not it also points; only a blind brain decides from the
+                # eye's description.
+                unified_model = (self._brain_eye.brain
+                                 if (self._brain_eye.unified or self._brain_sees) else "")
 
                 # Refresh DOM once per iteration, for BOTH modes, so the prompt
                 # builder and the click-time DOM-match guard see the same
@@ -1220,6 +1314,11 @@ class AgentControlService:
                         model=unified_model, num_predict=256, temperature=0.1,
                         system=persistent_system or None,
                     )
+                    # The size of the image the model actually saw: a point it
+                    # gives in absolute pixels is read against this, not the screen.
+                    mw = getattr(analyzer, "max_width", 0) or 0
+                    self._seen_size = (screenshot.size if not mw or screenshot.width <= mw
+                                       else (mw, int(screenshot.height * mw / screenshot.width)))
                     if not result.success:
                         logger.error(f"[AGENT][STEP {iteration+1}][UNIFIED] Vision+decision failed: {result.error}")
                         consecutive_failures += 1
@@ -1318,6 +1417,33 @@ class AgentControlService:
                                 steps=self._action_history,
                                 total_time_seconds=time.time() - start_time
                             ))
+
+                    # The person's word ends the task: a done that answers their
+                    # note is theirs to give. And a brain that sees the screen is
+                    # the judge of it: its done was decided on the frame it just
+                    # looked at, so nothing re-asks it. (AGENT_TEST_001: "Ok you did
+                    # good, complete task" was rejected 13 times by a proof check.)
+                    on_note = self._done_on_note(decision)
+                    if on_note or self._brain_sees:
+                        reason_done = "completed (on your note)" if on_note else "completed"
+                        logger.info(
+                            f"[AGENT][DONE] {reason_done} after {iteration+1} steps, "
+                            f"{time.time() - start_time:.1f}s (proof: {decision.action.success_proof!r})"
+                        )
+                        if on_note:
+                            self._emit_thinking(
+                                iteration=iteration + 1, label="done — on your note",
+                                reasoning="You told me the task is finished, so I stopped.",
+                            )
+                        return finish(AgentResult(
+                            success=True, reason=reason_done,
+                            steps=self._action_history,
+                            total_time_seconds=time.time() - start_time,
+                            verified=not on_note,
+                            verified_reason="your note" if on_note else "the model's own look",
+                            final_words=(decision.action.success_proof
+                                         or decision.action.reasoning or "")[:400],
+                        ))
 
                     # Detect prior servo-verified success (DPC or equivalent) on a non-trivial action.
                     # When present, the done semantic verify (on a model-provided proof) is treated
@@ -1636,10 +1762,22 @@ class AgentControlService:
                         attempt_key = target.strip().lower()
                         attempt = self._click_attempts.get(attempt_key, 0) + 1
                         self._click_attempts[attempt_key] = attempt
-                        servo_result = servo.click_target(
-                            target, button=button, single_attempt=training_mode,
-                            precision=(True if attempt >= 2 else None), attempt=attempt,
-                        )
+                        native_xy = None
+                        if self._native_points and decision.action.native_point:
+                            native_xy = servo.read_point(
+                                decision.action.native_point,
+                                image_size=getattr(self, "_seen_size", None) or screenshot.size,
+                            )
+                        if native_xy:
+                            servo_result = servo.click_point(
+                                native_xy[0], native_xy[1], target, button=button,
+                                screenshot=screenshot, answer=decision.action.native_point,
+                            )
+                        else:
+                            servo_result = servo.click_target(
+                                target, button=button, single_attempt=training_mode,
+                                precision=(True if attempt >= 2 else None), attempt=attempt,
+                            )
                         if servo_result.get("verified"):
                             self._click_attempts.pop(attempt_key, None)
                         decision.action.coordinates = (servo_result.get("x", 0), servo_result.get("y", 0))
@@ -1732,7 +1870,16 @@ class AgentControlService:
                     # starts outlast a 6s poll, but in-page clicks don't need
                     # a poll at all. Split the cases instead of disabling both.
                     expected_effect = (decision.action.expected_effect or "").strip()
-                    if not failed and not getattr(self, "_training_mode", False):
+                    if not failed and self._brain_sees:
+                        # The brain looks at the next screenshot itself; no pixel
+                        # count or second vision call is put between it and what
+                        # the click did. A pencil dot is under the change threshold
+                        # but plainly visible (AGENT_TEST_001).
+                        if expected_effect:
+                            result["expected_effect"] = expected_effect
+                        result["post_action_effect"] = "pending_observation"
+                        result["verifier"] = "next_look"
+                    elif not failed and not getattr(self, "_training_mode", False):
                         if _looks_like_slow_effect(expected_effect):
                             # Slow path: 12s vision-asked verify for navigation /
                             # app-launch / window-open / page-load patterns.
@@ -3699,6 +3846,9 @@ class AgentControlService:
             desc = h.action.text or h.action.target_description or str(h.action.keys or "")
             if h.action.action_type == "click_at" and h.action.coordinates:
                 desc = f"at ({h.action.coordinates[0]}, {h.action.coordinates[1]})"
+            elif getattr(h.action, "native_point", None) and h.action.coordinates:
+                desc = (f"{desc} at screen ({h.action.coordinates[0]}, "
+                        f"{h.action.coordinates[1]})")
             elif h.action.action_type == "draw" and h.action.points:
                 p0, pn = h.action.points[0], h.action.points[-1]
                 desc = f"{len(h.action.points)} points from ({p0[0]}, {p0[1]}) to ({pn[0]}, {pn[1]})"
@@ -3719,6 +3869,12 @@ class AgentControlService:
         if bool(r.get("verified")) or str(r.get("post_action_effect") or "") == "verified":
             return True
         a = step.action
+        if a.action_type in cls._CLICK_FAMILY and getattr(a, "native_point", None) and a.coordinates:
+            near = [h.action.coordinates for h in prior
+                    if h.action.action_type in cls._CLICK_FAMILY and h.action.coordinates]
+            if all(abs(a.coordinates[0] - c[0]) > 8 or abs(a.coordinates[1] - c[1]) > 8
+                   for c in near):
+                return True
         if a.action_type in cls._CLICK_FAMILY:
             key = (a.target_description or "").strip().lower()
             seen = {
@@ -3776,6 +3932,11 @@ class AgentControlService:
         # 3, so a warning at 3 never reaches the model; at 2 it gets one
         # iteration to actually pivot before the task is aborted.
         if not history or len(history) < 2:
+            return ""
+        if any(h.action.action_type == "wait_until_visible" for h in history[-2:]):
+            # Rows the done check writes when it rejects a proof. Threatening a
+            # hard abort over them was untrue (the loop breaker never sees them)
+            # and sent the model pressing Escape (AGENT_TEST_001).
             return ""
         last_full = [
             (h.action.action_type, h.action.target_description, h.action.text, tuple(h.action.keys or []),
@@ -3863,7 +4024,14 @@ class AgentControlService:
 
     @staticmethod
     def _chat_context_block(chat_context: str) -> str:
-        return f"Recent conversation context:\n{chat_context}\n\n" if chat_context else ""
+        # Labelled as history: unlabelled above the Task line, a previous
+        # request ("click the notification bell") was pursued as the goal of the
+        # next one (AGENT_TEST_001). It still carries what "try again" refers to.
+        return (
+            "Earlier messages in this chat (already handled; use them only when the Task "
+            f"below refers back to them, e.g. \"try again\"):\n{chat_context}\n\n"
+            if chat_context else ""
+        )
 
     def _build_unified_prompt(
         self,
@@ -4008,12 +4176,16 @@ Reply ONLY with JSON:
             except Exception:
                 lend = None
             if lend and _drivable(lend["tag"]):
+                # It still sees: it decides from the screenshot and judges its
+                # own results. The lent eye only places its clicks.
                 return BrainEye(
                     brain, lend["tag"], False, "sibling_vlm",
                     f"{brain} sees but points ~{lend['own_px']:.0f}px off; "
-                    f"{lend['tag']} points within ~{lend['eye_px']:.0f}px, so it looks",
+                    f"{lend['tag']} points within ~{lend['eye_px']:.0f}px, so it aims",
+                    sees=True,
                 )
-            return BrainEye(brain, brain, True, "native", "model sees and points for itself")
+            return BrainEye(brain, brain, True, "native", "model sees and points for itself",
+                            sees=True)
         loaned = None
         if brain:
             try:
@@ -4024,7 +4196,7 @@ Reply ONLY with JSON:
         if not eye:
             return BrainEye(brain, "", False, "none", "no drivable eye installed")
         if not brain:
-            return BrainEye(eye, eye, True, "native", "no saved model; best eye drives")
+            return BrainEye(eye, eye, True, "native", "no saved model; best eye drives", sees=True)
         return BrainEye(brain, eye, False, "sibling_vlm",
                         f"{brain} is blind or unprobed; {eye} looks and points")
 
@@ -5831,7 +6003,9 @@ Reply ONLY with JSON:
             return
 
         action_type = (action.action_type or "").strip().lower()
-        if action_type in ("", "done", "wait"):
+        if action_type in ("", "done", "wait", "hotkey"):
+            # A hotkey is marked successful whatever the screen does, so it
+            # "recovered" from every failure it followed.
             return
         if not self._pending_failure_label:
             return
@@ -6404,6 +6578,12 @@ Reply ONLY with JSON:
                 point = self._parse_point(data)
                 if point is not None:
                     action.coordinates = point
+            elif action_type in self._CLICK_FAMILY:
+                native = {k: data[k] for k in ("box_2d", "bbox_2d", "point") if data.get(k)}
+                if not native and data.get("x") is not None and data.get("y") is not None:
+                    native = {"x": data["x"], "y": data["y"]}
+                if native:
+                    action.native_point = native
             decision.action = action
 
         except (json.JSONDecodeError, KeyError, TypeError) as e:

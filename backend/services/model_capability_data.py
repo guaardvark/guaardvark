@@ -94,6 +94,22 @@ COORD_STYLES = {
 DEFAULT_STYLE = "google_box2d"
 
 
+def decision_point_field(style: str, order: str) -> tuple:
+    """(schema fragment, rule) asking a sighted model, inside its decision, where
+    it sees the target it is clicking, in the same dialect it points in."""
+    st = COORD_STYLES.get(style) or COORD_STYLES[DEFAULT_STYLE]
+    if st["shape"] == "box":
+        key = "box_2d" if style == "google_box2d" else "bbox_2d"
+        corners = "[y1, x1, y2, x2]" if order == "yx" else "[x1, y1, x2, y2]"
+        scale = ("normalized to 1000" if st["grid"]
+                 else "in absolute pixels of this screenshot")
+        return (f'"{key}": {corners}, ',
+                f"{key} = {corners} {scale}, drawn tight around the thing you are clicking")
+    scale = ("on a 0-1000 grid" if st["grid"]
+             else "in absolute pixels of this screenshot")
+    return ('"x": 0, "y": 0, ', f"x and y = the centre of the thing you are clicking, {scale}")
+
+
 def style_overlay(style: str, order: str) -> dict:
     """A vision_config overlay that pins one dialect and one axis order."""
     st = COORD_STYLES[style]
