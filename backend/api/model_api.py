@@ -239,8 +239,14 @@ def get_available_ollama_models(use_cache: bool = True, force_refresh: bool = Fa
         decision_models = []
         filtered_count = 0
 
+        from backend.utils.ollama_resource_manager import listed_name_for_alias
         for model_item in models:
-            kind = _ollama_model_kind(model_item.get("name", ""))
+            name = model_item.get("name", "")
+            # A llamacpp:<digest> alias listed beside its build's plain name is
+            # the same model twice; offered, it gets picked and saved.
+            if listed_name_for_alias(name, models) != name:
+                continue
+            kind = _ollama_model_kind(name)
             if kind == "chat":
                 chat_models.append(model_item)
             elif kind == "decision":
@@ -1310,6 +1316,9 @@ def set_current_model():
     available_model_names = [
         m.get("name", "").lower() for m in available_models_data if isinstance(m, dict)
     ]
+    from backend.utils.ollama_resource_manager import is_llamacpp_alias, listed_name_for_alias
+    if is_llamacpp_alias(new_model_name):
+        new_model_name = listed_name_for_alias(new_model_name)
     if not any(
         n == new_model_name.lower() or new_model_name.lower() in n
         for n in available_model_names
