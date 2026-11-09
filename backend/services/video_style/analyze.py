@@ -27,8 +27,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-SCHEMA = "scorsese.analysis/0.1"
-ENGINE = "scorsese.measure/0.1"
+SCHEMA = "video_style.analysis/0.2"
+ENGINE = "video_style.measure/0.2"
 
 ProgressFn = Callable[[str, int, str], None]
 

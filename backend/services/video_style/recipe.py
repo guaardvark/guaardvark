@@ -1,11 +1,11 @@
 """Style recipes from measured profiles, and the distance between two profiles.
 
-A Scorsese recipe is a superset of the Video Editor's StyleRecipe
+A measured recipe is a superset of the Video Editor's StyleRecipe
 (data/agent/style_recipes/README.md): the base keys bias the Art Director
-and the arranger exactly as before, and the ``scorsese`` block carries what
+and the arranger exactly as before, and the ``measured`` block carries what
 was measured, for the Music Video cut planner, the Director's style clause
 and the Film Crew. Files sit beside the hand-written recipes; a file without a
-``scorsese`` block is never overwritten unless asked.
+``measured`` block is never overwritten unless asked.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-RECIPE_SCHEMA = "scorsese.style/0.1"
+RECIPE_SCHEMA = "video_style.recipe/0.2"
 
 # Slugs the Video Editor's filter and transition catalogs know
 # (plugins/video_editor/mlt/filters.py, transitions.py).
@@ -65,7 +65,7 @@ def slugify(name: str) -> str:
 
 def build_recipe(analysis: Dict[str, Any], name: str, *, description: Optional[str] = None) -> Dict[str, Any]:
     """A style recipe from a finished analysis. Base keys for the Video Editor,
-    the ``scorsese`` block for everything that can read numbers."""
+    the ``measured`` block for everything that can read numbers."""
     profile = analysis.get("profile") or {}
     cutting = profile.get("cutting") or {}
     look = profile.get("look") or {}
@@ -112,7 +112,7 @@ def build_recipe(analysis: Dict[str, Any], name: str, *, description: Optional[s
         "transition_palette": transitions,
         "global_filter": None,
         "audio_treatment": "as-is",
-        "scorsese": {
+        "measured": {
             "schema": RECIPE_SCHEMA,
             "pacing": {
                 "target_asl_s": asl,
@@ -229,7 +229,7 @@ def _describe(profile: Dict[str, Any]) -> str:
 def style_clause(recipe: Dict[str, Any]) -> str:
     """One or two sentences of camera language for DirectorBrief.style, built only
     from measured values present in the recipe."""
-    s = recipe.get("scorsese") or {}
+    s = recipe.get("measured") or {}
     pacing = s.get("pacing") or {}
     mixes = s.get("mixes") or {}
     look = s.get("look_targets") or {}
@@ -284,7 +284,7 @@ def style_clause(recipe: Dict[str, Any]) -> str:
 
 def save_recipe(recipe: Dict[str, Any], *, recipes_dir_override: Optional[str | Path] = None,
                 overwrite: bool = False) -> Path:
-    """Write the recipe as <slug>.json. A hand-written recipe (no ``scorsese``
+    """Write the recipe as <slug>.json. A hand-written recipe (no ``measured``
     block) at that slug is left alone unless ``overwrite`` is set."""
     d = recipes_dir(recipes_dir_override)
     d.mkdir(parents=True, exist_ok=True)
@@ -294,7 +294,7 @@ def save_recipe(recipe: Dict[str, Any], *, recipes_dir_override: Optional[str | 
             existing = json.loads(path.read_text())
         except (OSError, ValueError):
             existing = {}
-        if "scorsese" not in existing:
+        if "measured" not in existing:
             raise FileExistsError(f"{path.name} is a hand-written recipe; pass overwrite to replace it")
     path.write_text(json.dumps(recipe, indent=2) + "\n")
     return path
@@ -311,7 +311,7 @@ def list_recipes(*, recipes_dir_override: Optional[str | Path] = None) -> List[D
         except (OSError, ValueError) as e:
             logger.warning("skipping malformed recipe %s: %s", path.name, e)
             continue
-        s = data.get("scorsese") or {}
+        s = data.get("measured") or {}
         out.append({
             "name": data.get("name") or path.stem,
             "slug": path.stem,

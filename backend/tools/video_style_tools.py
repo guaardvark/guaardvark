@@ -59,7 +59,7 @@ class AnalyzeVideoStyleTool(BaseTool):
             arguments = {"video": video, "name": name, "save_recipe": save_recipe, "wait": wait}
             return run_tool_in_backend(self.name, {k: v for k, v in arguments.items() if v is not None})
         try:
-            from backend.services.scorsese import analyze, jobs, recipe as recipes
+            from backend.services.video_style import analyze, jobs, recipe as recipes
             from backend.utils.media_inputs import accepted_forms, document_file, document_id_from_ref, resolve_media_ref
 
             mcp = is_mcp_caller(self)
@@ -74,7 +74,7 @@ class AnalyzeVideoStyleTool(BaseTool):
             title = (name or "").strip() or Path(found.path).stem
             job = jobs.new_job(found.path, name=title, document_id=document_id_from_ref(video))
             if not wait:
-                from backend.tasks.scorsese_tasks import dispatch
+                from backend.tasks.video_style_tasks import dispatch
 
                 try:
                     dispatch(job["id"])
@@ -84,11 +84,11 @@ class AnalyzeVideoStyleTool(BaseTool):
                                       metadata={"job_id": job["id"]})
                 return ToolResult(
                     success=True,
-                    output=(f"Measuring '{title}'. Job {job['id']}; poll GET /api/scorsese/{job['id']} "
-                            "or get_generation_status, then save a recipe with POST /api/scorsese/<job>/recipe."),
-                    metadata={"job_id": job["id"], "status_url": f"/api/scorsese/{job['id']}"},
+                    output=(f"Measuring '{title}'. Job {job['id']}; poll GET /api/video-style/{job['id']} "
+                            "or get_generation_status, then save a recipe with POST /api/video-style/<job>/recipe."),
+                    metadata={"job_id": job["id"], "status_url": f"/api/video-style/{job['id']}"},
                 )
-            from backend.tasks.scorsese_tasks import run_stage
+            from backend.tasks.video_style_tasks import run_stage
 
             stage: str | None = "probing"
             while stage:
@@ -115,7 +115,7 @@ class AnalyzeVideoStyleTool(BaseTool):
             return ToolResult(
                 success=True, output=summary,
                 metadata={"job_id": job["id"], "profile": profile, "style_clause": clause, "recipe_path": saved,
-                          "status_url": f"/api/scorsese/{job['id']}"},
+                          "status_url": f"/api/video-style/{job['id']}"},
             )
         except Exception as e:  # noqa: BLE001
             logger.exception("analyze_video_style failed")
