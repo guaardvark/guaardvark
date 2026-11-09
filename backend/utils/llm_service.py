@@ -533,11 +533,15 @@ def get_llm_for_startup() -> Ollama:
     try:
         saved_name = get_saved_active_model_name()
         listed = None
-        if saved_name and installed and saved_name not in installed:
-            from backend.utils.ollama_resource_manager import installed_name_for
-            listed = installed_name_for(saved_name, tags)
+        if saved_name and installed:
+            from backend.utils.ollama_resource_manager import installed_name_for, listed_name_for_alias
+            if saved_name not in installed:
+                listed = installed_name_for(saved_name, tags)
+            elif listed_name_for_alias(saved_name, tags) != saved_name:
+                # An alias Ollama still lists: the plain name of its build.
+                listed = listed_name_for_alias(saved_name, tags)
         if saved_name:
-            if not installed or saved_name in installed:
+            if (not installed or saved_name in installed) and not listed:
                 model_name = saved_name
                 logger.info("Using saved active model: %s", saved_name)
             elif listed:
@@ -656,9 +660,19 @@ def get_default_embed_model():
 
 
 def persist_active_model_name(model_name: str) -> None:
-    """Persist the active model name to ACTIVE_MODEL_FILE (JSON) and database."""
+    """Persist the active model name to ACTIVE_MODEL_FILE (JSON) and database.
+
+    A ``llamacpp:<digest>`` alias is saved as the plain name of its build when
+    Ollama lists one, so no caller can store an alias.
+    """
     import json
     from datetime import datetime
+
+    try:
+        from backend.utils.ollama_resource_manager import listed_name_for_alias
+        model_name = listed_name_for_alias(model_name)
+    except Exception as e:
+        logger.debug("Alias check skipped for %s: %s", model_name, e)
 
     # Save to JSON file
     try:
