@@ -115,7 +115,7 @@ def get_queue_summary():
 
         running_task_details = []
         for task in running_tasks:
-            handler = registry.get_handler(task.task_handler) if task.task_handler else None
+            handler = registry.get(task.task_handler) if task.task_handler else None
             running_task_details.append({
                 "id": task.id,
                 "job_id": task.job_id,
@@ -247,7 +247,7 @@ def create_task():
             return error_response("handler is required", status_code=400)
 
         registry = _ensure_handlers_registered()
-        handler = registry.get_handler(handler_name)
+        handler = registry.get(handler_name)
         if not handler:
             return error_response(f"Unknown handler: {handler_name}", status_code=400)
 
@@ -322,7 +322,7 @@ def get_task(task_id):
             return error_response(f"Task {task_id} not found", status_code=404)
 
         registry = _ensure_handlers_registered()
-        handler = registry.get_handler(task.task_handler) if task.task_handler else None
+        handler = registry.get(task.task_handler) if task.task_handler else None
 
         return success_response({
             "task": {
@@ -450,7 +450,7 @@ def execute_task(task_id):
             return error_response(f"Task {task_id} is not pending (status: {task.status})", status_code=400)
 
         registry = _ensure_handlers_registered()
-        handler = registry.get_handler(task.task_handler)
+        handler = registry.get(task.task_handler)
         if not handler:
             return error_response(f"Handler {task.task_handler} not found", status_code=400)
 
