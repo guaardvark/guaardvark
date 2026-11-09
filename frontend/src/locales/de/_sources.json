@@ -1352,8 +1352,7 @@
       "out": "a3eea7125b6f"
     },
     "page.notRunning": {
-      "en": "e1cc625cd9f1",
-      "out": "4fb441c1f646"
+      "en": "a4cc4a6dfc77"
     },
     "page.notInstalled": {
       "en": "c4a1f311b6d4",
@@ -1422,9 +1421,8 @@
       "en": "51e9111b8711",
       "out": "45c5390fa834"
     },
-    "page.startFromModels": {
-      "en": "c90ea4cd372b",
-      "out": "61724dc5fd99"
+    "page.startBelow": {
+      "en": "43b97c0402bc"
     },
     "page.weights": {
       "en": "c4f103df2a6e",
@@ -1449,6 +1447,12 @@
     "page.notRunningAlert": {
       "en": "d4c433c6c2b2",
       "out": "c8b111f5a743"
+    },
+    "page.start": {
+      "en": "952f375412e8"
+    },
+    "page.startingAlert": {
+      "en": "79f7a6e79f53"
     },
     "page.downloadModel": {
       "en": "dcde929ce3ea",

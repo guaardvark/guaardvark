@@ -195,6 +195,11 @@ class PluginOperationGate:
             if self._gpu_holder == plugin_id:
                 self._gpu_holder = None
 
+    def in_progress(self, plugin_id: str) -> bool:
+        """True while a start or stop of this plugin holds the gate."""
+        with self._lock:
+            return bool(self._in_progress.get(plugin_id, False))
+
     def cooldown_remaining(self, plugin_id: str) -> float:
         """Get the seconds of cooldown remaining for a plugin (0 if available).
 
@@ -885,6 +890,9 @@ class PluginManager:
                     # ERROR with the reason; a refresh keeps it while the
                     # stranger is still there instead of flapping to STOPPED.
                     pass
+                elif before == PluginStatus.STARTING and _start_in_flight(self, plugin_id):
+                    # The start sets RUNNING or ERROR itself when it ends.
+                    pass
                 else:
                     self._plugin_status[plugin_id] = PluginStatus.STOPPED
             else:
@@ -1082,9 +1090,10 @@ class PluginManager:
                         plugin_id, {'success': False, 'error': f'Not started: {problem}'}
                     )
 
-            # Set status to starting
+            # Set status to starting; pages showing the plugin follow the push.
             self._plugin_status[plugin_id] = PluginStatus.STARTING
             self._clear_start_warnings(plugin_id)
+            self._broadcast_plugins_status(f"start:{plugin_id}:starting")
 
             # Try to find and run start script
             start_script = plugin_dir / 'scripts' / 'start.sh'
@@ -1609,6 +1618,12 @@ class PluginManager:
             result.append(plugin_info)
 
         return result
+
+
+def _start_in_flight(manager, plugin_id: str) -> bool:
+    """True while a start of ``plugin_id`` still holds the manager's gate."""
+    in_progress = getattr(getattr(manager, '_gate', None), 'in_progress', None)
+    return bool(in_progress and in_progress(plugin_id))
 
 
 # Global manager instance
