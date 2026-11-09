@@ -74,9 +74,27 @@ def test_sync_is_a_no_op_when_current(monkeypatch):
     fake = _fake_settings(monkeypatch, "same-model")
     before = fake.embed_model
     import backend.utils.llm_service as llm
+    import backend.services.embedding_prompts as ep
+    monkeypatch.setattr(ep, "index_prompts", lambda model=None: (None, None))
     monkeypatch.setattr(llm, "get_default_embed_model", lambda: pytest.fail("must not rebuild"))
     isvc._sync_embed_model("same-model")
     assert fake.embed_model is before
+
+
+def test_sync_rebuilds_when_the_index_prompts_changed(monkeypatch):
+    """A re-index recorded the model's prompts; a worker holding an unprompted
+    client must not go on embedding passages without them."""
+    fake = _fake_settings(monkeypatch, "same-model")
+    import backend.utils.llm_service as llm
+    import backend.services.embedding_prompts as ep
+    monkeypatch.setattr(ep, "index_prompts", lambda model=None: ("q:", "d:"))
+    new_client = types.SimpleNamespace(model_name="same-model", query_instruction="q:", text_instruction="d:")
+    monkeypatch.setattr(llm, "get_default_embed_model", lambda: new_client)
+    monkeypatch.setattr(isvc, "index", object())
+    monkeypatch.setattr(isvc, "storage_context", object())
+    isvc._sync_embed_model("same-model")
+    assert fake.embed_model is new_client
+    assert isvc.index is None
 
 
 def test_sync_gives_up_once_when_the_client_disagrees(monkeypatch):

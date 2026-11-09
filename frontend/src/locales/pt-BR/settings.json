@@ -188,7 +188,10 @@
     "already": "O modelo de embedding já é {{model}}; índice mantido.",
     "switchFailed": "Falha ao alternar embedding",
     "notSwitched": "O modelo de embedding não foi alterado: {{error}}",
-    "requestFailed": "a solicitação falhou"
+    "requestFailed": "a solicitação falhou",
+    "reindexStarted": "Reindexando com o prompt de documento de {{model}}: {{queued}} documento(s) na fila. Cada um continua pesquisável até que sua nova cópia esteja pronta.",
+    "reindexStartedPending": "Reindexando com o prompt de documento de {{model}}: {{queued}} documento(s) na fila; {{pending}} aguardam a retomada da indexação.",
+    "reindexFailed": "A reindexação não foi iniciada: {{error}}"
   },
   "media": {
     "saved": "{{label}}: {{model}}",
@@ -304,7 +307,10 @@
     "embeddingModel": "Modelo de Embedding",
     "embeddingSetTooltip": "A mesma largura de vetor mantém o índice. Uma largura diferente o esvazia e cada documento deve ser reindexado.",
     "embeddingRefreshTooltip": "Atualizar modelos de Embedding (verifica cada um, pode levar um momento)",
-    "embeddingRefreshAria": "Atualizar modelos de Embedding"
+    "embeddingRefreshAria": "Atualizar modelos de Embedding",
+    "reindexHint": "Este índice foi criado sem o prompt de documento de {{model}}. Reindexado com ele, a busca encontra o trecho certo com mais frequência.",
+    "reindex": "Reindexar para uma busca melhor",
+    "reindexTooltip": "Gera novamente o embedding de cada documento indexado com o prompt de documento do modelo. A busca continua funcionando enquanto isso; o progresso está no rodapé."
   },
   "chatPanel": {
     "title": "Chat",
@@ -534,6 +540,11 @@
     "newModel": "Novo modelo",
     "embeddingKeeps": "seus próprios documentos; apenas o índice de busca deles é reconstruído.",
     "embeddingConfirm": "Alternar e reindexar",
+    "reindexTitle": "Reindexar para uma busca melhor",
+    "reindexDescription": "Cada documento indexado recebe um novo embedding com o prompt de documento de {{model}}, e as buscas passam a usar o prompt de consulta correspondente. Cada documento continua pesquisável até que sua nova cópia esteja pronta; o progresso está no rodapé.",
+    "documentPrompt": "Prompt de documento",
+    "reindexKeeps": "seus documentos e as entradas de busca atuais de cada um até que as novas estejam prontas.",
+    "reindexConfirm": "Reindexar",
     "rebootTitle": "Reiniciar o Guaardvark",
     "rebootDescription": "Reinicia o backend, os workers e o ComfyUI. Cada geração, tarefa de indexação e resposta de chat em andamento será perdida, e esta página ficará desconectada até que os serviços retornem.",
     "rebootKeeps": "documentos, chats, mídia, regras e configurações.",
