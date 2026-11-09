@@ -868,6 +868,10 @@ def set_embedding_model():
                 # either would be searched with the new model.
                 idx_svc.empty_vector_tables(embed_dim)
                 idx_svc._record_index_embedding_model()
+                # The new model's index starts empty: record the prompts a new index
+                # uses for it before the documents are queued (config.EMBEDDING_PROMPTS).
+                from backend.services.embedding_prompts import record_declared_prompts
+                record_declared_prompts(model_name)
             except Exception as clear_err:
                 logger.warning(f"Failed to clear the old model's vectors: {clear_err}")
             try:
