@@ -119,7 +119,8 @@
     "viewFullSize": "查看全尺寸",
     "edit": "编辑",
     "publish": "分享 / 发布…",
-    "details": "详情…"
+    "details": "详情…",
+    "upscale": "超分辨率"
   },
   "infographic": {
     "failed": "生成失败",
@@ -294,5 +295,12 @@
   },
   "audio": {
     "heading": "歌曲与声音"
+  },
+  "upscale": {
+    "running": "正在对 {{name}} 进行超分辨率处理…",
+    "done": "已保存超分辨率副本至 {{name}}。",
+    "queued": "已加入超分辨率队列。任务完成后，{{name}} 将出现在视频旁边；进度显示在页脚。",
+    "videoDone": "{{name}} 已准备就绪，位于视频旁边。",
+    "videoFailed": "超分辨率处理 {{name}} 失败：{{error}}"
   }
 }

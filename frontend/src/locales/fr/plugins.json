@@ -151,5 +151,18 @@
     "loading": "Chargement des plugins...",
     "emptyTitle": "Aucun plugin trouvé",
     "emptyBody": "Ajoutez des plugins au répertoire /plugins/ et cliquez sur Actualiser."
+  },
+  "install": {
+    "notInstalled": "Pas encore installé. Installer télécharge ce dont ce plugin a besoin, une seule fois.",
+    "downloads": "Téléchargements : {{what}}",
+    "install": "Installer",
+    "installing": "Installation en cours…",
+    "done": "{{name}} est installé.",
+    "failed": "L'installation de {{name}} a échoué (sortie {{code}}). Le journal est sur la carte.",
+    "failedHint": "La dernière installation a échoué (sortie {{code}})."
+  },
+  "embeddingPath": {
+    "inUse": "L'indexeur utilise cet embedding via ce plugin : {{model}}, {{dim}} dimensions, vecteur de sonde correspondant.",
+    "notUsed": "L'indexeur n'utilise pas ce plugin : {{reason}}"
   }
 }

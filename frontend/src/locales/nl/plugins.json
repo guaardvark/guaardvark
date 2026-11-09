@@ -151,5 +151,18 @@
     "loading": "Plugins laden...",
     "emptyTitle": "Geen plugins gevonden",
     "emptyBody": "Voeg plugins toe aan de /plugins/ map en klik op Vernieuwen."
+  },
+  "install": {
+    "notInstalled": "Nog niet geïnstalleerd. Install downloadt wat deze plugin nodig heeft, eenmalig.",
+    "downloads": "Downloads: {{what}}",
+    "install": "Installeren",
+    "installing": "Installeren…",
+    "done": "{{name}} is geïnstalleerd.",
+    "failed": "Installatie van {{name}} mislukte (exit {{code}}). Het logbestand staat op de kaart.",
+    "failedHint": "De laatste installatie mislukte (exit {{code}})."
+  },
+  "embeddingPath": {
+    "inUse": "De indexer maakt gebruik van deze plugin: {{model}}, {{dim}} dimensies, probe vector gematcht.",
+    "notUsed": "De indexer maakt geen gebruik van deze plugin: {{reason}}"
   }
 }
