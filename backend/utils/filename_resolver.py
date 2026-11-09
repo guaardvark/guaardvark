@@ -106,6 +106,38 @@ def resolve_filename(
         candidate = f"{base_stem} ({attempt}){ext}"
 
 
+def resolve_storage_filename(
+    folder_id: Optional[int],
+    directory,
+    rel_dir: str,
+    desired_name: str,
+    db_session,
+    document_model,
+) -> str:
+    """A name free as a sibling's display name, as a file in ``directory``
+    and as a row's ``rel_dir/name`` path.
+
+    For callers that store a file under its display name. A generated file can
+    show one name and sit on disk under another (a voice clip filed as
+    "Hello.wav" is stored as "<uuid>.wav"), so a display-name check alone would
+    let an import be written over it.
+    """
+    name = desired_name
+    for _ in range(_MAX_COLLISION_ATTEMPTS):
+        name = resolve_filename(folder_id, name, db_session, document_model)
+        rel = f"{rel_dir}/{name}" if rel_dir else name
+        on_disk = os.path.lexists(os.path.join(str(directory), name))
+        held = db_session.query(document_model).filter(document_model.path == rel).first() is not None
+        if not on_disk and not held:
+            return name
+        stem, ext = os.path.splitext(name)
+        base, n = _split_existing_suffix(stem)
+        name = f"{base} ({n + 1}){ext}"
+    raise FilenameCollisionError(
+        f"More than {_MAX_COLLISION_ATTEMPTS} files named like {desired_name!r} in {directory}. Probable bug."
+    )
+
+
 def resolve_filesystem_filename(directory, desired_name: str) -> str:
     """Filesystem-only sibling of resolve_filename — for free-floating files
     that aren't tracked as Documents (voice reference clips, transient outputs,
