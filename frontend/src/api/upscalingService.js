@@ -137,6 +137,21 @@ export const upscaleVideo = async (inputPath, options = {}) => {
   return handleResponse(response);
 };
 
+/**
+ * Upscale a library image or video; the result is filed beside it.
+ * @param {number} documentId
+ * @param {{model?: string, scale?: number}} [options]
+ * @returns {Promise<Object>} image: {document_id, filename}; video: the queued job with output_file
+ */
+export const upscaleDocument = async (documentId, options = {}) => {
+  const response = await fetch(`${BASE_URL}/upscale/document`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ document_id: documentId, ...options }),
+  });
+  return handleResponse(response);
+};
+
 export const listJobs = async () => {
   const response = await fetch(`${BASE_URL}/jobs`, { method: "GET" });
   return handleResponse(response);
@@ -165,6 +180,7 @@ export default {
   upscaleImage,
   upscaleImages,
   upscaleVideo,
+  upscaleDocument,
   listJobs,
   getJob,
   cancelJob,
