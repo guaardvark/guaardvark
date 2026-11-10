@@ -718,7 +718,7 @@ opens these routes to every device that can reach the backend.
 
 ## CLI (guaardvark)
 
-Full platform access from the terminal. Command is `guaardvark` (`llx` is a deprecated alias).
+Full platform access from the terminal. Command is `guaardvark`.
 
 ### Installation
 ```bash

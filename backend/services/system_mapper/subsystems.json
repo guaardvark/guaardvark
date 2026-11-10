@@ -944,7 +944,7 @@
   },
   {
    "name": "cli",
-   "description": "The llx command-line client: chat, generation, jobs, plugins and the MCP installer from a terminal.",
+   "description": "The guaardvark command-line client: chat, generation, jobs, plugins and the MCP installer from a terminal.",
    "globs": [
     "cli/*"
    ]
