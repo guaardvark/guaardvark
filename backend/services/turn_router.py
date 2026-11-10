@@ -75,7 +75,7 @@ class Route(str, Enum):
     WORKSTATION = "workstation"      # GPU, logs, system map, swarm or self-improvement status
     DIRECT_TOOL = "direct_tool"      # a slash command or an explicit direct_tool option
     FILE_GENERATION = "file_generation"  # the chat page's file card (decided in the browser)
-    CLI_COMMAND = "cli_command"      # an llx REPL command
+    CLI_COMMAND = "cli_command"      # a guaardvark CLI REPL command
     UNAVAILABLE = "unavailable"      # no chat model loaded: the turn ends with an error
 
 
@@ -127,7 +127,7 @@ DIRECT_TOOL_SIDE_EFFECT: Dict[str, str] = {
 
 # Trigger families and the routes each may add to the candidate set. Families
 # with no routes only set flags or record that the turn is a question's
-# precheck. cli_verb is reserved for the llx REPL surface.
+# precheck. cli_verb is reserved for the guaardvark CLI REPL.
 TRIGGER_ROUTES: Dict[str, Tuple[Route, ...]] = {
     "slash": (Route.DIRECT_TOOL,),
     "workstation": (Route.WORKSTATION,),

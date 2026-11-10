@@ -1,7 +1,7 @@
 """Natural-language outreach intent → classify then dispatch.
 
 Single entry used by HTTP /intent, chat tool outreach_execute_intent,
-GUI slash freeform, and `llx outreach`.
+GUI slash freeform, and `guaardvark outreach`.
 
 Never defaults freeform text to "queue YouTube with local AI".
 LLM classifies; we only queue scout/draft when intent is scout_and_draft

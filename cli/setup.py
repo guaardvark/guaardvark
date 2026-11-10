@@ -94,8 +94,6 @@ setup(
     entry_points={
         "console_scripts": [
             "guaardvark=llx.main:run",
-            # The CLI's earlier name; run() warns on stderr when invoked as llx.
-            "llx=llx.main:run",
         ],
     },
     # 3.12 only — the ML stack (numpy<2.0, mediapipe, basicsr/gfpgan) has no

@@ -4,7 +4,7 @@ This file provides an architecture overview plus setup/build/test guidance for t
 
 ## What this is
 
-Guaardvark is a self-hosted, offline-first AI workstation: a Flask backend, a React/Vite frontend, a Python CLI (`llx`), and eleven plugins, most of them GPU services. Everything runs locally by default. The exhaustive feature/model/tool enumeration lives in `CAPABILITIES.md`; the marquee overview is in `README.md`.
+Guaardvark is a self-hosted, offline-first AI workstation: a Flask backend, a React/Vite frontend, a Python CLI (`guaardvark`), and eleven plugins, most of them GPU services. Everything runs locally by default. The exhaustive feature/model/tool enumeration lives in `CAPABILITIES.md`; the marquee overview is in `README.md`.
 
 ## Running & developing
 

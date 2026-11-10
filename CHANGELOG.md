@@ -4,7 +4,7 @@
 
 - **Before you update:** Redis 6.0 or newer is now required (redis-py 8.1 and kombu 5.7); the Docker image's Redis 7,
   Ubuntu 22.04 and later, and Homebrew all qualify. The video style measure moved to `/api/video-style/*` and
-  `llx style`, and its old routes and command are gone.
+  `guaardvark style`, and its old routes and command are gone.
 - **ONNX Runtime's usage telemetry is off, and the trainer check stays offline.** ONNX Runtime, a dependency, sends
   usage events to Microsoft unless told not to: a device id, the interpreter's path, the CPU and OS, and the file
   names of the models it loads. Every Guaardvark process now sets the switch that turns this off. Installs from
@@ -53,7 +53,7 @@
 - **Chat plays the video it made** in the reply that asked for it, instead of only in the Studio.
 - **Chat answers from your documents more carefully.** Without the optional reranker, passages far off the message's
   topic are left out, so one indexed note no longer turns up in every answer; on a large library the
-  reranker still filters best. When Ollama refuses a document question sent through `llx chat` or the REST chat
+  reranker still filters best. When Ollama refuses a document question sent through `guaardvark chat` or the REST chat
   API as too long, it is answered again from fewer passages instead of failing. Context windows are sized from
   measured costs for Qwen 3.5 models, and a model's window can be set by hand, e.g.
   `GUAARDVARK_NUM_CTX=gemma4:12b=32768` (thanks @patmansk, #383).
@@ -416,7 +416,7 @@ on a freshly installed Ubuntu and fixed where a new user would have stopped.
 - **`GET /api/generate/status?job_id=…` works.** It called a progress method that did not exist and
   answered 500 every time. It now answers the job's status, progress and message (live while the
   backend tracks the job, from its progress record otherwise) and 404 for an id nothing knows.
-  `GET /api/jobs/unified:<id>`, which `llx job status` uses, also never found a live progress job;
+  `GET /api/jobs/unified:<id>`, which `guaardvark job status` uses, also never found a live progress job;
   it does now.
 - **A failed background task now shows its reason instead of sitting at 0 %.** An earlier release
   said so, but the worker's handler for it was connected in a way Python discarded at once, so it
@@ -438,7 +438,7 @@ on a freshly installed Ubuntu and fixed where a new user would have stopped.
   re-pointed at 127.0.0.1 could drive the plugin ports directly: queue ComfyUI workflows and read
   its outputs, turn on the Vision Pipeline's camera, run Audio Foundry, Video Editor or upscaling
   jobs. Audio Foundry, upscaling, swarm, Video Editor, Vision Pipeline, GPU Embedding, the Discord
-  bot's health port, the MCP server's HTTP transport, the reboot log and `llx`'s lite server now
+  bot's health port, the MCP server's HTTP transport, the reboot log and the CLI's lite server now
   apply the backend's Host rule (421 `host_not_allowed`), with the same settings. ComfyUI gets it
   from a Guaardvark extension in `plugins/comfyui/guaardvark_nodes/`, loaded through
   `guaardvark_model_paths.yaml`; ComfyUI itself is unchanged and the ComfyUI link on the video
@@ -478,7 +478,7 @@ on a freshly installed Ubuntu and fixed where a new user would have stopped.
 - **A GET or HEAD request no longer changes anything.** Any web page can make a browser send
   either without asking, and both are let through by design. `HEAD /api/enhanced-chat/history/all`
   deleted all chat history; only `DELETE` does now. Settings → Test LLM
-  (`/api/meta/test-llm`), the diagnostics export, the quality scorecard (`llx quality scorecard`,
+  (`/api/meta/test-llm`), the diagnostics export, the quality scorecard (`guaardvark quality scorecard`,
   `scripts/quality_gate.py --mode full`) and `/api/simple-chat/health` ran the model on a GET and now
   take POST. The three under `/api/meta` then need the Guaardvark machine or the API key, like other
   `/api/meta` actions; the script sends `GUAARDVARK_API_KEY` from its environment. The
@@ -670,7 +670,7 @@ on a freshly installed Ubuntu and fixed where a new user would have stopped.
   project path to the server.
 - **Managing MCP servers.** A new MCP Servers page, linked from Settings → Agents, shows each
   server's status, its tools and their policy, its stderr and recent activity, and adds, edits or
-  removes local servers. REST routes under `/api/automation/mcp/` and a `llx mcp client` command
+  removes local servers. REST routes under `/api/automation/mcp/` and a `guaardvark mcp client` command
   group do the same; writes to the server config answer localhost or the API key only.
 - **Tool fixes and containment.** generate_bulk_csv uses the topic, row count and client it is
   given and reports a failure instead of "queued"; media volume 0 sets the volume; gui_hotkey
