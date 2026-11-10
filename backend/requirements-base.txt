@@ -67,7 +67,7 @@ sentence-transformers>=6.0.1
 docling>=2.126.0
 
 # Image Generation Dependencies (without torch)
-diffusers>=0.38.0
+diffusers>=0.42.1
 transformers>=5.2.0,<6.0  # Krea2/Qwen3-VL needs 5.2+ (rope_parameters); was <5.0 for legacy ComfyUI pin
 # A range, not a pin: Settings > Training libraries moves accelerate to 1.4+ (TRL
 # needs it, and transformers' Trainer calls unwrap_model(keep_torch_compile=),
