@@ -59,12 +59,15 @@ for arg in "$@"; do
       echo "  --plugins          Start all enabled plugins after backend is up"
       echo "  --profile NAME     Select a profile (workstation, creator, or an extension's);"
       echo "                     written to .env so it persists. See backend/profiles/README.md"
+      echo "  --wsl-keep-alive   WSL only: keep Guaardvark running after the terminal closes"
+      echo "                     (writes two idle timeouts to your Windows .wslconfig, then exits)"
       echo "  --help, -h         Show this help"
       exit 0
       ;;
     --fast) FAST_START=1 ;;
     --clean) FORCE_CLEAN=1 ;;
     --external-ollama) EXTERNAL_OLLAMA_FLAG=1 ;;
+    --wsl-keep-alive) WSL_KEEP_ALIVE_FLAG=1 ;;
     --test) TEST_MODE=1 ;;
     --no-voice) VOICE_CHECK=0; VOICE_FLAG_GIVEN=1 ;;
     --profile) EXPECT_PROFILE=1 ;;
@@ -153,6 +156,19 @@ if [ -f "$SCRIPT_DIR/scripts/platform/detect.sh" ]; then
     source "$SCRIPT_DIR/scripts/platform/detect.sh"
     detect_platform
     [ -f "$GUAARDVARK_PLATFORM_BACKEND" ] && source "$GUAARDVARK_PLATFORM_BACKEND"
+fi
+
+# WSL stops the distribution when its last terminal closes; see scripts/platform/wsl.sh.
+if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && [ -f "$SCRIPT_DIR/scripts/platform/wsl.sh" ]; then
+    source "$SCRIPT_DIR/scripts/platform/wsl.sh"
+fi
+if [ "${WSL_KEEP_ALIVE_FLAG:-0}" = 1 ]; then
+    if [ "${GUAARDVARK_IS_WSL:-0}" != 1 ]; then
+        echo "--wsl-keep-alive only applies inside WSL; nothing changed."
+        exit 0
+    fi
+    wsl_keep_alive_enable
+    exit $?
 fi
 
 # is_macos - single source of truth for "are we on Darwin?". Prefers the
@@ -3234,7 +3250,15 @@ if [ "$FRONTEND_CAN_SERVE" -eq 1 ]; then
     # vite.config had only the dev `server:` block). The build above is kept as a
     # belt-and-suspenders correctness check, but the dev server serves src/ directly.
     vader_info "Launching frontend (Vite dev server, reliable WS proxy) in background..."
-    nohup $NPM_CMD run dev -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 &
+    # Vite's dev server exits when its terminal hangs up or its stdin closes, and
+    # npm does not pass nohup's ignore on to it. On WSL that takes the studio down
+    # with the window, so there it runs in its own session with stdin detached;
+    # CI=true is Vite's own switch for "do not watch stdin".
+    if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && command -v setsid >/dev/null 2>&1; then
+        setsid nohup env CI=true $NPM_CMD run dev -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 < /dev/null &
+    else
+        nohup $NPM_CMD run dev -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 &
+    fi
     FRONTEND_PID=$!
     echo "$FRONTEND_PID" > "$SCRIPT_DIR/pids/frontend.pid"
     _vader_sleep 3 "starting the frontend"
@@ -3549,6 +3573,10 @@ vader_ready_card "$DURATION" \
     "http://localhost:$FLASK_PORT" \
     "$LAN_IPS_PRINTED" \
     "$BACKEND_STARTUP_LOG_FILE"
+
+if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && declare -F wsl_keep_alive_note >/dev/null; then
+    wsl_keep_alive_note
+fi
 
 # The ready card alone reads as "everything works". When the Ollama these
 # scripts manage has no chat model, chat cannot answer, so say that under it.
