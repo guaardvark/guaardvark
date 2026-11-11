@@ -258,7 +258,9 @@ def post_via_agent_loop(
     on_target, where = _still_on_target(target_url)
     if not on_target:
         return False, f"wrong_page: nothing was posted; the browser left the target before typing ({where})"
-    screen.type_text(text)
+    from backend.services.social_outreach import typing_rhythm
+
+    screen.type_text(text, key_delays=typing_rhythm.delays(text))
     _human_pause()
 
     # 5) Submit.

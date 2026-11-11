@@ -1060,7 +1060,9 @@ def post_comment_via_servo(
     _human_pause(0.5, 1.0)
 
     logger.warning("typing comment (%s chars)", len(comment_text))
-    screen.type_text(comment_text)
+    from backend.services.social_outreach import typing_rhythm
+
+    screen.type_text(comment_text, key_delays=typing_rhythm.delays(comment_text))
     time.sleep(1.0)
     _human_pause()
 

@@ -682,7 +682,9 @@ def post_youtube_reply_via_servo(
             return False, reason
         time.sleep(settle)
 
-    screen.type_text(reply_text)
+    from backend.services.social_outreach import typing_rhythm
+
+    screen.type_text(reply_text, key_delays=typing_rhythm.delays(reply_text))
     _human_pause()
 
     if before_submit is not None and not before_submit():

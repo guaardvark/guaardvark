@@ -24844,6 +24844,42 @@
     "enableDialog.enable": {
       "en": "20063ad90532",
       "out": "bbf831ade88b"
+    },
+    "typing.title": {
+      "en": "110df7b9c88b",
+      "out": "847cc90b1eda"
+    },
+    "typing.explain": {
+      "en": "7ecf025cd08d",
+      "out": "a9461c20c0fa"
+    },
+    "typing.recorded": {
+      "en": "12e849b3b4fd",
+      "out": "f43b4920f006"
+    },
+    "typing.notRecorded": {
+      "en": "2e475354a374",
+      "out": "bb7dfc140999"
+    },
+    "typing.boxLabel": {
+      "en": "d2c87462cd5d",
+      "out": "ade8ad0c2909"
+    },
+    "typing.placeholder": {
+      "en": "63befc8d49e3",
+      "out": "227f19eb934d"
+    },
+    "typing.save": {
+      "en": "1137ba23e96d",
+      "out": "99001ac25eb8"
+    },
+    "typing.clear": {
+      "en": "2d5f5b0553b6",
+      "out": "ff75b4ff2463"
+    },
+    "typing.progress": {
+      "en": "c7520796f907",
+      "out": "86d53a191ace"
     }
   },
   "plugins": {

@@ -260,5 +260,16 @@
     "cancel": "Anuluj",
     "disable": "Wyłącz",
     "enable": "Włącz"
+  },
+  "typing": {
+    "title": "Rytm pisania",
+    "explain": "Posty wyświetlane w przeglądarce są wpisywane klawisz po klawiszu. Wpisz tutaj kilka zdań w swoim normalnym stylu, a zostaną one wpisane w Twoim rytmie. Zachowany jest tylko czas między klawiszami, nie treść wpisywana.",
+    "recorded": "Używanie Twojego rytmu: nauczony na podstawie {{keys}} klawiszy, około {{ms}} ms między literami.",
+    "notRecorded": "Używanie wbudowanego rytmu (około {{ms}} ms między literami). Jest to szacunek, nie rzeczywisty rytm pisania.",
+    "boxLabel": "Wpisz tutaj",
+    "placeholder": "Napisz cokolwiek: co dziś zrobiłeś, odpowiedź na post, kilka zdań o swoim projekcie.",
+    "save": "Naucz się mojego rytmu",
+    "clear": "Zapomnij o tym",
+    "progress": "{{count}} z {{needed}} klawiszy"
   }
 }

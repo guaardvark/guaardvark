@@ -26,6 +26,7 @@ import time
 from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse, urlunparse
 
+from backend.services.social_outreach import typing_rhythm
 from backend.services.social_outreach.transitions import WITHDRAWN_BEFORE_SUBMIT
 
 logger = logging.getLogger(__name__)
@@ -202,7 +203,7 @@ def _type_comment(screen, text: str) -> bool:
     """Type ``text`` with Shift+Enter between lines: a bare Enter posts the comment."""
     lines = text.split("\n")
     for i, line in enumerate(lines):
-        if line and not _typed_ok(screen.type_text(line)):
+        if line and not _typed_ok(screen.type_text(line, key_delays=typing_rhythm.delays(line))):
             return False
         if i < len(lines) - 1:
             screen.hotkey("shift", "Return")

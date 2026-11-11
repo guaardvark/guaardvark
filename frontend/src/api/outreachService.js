@@ -137,6 +137,20 @@ export function postReview(body) {
   return request("/review/post", { method: "POST", body: JSON.stringify(body) });
 }
 
+// The rhythm watched posts are typed with, and learning it from a recording
+// of key classes and times (TypingRhythmCard).
+export function fetchTypingRhythm() {
+  return request("/typing-rhythm");
+}
+
+export function saveTypingRhythm(events) {
+  return request("/typing-rhythm", { method: "POST", body: JSON.stringify({ events }) });
+}
+
+export function clearTypingRhythm() {
+  return request("/typing-rhythm", { method: "DELETE" });
+}
+
 export function patchDraft(id, payload) {
   return request(`/drafts/${id}`, {
     method: "PATCH",

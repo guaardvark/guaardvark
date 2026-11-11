@@ -257,5 +257,16 @@
     "cancel": "Annuler",
     "disable": "Désactiver",
     "enable": "Activer"
+  },
+  "typing": {
+    "title": "Rythme de frappe",
+    "explain": "Les publications passant par le navigateur surveillé sont saisies une touche à la fois. Tapez quelques phrases ici normalement et elles seront saisies selon votre rythme. Seul le temps entre les touches est conservé, pas le contenu de ce que vous tapez.",
+    "recorded": "Utilisation de votre rythme : appris à partir de {{keys}} touches, environ {{ms}} ms entre les lettres.",
+    "notRecorded": "Utilisation du rythme intégré (environ {{ms}} ms entre les lettres). C'est une estimation, pas la frappe réelle de quelqu'un.",
+    "boxLabel": "Tapez ici",
+    "placeholder": "Écrivez n'importe quoi : ce que vous avez fait aujourd'hui, une réponse à une publication, quelques phrases sur votre projet.",
+    "save": "Apprendre mon rythme",
+    "clear": "Oublier",
+    "progress": "{{count}} sur {{needed}} touches"
   }
 }

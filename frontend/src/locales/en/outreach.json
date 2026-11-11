@@ -257,5 +257,16 @@
     "cancel": "Cancel",
     "disable": "Disable",
     "enable": "Enable"
+  },
+  "typing": {
+    "title": "Typing rhythm",
+    "explain": "Posts that go through the watched browser are typed one key at a time. Type a few sentences here in your normal way and they are typed at your rhythm. Only the time between keys is kept, not what you type.",
+    "recorded": "Using your rhythm: learned from {{keys}} keys, about {{ms}} ms between letters.",
+    "notRecorded": "Using the built-in rhythm (about {{ms}} ms between letters). It is an estimate, not anyone's real typing.",
+    "boxLabel": "Type here",
+    "placeholder": "Write anything: what you did today, a reply to a post, a few sentences about your project.",
+    "save": "Learn my rhythm",
+    "clear": "Forget it",
+    "progress": "{{count}} of {{needed}} keys"
   }
 }

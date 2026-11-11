@@ -262,6 +262,46 @@ def outreach_run_result():
     return jsonify(run_result.run_result(task_ids, after_id, platform))
 
 
+# --- Typing rhythm: how a watched post is typed --------------------------------
+
+@social_outreach_bp.get("/typing-rhythm")
+def typing_rhythm_status():
+    """The rhythm watched posts are typed with: {recorded, recorded_at, keys,
+    median_letter_ms, min_keys}. ``recorded`` false means the built-in default."""
+    from backend.services.social_outreach import typing_rhythm
+
+    return jsonify(typing_rhythm.summary())
+
+
+@social_outreach_bp.post("/typing-rhythm")
+def typing_rhythm_record():
+    """Learn the rhythm from a recording of a person typing.
+
+    Body: {events: [{c: "letter"|"space"|"punct"|"newline"|"other", t: ms}]},
+    the class and time of each key in order. What was typed is not sent or
+    kept. 400 when the recording is too short to learn from.
+    """
+    from backend.services.social_outreach import typing_rhythm
+
+    events = (request.get_json(silent=True) or {}).get("events")
+    profile = typing_rhythm.from_keystrokes(events) if isinstance(events, list) else None
+    if profile is None:
+        return jsonify({
+            "error": f"Too short to learn from; type at least {typing_rhythm.MIN_KEYS} keys.",
+        }), 400
+    typing_rhythm.save(profile)
+    return jsonify(typing_rhythm.summary())
+
+
+@social_outreach_bp.delete("/typing-rhythm")
+def typing_rhythm_clear():
+    """Forget the recorded rhythm and go back to the built-in default."""
+    from backend.services.social_outreach import typing_rhythm
+
+    typing_rhythm.clear()
+    return jsonify(typing_rhythm.summary())
+
+
 # --- Review in chat: one draft at a time, answered in words -------------------
 
 @social_outreach_bp.post("/review/start")

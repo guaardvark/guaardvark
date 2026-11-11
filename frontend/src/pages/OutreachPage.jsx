@@ -47,6 +47,7 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import * as outreachApi from "../api/outreachService";
+import TypingRhythmCard from "../components/outreach/TypingRhythmCard";
 import { translate, uiLocale, useUiTranslation, Trans } from "../i18n";
 
 // Per-platform character soft-caps used by the pre-flight panel.
@@ -1334,6 +1335,8 @@ const OutreachPage = () => {
           )}
         </Stack>
       </Box>
+
+      <TypingRhythmCard />
 
       {/* ── History (read-only audit trail) ─────────────────────────── */}
       <Paper sx={{ p: 2, mt: 2 }}>

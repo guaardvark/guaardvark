@@ -57,7 +57,7 @@ def page(monkeypatch):
         def click(self, x, y):
             log.append(f"click {x},{y}")
 
-        def type_text(self, text):
+        def type_text(self, text, key_delays=None):
             log.append(f"type {text}")
             state["box_text"] += text
 

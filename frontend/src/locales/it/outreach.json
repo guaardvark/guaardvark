@@ -257,5 +257,16 @@
     "cancel": "Annulla",
     "disable": "Disattiva",
     "enable": "Attiva"
+  },
+  "typing": {
+    "title": "Ritmo di digitazione",
+    "explain": "I post che passano attraverso il browser monitorato vengono digitati una tastiera alla volta. Digita qui alcune frasi nel tuo modo abituale e verranno scritte seguendo il tuo ritmo. Viene mantenuto solo il tempo tra i tasti, non ciò che scrivi.",
+    "recorded": "Uso il tuo ritmo: appreso da {{keys}} tasti, circa {{ms}} ms tra le lettere.",
+    "notRecorded": "Uso il ritmo predefinito (circa {{ms}} ms tra le lettere). È una stima, non la digitazione reale di nessuno.",
+    "boxLabel": "Digita qui",
+    "placeholder": "Scrivi qualsiasi cosa: cosa hai fatto oggi, una risposta a un post, qualche frase sul tuo progetto.",
+    "save": "Impara il mio ritmo",
+    "clear": "Dimentica",
+    "progress": "{{count}} di {{needed}} tasti"
   }
 }
