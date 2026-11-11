@@ -183,25 +183,27 @@ def _pitch_sheet() -> str:
     return profile.load().pitch_sheet()
 
 
-def _compose_outward_facing_system() -> str:
+def _compose_outward_facing_system(platform: Optional[str] = None) -> str:
     """Build the system message: framing + pitch sheet. Both are re-read on
     every call (mtime-cached), so edits propagate without restarting the worker."""
     framing = f"You are writing a comment or post under {_account_ref()}.\n{_OUTWARD_FACING_FRAMING}"
     pitch = _pitch_sheet()
     if not pitch:
-        return _voiced_system(framing)
-    return _voiced_system(f"{framing}\n\n--- PITCH SHEET ---\n{pitch}\n")
+        return _voiced_system(framing, platform)
+    return _voiced_system(f"{framing}\n\n--- PITCH SHEET ---\n{pitch}\n", platform)
 
 
-def _voiced_system(system: str) -> str:
+def _voiced_system(system: str, platform: Optional[str] = None) -> str:
     """``system`` with the account owner's voice sheet after it, when they keep one."""
     from backend.services.social_outreach import voice
 
-    block = voice.block()
+    block = voice.block(platform=platform)
     return f"{system}\n\n{block}" if block else system
 
 
-def _draft_in_voice(llm, system: str, prompt: str, keys: tuple) -> tuple[dict, str]:
+def _draft_in_voice(
+    llm, system: str, prompt: str, keys: tuple, platform: Optional[str] = None,
+) -> tuple[dict, str]:
     """Call the drafter and return (result, draft text). A draft that uses
     something the voice sheet lists under Never is written once more with
     those named; the version with fewer of them is kept."""
@@ -212,7 +214,7 @@ def _draft_in_voice(llm, system: str, prompt: str, keys: tuple) -> tuple[dict, s
 
     result = llm(system, prompt)
     draft = text_of(result)
-    found = voice.hits(draft)
+    found = voice.hits(draft, platform)
     if not found:
         return result, draft
     shown = ", ".join(repr(f[3:].strip() if f.startswith("re:") else f) for f in found)
@@ -222,12 +224,12 @@ def _draft_in_voice(llm, system: str, prompt: str, keys: tuple) -> tuple[dict, s
         "without those, saying the same things."
     ))
     second = text_of(again)
-    if second and len(voice.hits(second)) < len(found):
+    if second and len(voice.hits(second, platform)) < len(found):
         return again, second
     return result, draft
 
 
-def _compose_reply_system() -> str:
+def _compose_reply_system(platform: Optional[str] = None) -> str:
     """Same idea as _compose_outward_facing_system but for replies-on-own-video."""
     framing = f"You are writing a REPLY to a comment left on one of {_video_owner_ref()}.\n{_REPLY_FRAMING}"
     pitch = _pitch_sheet()
@@ -238,7 +240,8 @@ def _compose_reply_system() -> str:
     # 2026-11-11: every reply to plain praise carried a link).
     return _voiced_system(
         "--- REFERENCE SHEET (facts only; its voice rules and links are not for this reply) ---\n"
-        f"{pitch}\n--- END OF REFERENCE SHEET ---\n\n{framing}"
+        f"{pitch}\n--- END OF REFERENCE SHEET ---\n\n{framing}",
+        platform,
     )
 
 
@@ -631,7 +634,9 @@ def draft_outreach_text(
             video_title=context.get("video_title", ""),
             tone=tone,
         )
-        result, draft_text = _draft_in_voice(llm, _compose_reply_system(), prompt, ("draft", "reply"))
+        result, draft_text = _draft_in_voice(
+            llm, _compose_reply_system(platform), prompt, ("draft", "reply"), platform,
+        )
         # Replies skip the UTM-tag pass entirely — we're not handing out
         # links here. Return early so the apply_utm_tags call below is
         # bypassed (it would no-op on text with no profile links anyway,
@@ -664,7 +669,9 @@ def draft_outreach_text(
             link_url=cta,
             requested_feature=requested_feature,
         )
-        result, draft_text = _draft_in_voice(llm, _compose_outward_facing_system(), prompt, ("draft", "comment"))
+        result, draft_text = _draft_in_voice(
+            llm, _compose_outward_facing_system(platform), prompt, ("draft", "comment"), platform,
+        )
 
         # When the caller asked for a link but the model omitted it, append
         # the URL on a new line. The model's grade still reflects its honest
@@ -687,12 +694,15 @@ def draft_outreach_text(
     }
 
 
-def revise_draft(action: str, source: Optional[dict], current_text: str, note: str) -> dict:
+def revise_draft(
+    action: str, source: Optional[dict], current_text: str, note: str, platform: Optional[str] = None,
+) -> dict:
     """Rewrite an existing draft the way its approver asked ("shorter",
     "less salesy"). The system message is the one the draft was written
     under, so the rewrite keeps the same rules. Returns {"draft", "reason"};
     draft is "" when the model gave nothing usable."""
-    system = _compose_reply_system() if (action or "").lower() == "reply" else _compose_outward_facing_system()
+    reply = (action or "").lower() == "reply"
+    system = _compose_reply_system(platform) if reply else _compose_outward_facing_system(platform)
     source = source or {}
     answered = "\n".join(
         part for part in (

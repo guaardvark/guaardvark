@@ -341,7 +341,9 @@ def answer(session_id: str, text: str, spoken: bool = False) -> dict[str, Any]:
         if row.status != "drafted":
             return reply(_FIXED.format(id=row_id))
         shown = before["current"]
-        revised = persona.revise_draft(row.action, shown.get("source"), shown.get("text") or "", argument)
+        revised = persona.revise_draft(
+            row.action, shown.get("source"), shown.get("text") or "", argument, platform=row.platform,
+        )
         if not revised["draft"] or revised["draft"].strip() == (shown.get("text") or "").strip():
             return reply(f"The rewrite came back with nothing new, so draft #{row_id} is unchanged.")
         if not transitions.move(row_id, "drafted", ("drafted",), **transitions.edited_fields(row_id, revised["draft"])):
