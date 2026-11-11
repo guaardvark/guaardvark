@@ -22,6 +22,7 @@ from backend.services.social_outreach.reddit_outreach import (
     web_access_refused,
     REDDIT_BASE,
     fetch_subreddit_rules,
+    reddit_reading,
     is_self_promo_banned,
     backend_url,
     bidi_evaluate_json,
@@ -293,6 +294,10 @@ def _submit_post_via_servo(
 
 class SelfShareLoop:
     def run_one_pass(self, subreddit: str, link_url: str, task_id: Optional[int] = None) -> dict:
+        with reddit_reading():
+            return self._run_one_pass(subreddit, link_url, task_id)
+
+    def _run_one_pass(self, subreddit: str, link_url: str, task_id: Optional[int] = None) -> dict:
         report = {
             "subreddit": subreddit,
             "link_url": link_url,

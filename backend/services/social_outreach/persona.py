@@ -145,17 +145,30 @@ schema to return — follow that schema, not a generic one.
 # (already engaged, watched the video) so different posture (no pitch,
 # no link, no marketing gate). Same factual ground from the pitch sheet.
 _REPLY_FRAMING = """The viewer already watched and engaged — you
-are NOT pitching to a stranger. Be human about it. Don't paste the link,
-don't recap the video, don't sell. Answer questions if asked, take critique
-on the merits, acknowledge kindness briefly without overselling gratitude.
+are NOT pitching to a stranger. Be human about it. Answer questions if asked,
+take critique on the merits, acknowledge kindness briefly without overselling
+gratitude.
 
-The pitch sheet below is for factual reference only — use specifics from it
-if the viewer asked about a feature, otherwise it stays out of the reply.
+No link, no "check out", no invitation to try or download anything, no
+disclosure line, no recap of the video. The one exception: the viewer asked
+how it was made or where to get it; then say so plainly, and name the tool
+or give one link only if they asked for it.
+
+The reference sheet is for facts only: use a specific from it when the
+viewer asked about a feature. Its voice rules, its disclosure line and its
+links are written for comments on other people's threads and do not apply to
+a reply on your own video.
+
+Plain praise with nothing to answer (a few emoji, "cool", "this is so good")
+gets a thank-you: one short line, twelve words at most, in the plain way a
+person thanks a viewer. Pick up on what they said or on the video if there is
+anything to pick up on; no exclamation-mark pile-up, no question tacked on
+to drive engagement, and nothing after the thanks.
 
 Self-grade 0.0-1.0 on "does this read like a real creator actually engaging
 with their viewer, or like a templated auto-response?". 0.6+ means post.
-If the incoming comment doesn't merit a substantive reply (spam, hostile,
-off-topic, wholly generic praise), return draft="" and grade=0.0.
+If the incoming comment should get no reply at all (spam, hostile,
+off-topic), return draft="" and grade=0.0.
 
 Return JSON: {"draft": "<reply text>", "grade": 0.0-1.0, "reason": "<one line>"}.
 """
@@ -186,7 +199,13 @@ def _compose_reply_system() -> str:
     pitch = _pitch_sheet()
     if not pitch:
         return framing
-    return f"{framing}\n\n--- PITCH SHEET (factual reference only) ---\n{pitch}\n"
+    # The sheet goes first and the reply rules last: a long sheet of sales
+    # voice rules after the framing was followed instead of it (measured
+    # 2026-11-11: every reply to plain praise carried a link).
+    return (
+        "--- REFERENCE SHEET (facts only; its voice rules and links are not for this reply) ---\n"
+        f"{pitch}\n--- END OF REFERENCE SHEET ---\n\n{framing}"
+    )
 
 
 def _compose_share_system() -> str:

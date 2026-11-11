@@ -1174,6 +1174,10 @@ class RedditOutreachLoop:
     """One pass = visit one subreddit, find up to MAX_THREADS_PER_PASS candidates, draft + maybe post."""
 
     def run_one_pass(self, subreddit: str, task_id: Optional[int] = None) -> dict:
+        with reddit_reading():
+            return self._run_one_pass(subreddit, task_id)
+
+    def _run_one_pass(self, subreddit: str, task_id: Optional[int] = None) -> dict:
         # recon imports this module, so its judge rule is read here, not at import.
         from backend.services.social_outreach.recon import judged_unfit
 

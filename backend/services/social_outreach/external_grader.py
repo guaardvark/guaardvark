@@ -63,18 +63,25 @@ Return ONLY this JSON shape:
 RUBRIC_QUESTIONS = ("engages", "on_topic", "appropriate_tone")
 """The items the grader answers about a comment; it passes only when all are yes."""
 
-REPLY_GRADER_SYSTEM = """You are a strict grader of a reply that a video's creator wants to post under their own video, answering a viewer. You did NOT write this reply. Answer each question below about it with 1 (yes) or 0 (no) and return only JSON.
+REPLY_GRADER_SYSTEM = """You grade a reply that a video's creator wants to post under their own video, answering a viewer's comment. You did NOT write this reply. First say in one sentence what the viewer's comment was and whether the reply fits it, then answer each question with 1 (yes) or 0 (no). Return only JSON.
 
 Questions:
-  on_topic: Does the reply respond to what the viewer actually said?
-  appropriate_tone: Is the tone right for a creator answering a viewer (friendly and genuine, not corporate, not sycophantic, not a sales pitch)?
+  on_topic: Is the reply a fitting response to the viewer's comment? Answer 1 when the comment is praise, a compliment or emoji and the reply thanks them. Answer 1 when the comment is a question or a criticism and the reply answers it, including by naming the creator's own tool when asked how the video was made. Answer 0 when the reply ignores what they said.
+  appropriate_tone: Is the tone right for a creator answering a viewer: friendly and genuine, not corporate, not gushing, not hostile? Answer 0 when the reply carries a link, a pitch or an invitation to try something that the viewer did not ask for. A brief plain reply is fine; short is not dismissive.
 
-Return ONLY this JSON shape:
-{"on_topic": 1, "appropriate_tone": 0, "reason": "Answers the question but turns into a sales pitch."}"""
+Return ONLY this JSON shape, reason first, with your own answers:
+{"reason": "<one sentence>", "on_topic": <0 or 1>, "appropriate_tone": <0 or 1>}"""
 
 REPLY_RUBRIC_QUESTIONS = ("on_topic", "appropriate_tone")
 """The items asked about a reply on the account's own video. Not engages: the
-reply answers one viewer and is not trying to add to someone else's thread."""
+reply answers one viewer and is not trying to add to someone else's thread.
+
+REPLY_GRADER_SYSTEM measured 2026-11-11 with gemma4:e2b on 14 labelled replies
+(8 that should pass, 6 that should not): 12 right. Both replies that added a
+link to plain praise were turned away; the misses were one good thank-you
+turned away and one gushing thank-you let through. The wording before it
+turned away all 8 good replies, a plain "Thanks! Glad you liked it." among
+them, because its example answer showed a failing reply."""
 
 RUBRICS = {
     "comment": (GRADER_SYSTEM, RUBRIC_QUESTIONS),
