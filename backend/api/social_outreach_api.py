@@ -101,7 +101,9 @@ def get_audit():
         .limit(limit)
         .all()
     )
-    return jsonify([r.to_dict() for r in rows])
+    from backend.services.social_outreach import run_result
+
+    return jsonify([run_result.presentable(r) for r in rows])
 
 
 @social_outreach_bp.get("/queue")
@@ -115,7 +117,9 @@ def get_queue():
         .limit(200)
         .all()
     )
-    return jsonify([r.to_dict() for r in rows])
+    from backend.services.social_outreach import run_result
+
+    return jsonify([run_result.presentable(r) for r in rows])
 
 
 @social_outreach_bp.get("/approved")
@@ -130,7 +134,9 @@ def get_approved():
         .limit(50)
         .all()
     )
-    return jsonify([r.to_dict() for r in rows])
+    from backend.services.social_outreach import run_result
+
+    return jsonify([run_result.presentable(r) for r in rows])
 
 
 @social_outreach_bp.post("/drafts")
@@ -319,7 +325,9 @@ def watched_post_status():
         .limit(50)
         .all()
     )
-    waiting = [r.to_dict() for r in rows if platforms.posts(r.platform, r.action)]
+    from backend.services.social_outreach import run_result
+
+    waiting = [run_result.presentable(r) for r in rows if platforms.posts(r.platform, r.action)]
     return jsonify({**watched_post.status(), "waiting": waiting, "api_platforms": api_post.ready_platforms()})
 
 

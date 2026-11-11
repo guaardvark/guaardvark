@@ -471,6 +471,11 @@ SEARCH_RESULT_LIMIT = 10
 SEARCH_WINDOW = "week"
 
 _reading = threading.local()
+# When Reddit last refused a direct request in this process. Reads that can
+# use the browser go straight to it for a while afterwards, instead of
+# sending two more requests Reddit will refuse.
+_direct_refused_at = float("-inf")
+DIRECT_RETRY_AFTER_S = 3600.0
 
 
 class _BrowserReads:
@@ -608,10 +613,15 @@ def reading_problem() -> Optional[str]:
 def _http_get_json(url: str, retries: int = 1) -> Optional[dict]:
     """GET Reddit JSON: directly, or through the agent browser inside
     ``reddit_reading()`` once Reddit has refused a direct request."""
+    global _direct_refused_at
     session = getattr(_reading, "session", None)
-    if session is not None and session.use_browser:
+    if session is not None and (
+        session.use_browser or time.monotonic() - _direct_refused_at < DIRECT_RETRY_AFTER_S
+    ):
         return session.get_json(url)
     data, refused = _direct_get_json(url, retries)
+    if refused:
+        _direct_refused_at = time.monotonic()
     if data is None and refused and session is not None:
         return session.get_json(url)
     return data
