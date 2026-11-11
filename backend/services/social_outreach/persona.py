@@ -189,8 +189,42 @@ def _compose_outward_facing_system() -> str:
     framing = f"You are writing a comment or post under {_account_ref()}.\n{_OUTWARD_FACING_FRAMING}"
     pitch = _pitch_sheet()
     if not pitch:
-        return framing
-    return f"{framing}\n\n--- PITCH SHEET ---\n{pitch}\n"
+        return _voiced_system(framing)
+    return _voiced_system(f"{framing}\n\n--- PITCH SHEET ---\n{pitch}\n")
+
+
+def _voiced_system(system: str) -> str:
+    """``system`` with the account owner's voice sheet after it, when they keep one."""
+    from backend.services.social_outreach import voice
+
+    block = voice.block()
+    return f"{system}\n\n{block}" if block else system
+
+
+def _draft_in_voice(llm, system: str, prompt: str, keys: tuple) -> tuple[dict, str]:
+    """Call the drafter and return (result, draft text). A draft that uses
+    something the voice sheet lists under Never is written once more with
+    those named; the version with fewer of them is kept."""
+    from backend.services.social_outreach import voice
+
+    def text_of(result: dict) -> str:
+        return next((result.get(k) for k in keys if result.get(k)), "") or ""
+
+    result = llm(system, prompt)
+    draft = text_of(result)
+    found = voice.hits(draft)
+    if not found:
+        return result, draft
+    shown = ", ".join(repr(f[3:].strip() if f.startswith("re:") else f) for f in found)
+    again = llm(system, (
+        f"{prompt}\n\nYour previous draft was:\n{draft}\n\n"
+        f"It used {shown}, which this person never writes. Write it again in their voice "
+        "without those, saying the same things."
+    ))
+    second = text_of(again)
+    if second and len(voice.hits(second)) < len(found):
+        return again, second
+    return result, draft
 
 
 def _compose_reply_system() -> str:
@@ -202,7 +236,7 @@ def _compose_reply_system() -> str:
     # The sheet goes first and the reply rules last: a long sheet of sales
     # voice rules after the framing was followed instead of it (measured
     # 2026-11-11: every reply to plain praise carried a link).
-    return (
+    return _voiced_system(
         "--- REFERENCE SHEET (facts only; its voice rules and links are not for this reply) ---\n"
         f"{pitch}\n--- END OF REFERENCE SHEET ---\n\n{framing}"
     )
@@ -597,8 +631,7 @@ def draft_outreach_text(
             video_title=context.get("video_title", ""),
             tone=tone,
         )
-        result = llm(_compose_reply_system(), prompt)
-        draft_text = result.get("draft", "") or result.get("reply", "")
+        result, draft_text = _draft_in_voice(llm, _compose_reply_system(), prompt, ("draft", "reply"))
         # Replies skip the UTM-tag pass entirely — we're not handing out
         # links here. Return early so the apply_utm_tags call below is
         # bypassed (it would no-op on text with no profile links anyway,
@@ -631,8 +664,7 @@ def draft_outreach_text(
             link_url=cta,
             requested_feature=requested_feature,
         )
-        result = llm(_compose_outward_facing_system(), prompt)
-        draft_text = result.get("draft", "") or result.get("comment", "")
+        result, draft_text = _draft_in_voice(llm, _compose_outward_facing_system(), prompt, ("draft", "comment"))
 
         # When the caller asked for a link but the model omitted it, append
         # the URL on a new line. The model's grade still reflects its honest
