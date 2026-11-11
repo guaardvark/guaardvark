@@ -18,7 +18,7 @@ import json
 import logging
 import os
 from datetime import timezone
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import requests
 
@@ -385,6 +385,91 @@ def find_comment(ctx: ConnCtx, video_id: str, text: str) -> str | None:
         if not page:
             break
     return None
+
+
+def unanswered_comments(ctx: ConnCtx, limit: int = 20) -> List[Dict[str, str]]:
+    """The newest comments viewers left on this account's videos that the
+    account has not answered, newest first.
+
+    Each is {comment_id, video_id, video_title, text, author}. The account's
+    own comments are left out, and so is a thread with more replies than
+    YouTube returns inline (five), where an answer could be among the unseen.
+    """
+    token = _access_token(ctx)
+    headers = {"Authorization": f"Bearer {token}"}
+    channel_id = (ctx.config or {}).get("channel_id")
+    if not channel_id:
+        resp = requests.get(
+            f"{API_URL}/channels", headers=headers,
+            params={"part": "id", "mine": "true"}, timeout=TIMEOUT,
+        )
+        if resp.status_code >= 400:
+            raise _api_error(resp, "find your channel")
+        items = (resp.json() or {}).get("items") or []
+        if not items:
+            raise RuntimeError("No channel is associated with this Google account.")
+        channel_id = items[0]["id"]
+
+    found: List[Dict[str, str]] = []
+    page = None
+    for _ in range(COMMENT_PAGES_SEARCHED):
+        params = {
+            "part": "snippet,replies", "allThreadsRelatedToChannelId": channel_id,
+            "order": "time", "maxResults": 100, "textFormat": "plainText",
+        }
+        if page:
+            params["pageToken"] = page
+        resp = requests.get(f"{API_URL}/commentThreads", headers=headers, params=params, timeout=TIMEOUT)
+        if resp.status_code >= 400:
+            raise _api_error(resp, "read the comments")
+        data = resp.json() or {}
+        for thread in data.get("items") or []:
+            snippet = thread.get("snippet") or {}
+            top = snippet.get("topLevelComment") or {}
+            body = top.get("snippet") or {}
+            video_id = snippet.get("videoId") or body.get("videoId")
+            if not video_id:
+                continue  # a comment on the channel itself, not on a video
+            if (body.get("authorChannelId") or {}).get("value") == channel_id:
+                continue
+            replies = (thread.get("replies") or {}).get("comments") or []
+            if int(snippet.get("totalReplyCount") or 0) > len(replies):
+                continue
+            if any(
+                ((r.get("snippet") or {}).get("authorChannelId") or {}).get("value") == channel_id
+                for r in replies
+            ):
+                continue
+            text = (body.get("textOriginal") or body.get("textDisplay") or "").strip()
+            if not text:
+                continue
+            found.append({
+                "comment_id": top.get("id") or thread.get("id"),
+                "video_id": video_id,
+                "video_title": "",
+                "text": text,
+                "author": (body.get("authorDisplayName") or "").lstrip("@"),
+            })
+            if len(found) >= limit:
+                break
+        page = data.get("nextPageToken")
+        if len(found) >= limit or not page:
+            break
+
+    video_ids = sorted({c["video_id"] for c in found})
+    titles: Dict[str, str] = {}
+    for start in range(0, len(video_ids), 50):
+        resp = requests.get(
+            f"{API_URL}/videos", headers=headers,
+            params={"part": "snippet", "id": ",".join(video_ids[start:start + 50])}, timeout=TIMEOUT,
+        )
+        if resp.status_code >= 400:
+            break  # titles are context for the draft; the comments stand without them
+        for item in (resp.json() or {}).get("items") or []:
+            titles[item["id"]] = (item.get("snippet") or {}).get("title") or ""
+    for comment in found:
+        comment["video_title"] = titles.get(comment["video_id"], "")
+    return found
 
 
 def comment_text(ctx: ConnCtx, comment_id: str) -> str | None:

@@ -125,6 +125,8 @@
     "readyHeading": "Zatwierdzone: gotowe do publikacji teraz ({{count}})",
     "waitingHeading": "Oczekujące na zatwierdzenie ({{count}})",
     "postNowNote": "Publikuj teraz uruchamia przeglądarkę agenta na Ekranie agenta: otwiera powyższą stronę, wpisuje ten tekst i wysyła go, jeden post na kliknięcie. Trzymaj Ekran agenta otwarty i obserwuj, aż zakończy; jeśli ekran zostanie zamknięty przed krokiem wysyłania, nic nie zostanie opublikowane.",
+    "postNowApiNote": "Opublikuj teraz wysyła ten jeden komentarz przez oficjalne API YouTube jako Twój połączony kanał. YouTube może wstrzymać go do weryfikacji.",
+    "postNowApi": "Opublikuj teraz",
     "openAgentScreen": "Otwórz Ekran agenta",
     "screenClosed": "Ekran agenta nie jest otwarty.",
     "postingNow": "Publikowanie teraz. Obserwuj Ekran agenta.",
@@ -137,6 +139,15 @@
     "textLabel": "Co zostanie opublikowane",
     "approve": "Zatwierdź",
     "outreachPage": "Strona outreach",
-    "approveNote": "Zatwierdzenie postów nic nie robi. Szkic na Reddit, YouTube lub Facebook czeka tutaj na „Publikuj teraz”; bot Discord wysyła szkic na Discord."
+    "approveNote": "Zatwierdzenie postów nic nie robi. Szkic na Reddit, YouTube lub Facebook czeka tutaj na „Publikuj teraz”; bot Discord wysyła szkic na Discord.",
+    "chat": {
+      "running": "Szukanie postów i tworzenie odpowiedzi (zadanie {{tasks}})…",
+      "readFailed": "Nie można było odczytać postępu tego uruchomienia: {{reason}}",
+      "noDrafts": "To uruchomienie nie wygenerowało żadnych szkiców.",
+      "replyingTo": "Odpowiadanie na",
+      "replyingToAuthor": "Odpowiadanie na {{author}}",
+      "olderWaiting": "{{count}} starszych szkiców również czeka.",
+      "approvalsPage": "Strona Zatwierdzenia"
+    }
   }
 }

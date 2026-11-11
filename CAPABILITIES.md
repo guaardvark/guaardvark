@@ -429,7 +429,7 @@ Montage assembly built into Guaardvark: put clips in a bin, pick a song, and an 
 
 ## Outreach System
 
-Supervised AI for social-media engagement. Production path: **recon → draft → human approve → dispatch** (cadence-gated). Natural language from chat, `/outreach …`, or `guaardvark outreach "…"` queues the same jobs.
+Supervised AI for social-media engagement. Production path: **recon → draft → human approve → dispatch** (cadence-gated). Plain words after `/outreach` in chat, or `guaardvark outreach "…"`, queue the same jobs.
 
 ### Three Phases
 1. **Recon** — search for candidate posts/threads (YouTube keyword topics, Reddit subs, Discord channels). Outputs candidates; **never posts**
@@ -437,9 +437,9 @@ Supervised AI for social-media engagement. Production path: **recon → draft �
 3. **Dispatch** — after approve, Reddit, YouTube and Facebook drafts are posted one at a time through the agent's browser when a person presses **Post now, I'm watching**, and Discord drafts by the Discord bot, with Redis cadence (at most 1 post per 30 min and 8 per 24 h, per platform)
 
 ### Natural language control
-- GUI Chat / slash: `/outreach comment on some youtube videos regarding Offline AI or ComfyUI`
+- GUI Chat: `/outreach reply to some posts on Reddit about ComfyUI`, `/outreach reply to the new comments on our YouTube videos`, or `/outreach <link to a post>`. The drafts come back into the chat as cards with Approve, Reject and Post now. Name no topic and the search uses the outreach profile's keywords.
 - CLI: `guaardvark outreach "comment on youtube videos regarding Offline AI or ComfyUI"`
-- Chat tools: `outreach_execute_intent`, `outreach_run_pass` (youtube + topics), approve/reject/status/queue
+- Chat tools, offered on a message that starts with `/outreach`: `outreach_execute_intent` (find posts and draft replies), `outreach_post_draft`, approve/reject/status/queue
 
 ### Safety
 - **Kill switch** — single toggle that halts all outreach activity immediately

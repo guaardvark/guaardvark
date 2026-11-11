@@ -253,8 +253,9 @@ def test_intent_api_refuse_is_http_200(app, client):
     assert body["ok"] is False
 
 
-def test_scout_reddit_passes_keyword_profiles_as_topics(app):
-    """NL Reddit scout must forward topics into recon job config."""
+def test_scout_reddit_searches_for_the_named_topics(app):
+    """A Reddit scout with topics is one recon run that searches for them and
+    drafts what it finds."""
     from backend.services.social_outreach.intent import execute_outreach_intent
 
     clf = _classifier({
@@ -278,12 +279,92 @@ def test_scout_reddit_passes_keyword_profiles_as_topics(app):
         )
         assert result["ok"] is True
         assert result.get("posts_require_approve") is True
-        # recon + draft (chain_draft default true)
-        assert mock_q.call_count == 2
+        assert mock_q.call_count == 1
         recon_call = mock_q.call_args_list[0]
         assert recon_call[0][0] == "recon"
-        assert "ComfyUI" in (recon_call[1].get("keyword_profiles") or [])
-        assert "Stable Diffusion" in (recon_call[1].get("keyword_profiles") or [])
+        assert recon_call[1]["search_queries"] == ["ComfyUI", "Stable Diffusion"]
+        assert recon_call[1]["chain_draft"] is True
+        assert result["follow"]["task_ids"] == [99]
+        assert result["follow"]["platform"] == "reddit"
+
+
+def test_a_scout_with_no_topic_searches_the_profile_keywords(app):
+    """"reply to some posts on Reddit" names no topic: the search phrases come
+    from the outreach profile, and the answer says so."""
+    from backend.services.social_outreach import intent
+
+    clf = _classifier({
+        "intent": "scout_and_draft", "platform": "reddit", "topics": [],
+        "draft_id": None, "confidence": 0.95, "reason": "engage on reddit",
+    })
+    with app.app_context(), \
+         patch("backend.services.social_outreach.intent.kill_switch.is_enabled", return_value=True), \
+         patch.object(intent, "_profile_queries", return_value=["voice cloning", "comfyui"]), \
+         patch("backend.services.social_outreach.intent.queue_outreach_run") as mock_q:
+        mock_q.return_value = {"task_id": 7, "job_id": "task_7"}
+        result = intent.execute_outreach_intent(
+            "reply to some posts on Reddit", created_by="test", classifier=clf,
+        )
+    assert result["ok"] is True
+    assert mock_q.call_args[1]["search_queries"] == ["voice cloning", "comfyui"]
+    assert result["plan"]["topics_from_profile"] is True
+    assert "from your outreach profile" in result["message"]
+
+
+def test_a_scout_with_no_topic_and_no_profile_keywords_is_refused(app):
+    from backend.services.social_outreach import intent
+
+    clf = _classifier({
+        "intent": "scout_and_draft", "platform": "reddit", "topics": [],
+        "draft_id": None, "confidence": 0.95, "reason": "engage on reddit",
+    })
+    with app.app_context(), \
+         patch("backend.services.social_outreach.intent.kill_switch.is_enabled", return_value=True), \
+         patch.object(intent, "_profile_queries", return_value=[]), \
+         patch("backend.services.social_outreach.intent.queue_outreach_run") as mock_q:
+        result = intent.execute_outreach_intent(
+            "reply to some posts on Reddit", created_by="test", classifier=clf,
+        )
+    assert result["refused"] is True
+    mock_q.assert_not_called()
+
+
+def test_a_facebook_scout_is_refused_with_what_works(app):
+    from backend.services.social_outreach.intent import execute_outreach_intent
+
+    clf = _classifier({
+        "intent": "scout_and_draft", "platform": "facebook", "topics": [],
+        "draft_id": None, "confidence": 0.95, "reason": "engage on facebook",
+    })
+    with app.app_context(), \
+         patch("backend.services.social_outreach.intent.queue_outreach_run") as mock_q:
+        result = execute_outreach_intent(
+            "find some Facebook posts to reply to", created_by="test", classifier=clf,
+        )
+    assert result["refused"] is True
+    assert "Paste a post's link" in result["message"]
+    mock_q.assert_not_called()
+
+
+@pytest.mark.parametrize("text, intent_name, platform", [
+    ("https://www.reddit.com/r/LocalLLaMA/comments/abc123/a_thread/", "draft_url", "reddit"),
+    ("reply to this https://youtu.be/dQw4w9WgXcQ please", "draft_url", "youtube"),
+    ("post draft 42", "post", None),
+    ("publish #7 now", "post", None),
+])
+def test_a_link_and_a_numbered_post_are_read_without_the_model(text, intent_name, platform):
+    from backend.services.social_outreach.intent import _typed_request
+
+    typed = _typed_request(text)
+    assert typed["intent"] == intent_name
+    assert typed["platform"] == platform
+
+
+@pytest.mark.parametrize("text", ["post something on reddit", "what's the status?", "approve draft 4"])
+def test_other_requests_go_to_the_classifier(text):
+    from backend.services.social_outreach.intent import _typed_request
+
+    assert _typed_request(text) is None
 
 
 @pytest.mark.parametrize("key", ["social_outreach_supervised", "outreach_require_independent_check"])

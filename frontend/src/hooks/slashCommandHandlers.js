@@ -788,7 +788,9 @@ async function handleOutreach(args, { addMessage }) {
     draft: "draft",
     youtube: "youtube",
   };
-  const platform = platformAliases[verb];
+  // A request that opens with "reddit" or "youtube" is a sentence about that
+  // platform, so only the pass names below run as short verbs.
+  const platform = ["reddit", "youtube"].includes(verb) ? undefined : platformAliases[verb];
 
   // Known short verbs → run-pass; anything else is classify-then-dispatch.
   if (!platform) {
@@ -806,11 +808,19 @@ async function handleOutreach(args, { addMessage }) {
       } else if (!data.ok) {
         content = data.message || data.error || content;
       }
+      // A queued scout or a fresh draft shows its drafts under this message
+      // (OutreachDraftCards) for approval.
+      const outreach = data.ok && data.follow?.task_ids?.length
+        ? { follow: data.follow }
+        : data.ok && data.draft_ids?.length
+          ? { draftIds: data.draft_ids }
+          : undefined;
       addMessage({
         role: "system",
         content,
         tempId: `outreach-intent-${Date.now()}`,
         type: "command",
+        ...(outreach ? { outreach } : {}),
       });
     } catch (err) {
       addMessage({

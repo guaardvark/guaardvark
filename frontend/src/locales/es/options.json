@@ -367,7 +367,7 @@
     "logs": "Sigue un registro de Guaardvark (nombre de archivo opcional y grep)",
     "sysmap": "Informa los hallazgos del Sistema Mapper, o pregúntale sobre el Código: /sysmap dónde está la caja de semillas, /sysmap módulo backend/app.py, /sysmap impacto backend/services/agent_tools.py",
     "swarm": "Estado del orquestador Swarm (el plugin debe estar en ejecución)",
-    "outreach": "Estado de Alcance, verbos cortos o búsqueda/borrador en lenguaje natural (ej. temas de YouTube)",
+    "outreach": "Alcance en palabras simples: responde a publicaciones en Reddit o YouTube, responde comentarios en tus videos, pega un enlace o pregunta por el estado",
     "plan": "Modo plan: analízalo primero, actúa solo sobre un plan que apruebes",
     "orchestrate": "Divide una solicitud entre varios Agentes",
     "training": "Ejecuta el agente en modo de Entrenamiento — ciclo completo de 1000 iteraciones, omite la descomposición del LLM de chat",

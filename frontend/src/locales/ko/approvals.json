@@ -125,6 +125,8 @@
     "readyHeading": "승인됨: 지금 게시 가능 ({{count}})",
     "waitingHeading": "승인 대기 중 ({{count}})",
     "postNowNote": "지금 게시를 클릭하면 에이전트 화면의 브라우저가 작동합니다. 위 페이지를 열고, 이 텍스트를 입력한 뒤 제출합니다. 클릭당 하나씩 게시됩니다. 에이전트 화면을 열어둔 채 완료될 때까지 지켜보세요. 제출 단계 전에 화면을 닫으면 게시되지 않습니다.",
+    "postNowApiNote": "“지금 게시”를 선택하면 연결된 채널을 통해 YouTube 공식 API로 이 댓글을 전송합니다. YouTube에서 검토를 위해 게시를 보류할 수 있습니다.",
+    "postNowApi": "지금 게시",
     "openAgentScreen": "에이전트 화면 열기",
     "screenClosed": "에이전트 화면이 열려 있지 않습니다.",
     "postingNow": "게시 중. 에이전트 화면을 확인하세요.",
@@ -137,6 +139,15 @@
     "textLabel": "게시될 내용",
     "approve": "승인",
     "outreachPage": "아웃리치 페이지",
-    "approveNote": "게시를 승인해도 아무 일도 일어나지 않습니다. Reddit, YouTube 또는 Facebook 초안은 여기서 '지금 게시'를 기다리며, Discord 봇은 Discord 초안을 전송합니다."
+    "approveNote": "게시를 승인해도 아무 일도 일어나지 않습니다. Reddit, YouTube 또는 Facebook 초안은 여기서 '지금 게시'를 기다리며, Discord 봇은 Discord 초안을 전송합니다.",
+    "chat": {
+      "running": "게시물을 찾고 답글을 작성 중입니다 (작업 {{tasks}})…",
+      "readFailed": "실행 상태를 읽을 수 없습니다: {{reason}}",
+      "noDrafts": "이번 실행에서 생성된 초안이 없습니다.",
+      "replyingTo": "답글 작성 중",
+      "replyingToAuthor": "{{author}}에게 답글 작성 중",
+      "olderWaiting": "더 오래된 초안 {{count}}개가 대기 중입니다.",
+      "approvalsPage": "승인 페이지"
+    }
   }
 }

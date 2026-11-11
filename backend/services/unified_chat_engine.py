@@ -767,12 +767,14 @@ MCP_TOOLS = ["mcp_connect", "mcp_disconnect", "mcp_execute", "mcp_get_state",
 # Bulk and event-driven file ops. Distinct from generate_file (which is in CORE)
 # because these touch many files at once or watch for changes — heavier intent.
 FILE_TOOLS = ["file_bulk_operation", "file_watch"]
-# Social outreach tools — surfaced when the user mentions outreach/posting/drafts.
-# Cadence + kill switch + supervised mode all still gate the actual posting
-# downstream; these tools are just chat-side handles on the same surfaces the
-# OutreachPage uses.
+# Social outreach tools: chat-side handles on the same surfaces the
+# OutreachPage uses. They are offered only on a message that starts with
+# OUTREACH_COMMAND (_gate_outreach_tools), so talk about Reddit or YouTube in
+# an ordinary chat never reaches them. Cadence, the posting stop and the
+# person's approval still gate every post downstream.
+OUTREACH_COMMAND = "/outreach"
 OUTREACH_TOOLS = ["outreach_status", "outreach_list_queue", "outreach_draft_post",
-                  "outreach_approve_draft", "outreach_reject_draft", "outreach_run_pass",
+                  "outreach_approve_draft", "outreach_reject_draft", "outreach_post_draft",
                   "outreach_execute_intent"]
 # Publishing to the user's own connections. The tool only queues; the Approvals
 # page holds every chat request until a person approves it.
@@ -926,24 +928,7 @@ TOOL_CONTEXT_KEYWORDS = {
              "external service", "remote tool", "claude desktop"], MCP_TOOLS),
     "workstation": (WORKSTATION_KEYWORDS, WORKSTATION_TOOLS),
     "knowledge": (KNOWLEDGE_NAV_KEYWORDS, KNOWLEDGE_NAV_TOOLS_PINNED),
-    "outreach": (["outreach", "social outreach", "reddit post", "reddit comment",
-                  "draft a comment", "draft a post", "draft a reply",
-                  "draft a reddit", "draft a discord", "draft a tweet",
-                  "draft post", "queue a post", "queue a draft", "queued drafts",
-                  "pending drafts", "approve draft", "reject draft", "kill draft",
-                  "post on reddit", "post to reddit", "share on reddit",
-                  "self-share", "self share", "outreach pass", "run outreach",
-                  "outreach status", "is outreach", "outreach queue",
-                  "scout subreddit", "scout reddit", "recon pass",
-                  "subreddit", "youtube", "youtube comment", "comment on youtube",
-                  "comment on some youtube", "youtube videos", "comfyui",
-                  "offline ai", "local llm", "local ai", "video comment",
-                  "scout youtube",
-                  # Marketing phrasings operators (and chat) actually say
-                  "market", "market on youtube", "market on reddit",
-                  "promote", "advertise", "share the github",
-                  "guaardvark on youtube", "guaardvark on reddit",
-                  "post comments on youtube", "github on youtube"], OUTREACH_TOOLS),
+    "outreach": ([OUTREACH_COMMAND], OUTREACH_TOOLS),
     "publish": (["publish", "post to discord", "post on discord", "post to bluesky",
                  "post on bluesky", "post to mastodon", "post on mastodon",
                  "post to telegram", "send to telegram", "announce"], PUBLISH_TOOLS),
@@ -1473,6 +1458,30 @@ def select_tools_for_context(message: str, all_tool_names: List[str], max_tools:
                 selected.add(t)
 
     return list(selected)[:max_tools]
+
+
+def _gate_outreach_tools(
+    message: str,
+    selected: List[str],
+    all_tool_names: List[str],
+    step_tools=(),
+) -> List[str]:
+    """Offer the outreach tools on a message that starts with /outreach, and
+    on no other.
+
+    Every selector upstream (keywords, embeddings, the router) is overruled
+    here in both directions: the command puts all of them in, and without it
+    none stays, however much the message talks about Reddit or YouTube. A plan
+    step keeps the outreach tools its plan named for it (``step_tools``).
+    """
+    words = (message or "").lstrip().lower()
+    commanded = words == OUTREACH_COMMAND or words.startswith(OUTREACH_COMMAND + " ")
+    if commanded:
+        available = set(all_tool_names)
+        pinned = [t for t in OUTREACH_TOOLS if t in available and t not in selected]
+        return pinned + list(selected)
+    kept = set(step_tools or ())
+    return [t for t in selected if t not in OUTREACH_TOOLS or t in kept]
 
 
 def _pin_repo_intel_tools(message: str, selected: List[str], all_tool_names: List[str]) -> List[str]:
@@ -3130,6 +3139,11 @@ class UnifiedChatEngine:
                 )
             except Exception as exc:
                 logger.debug(f"MCP tool selection skipped: {exc}")
+
+            selected_tools = _gate_outreach_tools(
+                selection_text, selected_tools, self.registry.list_tools(),
+                step_tools=(options.get("step_tools") or ()) if isinstance(options, dict) else (),
+            )
 
             _screen_active = bool(options and options.get("agent_screen_active", False))
             if not _screen_active:

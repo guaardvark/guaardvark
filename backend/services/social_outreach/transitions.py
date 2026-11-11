@@ -181,7 +181,7 @@ def approve(audit_id: int, draft_text: Optional[str] = None) -> bool:
     if refusal:
         move(audit_id, "unsupported", APPROVE_FROM, abort_reason=refusal[:512])
         return False
-    fields = {} if draft_text is None else {"draft_text": draft_text}
+    fields = {} if draft_text is None else edited_fields(audit_id, draft_text)
     # The platform is matched in the same UPDATE, so a draft switched to a
     # refused platform after the read above is not approved either.
     refused = platforms.platforms_in(platforms.REFUSED)
@@ -191,6 +191,41 @@ def approve(audit_id: int, draft_text: Optional[str] = None) -> bool:
         & func.lower(func.coalesce(SocialOutreachLog.platform, "")).not_in(refused),
         {"status": "approved", **fields},
     )
+
+
+def edited_fields(audit_id: int, text: str) -> dict:
+    """The column values that make ``text`` the text that posts for this row.
+
+    The posters send ``posted_text`` when a row has one (the Content agent
+    stores its tagged copy there), so an edit clears it and they build the
+    post from the edited draft. A reply's draft is a JSON envelope that also
+    names the comment it answers; the edit replaces the envelope's text and
+    keeps the rest.
+    """
+    import json
+
+    from backend.models import SocialOutreachLog, db
+
+    current = (
+        db.session.query(SocialOutreachLog.draft_text)
+        .filter(SocialOutreachLog.id == audit_id)
+        .scalar()
+    )
+    def envelope_of(value: Optional[str]) -> Optional[dict]:
+        if not value or not value.lstrip().startswith("{"):
+            return None
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return None
+        return parsed if isinstance(parsed, dict) and "draft" in parsed else None
+
+    merged = text
+    envelope = envelope_of(current)
+    # A caller that sends back a whole envelope has edited it as one.
+    if envelope is not None and envelope_of(text) is None:
+        merged = json.dumps({**envelope, "draft": text})
+    return {"draft_text": merged, "posted_text": None}
 
 
 def approval_refusal(audit_id: int) -> Optional[str]:

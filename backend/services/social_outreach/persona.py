@@ -322,12 +322,15 @@ def _build_reply_prompt(
     tone_line = f"\nTONE: {tone_guide}\n" if tone_guide else ""
     author_line = f" by @{incoming_author}" if incoming_author else ""
     video_line = f"VIDEO: {video_title}\n" if video_title else ""
+    if (parent_text or "").strip():
+        exchange = (
+            f"YOUR EARLIER COMMENT (the one they replied to):\n{parent_text}\n\n"
+            f"THEIR REPLY{author_line}:\n{incoming_text}"
+        )
+    else:
+        exchange = f"THEIR COMMENT ON YOUR VIDEO{author_line}:\n{incoming_text}"
     return f"""\
-{video_line}YOUR EARLIER COMMENT (the one they replied to):
-{parent_text}
-
-THEIR REPLY{author_line}:
-{incoming_text}
+{video_line}{exchange}
 {tone_line}
 Draft a reply to them. Follow the voice rules from the system message.
 Return JSON: {{"draft": "<reply text>", "grade": 0.0-1.0, "reason": "<one line>"}}.

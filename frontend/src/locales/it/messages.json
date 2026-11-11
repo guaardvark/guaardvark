@@ -417,7 +417,7 @@
       "noCadence": "Nessun dato sulla frequenza.",
       "statusFailed": "Errore stato Outreach: {{reason}}",
       "refused": "Outreach: richiesta rifiutata.",
-      "intentFailed": "Errore intenzione Outreach: {{reason}}",
+      "intentFailed": "Outreach: {{reason}}",
       "queued": "Lavoro Outreach in coda come task #{{taskId}}.",
       "commandFailed": "Errore comando Outreach: {{reason}}"
     },

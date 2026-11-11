@@ -365,7 +365,7 @@
     "logs": "Guaardvarkのログをテール表示（オプションのファイル名とgrep）",
     "sysmap": "System Mapperの調査結果を報告するか、コードについて質問します: /sysmap where the seed box is, /sysmap module backend/app.py, /sysmap impact backend/services/agent_tools.py",
     "swarm": "Swarmオーケストレーターのステータス（プラグインが実行中である必要があります）",
-    "outreach": "アウトリーチのステータス、短い動詞、または自然言語によるスカウト/下書き（例：YouTubeのトピック）",
+    "outreach": "「アウトリーチ」を簡単に言うと：RedditやYouTubeの投稿への返信、動画へのコメントへの回答、リンクの貼り付け、またはステータスの確認です",
     "plan": "計画モード：まず内容を確認し、承認した計画のみを実行します",
     "orchestrate": "リクエストを複数のエージェントに分散",
     "training": "エージェントをトレーニングモードで実行 — 1000イテレーションのフルループ、チャットLLM分解をバイパス",

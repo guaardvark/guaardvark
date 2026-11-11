@@ -25,6 +25,7 @@ OUTREACH_TASK_TYPES = {
     "recon": "social_outreach_recon",
     "youtube": "social_outreach_youtube",
     "youtube_recon": "social_outreach_youtube",
+    "youtube_replies": "social_outreach_youtube_replies",
     "draft": "social_outreach_draft",
     "discord": "social_outreach_discord",
 }
@@ -36,6 +37,7 @@ WEB_READING_RUNS = {
     "social_outreach_recon": "scout Reddit for outreach",
     "social_outreach_reddit": "scout Reddit for outreach",
     "social_outreach_share": "scout Reddit for outreach",
+    "social_outreach_youtube_replies": "read the comments on your YouTube videos",
 }
 
 
@@ -46,6 +48,7 @@ def queue_outreach_run(
     link_url: str | None = None,
     batch_size: int | None = None,
     keyword_profiles: list[str] | None = None,
+    search_queries: list[str] | None = None,
     chain_draft: bool = False,
     priority: int = 2,
     created_by: str = "outreach",
@@ -79,7 +82,7 @@ def queue_outreach_run(
         "chain_draft": bool(chain_draft),
     }
     if subreddit:
-        workflow_config["subreddit"] = subreddit.strip().lstrip("r/").lstrip("/")
+        workflow_config["subreddit"] = subreddit.strip().lstrip("/").removeprefix("r/")
     if link_url:
         workflow_config["link_url"] = link_url.strip()
     elif task_type == "social_outreach_share":
@@ -87,6 +90,12 @@ def queue_outreach_run(
         site = profile.site_url()
         if site:
             workflow_config["link_url"] = site
+    if search_queries:
+        # Reddit recon: read Reddit's search for these instead of a
+        # community's front listing.
+        cleaned = [str(q).strip() for q in search_queries if q and str(q).strip()]
+        if cleaned:
+            workflow_config["search_queries"] = cleaned[:8]
     if batch_size is not None:
         workflow_config["batch_size"] = max(1, min(int(batch_size), 25))
     if keyword_profiles:
@@ -149,7 +158,13 @@ def _task_name(platform: str, workflow_config: dict[str, Any]) -> str:
         suffix = f" ({', '.join(profiles[:3])})" if profiles else ""
         return f"Outreach YouTube recon{suffix}"
     if platform == "recon":
-        return "Outreach recon pass"
+        searches = workflow_config.get("search_queries") or []
+        if searches:
+            return f"Outreach Reddit search ({', '.join(searches[:3])})"
+        subreddit = workflow_config.get("subreddit")
+        return f"Outreach recon pass{f' for r/{subreddit}' if subreddit else ''}"
+    if platform == "youtube_replies":
+        return "Outreach replies to comments on your videos"
     if platform == "draft":
         return "Outreach draft candidates"
     if platform == "discord":
@@ -168,7 +183,13 @@ def _task_description(platform: str, workflow_config: dict[str, Any]) -> str:
         draft = " then draft" if workflow_config.get("chain_draft") else ""
         return f"Scout YouTube for {profiles}{draft}; leave drafts for human approve."
     if platform == "recon":
-        return "Scout the next configured Reddit target and add candidate Outreach rows."
+        draft = " and draft a reply for each" if workflow_config.get("chain_draft") else ""
+        searches = workflow_config.get("search_queries") or []
+        if searches:
+            return f"Search Reddit for {searches}{draft}; drafts wait for approval."
+        return f"Scout a Reddit community and add candidate Outreach rows{draft}."
+    if platform == "youtube_replies":
+        return "Read the new comments on your YouTube videos and draft a reply for each; drafts wait for approval."
     if platform == "draft":
         return "Draft pending Outreach candidates into reviewable queue rows."
     if platform == "discord":
@@ -188,6 +209,7 @@ def _queued_message(platform: str, workflow_config: dict[str, Any], task_id: int
         "self_share": "Self-share Outreach pass",
         "share": "Self-share Outreach pass",
         "recon": "Recon Outreach pass",
+        "youtube_replies": "Replies to comments on your videos",
         "draft": "Drafting Outreach pass",
         "discord": "Discord Outreach pass",
     }

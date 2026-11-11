@@ -12,6 +12,8 @@ GET  /api/social-outreach/audit?limit=200     — recent log rows
 GET  /api/social-outreach/queue               — drafts waiting for a person's approval
 POST /api/social-outreach/drafts              — create a draft manually from the UI
 PATCH /api/social-outreach/drafts/<id>        — save edits to a draft (status='drafted' only)
+GET  /api/social-outreach/drafts?ids=1,2      — those rows as a person reads them (text = the words that would post)
+GET  /api/social-outreach/run-result          — where a run started by /intent stands: tasks, plain notes, its drafts
 POST /api/social-outreach/approve/<id>        — approve a queued draft (409 with the reason for X and LinkedIn)
 POST /api/social-outreach/reject/<id>         — reject and mark won't-post (409 once the post is being submitted)
 GET  /api/social-outreach/post-now            — Agent Screen presence, the watched post running, approved drafts waiting for one
@@ -204,7 +206,11 @@ def update_draft(event_id: int):
     if refusal:
         return jsonify({"error": refusal}), 400
     if "draft_text" in body:
-        row.draft_text = body["draft_text"] or ""
+        from backend.services.social_outreach import transitions
+
+        edited = transitions.edited_fields(event_id, body["draft_text"] or "")
+        row.draft_text = edited["draft_text"]
+        row.posted_text = edited["posted_text"]
     if "target_url" in body:
         row.target_url = body["target_url"] or None
     if "target_thread_id" in body:
@@ -215,6 +221,39 @@ def update_draft(event_id: int):
         row.action = body["action"]
     db.session.commit()
     return jsonify(row.to_dict())
+
+
+@social_outreach_bp.get("/drafts")
+def drafts_by_id():
+    """The outreach rows named in ``?ids=1,2,3``, as a person reads them
+    (``text`` is the words that would post). Unknown ids are left out."""
+    from backend.models import SocialOutreachLog
+    from backend.services.social_outreach import run_result
+
+    try:
+        ids = [int(part) for part in (request.args.get("ids") or "").split(",") if part.strip()][:50]
+    except ValueError:
+        return jsonify({"error": "ids must be integers"}), 400
+    if not ids:
+        return jsonify([])
+    rows = SocialOutreachLog.query.filter(SocialOutreachLog.id.in_(ids)).order_by(SocialOutreachLog.id.asc()).all()
+    return jsonify([run_result.presentable(r) for r in rows])
+
+
+@social_outreach_bp.get("/run-result")
+def outreach_run_result():
+    """Where a run started by /intent stands: ``{done, tasks, notes, drafts,
+    older_waiting}`` for its ``task_ids`` and ``after_id`` (the ``follow``
+    values /intent returned)."""
+    from backend.services.social_outreach import run_result
+
+    try:
+        task_ids = [int(part) for part in (request.args.get("task_ids") or "").split(",") if part.strip()][:20]
+        after_id = int(request.args.get("after_id") or 0)
+    except ValueError:
+        return jsonify({"error": "task_ids and after_id must be integers"}), 400
+    platform = (request.args.get("platform") or "").strip().lower() or None
+    return jsonify(run_result.run_result(task_ids, after_id, platform))
 
 
 @social_outreach_bp.post("/approve/<int:event_id>")
@@ -731,7 +770,8 @@ def _reddit_thread_path(url: str) -> Optional[str]:
 
 
 def _scout_reddit_url(url: str) -> Optional[Dict[str, Any]]:
-    """For a Reddit thread URL, pull OP + top-5 comments via the public JSON API.
+    """For a Reddit thread URL, pull OP + top-5 comments from Reddit's JSON
+    (through the agent browser where Reddit refuses a direct request).
 
     Reuses fetch_thread_comments-style parsing so the agent ends up with the
     same context the cron loop already gets — no humans pasting OPs into the
@@ -745,14 +785,12 @@ def _scout_reddit_url(url: str) -> Optional[Dict[str, Any]]:
     path = _reddit_thread_path(url)
     if path is None:
         return None
-    json_url = "https://www.reddit.com" + path.rstrip("/") + ".json?limit=10&depth=1"
-    headers = {"User-Agent": "guaardvark-outreach/0.1 scout"}
+    from backend.services.social_outreach import reddit_outreach
+
+    json_url = reddit_outreach.REDDIT_BASE + path.rstrip("/") + ".json?limit=10&depth=1"
     try:
-        resp = requests.get(json_url, headers=headers, timeout=10, allow_redirects=False)
-        if not resp.ok:
-            return None
-        data = resp.json()
-    except Exception as e:  # network/JSON failure — caller falls back to generic scrape
+        data = reddit_outreach.read_json(json_url)
+    except Exception as e:  # the caller falls back to the generic scrape
         logger.warning("reddit scout failed for %s: %s", url, e)
         return None
 
@@ -988,9 +1026,15 @@ def execute_intent():
     }
 
     Freeform text is LLM-classified (status / list_queue / approve / reject /
-    scout_and_draft / refuse). Scout jobs are queued only for scout_and_draft
-    with real topics + confidence. Refuse and status answers do not queue.
-    Explicit platform+topics skip the classifier (structured override).
+    post / scout_and_draft / reply_comments / refuse); a link in the text and
+    "post draft N" are read without the model. A scout names the person's
+    topics, or the outreach profile's keywords when they named none. Refuse
+    and status answers do not queue. Explicit platform+topics skip the
+    classifier (structured override).
+
+    A queued run answers with ``follow`` ({task_ids, after_id, platform}),
+    which GET /run-result takes to show its drafts once the tasks end; a
+    request that drafts at once answers with ``draft_ids``.
     """
     body = request.get_json(silent=True) or {}
     from backend.services.social_outreach.intent import execute_outreach_intent

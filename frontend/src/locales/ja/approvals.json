@@ -125,6 +125,8 @@
     "readyHeading": "承認済み：今すぐ投稿可能 ({{count}})",
     "waitingHeading": "承認待ち ({{count}})",
     "postNowNote": "「今すぐ投稿」を選択すると、エージェント画面でブラウザを操作します。上のページを開き、このテキストを入力して送信します（1クリックにつき1件）。エージェント画面を開いたまま完了までお待ちください。送信ステップの前に画面を閉じると、投稿されません。",
+    "postNowApiNote": "「今すぐ投稿」を選択すると、接続済みのチャンネルとしてYouTubeの公式APIを通じてこのコメントを送信します。YouTubeによって審査のために保留される場合があります。",
+    "postNowApi": "今すぐ投稿",
     "openAgentScreen": "エージェント画面を開く",
     "screenClosed": "エージェント画面が開いていません。",
     "postingNow": "現在投稿中。エージェント画面を確認してください。",
@@ -137,6 +139,15 @@
     "textLabel": "投稿内容",
     "approve": "承認",
     "outreachPage": "アウトリーチページ",
-    "approveNote": "投稿を承認しても何も起こりません。Reddit、YouTube、またはFacebookの下書きはここで「今すぐ投稿」を待機し、DiscordのボットがDiscordの下書きを送信します。"
+    "approveNote": "投稿を承認しても何も起こりません。Reddit、YouTube、またはFacebookの下書きはここで「今すぐ投稿」を待機し、DiscordのボットがDiscordの下書きを送信します。",
+    "chat": {
+      "running": "投稿を検索中、および返信をドラフト中（タスク {{tasks}}）…",
+      "readFailed": "この実行の状況を読み取れませんでした: {{reason}}",
+      "noDrafts": "この実行ではドラフトが作成されませんでした。",
+      "replyingTo": "返信中",
+      "replyingToAuthor": "{{author}} に返信中",
+      "olderWaiting": "さらに {{count}} 個の古いドラフトも待機中です。",
+      "approvalsPage": "承認ページ"
+    }
   }
 }

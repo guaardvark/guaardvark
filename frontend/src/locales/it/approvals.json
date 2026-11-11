@@ -125,6 +125,8 @@
     "readyHeading": "Approvati: pronti per la Pubblicazione ora ({{count}})",
     "waitingHeading": "In attesa di approvazione ({{count}})",
     "postNowNote": "Pubblicazione ora attiva il browser dell'agente sulla Schermata Agente: apre la pagina sopra, digita questo testo e lo invia, un post per clic. Mantieni la Schermata Agente aperta e guarda finché non finisce; se la schermata viene chiusa prima della fase di invio, nulla verrà pubblicato.",
+    "postNowApiNote": "«Pubblica ora» invia questo commento tramite l'API ufficiale di YouTube come il tuo canale collegato. YouTube potrebbe trattenerlo per la revisione.",
+    "postNowApi": "Pubblica ora",
     "openAgentScreen": "Apri Schermata Agente",
     "screenClosed": "La Schermata Agente non è aperta.",
     "postingNow": "Pubblicazione in corso. Controlla la Schermata Agente.",
@@ -137,6 +139,15 @@
     "textLabel": "Cosa verrà pubblicato",
     "approve": "Approva",
     "outreachPage": "Pagina outreach",
-    "approveNote": "L'approvazione non pubblica nulla. Una bozza di Reddit, YouTube o Facebook aspetterà qui per la Pubblicazione ora; il bot di Discord invia una bozza di Discord."
+    "approveNote": "L'approvazione non pubblica nulla. Una bozza di Reddit, YouTube o Facebook aspetterà qui per la Pubblicazione ora; il bot di Discord invia una bozza di Discord.",
+    "chat": {
+      "running": "Ricerca dei post e bozze delle risposte (attività {{tasks}})…",
+      "readFailed": "Impossibile leggere lo stato di questa esecuzione: {{reason}}",
+      "noDrafts": "Nessuna bozza è stata generata da questa esecuzione.",
+      "replyingTo": "Risposta a",
+      "replyingToAuthor": "Risposta a {{author}}",
+      "olderWaiting": "{{count}} bozze precedenti sono in attesa.",
+      "approvalsPage": "Pagina Approvazioni"
+    }
   }
 }

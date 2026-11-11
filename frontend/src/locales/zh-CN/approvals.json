@@ -125,6 +125,8 @@
     "readyHeading": "已批准：可立即发布 ({{count}})",
     "waitingHeading": "等待批准 ({{count}})",
     "postNowNote": "点击“立即发布”将驱动智能体在智能体界面上的浏览器：它将打开上述页面，输入此文本并提交，每次点击发布一条。请保持智能体界面处于打开状态并持续关注，直到完成；如果在提交步骤前关闭界面，内容将不会发布。",
+    "postNowApiNote": "“立即发布”将通过 YouTube 官方 API 以您连接的频道身份发送此条评论。YouTube 可能会将其保留进行审核。",
+    "postNowApi": "立即发布",
     "openAgentScreen": "打开智能体界面",
     "screenClosed": "智能体界面未打开。",
     "postingNow": "正在发布。请查看智能体界面。",
@@ -137,6 +139,15 @@
     "textLabel": "即将发布的内容",
     "approve": "批准",
     "outreachPage": "外联页面",
-    "approveNote": "批准后不会立即发布。Reddit、YouTube 或 Facebook 草稿将在此等待“立即发布”操作；Discord 机器人将发送 Discord 草稿。"
+    "approveNote": "批准后不会立即发布。Reddit、YouTube 或 Facebook 草稿将在此等待“立即发布”操作；Discord 机器人将发送 Discord 草稿。",
+    "chat": {
+      "running": "正在查找帖子并起草回复（任务 {{tasks}}）…",
+      "readFailed": "无法读取本次运行的状态：{{reason}}",
+      "noDrafts": "本次运行未生成任何草稿。",
+      "replyingTo": "正在回复",
+      "replyingToAuthor": "正在回复 {{author}}",
+      "olderWaiting": "还有 {{count}} 条较旧的草稿正在等待中。",
+      "approvalsPage": "审批页面"
+    }
   }
 }

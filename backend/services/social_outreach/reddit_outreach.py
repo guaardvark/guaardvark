@@ -5,7 +5,9 @@ user's logged-in Reddit session cookies).
 
 Hybrid architecture:
   • READ via Reddit's JSON API, authenticated with cookies from the agent
-    Firefox profile when present (bare datacenter IPs often get 403).
+    Firefox profile when present. Where Reddit refuses the direct request
+    (403), a read inside ``reddit_reading()`` goes through the agent Firefox
+    instead, as a fetch from a reddit.com page.
   • WRITE via BiDi + LocalScreenBackend on the real Firefox profile
     (the only path with the user's login cookies for posting).
 
@@ -14,6 +16,8 @@ If write fails twice we abort the whole pass — better to skip than thrash.
 
 from __future__ import annotations
 
+import contextlib
+import json
 import logging
 import os
 import random
@@ -21,10 +25,11 @@ import re
 import shutil
 import sqlite3
 import tempfile
+import threading
 import time
 from dataclasses import dataclass
 from typing import Callable, Optional
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import requests
 
@@ -257,9 +262,12 @@ def _bidi_navigate(url: str, settle_seconds: float = 2.0, nav_timeout: float = 1
             pass
 
 
-def bidi_evaluate_json(expression: str) -> tuple[Optional[dict], str]:
+def bidi_evaluate_json(
+    expression: str, await_promise: bool = False, timeout: float = 3.0,
+) -> tuple[Optional[dict], str]:
     """Run ``expression`` in the agent Firefox's first tab and parse the JSON
-    string it returns.
+    string it returns. ``await_promise`` waits for an async expression, up to
+    ``timeout`` seconds.
 
     Returns ``(data, "")``, or ``(None, why)`` when the browser cannot be
     reached or the script returns nothing usable. The posters use it to read
@@ -289,9 +297,10 @@ def bidi_evaluate_json(expression: str) -> tuple[Optional[dict], str]:
             "params": {
                 "expression": expression,
                 "target": {"context": contexts[0]["context"]},
-                "awaitPromise": False,
+                "awaitPromise": bool(await_promise),
             },
         }))
+        ws.settimeout(timeout)
         raw = _json.loads(ws.recv())
         if raw.get("type") == "error":
             return None, f"evaluate error: {raw.get('message', '')[:200]}"
@@ -448,11 +457,179 @@ def _load_reddit_cookies_from_firefox() -> Optional[requests.cookies.RequestsCoo
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def _http_get_json(url: str, retries: int = 1) -> Optional[dict]:
-    """GET Reddit JSON. Prefer agent-Firefox session cookies when available —
+# How long one read through the agent browser may take.
+BROWSER_FETCH_TIMEOUT_S = 20.0
+# Reddit's own page the browser sits on while it fetches: small, and the same
+# origin as every JSON address read here.
+_BROWSER_READ_PAGE = f"{REDDIT_BASE}/robots.txt"
 
-    bare datacenter IPs often get a 403 interstitial; the logged-in cookie jar
-    from DISPLAY=:99's profile clears that for discovery (hot/rules/comments).
+# A thread link in Reddit's pages: /r/<subreddit>/comments/<id>/. JavaScript
+# source, run in the browser against the search page.
+_THREAD_LINK_JS = r"/\/r\/([A-Za-z0-9_]{2,21})\/comments\/([a-z0-9]{4,12})\//g"
+SEARCH_RESULT_LIMIT = 10
+# How far back a search looks: Reddit's own "t" values.
+SEARCH_WINDOW = "week"
+
+_reading = threading.local()
+
+
+class _BrowserReads:
+    """Reddit reads through the agent Firefox for one ``reddit_reading()`` body.
+
+    The browser is opened with its control port on the first read Reddit
+    refuses, and put back when the body ends.
+    """
+
+    def __init__(self) -> None:
+        self.use_browser = False
+        self.problem: Optional[str] = None
+        self._stack: Optional[contextlib.ExitStack] = None
+        self._ready = False
+        # A thread's JSON carries both the post and its comments; one read
+        # serves fetch_thread and fetch_thread_comments.
+        self._answers: dict[str, object] = {}
+
+    def _open(self) -> None:
+        from backend.utils.agent_browser_control import agent_browser_control
+
+        self._stack = contextlib.ExitStack()
+        refusal = self._stack.enter_context(agent_browser_control())
+        if refusal:
+            self.problem = f"the agent browser is in use ({refusal})"
+            return
+        ok, why = bidi_reachable(wait_s=0)
+        if not ok:
+            self.problem = f"the agent browser did not open ({why})"
+            return
+        if not _bidi_navigate(_BROWSER_READ_PAGE):
+            self.problem = "the agent browser could not open reddit.com"
+            return
+        self._ready = True
+
+    def _evaluate(self, expression: str) -> Optional[dict]:
+        self.use_browser = True
+        if self._stack is None:
+            self._open()
+        if not self._ready:
+            return None
+        _human_pause(0.3, 1.2)
+        answer, why = bidi_evaluate_json(
+            expression, await_promise=True, timeout=BROWSER_FETCH_TIMEOUT_S,
+        )
+        if answer is None:
+            self.problem = f"the agent browser did not answer ({why})"
+        return answer
+
+    def search_links(self, url: str) -> list[tuple[str, str]]:
+        """(subreddit, thread id) for each thread Reddit's search page at
+        ``url`` lists, in page order."""
+        expression = (
+            "(async () => { try {"
+            f" const r = await fetch({json.dumps(url)}, {{credentials: 'include'}});"
+            " const page = await r.text(); const seen = new Set(); const found = [];"
+            " for (const m of page.matchAll(" + _THREAD_LINK_JS + ")) {"
+            "   if (!seen.has(m[2])) { seen.add(m[2]); found.push([m[1], m[2]]); } }"
+            " return JSON.stringify({status: r.status, found});"
+            " } catch (e) { return JSON.stringify({status: 0, found: []}); } })()"
+        )
+        answer = self._evaluate(expression)
+        if answer is None:
+            return []
+        if answer.get("status") != 200:
+            self.problem = f"Reddit answered {answer.get('status')} to the search in the agent browser"
+            return []
+        self.problem = None
+        return [(str(sub), str(tid)) for sub, tid in answer.get("found") or []]
+
+    def get_json(self, url: str) -> Optional[dict]:
+        if url in self._answers:
+            return self._answers[url]
+        expression = (
+            "(async () => { try {"
+            f" const r = await fetch({json.dumps(url)}, "
+            "{credentials: 'include', headers: {Accept: 'application/json'}});"
+            " return JSON.stringify({status: r.status, body: await r.text()});"
+            " } catch (e) { return JSON.stringify({status: 0, body: String(e)}); } })()"
+        )
+        answer = self._evaluate(expression)
+        if answer is None:
+            return None
+        if answer.get("status") != 200:
+            self.problem = f"Reddit answered {answer.get('status')} in the agent browser"
+            logger.warning("reddit browser read of %s: status %s", url, answer.get("status"))
+            return None
+        try:
+            data = json.loads(answer.get("body") or "")
+        except ValueError:
+            self.problem = "Reddit answered the agent browser with a page instead of data"
+            return None
+        self.problem = None
+        self._answers[url] = data
+        return data
+
+    def close(self) -> None:
+        if self._stack is not None:
+            self._stack.close()
+
+
+@contextlib.contextmanager
+def reddit_reading():
+    """Let the Reddit reads in the body go through the agent browser when
+    Reddit refuses the direct request.
+
+    The browser is restarted with its control port only if a read is refused,
+    and is left alone while the agent runs a task
+    (``agent_browser_control``). ``reading_problem()`` then says why a read
+    came back empty. Nested use shares the outer body's browser.
+    """
+    if getattr(_reading, "session", None) is not None:
+        yield
+        return
+    session = _BrowserReads()
+    _reading.session = session
+    _reading.problem = None
+    try:
+        yield
+    finally:
+        _reading.problem = session.problem
+        _reading.session = None
+        session.close()
+
+
+def reading_problem() -> Optional[str]:
+    """Why the agent browser could not read Reddit in the current or the last
+    ``reddit_reading()`` body on this thread, or None."""
+    session = getattr(_reading, "session", None)
+    if session is not None:
+        return session.problem
+    return getattr(_reading, "problem", None)
+
+
+def _http_get_json(url: str, retries: int = 1) -> Optional[dict]:
+    """GET Reddit JSON: directly, or through the agent browser inside
+    ``reddit_reading()`` once Reddit has refused a direct request."""
+    session = getattr(_reading, "session", None)
+    if session is not None and session.use_browser:
+        return session.get_json(url)
+    data, refused = _direct_get_json(url, retries)
+    if data is None and refused and session is not None:
+        return session.get_json(url)
+    return data
+
+
+def read_json(url: str):
+    """One Reddit JSON address, read through the agent browser when Reddit
+    refuses the direct request. None when it could not be read."""
+    with reddit_reading():
+        return _http_get_json(url)
+
+
+def _direct_get_json(url: str, retries: int = 1) -> tuple[Optional[dict], bool]:
+    """GET Reddit JSON with ``requests``; ``(data, refused)``.
+
+    The agent Firefox's session cookies are sent when its profile has them.
+    ``refused`` is True when Reddit answered 403, which it does to requests
+    that do not come from a browser, with or without the cookies.
     """
     cookie_jar = _load_reddit_cookies_from_firefox()
     headers = {
@@ -471,20 +648,22 @@ def _http_get_json(url: str, retries: int = 1) -> Optional[dict]:
                 retry_after = int(resp.headers.get("Retry-After", 5))
                 logger.warning("reddit JSON 429 on %s — backing off for %ds", url, retry_after)
                 time.sleep(retry_after)
-                return _http_get_json(url, retries=retries - 1)
+                return _direct_get_json(url, retries=retries - 1)
             logger.warning("reddit JSON 429 on %s — out of retries", url)
-            return None
-        # 403 with cookies: invalidate cache once and retry bare (or vice versa)
-        if resp.status_code == 403 and cookie_jar is not None and retries > 0:
-            logger.warning("reddit JSON 403 with session cookies on %s — refreshing jar once", url)
-            _REDDIT_COOKIE_CACHE["jar"] = None
-            _REDDIT_COOKIE_CACHE["loaded_at"] = 0.0
-            return _http_get_json(url, retries=retries - 1)
+            return None, False
+        if resp.status_code == 403:
+            if cookie_jar is not None and retries > 0:
+                logger.warning("reddit JSON 403 with session cookies on %s — refreshing jar once", url)
+                _REDDIT_COOKIE_CACHE["jar"] = None
+                _REDDIT_COOKIE_CACHE["loaded_at"] = 0.0
+                return _direct_get_json(url, retries=retries - 1)
+            logger.warning("reddit JSON fetch refused (403) for %s", url)
+            return None, True
         resp.raise_for_status()
-        return resp.json()
+        return resp.json(), False
     except Exception as e:
         logger.warning("reddit JSON fetch failed for %s: %s", url, e)
-        return None
+        return None, False
 
 
 def fetch_subreddit_rules(subreddit: str) -> Optional[list[str]]:
@@ -516,7 +695,10 @@ def is_self_promo_banned(rules_text: str) -> Optional[str]:
 
 
 def fetch_hot_threads(subreddit: str, limit: int = SUBREDDIT_HOT_LIMIT) -> list[RedditThread]:
-    data = _http_get_json(f"{REDDIT_BASE}/r/{subreddit}/hot.json?limit={limit}")
+    # The community's front listing, which Reddit sorts by hot. Measured
+    # 2026-11-11 from a signed-in browser: this address answers 200 where
+    # /hot.json and /new.json answer 403.
+    data = _http_get_json(f"{REDDIT_BASE}/r/{subreddit}/.json?limit={limit}")
     if not data:
         return []
     out = []
@@ -540,11 +722,65 @@ def fetch_hot_threads(subreddit: str, limit: int = SUBREDDIT_HOT_LIMIT) -> list[
     return out
 
 
+def _thread_json_url(permalink: str, limit: int = THREAD_COMMENT_LIMIT) -> str:
+    return f"{permalink.rstrip('/')}.json?limit={limit}&depth=1"
+
+
+def search_thread_refs(
+    query: str,
+    subreddit: Optional[str] = None,
+    limit: int = SEARCH_RESULT_LIMIT,
+) -> list[tuple[str, str, str]]:
+    """(subreddit, thread id, permalink) for the threads Reddit's search lists
+    for ``query``, newest first; within ``subreddit`` when one is given.
+
+    Read from the search page in the agent browser, so it answers only inside
+    ``reddit_reading()``: Reddit serves search to nothing but a browser
+    (measured 2026-11-11: search.json and search.rss answer 403 even there).
+    """
+    session = getattr(_reading, "session", None)
+    if session is None:
+        return []
+    params = {"q": query, "sort": "new", "t": SEARCH_WINDOW}
+    if subreddit:
+        base = f"{REDDIT_BASE}/r/{subreddit}/search/"
+        params["restrict_sr"] = "1"
+    else:
+        base = f"{REDDIT_BASE}/search/"
+        params["type"] = "posts"
+    found = session.search_links(f"{base}?{urlencode(params)}")
+    return [
+        (sub, tid, f"{REDDIT_BASE}/r/{sub}/comments/{tid}/")
+        for sub, tid in found[:limit]
+    ]
+
+
+def fetch_thread(permalink: str) -> Optional[RedditThread]:
+    """The post at ``permalink``, or None when it cannot be read or is one the
+    scout leaves alone (stickied, over 18)."""
+    data = _http_get_json(_thread_json_url(permalink))
+    try:
+        d = data[0]["data"]["children"][0]["data"]
+    except (KeyError, IndexError, TypeError):
+        return None
+    if d.get("stickied") or d.get("is_pinned") or d.get("over_18"):
+        return None
+    return RedditThread(
+        id=d.get("id", ""),
+        url=d.get("url", ""),
+        permalink=f"{REDDIT_BASE}{d.get('permalink', '')}",
+        subreddit=d.get("subreddit", ""),
+        title=(d.get("title") or "").strip(),
+        selftext=(d.get("selftext") or "").strip(),
+        score=int(d.get("score") or 0),
+        num_comments=int(d.get("num_comments") or 0),
+        created_utc=float(d.get("created_utc") or 0),
+    )
+
+
 def fetch_thread_comments(permalink: str, limit: int = THREAD_COMMENT_LIMIT) -> list[str]:
     """Returns flat list of comment bodies in display order, top-level first."""
-    if not permalink.endswith("/"):
-        permalink = permalink + "/"
-    data = _http_get_json(f"{permalink.rstrip('/')}.json?limit={limit}&depth=1")
+    data = _http_get_json(_thread_json_url(permalink, limit))
     if not isinstance(data, list) or len(data) < 2:
         return []
     out = []

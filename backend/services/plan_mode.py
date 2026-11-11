@@ -28,7 +28,7 @@ _WEB_TOOLS = frozenset({"web_search", "fetch_url", "analyze_website", "browser_e
 # Step tools whose effect reaches outside the conversation or cannot be undone.
 _SENSITIVE_TOOLS = frozenset({
     "system_command", "execute_python", "execute_javascript", "file_bulk_operation", "edit_code",
-    "delete_memory", "outreach_draft_post", "outreach_approve_draft", "outreach_run_pass",
+    "delete_memory", "outreach_draft_post", "outreach_approve_draft", "outreach_post_draft",
     "outreach_execute_intent", "request_publish", "launch_swarm", "gui_click", "gui_type",
     "gui_hotkey", "browser_click", "browser_fill", "browser_execute_js", "mcp_execute",
 })

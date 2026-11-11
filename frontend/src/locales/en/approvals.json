@@ -139,6 +139,15 @@
     "textLabel": "What will be posted",
     "approve": "Approve",
     "outreachPage": "Outreach page",
-    "approveNote": "Approving posts nothing. A Reddit, YouTube or Facebook draft then waits here for Post now; the Discord bot sends a Discord draft."
+    "approveNote": "Approving posts nothing. A Reddit, YouTube or Facebook draft then waits here for Post now; the Discord bot sends a Discord draft.",
+    "chat": {
+      "running": "Looking for posts and drafting replies (task {{tasks}})…",
+      "readFailed": "Could not read how this run is going: {{reason}}",
+      "noDrafts": "No drafts came out of this run.",
+      "replyingTo": "Replying to",
+      "replyingToAuthor": "Replying to {{author}}",
+      "olderWaiting": "{{count}} older drafts are also waiting.",
+      "approvalsPage": "Approvals page"
+    }
   }
 }

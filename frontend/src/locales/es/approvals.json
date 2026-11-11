@@ -125,6 +125,8 @@
     "readyHeading": "Aprobados: listos para Publicar ahora ({{count}})",
     "waitingHeading": "Esperando aprobación ({{count}})",
     "postNowNote": "Publicar ahora activa el navegador del agente en la Pantalla del agente: abre la página de arriba, escribe este texto y lo envía, un post por clic. Mantén la Pantalla del agente abierta y observa hasta que termine; si la pantalla se cierra antes del paso de envío, no se publicará nada.",
+    "postNowApiNote": "«Publicar ahora» envía este comentario a través de la API oficial de YouTube como tu canal conectado. YouTube puede retenerlo para revisión.",
+    "postNowApi": "Publicar ahora",
     "openAgentScreen": "Abrir Pantalla del agente",
     "screenClosed": "La Pantalla del agente no está abierta.",
     "postingNow": "Publicando ahora. Mira la Pantera del agente.",
@@ -137,6 +139,15 @@
     "textLabel": "Lo que se publicará",
     "approve": "Aprobar",
     "outreachPage": "Página de alcance",
-    "approveNote": "Aprobar publicaciones no hace nada. Un borrador de Reddit, YouTube o Facebook esperará aquí para Publicar ahora; el bot de Discord envía un borrador de Discord."
+    "approveNote": "Aprobar publicaciones no hace nada. Un borrador de Reddit, YouTube o Facebook esperará aquí para Publicar ahora; el bot de Discord envía un borrador de Discord.",
+    "chat": {
+      "running": "Buscando publicaciones y redactando respuestas (tarea {{tasks}})…",
+      "readFailed": "No se pudo leer cómo va esta ejecución: {{reason}}",
+      "noDrafts": "No se generaron borradores en esta ejecución.",
+      "replyingTo": "Respondiendo a",
+      "replyingToAuthor": "Respondiendo a {{author}}",
+      "olderWaiting": "También hay {{count}} borradores anteriores esperando.",
+      "approvalsPage": "Página de Aprobaciones"
+    }
   }
 }

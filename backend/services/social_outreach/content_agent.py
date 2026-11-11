@@ -90,6 +90,11 @@ def _build_reply_context(payload: dict) -> str:
     title, our earlier comment and the viewer's reply to it."""
     title = payload.get("title") or "(not recorded)"
     author = payload.get("incoming_author") or "a viewer"
+    if not (payload.get("parent_text") or "").strip():
+        return (
+            f"VIDEO TITLE: {title}\n\n"
+            f"THEIR COMMENT ON OUR VIDEO ({author}):\n{payload.get('incoming_text', '')}"
+        )
     return (
         f"VIDEO TITLE: {title}\n\n"
         f"OUR EARLIER COMMENT:\n{payload.get('parent_text', '')}\n\n"
@@ -330,8 +335,12 @@ class ContentAgent:
             "hold_reason": hold_reason,
         }
 
-    def draft_batch(self, batch_size: int = DEFAULT_BATCH_SIZE) -> dict:
+    def draft_batch(self, batch_size: int = DEFAULT_BATCH_SIZE, after_id: Optional[int] = None) -> dict:
         """Walk the oldest N candidate rows and draft each. Returns a summary.
+
+        ``after_id`` limits the walk to rows with a higher id: the candidates
+        one scout pass just added, when a person's request chains the draft
+        step onto it.
 
         Stops at batch_size to keep individual ticks bounded — a celery beat
         every few minutes will drain the queue eventually.
@@ -343,10 +352,12 @@ class ContentAgent:
         """
         from backend.models import SocialOutreachLog, db
         from backend.services.social_outreach import transitions
+        candidates = SocialOutreachLog.query.filter(SocialOutreachLog.status == "candidate")
+        if after_id is not None:
+            candidates = candidates.filter(SocialOutreachLog.id > after_id)
         row_ids = [
             row.id for row in (
-                SocialOutreachLog.query
-                .filter(SocialOutreachLog.status == "candidate")
+                candidates
                 .order_by(SocialOutreachLog.created_at.asc())
                 .limit(batch_size)
                 .all()

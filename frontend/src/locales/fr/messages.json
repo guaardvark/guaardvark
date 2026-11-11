@@ -417,7 +417,7 @@
       "noCadence": "Aucune donnée de cadence.",
       "statusFailed": "Échec du statut de prospection : {{reason}}",
       "refused": "Prospection : demande refusée.",
-      "intentFailed": "Échec de l'intention de prospection : {{reason}}",
+      "intentFailed": "Prospection : {{reason}}",
       "queued": "Tâche de prospection mise en file d'attente sous le numéro #{{taskId}}.",
       "commandFailed": "Échec de la commande de prospection : {{reason}}"
     },

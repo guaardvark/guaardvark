@@ -14,6 +14,7 @@ import CheckIcon from "@mui/icons-material/Check";
 import MicIcon from "@mui/icons-material/Mic";
 import ThinkingCard from "./ThinkingCard";
 import PlanCard from "./PlanCard";
+import OutreachDraftCards from "./OutreachDraftCards";
 import { usePlanActions } from "./planActions";
 import GeneratedMedia from "./GeneratedMedia";
 import { pendingMediaOf } from "./pendingMedia";
@@ -268,6 +269,7 @@ const FloatingChatMessage = ({ message, msg, formatTime }) => {
             onPlanChanged={planActions?.onPlanChanged}
           />
         )}
+        {m.outreach && <OutreachDraftCards run={m.outreach} />}
         {m.truncated === true && (
           <Typography
             variant="caption"

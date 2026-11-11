@@ -421,7 +421,7 @@
       "noCadence": "Brak danych o częstotliwości.",
       "statusFailed": "Błąd statusu Outreach: {{reason}}",
       "refused": "Outreach: żądanie odrzucone.",
-      "intentFailed": "Błąd intencji Outreach: {{reason}}",
+      "intentFailed": "Outreach: {{reason}}",
       "queued": "Zadanie Outreach zostało dodane do kolejki jako zadanie nr {{taskId}}.",
       "commandFailed": "Błąd komendy Outreach: {{reason}}"
     },

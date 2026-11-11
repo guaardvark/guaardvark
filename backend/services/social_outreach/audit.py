@@ -164,6 +164,19 @@ def log_candidate(
     )
 
 
+def latest_id() -> int:
+    """The newest outreach row's id (0 when there is none). Rows added after
+    the call have a higher one."""
+    try:
+        from sqlalchemy import func
+
+        from backend.models import SocialOutreachLog, db
+        return int(db.session.query(func.max(SocialOutreachLog.id)).scalar() or 0)
+    except Exception as e:
+        logger.error("latest outreach row id unavailable: %s", e)
+        return 0
+
+
 def _detached_audit_session():
     """Build a Session bound directly to the engine, isolated from the caller's
     db.session. Same pattern log_outreach_event uses — keeps audit writes from

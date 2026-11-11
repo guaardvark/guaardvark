@@ -101,6 +101,22 @@ export function postNow(id) {
   return request(`/post-now/${id}`, { method: "POST", body: "{}" });
 }
 
+// The rows with these ids as a person reads them: `text` is what would post.
+export function fetchDraftsByIds(ids) {
+  return request(`/drafts?ids=${(ids || []).join(",")}`);
+}
+
+// Where a run started by executeIntent stands; `follow` is the value that
+// answer carried ({ task_ids, after_id, platform }).
+export function fetchRunResult(follow) {
+  const params = new URLSearchParams({
+    task_ids: (follow.task_ids || []).join(","),
+    after_id: String(follow.after_id ?? 0),
+  });
+  if (follow.platform) params.set("platform", follow.platform);
+  return request(`/run-result?${params.toString()}`);
+}
+
 export function patchDraft(id, payload) {
   return request(`/drafts/${id}`, {
     method: "PATCH",
