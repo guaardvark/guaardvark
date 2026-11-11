@@ -58,9 +58,9 @@ class StartOutcome(NamedTuple):
     status: Optional[str]
 
 
-def _refusal(row) -> Optional[str]:
+def _refusal(row, approved_only: bool = True, viewer_required: bool = True) -> Optional[str]:
     """Why ``row`` may not be posted now, in words the person can act on."""
-    if row.status != "approved":
+    if approved_only and row.status != "approved":
         return f"Only an approved draft can be posted; this one is '{row.status}'."
     policy = platforms.policy_for(row.platform)
     if policy is None:
@@ -84,10 +84,31 @@ def _refusal(row) -> Optional[str]:
     cadence_ok, cadence_reason = kill_switch.cadence_allows_post((row.platform or "").strip().lower())
     if not cadence_ok:
         return f"{policy.label} posting limit: {cadence_reason}."
+    if not viewer_required:
+        return None
     watching, why = agent_screen_presence.watching()
     if not watching:
         return why
     return None
+
+
+def needs_viewer(row) -> bool:
+    """True when this draft posts through the watched browser, so a person
+    must have the Agent Screen open; False when a connected account posts it."""
+    from backend.services.social_outreach import api_post
+
+    return not api_post.handles(row)
+
+
+def refusal_before_approval(row, viewer_required: bool = True) -> Optional[str]:
+    """Why approving ``row`` now would not lead to a post (a limit, a switch,
+    nobody watching the Agent Screen), so a caller that approves and posts in
+    one step can leave the draft as it is. None when the post may start."""
+    from backend.services.social_outreach import api_post
+
+    if api_post.handles(row):
+        return api_post._refusal(row, approved_only=False)
+    return _refusal(row, approved_only=False, viewer_required=viewer_required)
 
 
 def _row(event_id: int):
@@ -379,7 +400,7 @@ def reply_parts(row) -> tuple[str, str]:
 def _record_share(row, posted_text: str) -> None:
     import requests
 
-    from backend.services.social_outreach.reddit_outreach import backend_url
+    from backend.services.social_outreach.reddit_outreach import backend_headers, backend_url
 
     try:
         requests.post(
@@ -392,6 +413,7 @@ def _record_share(row, posted_text: str) -> None:
                 "target_thread_id": None,
                 "task_id": row.task_id,
             },
+            headers=backend_headers(),
             timeout=10,
         )
     except Exception as e:  # noqa: BLE001 - the post is out; the reaper and history show it

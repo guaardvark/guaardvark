@@ -40,7 +40,7 @@ const RUN_POLL_MS = 3000;
 const POST_POLL_MS = 3000;
 const IN_FLIGHT = ["approved", "processing", "submitting"];
 
-const DraftCard = ({ draft, watched, onChanged }) => {
+const DraftCard = ({ draft, watched, onChanged, review }) => {
   const { t } = useUiTranslation();
   const [text, setText] = useState(draft.text || "");
   const [busy, setBusy] = useState(false);
@@ -68,6 +68,8 @@ const DraftCard = ({ draft, watched, onChanged }) => {
   };
 
   const status = draft.status;
+  // What the draft answers: the post or comment, when the row kept it.
+  const source = draft.source?.text || draft.source?.title ? draft.source : null;
   const byApi = (watched?.api_platforms || []).includes((draft.platform || "").toLowerCase());
   const watching = Boolean(watched?.watching) || byApi;
   const running = watched?.running;
@@ -95,16 +97,29 @@ const DraftCard = ({ draft, watched, onChanged }) => {
         )}
       </Stack>
 
-      {draft.replying_to?.text && (
+      {source && (
         <Box sx={{ borderLeft: 3, borderColor: "divider", pl: 1, mb: 1 }}>
           <Typography variant="caption" color="text.secondary">
-            {draft.replying_to.author
-              ? t("approvals.outreach.chat.replyingToAuthor", { author: draft.replying_to.author })
-              : t("approvals.outreach.chat.replyingTo")}
+            {source.author
+              ? t("approvals.outreach.chat.answeringAuthor", { author: source.author })
+              : t("approvals.outreach.chat.answering")}
+            {source.community ? ` ${t("approvals.outreach.chat.answeringIn", { community: source.community })}` : ""}
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-            {draft.replying_to.text}
-          </Typography>
+          {source.title && (
+            <Typography variant="subtitle2" sx={{ whiteSpace: "pre-wrap" }}>
+              {source.title}
+            </Typography>
+          )}
+          {source.text && (
+            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", maxHeight: 240, overflowY: "auto" }}>
+              {source.text}
+            </Typography>
+          )}
+          {source.why && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+              {t("approvals.outreach.chat.pickedBecause", { why: source.why })}
+            </Typography>
+          )}
         </Box>
       )}
 
@@ -212,6 +227,11 @@ const DraftCard = ({ draft, watched, onChanged }) => {
           )}
         </Stack>
       )}
+      {review && (status === "drafted" || status === "approved") && !runningThis && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+          {t("approvals.outreach.chat.reviewHint")}
+        </Typography>
+      )}
     </Paper>
   );
 };
@@ -219,11 +239,15 @@ const DraftCard = ({ draft, watched, onChanged }) => {
 /**
  * `run` is what the /outreach command kept from the intent answer:
  * `{ follow: { task_ids, after_id, platform } }` for a queued scout, or
- * `{ draftIds: [...] }` for drafts that already exist.
+ * `{ draftIds: [...] }` for drafts that already exist. With `review: true`
+ * the drafts are answered in words, one at a time (outreachReview.js): a
+ * followed scout then shows only its progress and what it found, and each
+ * draft arrives as its own message.
  */
 const OutreachDraftCards = ({ run }) => {
   const { t } = useUiTranslation();
   const follow = run?.follow;
+  const review = Boolean(run?.review);
   const [result, setResult] = useState(null);
   const [drafts, setDrafts] = useState([]);
   const [watched, setWatched] = useState(null);
@@ -259,6 +283,7 @@ const OutreachDraftCards = ({ run }) => {
         setResult(out);
         setError(null);
         if (out.done) {
+          if (review) return;
           idsRef.current = (out.drafts || []).map((d) => d.id);
           setDrafts(out.drafts || []);
           refreshDrafts();
@@ -275,10 +300,11 @@ const OutreachDraftCards = ({ run }) => {
       stopped = true;
       if (timer) clearTimeout(timer);
     };
-  }, [follow, refreshDrafts]);
+  }, [follow, review, refreshDrafts]);
 
-  // An approved or posting draft changes without a click here.
-  const inFlight = drafts.some((d) => IN_FLIGHT.includes(d.status));
+  // An approved or posting draft changes without a click here; in a review
+  // a draft also changes by what is said in the chat.
+  const inFlight = drafts.some((d) => IN_FLIGHT.includes(d.status) || (review && d.status === "drafted"));
   useEffect(() => {
     if (!inFlight) return undefined;
     const timer = setInterval(refreshDrafts, POST_POLL_MS);
@@ -304,13 +330,13 @@ const OutreachDraftCards = ({ run }) => {
             {note}
           </Typography>
         ))}
-      {result?.done && drafts.length === 0 && (
+      {result?.done && drafts.length === 0 && !(review && (result.drafts || []).length) && (
         <Typography variant="body2">{t("approvals.outreach.chat.noDrafts")}</Typography>
       )}
       {drafts.map((draft) => (
-        <DraftCard key={draft.id} draft={draft} watched={watched} onChanged={refreshDrafts} />
+        <DraftCard key={draft.id} draft={draft} watched={watched} onChanged={refreshDrafts} review={review} />
       ))}
-      {result?.done && result.older_waiting > 0 && (
+      {result?.done && !review && result.older_waiting > 0 && (
         <Typography variant="caption" color="text.secondary">
           {t("approvals.outreach.chat.olderWaiting", { count: result.older_waiting })}{" "}
           <Link component={RouterLink} to="/approvals">

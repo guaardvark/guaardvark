@@ -1187,6 +1187,50 @@
     "outreach.chat.approvalsPage": {
       "en": "c511aac7d7c0",
       "out": "5d044c734560"
+    },
+    "outreach.chat.answering": {
+      "en": "75b1c024bccf",
+      "out": "05d28a2d9b3b"
+    },
+    "outreach.chat.answeringAuthor": {
+      "en": "08464474b89a",
+      "out": "d0743c121496"
+    },
+    "outreach.chat.answeringIn": {
+      "en": "1fd2c9735d5b",
+      "out": "c04d1cbbfab8"
+    },
+    "outreach.chat.pickedBecause": {
+      "en": "e13cee8f7a82",
+      "out": "0c465b4b3911"
+    },
+    "outreach.chat.reviewHint": {
+      "en": "5380cef1526c",
+      "out": "24c6f6310f2a"
+    },
+    "outreach.chat.reviewItem": {
+      "en": "66a49ebc910c",
+      "out": "6766548dc98d"
+    },
+    "outreach.chat.reviewItemMore_other": {
+      "en": "17c6a9bf8bd4",
+      "out": "2924a249773e"
+    },
+    "outreach.chat.reviewDone": {
+      "en": "5e607daed6d2",
+      "out": "d0670ece77a7"
+    },
+    "outreach.chat.reviewNothing": {
+      "en": "61684d8e5fd7",
+      "out": "fe29145201e5"
+    },
+    "outreach.chat.reviewNeedsChat": {
+      "en": "2a4722f53ed1",
+      "out": "7bb427d7c394"
+    },
+    "outreach.chat.reviewFailed": {
+      "en": "1a76d58a2da1",
+      "out": "ecafdddf8eae"
     }
   },
   "audio": {

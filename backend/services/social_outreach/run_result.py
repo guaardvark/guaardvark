@@ -37,7 +37,8 @@ _REASONS = {
 
 def presentable(row) -> dict[str, Any]:
     """A draft row as a person reads it: ``text`` is the words that would
-    post, and ``replying_to`` the comment a reply answers."""
+    post, ``source`` the post or comment it answers, and ``replying_to`` the
+    comment a reply answers."""
     out = row.to_dict()
     text = row.draft_text or ""
     replying_to = None
@@ -55,7 +56,25 @@ def presentable(row) -> dict[str, Any]:
                 }
     out["text"] = text
     out["replying_to"] = replying_to
+    out["source"] = _source(row, replying_to)
     return out
+
+
+def _source(row, replying_to: Optional[dict]) -> Optional[dict]:
+    """The post or comment the draft answers ({title, text, author,
+    community, why}); a draft written before that was kept has only the
+    comment its reply envelope carries."""
+    raw = getattr(row, "source_json", None)
+    if raw:
+        try:
+            source = json.loads(raw)
+        except ValueError:
+            source = None
+        if isinstance(source, dict):
+            return source
+    if replying_to:
+        return {"title": "", "text": replying_to["text"], "author": replying_to["author"], "community": "", "why": ""}
+    return None
 
 
 def _report(task) -> Optional[dict]:

@@ -147,7 +147,18 @@
       "replyingTo": "답글 작성 중",
       "replyingToAuthor": "{{author}}에게 답글 작성 중",
       "olderWaiting": "더 오래된 초안 {{count}}개가 대기 중입니다.",
-      "approvalsPage": "승인 페이지"
+      "approvalsPage": "승인 페이지",
+      "answering": "답변 중",
+      "answeringAuthor": "{{author}} 답변 중",
+      "answeringIn": "r/{{community}}에서",
+      "pickedBecause": "선택 이유: {{why}}",
+      "reviewHint": "\"예\"를 눌러 게시하거나, \"건너뛰기\", \"거부\", \"...로 변경\", \"더 짧게\", 또는 \"중지\"를 선택하세요.",
+      "reviewItem": "{{platform}}용 초안 #{{id}}. 마지막 항목입니다.",
+      "reviewItemMore_other": "{{platform}}용 초안 #{{id}}. 이후에 {{count}}개가 더 있습니다.",
+      "reviewDone": "마지막 항목입니다. 검토가 종료되었습니다.",
+      "reviewNothing": "승인을 기다리는 초안이 없습니다.",
+      "reviewNeedsChat": "검토를 위해 채팅 세션이 필요합니다. 먼저 메시지를 보낸 후 다시 시도하세요.",
+      "reviewFailed": "검토에 도달할 수 없습니다: {{reason}}"
     }
   }
 }

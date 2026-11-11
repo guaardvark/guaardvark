@@ -11,7 +11,8 @@ const SEND_START_TIMEOUT_MS = 3000;
  * A turn that arrives while `busy` (a reply is streaming) waits and goes out,
  * in order, when the chat is free. `send(text, turn)` is called at that
  * moment, so it uses whatever session the chat is on then. When the reply to
- * a voice turn finishes, the voice session is told so it can listen again.
+ * a voice turn finishes, the voice session is told so it can listen again;
+ * a `send` that resolves to `false` has no reply coming and frees it at once.
  *
  * @param {{id: string, priority?: number, busy: boolean,
  *          send: (text: string, turn: object) => unknown, enabled?: boolean}} options
@@ -55,6 +56,13 @@ export default function useVoiceSink({ id, priority = 0, busy, send, enabled = t
     }, SEND_START_TIMEOUT_MS);
     Promise.resolve()
       .then(() => sendRef.current(turn.text, turn))
+      .then((sent) => {
+        // `false`: the turn was taken without a reply to wait for.
+        if (sent === false && inFlightRef.current) {
+          finishInFlight();
+          flush();
+        }
+      })
       .catch(() => {
         finishInFlight();
         flush();

@@ -147,7 +147,19 @@
       "replyingTo": "Beantwoorden van",
       "replyingToAuthor": "Beantwoorden van {{author}}",
       "olderWaiting": "{{count}} oudere concepten wachten ook.",
-      "approvalsPage": "Goedkeuringen pagina"
+      "approvalsPage": "Goedkeuringen pagina",
+      "answering": "Beantwoorden",
+      "answeringAuthor": "Beantwoorden {{author}}",
+      "answeringIn": "in r/{{community}}",
+      "pickedBecause": "Gekozen omdat: {{why}}",
+      "reviewHint": "Zeg \"ja\" om het te plaatsen, \"overslaan\", \"weigeren\", \"verander het naar ...\", \"maak het korter\" of \"stop\".",
+      "reviewItem": "Concept #{{id}} voor {{platform}}. Dit is de laatste.",
+      "reviewItemMore_one": "Concept #{{id}} voor {{platform}}. Nog {{count}} na deze.",
+      "reviewItemMore_other": "Concept #{{id}} voor {{platform}}. Nog {{count}} na deze.",
+      "reviewDone": "Dat was de laatste. De beoordeling is gesloten.",
+      "reviewNothing": "Er wachten geen concepten op goedkeuring.",
+      "reviewNeedsChat": "Een beoordeling vereist een chatsessie; stuur eerst een bericht en probeer het opnieuw.",
+      "reviewFailed": "De beoordeling kon niet worden bereikt: {{reason}}"
     }
   }
 }

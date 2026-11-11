@@ -655,6 +655,30 @@ def draft_outreach_text(
     }
 
 
+def revise_draft(action: str, source: Optional[dict], current_text: str, note: str) -> dict:
+    """Rewrite an existing draft the way its approver asked ("shorter",
+    "less salesy"). The system message is the one the draft was written
+    under, so the rewrite keeps the same rules. Returns {"draft", "reason"};
+    draft is "" when the model gave nothing usable."""
+    system = _compose_reply_system() if (action or "").lower() == "reply" else _compose_outward_facing_system()
+    source = source or {}
+    answered = "\n".join(
+        part for part in (
+            f"TITLE: {source['title']}" if source.get("title") else "",
+            source.get("text") or "",
+        ) if part
+    ) or "(not recorded)"
+    user = (
+        f"WHAT THE DRAFT ANSWERS:\n{answered}\n\n"
+        f"CURRENT DRAFT:\n{current_text}\n\n"
+        f"THE APPROVER ASKED FOR THIS CHANGE: {note}\n\n"
+        "Rewrite the draft with that change and nothing else changed in what it claims. "
+        'Respond with JSON: {"draft": "...", "reason": "what you changed"}'
+    )
+    result = _ollama_json_chat(system, user)
+    return {"draft": str(result.get("draft") or "").strip(), "reason": str(result.get("reason") or "")}
+
+
 def apply_utm_tags(
     text: str, *, platform: str, campaign: str, hosts: Optional[Iterable[str]] = None,
 ) -> str:

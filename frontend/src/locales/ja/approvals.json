@@ -147,7 +147,18 @@
       "replyingTo": "返信中",
       "replyingToAuthor": "{{author}} に返信中",
       "olderWaiting": "さらに {{count}} 個の古いドラフトも待機中です。",
-      "approvalsPage": "承認ページ"
+      "approvalsPage": "承認ページ",
+      "answering": "回答中",
+      "answeringAuthor": "{{author}} に回答中",
+      "answeringIn": "r/{{community}} 内で回答中",
+      "pickedBecause": "選択理由: {{why}}",
+      "reviewHint": "「yes」で投稿、「skip」、「reject」、「change it to …」、「make it shorter」、または「stop」と入力してください。",
+      "reviewItem": "{{platform}} 用のドラフト #{{id}}。これが最後です。",
+      "reviewItemMore_other": "{{platform}} 用のドラフト #{{id}}。この後にあと {{count}} 件あります。",
+      "reviewDone": "最後の一つでした。レビューを終了します。",
+      "reviewNothing": "承認待ちのドラフトはありません。",
+      "reviewNeedsChat": "レビューにはチャットセッションが必要です。先にメッセージを送信してから、もう一度お試しください。",
+      "reviewFailed": "レビューに到達できませんでした: {{reason}}"
     }
   }
 }

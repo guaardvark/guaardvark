@@ -52,8 +52,8 @@ def handles(row) -> bool:
     return platform_ready(row.platform) and (row.action or "").strip().lower() in ACTIONS
 
 
-def _refusal(row) -> Optional[str]:
-    if row.status != "approved":
+def _refusal(row, approved_only: bool = True) -> Optional[str]:
+    if approved_only and row.status != "approved":
         return f"Only an approved draft can be posted; this one is '{row.status}'."
     stopped = kill_switch.posting_stop_reason()
     if stopped:

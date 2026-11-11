@@ -538,6 +538,9 @@ class SocialOutreachLog(db.Model):
     status = db.Column(db.String(40), nullable=False, default="drafted", index=True)
     grade_score = db.Column(db.Float, nullable=True)
     abort_reason = db.Column(db.String(512), nullable=True)
+    # What the draft answers, as JSON ({title, text, author, community, why}),
+    # kept when the Content agent writes its text over the recon payload.
+    source_json = db.Column(db.Text, nullable=True)
     task_id = db.Column(
         db.Integer,
         db.ForeignKey("tasks.id", name="fk_social_outreach_task_id", ondelete="SET NULL"),

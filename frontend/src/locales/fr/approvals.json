@@ -147,7 +147,19 @@
       "replyingTo": "Réponse à",
       "replyingToAuthor": "Réponse à {{author}}",
       "olderWaiting": "{{count}} brouillons plus anciens sont également en attente.",
-      "approvalsPage": "Page des Approbations"
+      "approvalsPage": "Page des Approbations",
+      "answering": "Réponse en cours",
+      "answeringAuthor": "Réponse de {{author}}",
+      "answeringIn": "dans r/{{community}}",
+      "pickedBecause": "Sélectionné car : {{why}}",
+      "reviewHint": "Dites « oui » pour publier, « passer », « rejeter », « changer en … », « raccourcir » ou « arrêter ».",
+      "reviewItem": "Brouillon n°{{id}} pour {{platform}}. C'est le dernier.",
+      "reviewItemMore_one": "Brouillon n°{{id}} pour {{platform}}. Encore {{count}} après celui-ci.",
+      "reviewItemMore_other": "Brouillon n°{{id}} pour {{platform}}. Encore {{count}} après celui-ci.",
+      "reviewDone": "C'était le dernier. La révision est terminée.",
+      "reviewNothing": "Aucun brouillon n'attend d'approbation.",
+      "reviewNeedsChat": "Une révision nécessite une session de chat ; envoyez un message d'abord, puis réessayez.",
+      "reviewFailed": "La révision est inaccessible : {{reason}}"
     }
   }
 }

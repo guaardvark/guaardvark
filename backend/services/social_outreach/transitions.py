@@ -200,7 +200,7 @@ def edited_fields(audit_id: int, text: str) -> dict:
     stores its tagged copy there), so an edit clears it and they build the
     post from the edited draft. A reply's draft is a JSON envelope that also
     names the comment it answers; the edit replaces the envelope's text and
-    keeps the rest.
+    keeps the rest. The edited text has not been graded, so the grade goes.
     """
     import json
 
@@ -225,7 +225,12 @@ def edited_fields(audit_id: int, text: str) -> dict:
     # A caller that sends back a whole envelope has edited it as one.
     if envelope is not None and envelope_of(text) is None:
         merged = json.dumps({**envelope, "draft": text})
-    return {"draft_text": merged, "posted_text": None}
+    fields = {"draft_text": merged, "posted_text": None}
+    before = envelope.get("draft") if envelope is not None else current
+    if (before or "").strip() != (envelope_of(merged) or {"draft": merged})["draft"].strip():
+        # The grade was given to the text this replaces.
+        fields["grade_score"] = None
+    return fields
 
 
 def approval_refusal(audit_id: int) -> Optional[str]:

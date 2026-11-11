@@ -147,7 +147,19 @@
       "replyingTo": "Respondendo a",
       "replyingToAuthor": "Respondendo a {{author}}",
       "olderWaiting": "{{count}} rascunhos mais antigos também estão aguardando.",
-      "approvalsPage": "Página de Aprovações"
+      "approvalsPage": "Página de Aprovações",
+      "answering": "Respondendo",
+      "answeringAuthor": "Respondendo {{author}}",
+      "answeringIn": "no r/{{community}}",
+      "pickedBecause": "Selecionado porque: {{why}}",
+      "reviewHint": "Diga \"sim\" para postar, \"pular\", \"rejeitar\", \"mudar para ...\", \"encurtar\" ou \"parar\".",
+      "reviewItem": "Rascunho #{{id}} para {{platform}}. Este é o último.",
+      "reviewItemMore_one": "Rascunho #{{id}} para {{platform}}. Mais {{count}} após este.",
+      "reviewItemMore_other": "Rascunho #{{id}} para {{platform}}. Mais {{count}} após este.",
+      "reviewDone": "Esse foi o último. A revisão foi encerrada.",
+      "reviewNothing": "Nenhum rascunho aguarda aprovação.",
+      "reviewNeedsChat": "Uma revisão precisa de uma sessão de chat; envie uma mensagem primeiro e tente novamente.",
+      "reviewFailed": "A revisão não pôde ser alcançada: {{reason}}"
     }
   }
 }

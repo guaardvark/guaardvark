@@ -166,7 +166,7 @@ const BUILT_IN_COMMANDS = [
     get description() {
       return translate("options.slashCommands.outreach");
     },
-    usage: "/outreach <what to do, in plain words> | <link> | status",
+    usage: "/outreach <what to do, in plain words> | <link> | review | status",
     category: "outreach",
     args: "optional",
     handler: "builtin",

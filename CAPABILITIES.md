@@ -437,7 +437,7 @@ Supervised AI for social-media engagement. Production path: **recon → draft �
 3. **Dispatch** — after approve, Reddit, YouTube and Facebook drafts are posted one at a time through the agent's browser when a person presses **Post now, I'm watching**, and Discord drafts by the Discord bot, with Redis cadence (at most 1 post per 30 min and 8 per 24 h, per platform)
 
 ### Natural language control
-- GUI Chat: `/outreach reply to some posts on Reddit about ComfyUI`, `/outreach reply to the new comments on our YouTube videos`, or `/outreach <link to a post>`. The drafts come back into the chat as cards with Approve, Reject and Post now. Name no topic and the search uses the outreach profile's keywords.
+- GUI Chat: `/outreach reply to some posts on Reddit about ComfyUI`, `/outreach reply to the new comments on our YouTube videos`, or `/outreach <link to a post>`. The drafts come back into the chat one at a time, each with the post or comment it answers. Answer in words, typed or spoken: "yes" posts it, "skip" leaves it for later, "reject" discards it, "change it to …" or "make it shorter" edits it, "stop" closes the review. A spoken "yes" waits three seconds so "stop" can cancel it. `/outreach review` goes through everything that is waiting the same way. The Approve, Reject and Post now buttons are on each card too. Name no topic and the search uses the outreach profile's keywords.
 - CLI: `guaardvark outreach "comment on youtube videos regarding Offline AI or ComfyUI"`
 - Chat tools, offered on a message that starts with `/outreach`: `outreach_execute_intent` (find posts and draft replies), `outreach_post_draft`, approve/reject/status/queue
 

@@ -147,7 +147,20 @@
       "replyingTo": "Odpowiadanie na",
       "replyingToAuthor": "Odpowiadanie na {{author}}",
       "olderWaiting": "{{count}} starszych szkiców również czeka.",
-      "approvalsPage": "Strona Zatwierdzenia"
+      "approvalsPage": "Strona Zatwierdzenia",
+      "answering": "Odpowiadanie",
+      "answeringAuthor": "Odpowiadanie {{author}}",
+      "answeringIn": "w r/{{community}}",
+      "pickedBecause": "Wybrane, ponieważ: {{why}}",
+      "reviewHint": "Powiedz „tak”, aby opublikować, „pomiń”, „odrzuć”, „zmień na…”, „skróć” lub „stop”.",
+      "reviewItem": "Projekt nr {{id}} dla {{platform}}. To ostatni.",
+      "reviewItemMore_few": "Projekt nr {{id}} dla {{platform}}. Jeszcze {{count}} po tym.",
+      "reviewItemMore_many": "Projekt nr {{id}} dla {{platform}}. Jeszcze {{count}} po tym.",
+      "reviewItemMore_one": "Projekt nr {{id}} dla {{platform}}. Jeszcze {{count}} po tym.",
+      "reviewDone": "To był ostatni. Przegląd został zakończony.",
+      "reviewNothing": "Brak projektów oczekujących na zatwierdzenie.",
+      "reviewNeedsChat": "Przegląd wymaga sesji czatu; wyślij wiadomość, a następnie spróbuj ponownie.",
+      "reviewFailed": "Nie można dotrzeć do przeglądu: {{reason}}"
     }
   }
 }

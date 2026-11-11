@@ -187,6 +187,36 @@ def _detached_audit_session():
     return Session(db.engine)
 
 
+# The longest original shown beside a draft; a post longer than this is cut.
+SOURCE_TEXT_MAX = 4000
+
+
+def source_of(payload: dict) -> Optional[str]:
+    """What a candidate answers, as the JSON kept in ``source_json``: the
+    post's title and body or the comment's text, who wrote it, where, and why
+    recon picked it. None when the payload names nothing to show (a share)."""
+    if not isinstance(payload, dict):
+        return None
+    text = (
+        payload.get("incoming_text")
+        or payload.get("source_text")
+        or payload.get("selftext_preview")
+        or payload.get("snippet")
+        or ""
+    )
+    title = payload.get("title") or ""
+    if not (str(text).strip() or str(title).strip()):
+        return None
+    source = {
+        "title": str(title).strip(),
+        "text": str(text).strip()[:SOURCE_TEXT_MAX],
+        "author": str(payload.get("incoming_author") or payload.get("author") or "").strip(),
+        "community": str(payload.get("subreddit") or "").strip(),
+        "why": str(payload.get("relevance_reason") or "").strip(),
+    }
+    return json.dumps(source, ensure_ascii=False)
+
+
 def mark_drafted_from_candidate(
     audit_id: int,
     draft_text: str,
@@ -210,6 +240,10 @@ def mark_drafted_from_candidate(
             row = s.get(SocialOutreachLog, audit_id)
             if row is None or row.status != "candidate":
                 return False
+            try:
+                row.source_json = source_of(json.loads(row.draft_text or "{}"))
+            except ValueError:
+                pass
             row.status = status
             row.draft_text = draft_text
             if grade_score is not None:

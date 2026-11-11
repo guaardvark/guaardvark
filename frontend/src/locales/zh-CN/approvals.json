@@ -147,7 +147,18 @@
       "replyingTo": "正在回复",
       "replyingToAuthor": "正在回复 {{author}}",
       "olderWaiting": "还有 {{count}} 条较旧的草稿正在等待中。",
-      "approvalsPage": "审批页面"
+      "approvalsPage": "审批页面",
+      "answering": "正在回答",
+      "answeringAuthor": "正在回答 {{author}}",
+      "answeringIn": "在 r/{{community}} 中",
+      "pickedBecause": "选择原因：{{why}}",
+      "reviewHint": "说“yes”发布，或说“skip”、“reject”、“change it to …”、“make it shorter”或“stop”。",
+      "reviewItem": "针对 {{platform}} 的草稿 #{{id}}。这是最后一个。",
+      "reviewItemMore_other": "针对 {{platform}} 的草稿 #{{id}}。之后还有 {{count}} 个。",
+      "reviewDone": "这是最后一个。审核已关闭。",
+      "reviewNothing": "没有待审核的草稿。",
+      "reviewNeedsChat": "审核需要对话会话；请先发送消息，然后再重试。",
+      "reviewFailed": "无法到达审核：{{reason}}"
     }
   }
 }

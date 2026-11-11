@@ -117,6 +117,26 @@ export function fetchRunResult(follow) {
   return request(`/run-result?${params.toString()}`);
 }
 
+// A one-at-a-time review in a chat (see components/chat/outreachReview.js).
+// `body` is { session_id, follow | draft_ids | waiting, platform }.
+export function startReview(body) {
+  return request("/review/start", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function fetchReview(sessionId) {
+  return request(`/review?session_id=${encodeURIComponent(sessionId)}`);
+}
+
+// Reads a chat message as the answer to the draft on show. Posts nothing:
+// a "yes" answers with `post`, which postReview then carries out.
+export function answerReview(body) {
+  return request("/review/answer", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function postReview(body) {
+  return request("/review/post", { method: "POST", body: JSON.stringify(body) });
+}
+
 export function patchDraft(id, payload) {
   return request(`/drafts/${id}`, {
     method: "PATCH",

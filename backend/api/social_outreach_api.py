@@ -215,8 +215,8 @@ def update_draft(event_id: int):
         from backend.services.social_outreach import transitions
 
         edited = transitions.edited_fields(event_id, body["draft_text"] or "")
-        row.draft_text = edited["draft_text"]
-        row.posted_text = edited["posted_text"]
+        for field, value in edited.items():
+            setattr(row, field, value)
     if "target_url" in body:
         row.target_url = body["target_url"] or None
     if "target_thread_id" in body:
@@ -260,6 +260,71 @@ def outreach_run_result():
         return jsonify({"error": "task_ids and after_id must be integers"}), 400
     platform = (request.args.get("platform") or "").strip().lower() or None
     return jsonify(run_result.run_result(task_ids, after_id, platform))
+
+
+# --- Review in chat: one draft at a time, answered in words -------------------
+
+@social_outreach_bp.post("/review/start")
+def review_start():
+    """Open a one-at-a-time review for a chat session.
+
+    Body: {session_id, follow?: {task_ids, after_id, platform} (from /intent),
+    draft_ids?: [..], waiting?: true, platform?}. Answers with the review's
+    view (see GET /review).
+    """
+    from backend.services.social_outreach import review
+
+    body = request.get_json(silent=True) or {}
+    out = review.start(
+        str(body.get("session_id") or ""),
+        follow=body.get("follow") if isinstance(body.get("follow"), dict) else None,
+        draft_ids=body.get("draft_ids") if isinstance(body.get("draft_ids"), list) else None,
+        waiting=bool(body.get("waiting")),
+        platform=body.get("platform"),
+    )
+    return jsonify(out), (400 if out.get("error") else 200)
+
+
+@social_outreach_bp.get("/review")
+def review_view():
+    """Where a chat's review stands: {open, waiting, tasks, posting, pending,
+    current, remaining, last}. ``current`` is the draft to answer, with the
+    post or comment it answers in ``source``."""
+    from backend.services.social_outreach import review
+
+    return jsonify(review.view(request.args.get("session_id") or ""))
+
+
+@social_outreach_bp.post("/review/answer")
+def review_answer():
+    """Read a chat message as the answer to the draft on show.
+
+    Body: {session_id, text, spoken?}. ``handled`` false means no review is
+    open and the message is the chat's. A "yes" answers with ``post`` ({id,
+    delay_ms, needs_screen}); nothing is approved or posted until
+    POST /review/post is called for that draft.
+    """
+    from backend.services.social_outreach import review
+
+    body = request.get_json(silent=True) or {}
+    return jsonify(review.answer(
+        str(body.get("session_id") or ""), str(body.get("text") or ""), spoken=bool(body.get("spoken")),
+    ))
+
+
+@social_outreach_bp.post("/review/post")
+def review_post():
+    """Approve and post the draft the last "yes" marked. Body: {session_id,
+    draft_id}. Posts nothing unless that draft is the one a "yes" marked in
+    this chat; a "stop" in between takes the yes back."""
+    from backend.services.social_outreach import review
+
+    body = request.get_json(silent=True) or {}
+    try:
+        draft_id = int(body.get("draft_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "draft_id must be an integer"}), 400
+    return jsonify(review.post(str(body.get("session_id") or ""), draft_id))
 
 
 @social_outreach_bp.post("/approve/<int:event_id>")

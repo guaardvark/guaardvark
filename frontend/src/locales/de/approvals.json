@@ -147,7 +147,19 @@
       "replyingTo": "Antwortet auf",
       "replyingToAuthor": "Antwortet auf {{author}}",
       "olderWaiting": "{{count}} ältere Entwürfe warten ebenfalls.",
-      "approvalsPage": "Freigaben-Seite"
+      "approvalsPage": "Freigaben-Seite",
+      "answering": "Beantwortet",
+      "answeringAuthor": "Beantwortet von {{author}}",
+      "answeringIn": "in r/{{community}}",
+      "pickedBecause": "Ausgewählt, weil: {{why}}",
+      "reviewHint": "Sag „ja“, um es zu posten, „überspringen“, „ablehnen“, „zu ... ändern“, „kürzer machen“ oder „stoppen“.",
+      "reviewItem": "Entwurf #{{id}} für {{platform}}. Dies ist der letzte.",
+      "reviewItemMore_one": "Entwurf #{{id}} für {{platform}}. Noch {{count}} nach diesem.",
+      "reviewItemMore_other": "Entwurf #{{id}} für {{platform}}. Noch {{count}} nach diesem.",
+      "reviewDone": "Das war der letzte. Die Überprüfung ist abgeschlossen.",
+      "reviewNothing": "Keine Entwürfe warten auf Genehmigung.",
+      "reviewNeedsChat": "Eine Überprüfung benötigt eine Chat-Sitzung; sende zuerst eine Nachricht und versuche es dann erneut.",
+      "reviewFailed": "Die Überprüfung konnte nicht erreicht werden: {{reason}}"
     }
   }
 }

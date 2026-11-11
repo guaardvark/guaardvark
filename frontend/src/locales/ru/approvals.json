@@ -147,7 +147,20 @@
       "replyingTo": "Ответ на",
       "replyingToAuthor": "Ответ {{author}}",
       "olderWaiting": "Также ожидают {{count}} более старых черновиков.",
-      "approvalsPage": "Страница Одобрения"
+      "approvalsPage": "Страница Одобрения",
+      "answering": "Ответ",
+      "answeringAuthor": "Ответ {{author}}",
+      "answeringIn": "в r/{{community}}",
+      "pickedBecause": "Выбрано, потому что: {{why}}",
+      "reviewHint": "Скажите «да», чтобы опубликовать, «пропустить», «отклонить», «изменить на…», «сократить» или «стоп».",
+      "reviewItem": "Черновик №{{id}} для {{platform}}. Это последний.",
+      "reviewItemMore_few": "Черновик №{{id}} для {{platform}}. Еще {{count}} после этого.",
+      "reviewItemMore_many": "Черновик №{{id}} для {{platform}}. Еще {{count}} после этого.",
+      "reviewItemMore_one": "Черновик №{{id}} для {{platform}}. Еще {{count}} после этого.",
+      "reviewDone": "Это был последний. Проверка завершена.",
+      "reviewNothing": "Нет черновиков, ожидающих одобрения.",
+      "reviewNeedsChat": "Для проверки требуется сессия в Чате; сначала отправьте сообщение, затем попробуйте снова.",
+      "reviewFailed": "Не удалось выполнить проверку: {{reason}}"
     }
   }
 }

@@ -366,6 +366,8 @@ class RecondAgent:
             "score": thread.score,
             "num_comments": thread.num_comments,
             "selftext_preview": thread.selftext[:400] if thread.selftext else "",
+            # The post as its approver reads it; the drafter works from the preview.
+            "source_text": (thread.selftext or "")[:audit.SOURCE_TEXT_MAX],
             "top_comments": [c[:600] for c in comments[:5]],
             # Content reads these to adjust tone (per-sub voice) and
             # timeliness framing (a 30-min-old thread is hot, a 12-hour
