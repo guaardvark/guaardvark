@@ -9,6 +9,7 @@ so they never leak to the user's real screen.
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -382,17 +383,25 @@ class LocalScreenBackend(ScreenInterface):
             for chunk in chunks:
                 if not chunk:
                     continue
-                # `--` ends xdotool's option parsing so chunks starting with `-`
-                # (markdown bullets, hyphenated leads) don't get eaten as flags.
-                if wid:
-                    r = self._xdotool("type", "--window", wid, "--clearmodifiers", "--delay", delay_ms, "--", chunk)
-                else:
-                    r = self._xdotool("type", "--clearmodifiers", "--delay", delay_ms, "--", chunk)
-                if r.returncode != 0:
-                    err = r.stderr.strip() or f"xdotool type exited with code {r.returncode}"
-                    logger.error(f"Type failed at {typed}/{len(text)}: {err}")
-                    return {"success": False, "error": err, "typed": typed}
-                typed += len(chunk)
+                # A line break is pressed as Return: `xdotool type` does not
+                # deliver "\n" to Firefox's rich editors, which ran paragraphs
+                # together (measured 2026-11-11 in Reddit's comment box).
+                for piece in re.split(r"(\n)", chunk):
+                    if not piece:
+                        continue
+                    if piece == "\n":
+                        r = self._xdotool("key", "--clearmodifiers", "Return")
+                    # `--` ends xdotool's option parsing so pieces starting with `-`
+                    # (markdown bullets, hyphenated leads) don't get eaten as flags.
+                    elif wid:
+                        r = self._xdotool("type", "--window", wid, "--clearmodifiers", "--delay", delay_ms, "--", piece)
+                    else:
+                        r = self._xdotool("type", "--clearmodifiers", "--delay", delay_ms, "--", piece)
+                    if r.returncode != 0:
+                        err = r.stderr.strip() or f"xdotool type exited with code {r.returncode}"
+                        logger.error(f"Type failed at {typed}/{len(text)}: {err}")
+                        return {"success": False, "error": err, "typed": typed}
+                    typed += len(piece)
                 if len(chunks) > 1:
                     time.sleep(0.05)  # brief settle so rich editors digest each chunk
             return {"success": True, "action": "type", "length": len(text), "chunks": len(chunks)}

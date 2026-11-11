@@ -24,6 +24,7 @@ from backend.services.social_outreach.reddit_outreach import (
     fetch_subreddit_rules,
     reddit_reading,
     is_self_promo_banned,
+    backend_headers,
     backend_url,
     bidi_evaluate_json,
     bidi_reachable,
@@ -199,6 +200,7 @@ def _draft_share(subreddit: str, link_url: str, task_id: Optional[int]) -> Optio
                 "target_url": f"{REDDIT_BASE}/r/{subreddit}",
                 "task_id": task_id,
             },
+            headers=backend_headers(),
             timeout=120,
         )
         resp.raise_for_status()

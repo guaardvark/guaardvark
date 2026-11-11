@@ -824,6 +824,15 @@ def backend_url() -> str:
 _backend_url = backend_url
 
 
+def backend_headers() -> dict:
+    """The headers a worker sends to this machine's backend: its API key,
+    which the backend asks of every caller."""
+    from backend.utils.backend_http import API_KEY_HEADER, backend_api_key
+
+    key = backend_api_key(own_backend=True)
+    return {API_KEY_HEADER: key} if key else {}
+
+
 def draft_via_backend(
     thread: RedditThread,
     comments: list[str],
@@ -856,6 +865,7 @@ def draft_via_backend(
                 "mode": "comment",
                 "relevance_unchecked": relevance_unchecked,
             },
+            headers=backend_headers(),
             timeout=120,
         )
         resp.raise_for_status()
@@ -884,6 +894,7 @@ def record_post_via_backend(
                 "target_thread_id": thread_id,
                 "task_id": task_id,
             },
+            headers=backend_headers(),
             timeout=10,
         )
     except Exception as e:
