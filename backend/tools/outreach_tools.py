@@ -717,9 +717,10 @@ class OutreachExecuteIntentTool(BaseTool):
     name = "outreach_execute_intent"
     read_only = False
     description = (
-        "Find posts to reply to and draft the replies. Give platform (reddit, youtube or "
-        "discord), and topics if the user named any; with no topics the search uses the "
-        "outreach profile's own keywords. count is how many posts to look for. "
+        "Find posts to reply to and draft the replies. Give platform (reddit, youtube, "
+        "facebook or discord), and topics if the user named any; with no topics the search "
+        "uses the outreach profile's own keywords. On facebook the posts come from the "
+        "groups the signed-in account is in. count is how many posts to look for. "
         "action='reply_comments' instead reads the unanswered comments on the user's own "
         "YouTube videos and drafts a reply to each. A link in text is drafted for directly. "
         "Without platform, text is classified and can also answer status, list the queue, "
@@ -734,8 +735,8 @@ class OutreachExecuteIntentTool(BaseTool):
         ),
         "platform": ToolParameter(
             name="platform", type="string", required=False,
-            description="Where to look: reddit, youtube or discord",
-            enum=["reddit", "youtube", "discord"],
+            description="Where to look: reddit, youtube, facebook or discord",
+            enum=["reddit", "youtube", "facebook", "discord"],
         ),
         "action": ToolParameter(
             name="action", type="string", required=False,

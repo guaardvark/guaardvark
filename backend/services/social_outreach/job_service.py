@@ -28,6 +28,7 @@ OUTREACH_TASK_TYPES = {
     "youtube_replies": "social_outreach_youtube_replies",
     "draft": "social_outreach_draft",
     "discord": "social_outreach_discord",
+    "facebook": "social_outreach_facebook",
 }
 
 # Runs that read an outside site, by what they read; with web access off they
@@ -38,6 +39,7 @@ WEB_READING_RUNS = {
     "social_outreach_reddit": "scout Reddit for outreach",
     "social_outreach_share": "scout Reddit for outreach",
     "social_outreach_youtube_replies": "read the comments on your YouTube videos",
+    "social_outreach_facebook": "scout Facebook groups for outreach",
 }
 
 
@@ -49,6 +51,8 @@ def queue_outreach_run(
     batch_size: int | None = None,
     keyword_profiles: list[str] | None = None,
     search_queries: list[str] | None = None,
+    groups: list[str] | None = None,
+    post_url: str | None = None,
     chain_draft: bool = False,
     priority: int = 2,
     created_by: str = "outreach",
@@ -96,6 +100,14 @@ def queue_outreach_run(
         cleaned = [str(q).strip() for q in search_queries if q and str(q).strip()]
         if cleaned:
             workflow_config["search_queries"] = cleaned[:8]
+    if groups:
+        # Facebook: the groups to read instead of the saved or matching ones.
+        cleaned = [str(g).strip() for g in groups if g and str(g).strip()]
+        if cleaned:
+            workflow_config["groups"] = cleaned[:12]
+    if post_url:
+        # Facebook: draft a reply to this one post.
+        workflow_config["post_url"] = post_url.strip()
     if batch_size is not None:
         workflow_config["batch_size"] = max(1, min(int(batch_size), 25))
     if keyword_profiles:
@@ -169,6 +181,10 @@ def _task_name(platform: str, workflow_config: dict[str, Any]) -> str:
         return "Outreach draft candidates"
     if platform == "discord":
         return "Outreach Discord pass"
+    if platform == "facebook":
+        if workflow_config.get("post_url"):
+            return "Outreach reply to a Facebook group post"
+        return "Outreach Facebook groups scout"
     return "Outreach pass"
 
 
@@ -194,6 +210,10 @@ def _task_description(platform: str, workflow_config: dict[str, Any]) -> str:
         return "Draft pending Outreach candidates into reviewable queue rows."
     if platform == "discord":
         return "Discord Outreach is handled by the Discord plugin cog (Celery path is a noop)."
+    if platform == "facebook":
+        if workflow_config.get("post_url"):
+            return f"Read {workflow_config['post_url']} and draft a reply; the draft waits for approval."
+        return "Read the newest posts in your Facebook groups and draft a reply for each that fits; drafts wait for approval."
     return "Run an Outreach pass."
 
 
@@ -212,5 +232,6 @@ def _queued_message(platform: str, workflow_config: dict[str, Any], task_id: int
         "youtube_replies": "Replies to comments on your videos",
         "draft": "Drafting Outreach pass",
         "discord": "Discord Outreach pass",
+        "facebook": "Facebook groups Outreach pass",
     }
     return f"{labels.get(platform, 'Outreach pass')} added to the Job Queue as task #{task_id}."

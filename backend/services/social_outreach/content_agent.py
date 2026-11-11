@@ -71,15 +71,22 @@ def _build_thread_context(payload: dict) -> str:
     selftext = payload.get("selftext_preview", "") or "(link-only post)"
     comments = payload.get("top_comments", []) or []
     subreddit = payload.get("subreddit", "")
-    age = _format_age(payload.get("created_utc", 0))
+    community = payload.get("community", "")
     header_lines = []
     if subreddit:
         header_lines.append(f"SUBREDDIT: r/{subreddit}")
-    header_lines.append(f"THREAD AGE: {age}")
+    elif community:
+        header_lines.append(f"COMMUNITY: {community}")
+    if payload.get("created_utc") or not community:
+        header_lines.append(f"THREAD AGE: {_format_age(payload.get('created_utc', 0))}")
+    if payload.get("author"):
+        header_lines.append(f"POSTED BY: {payload['author']}")
     header = "\n".join(header_lines)
+    # A post with no title of its own (a Facebook group post) is all body.
+    title_part = f"TITLE: {title}\n\n" if title else ""
     return (
         f"{header}\n\n"
-        f"TITLE: {title}\n\n"
+        f"{title_part}"
         f"OP BODY:\n{selftext}\n\n"
         f"TOP COMMENTS:\n" + "\n---\n".join(comments[:5])
     )

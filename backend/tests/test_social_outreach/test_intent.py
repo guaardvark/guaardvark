@@ -329,21 +329,44 @@ def test_a_scout_with_no_topic_and_no_profile_keywords_is_refused(app):
     mock_q.assert_not_called()
 
 
-def test_a_facebook_scout_is_refused_with_what_works(app):
+def test_a_facebook_scout_reads_the_accounts_groups(app):
     from backend.services.social_outreach.intent import execute_outreach_intent
 
     clf = _classifier({
-        "intent": "scout_and_draft", "platform": "facebook", "topics": [],
+        "intent": "scout_and_draft", "platform": "facebook", "topics": ["comfyui"],
         "draft_id": None, "confidence": 0.95, "reason": "engage on facebook",
     })
     with app.app_context(), \
+         patch("backend.services.social_outreach.intent.kill_switch.is_enabled", return_value=True), \
          patch("backend.services.social_outreach.intent.queue_outreach_run") as mock_q:
+        mock_q.return_value = {"task_id": 9, "job_id": "task_9"}
         result = execute_outreach_intent(
-            "find some Facebook posts to reply to", created_by="test", classifier=clf,
+            "find some Facebook posts about comfyui to reply to", created_by="test", classifier=clf,
         )
-    assert result["refused"] is True
-    assert "Paste a post's link" in result["message"]
-    mock_q.assert_not_called()
+    assert result["ok"] is True
+    assert mock_q.call_args[0][0] == "facebook"
+    assert mock_q.call_args[1]["keyword_profiles"] == ["comfyui"]
+    assert result["follow"]["platform"] == "facebook"
+    assert "in your Facebook groups" in result["message"]
+
+
+@pytest.mark.parametrize("link, expected", [
+    ("https://www.facebook.com/groups/123456789/posts/987654321/",
+     {"post_url": "https://www.facebook.com/groups/123456789/posts/987654321/"}),
+    ("https://www.facebook.com/groups/localai/", {"groups": ["localai"]}),
+])
+def test_a_link_into_a_facebook_group_is_read_through_the_browser(app, link, expected):
+    from backend.services.social_outreach.intent import execute_outreach_intent
+
+    with app.app_context(), \
+         patch("backend.services.social_outreach.intent.kill_switch.is_enabled", return_value=True), \
+         patch("backend.services.social_outreach.intent.queue_outreach_run") as mock_q:
+        mock_q.return_value = {"task_id": 11, "job_id": "task_11"}
+        result = execute_outreach_intent(link, created_by="test")
+    assert result["ok"] is True
+    assert mock_q.call_args[0][0] == "facebook"
+    for key, value in expected.items():
+        assert mock_q.call_args[1][key] == value
 
 
 @pytest.mark.parametrize("text, intent_name, platform", [

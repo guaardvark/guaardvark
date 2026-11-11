@@ -32,10 +32,10 @@ _VALID_INTENTS = frozenset({
     "reply_comments",
     "refuse",
 })
-_SCOUT_PLATFORMS = frozenset({"youtube", "reddit", "discord"})
-# Platforms the classifier may name. Facebook has a poster but no scout, so a
-# request to find posts there is answered with what does work.
-_NAMED_PLATFORMS = _SCOUT_PLATFORMS | {"facebook"}
+# Facebook is scouted in the groups the signed-in account is in.
+_SCOUT_PLATFORMS = frozenset({"youtube", "reddit", "discord", "facebook"})
+# Platforms the classifier may name.
+_NAMED_PLATFORMS = _SCOUT_PLATFORMS
 # Posts one request looks for when the person gave no number, and the most it takes.
 DEFAULT_SCOUT_COUNT = 3
 MAX_SCOUT_COUNT = 10
@@ -391,7 +391,7 @@ def execute_outreach_intent(
             "approve": _dispatch_approve,
             "reject": _dispatch_reject,
             "post": _dispatch_post,
-            "draft_url": _dispatch_draft_url,
+            "draft_url": lambda c: _dispatch_draft_url(c, created_by=created_by),
             "scout_and_draft": lambda c: _dispatch_scout(c, created_by=created_by),
             "reply_comments": lambda c: _dispatch_reply_comments(c, created_by=created_by),
         },
@@ -674,13 +674,51 @@ def _dispatch_post(classification: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def _dispatch_draft_url(classification: dict[str, Any]) -> dict[str, Any]:
+def _dispatch_facebook_link(
+    classification: dict[str, Any], url: str, *, created_by: str,
+) -> Optional[dict[str, Any]]:
+    """Queue the read a link into a Facebook group needs: a post is read and
+    answered, a group is scouted. None for any other Facebook link."""
+    from backend.services.social_outreach import facebook_outreach as fb
+
+    post = fb.group_post_ref(url)
+    group = None if post else fb.group_ref(url)
+    if not post and not group:
+        return None
+    if not kill_switch.is_enabled():
+        return _kill_off(classification)
+    after_id = audit.latest_id()
+    try:
+        if post:
+            queued = [queue_outreach_run(
+                "facebook", post_url=fb.group_post_url(*post), batch_size=1,
+                chain_draft=True, created_by=created_by,
+            )]
+            looking = "Reading that Facebook post to draft a reply"
+        else:
+            wanted = int(classification.get("max_candidates") or DEFAULT_SCOUT_COUNT)
+            queued = [queue_outreach_run(
+                "facebook", groups=[group], batch_size=wanted,
+                chain_draft=True, created_by=created_by,
+            )]
+            looking = "Looking in that Facebook group for posts that fit your outreach profile"
+    except (ValueError, RuntimeError) as e:
+        return _base(classification, ok=False, error=str(e), message=str(e))
+    return _queued_ok(classification, queued, plat="facebook", after_id=after_id, looking=looking)
+
+
+def _dispatch_draft_url(classification: dict[str, Any], *, created_by: str = "outreach") -> dict[str, Any]:
     """Draft a reply to the page a pasted link points at; it waits for approval."""
     url = classification.get("url") or ""
     refusal = platforms.refusal_for_url(url)
     if refusal:
         return _dispatch_refuse({**classification, "intent": "refuse", "reason": refusal})
     platform = classification.get("platform")
+    if platform == "facebook":
+        # A group's pages are read through the signed-in agent browser.
+        queued = _dispatch_facebook_link(classification, url, created_by=created_by)
+        if queued is not None:
+            return queued
     if not platform:
         return _dispatch_refuse({
             **classification,
@@ -796,20 +834,11 @@ def _dispatch_scout(classification: dict[str, Any], *, created_by: str) -> dict[
         })
 
     topics = [t for t in topics if t and not t.startswith("__")]
-    if plat == "facebook":
-        return _dispatch_refuse({
-            **classification,
-            "intent": "refuse",
-            "reason": (
-                "Outreach cannot search Facebook for posts. Paste a post's link after /outreach "
-                "and a reply is drafted for it."
-            ),
-        })
     if plat not in _SCOUT_PLATFORMS:
         return _dispatch_refuse({
             **classification,
             "intent": "refuse",
-            "reason": "Say where to look: Reddit, YouTube or Discord.",
+            "reason": "Say where to look: Reddit, YouTube, Facebook or Discord.",
         })
 
     if not kill_switch.is_enabled():
@@ -859,17 +888,30 @@ def _dispatch_scout(classification: dict[str, Any], *, created_by: str) -> dict[
             queued.append(
                 queue_outreach_run("discord", created_by=created_by)
             )
+        elif plat == "facebook":
+            # The newest posts of the saved groups, or of the groups the
+            # account is in that match the profile; named topics narrow them.
+            queued.append(
+                queue_outreach_run(
+                    "facebook",
+                    keyword_profiles=topics or None,
+                    batch_size=max_c,
+                    chain_draft=True,
+                    created_by=created_by,
+                )
+            )
     except (ValueError, RuntimeError) as e:
         return _base(classification, ok=False, error=str(e), message=str(e))
 
     label = platforms.label_for(plat)
     where = f" in r/{subreddit}" if plat == "reddit" and subreddit else ""
+    place = "in your Facebook groups" if plat == "facebook" else f"on {label}{where}"
     if topics:
         about = ", ".join(topics)
         source = " (from your outreach profile, since you named no topic)" if from_profile else ""
-        looking = f"Looking on {label}{where} for posts about {about}{source}"
+        looking = f"Looking {place} for posts about {about}{source}"
     else:
-        looking = f"Looking on {label}{where} for posts that fit your outreach profile"
+        looking = f"Looking {place} for posts that fit your outreach profile"
     return _queued_ok(
         classification, queued, plat=plat, after_id=after_id, looking=looking, topics=topics,
         topics_from_profile=from_profile,

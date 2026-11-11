@@ -32,6 +32,11 @@ _REASONS = {
     "no_youtube_account": "No YouTube account is switched on for Outreach comments.",
     "youtube_refused": "YouTube refused the request.",
     "youtube_unreachable": "YouTube could not be reached.",
+    "browser_in_use": "The agent browser is busy with another task, so Facebook was not read.",
+    "browser_unreadable": "The agent browser could not be read, so Facebook was not read.",
+    "no_groups": "No Facebook group is saved and none you are in matches your outreach keywords.",
+    "post_unreadable": "That Facebook post could not be read.",
+    "post_takes_no_comment": "That Facebook post has no comment box for this account.",
 }
 
 
@@ -108,7 +113,9 @@ def _scout_notes(report: dict) -> list[str]:
 
     found = report.get("threads_found", report.get("comments_found"))
     candidates = int(report.get("candidates") or 0)
-    if "comments_found" in report:
+    if isinstance(report.get("groups"), list):
+        notes.extend(_group_notes(report, candidates))
+    elif "comments_found" in report:
         notes.append(
             f"Read {_count(int(found), 'unanswered comment', 'unanswered comments')}; "
             f"{candidates} had no draft yet."
@@ -118,6 +125,8 @@ def _scout_notes(report: dict) -> list[str]:
     skipped = []
     if report.get("skipped_dedupe"):
         skipped.append(f"{report['skipped_dedupe']} already handled")
+    if report.get("skipped_answered"):
+        skipped.append(f"{report['skipped_answered']} you already answered or cannot comment on")
     if report.get("skipped_rules"):
         skipped.append(
             f"{report['skipped_rules']} in communities that ban promotion or whose rules could not be read"
@@ -127,6 +136,28 @@ def _scout_notes(report: dict) -> list[str]:
         skipped.append(f"{unfit} not a fit for what you offer")
     if skipped:
         notes.append("Left out: " + ", ".join(skipped) + ".")
+    return notes
+
+
+def _group_notes(report: dict, candidates: int) -> list[str]:
+    """What a Facebook groups scout read, group by group."""
+    groups = [g for g in report["groups"] if isinstance(g, dict)]
+    read = [g for g in groups if not g.get("reason")]
+    notes = [
+        f"Read {_count(int(report.get('posts_seen') or 0), 'post', 'posts')} in "
+        f"{_count(len(read), 'Facebook group', 'Facebook groups')}; {candidates} fit."
+    ]
+    for group in groups:
+        reason = group.get("reason")
+        if not reason:
+            continue
+        name = group.get("name") or group.get("group") or "A group"
+        if str(reason).startswith("group_bans_self_promo"):
+            notes.append(f"{name} bans self-promotion in its rules, so it was left alone.")
+        elif reason == "rules_unreadable":
+            notes.append(f"{name}: its rules could not be read, so it was left alone.")
+        else:
+            notes.append(f"{name}: {reason}.")
     return notes
 
 

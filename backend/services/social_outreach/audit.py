@@ -211,7 +211,7 @@ def source_of(payload: dict) -> Optional[str]:
         "title": str(title).strip(),
         "text": str(text).strip()[:SOURCE_TEXT_MAX],
         "author": str(payload.get("incoming_author") or payload.get("author") or "").strip(),
-        "community": str(payload.get("subreddit") or "").strip(),
+        "community": str(payload.get("subreddit") or payload.get("community") or "").strip(),
         "why": str(payload.get("relevance_reason") or "").strip(),
     }
     return json.dumps(source, ensure_ascii=False)

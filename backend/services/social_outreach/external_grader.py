@@ -319,6 +319,7 @@ def score_thread_relevance(
     top_comments: list[str],
     feature_hint: str,
     subreddit: str = "",
+    community: str = "",
 ) -> dict:
     """LLM judge for whether a keyword-matched thread is actually a good
     outreach target. Catches the "keyword present but context hostile" cases
@@ -335,7 +336,8 @@ def score_thread_relevance(
     if model is None:
         return {"grade": 0.0, "skipped": True, "model": None, "reason": "no_grader_model_loaded"}
 
-    sub_part = f"r/{subreddit}\n" if subreddit else ""
+    # Where the thread is: a subreddit, or another community named in words.
+    sub_part = f"r/{subreddit}\n" if subreddit else (f"{community}\n" if community else "")
     comments_part = "\n---\n".join(c[:400] for c in top_comments[:3])
     user_msg = (
         f"FEATURE_HINT: {feature_hint}\n"

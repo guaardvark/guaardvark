@@ -6,7 +6,8 @@ emit candidate rows for the Content agent to draft. **Never posts. Never drafts.
 The whole point of the recon split is that this phase has zero posting risk and
 can run on cron without the kill-switch gate.
 
-Today this implements Reddit (`scout_reddit`) and YouTube (`scout_youtube`).
+Today this implements Reddit (`scout_reddit`), YouTube (`scout_youtube`) and
+Facebook groups (`scout_facebook_groups`).
 HN / GitHub sources land in later slices —
 see plans/2026-05-09-outreach-pipeline-multi-agent.md.
 
@@ -401,6 +402,227 @@ class RecondAgent:
                 subreddit, thread.id, feature_hint, thread.score,
             )
 
+
+    def scout_facebook_groups(
+        self,
+        groups: Optional[list[str]] = None,
+        max_candidates: int = DEFAULT_CANDIDATES_PER_PASS,
+        topic_filters: Optional[list[str]] = None,
+    ) -> dict:
+        """Scout the newest posts of Facebook groups the account is in and
+        emit a candidate row for each post that fits.
+
+        ``groups`` are group ids or names-in-address; without any, the groups
+        the account is in whose name matches a profile keyword are read. A
+        post goes through what a Reddit thread does: the group's rules must
+        be readable and allow promotion, the post must match the profile and
+        pass the fit judge. Reads through the agent browser, signed in to
+        Facebook, and is skipped while the agent is using it.
+        """
+        from backend.services.social_outreach import facebook_outreach as fb
+        from backend.services.social_outreach.reddit_outreach import bidi_reachable, is_self_promo_banned
+        from backend.utils.agent_browser_control import agent_browser_control
+
+        report = {
+            "platform": "facebook",
+            "groups": [],
+            "posts_seen": 0,
+            "candidates": 0,
+            "skipped_dedupe": 0,
+            "skipped_irrelevant": 0,
+            "skipped_by_llm": 0,
+            "skipped_topic": 0,
+            "skipped_rules": 0,
+            "skipped_answered": 0,
+            "reason": None,
+        }
+        if not kill_switch.is_enabled():
+            report["reason"] = "kill_switch_off"
+            return report
+        if not profile.load().features:
+            report["reason"] = NO_FEATURES_REASON
+            return report
+        blocked = web_access_block_reason("scout Facebook groups for outreach")
+        if blocked:
+            logger.info("recon: facebook pass skipped: %s", blocked)
+            report["reason"] = "web_access_off"
+            return report
+
+        with agent_browser_control() as refusal:
+            if refusal:
+                report["reason"] = "browser_in_use"
+                report["detail"] = str(refusal)
+                return report
+            ok, why = bidi_reachable()
+            if not ok:
+                report["reason"] = "browser_unreadable"
+                report["detail"] = why
+                return report
+
+            wanted_groups = [g for g in (fb.group_ref(g) for g in groups or []) if g]
+            if not wanted_groups:
+                wanted_groups = [
+                    group for group, name in fb.joined_groups()
+                    if persona.find_relevant_feature(name) is not None
+                ]
+            if not wanted_groups:
+                report["reason"] = "no_groups"
+                return report
+
+            already_touched = set(audit.recent_thread_ids("facebook", statuses=CANDIDATE_DEDUPE_STATUSES))
+            for group in wanted_groups:
+                if report["candidates"] >= max_candidates:
+                    break
+                entry = {"group": group, "name": "", "posts_seen": 0, "candidates": 0, "reason": None}
+                report["groups"].append(entry)
+                rules = fb.read_group_rules(group)
+                if rules is None:
+                    entry["reason"] = "rules_unreadable"
+                    report["skipped_rules"] += 1
+                    continue
+                ban_match = is_self_promo_banned(rules)
+                if ban_match:
+                    entry["reason"] = f"group_bans_self_promo:{ban_match}"
+                    report["skipped_rules"] += 1
+                    continue
+
+                def fits(text: str) -> bool:
+                    return (
+                        persona.find_relevant_feature(text) is not None
+                        and topic_matches_text(text, topic_filters)
+                    )
+
+                name, posts, counts = fb.read_group_feed(
+                    group, fits, max_candidates - report["candidates"], skip_post_ids=already_touched,
+                )
+                entry.update(name=name, posts_seen=counts["seen"], reason=counts.get("problem"))
+                report["posts_seen"] += counts["seen"]
+                report["skipped_irrelevant"] += counts["unwanted"] + counts["no_address"]
+                report["skipped_dedupe"] += counts["known"]
+                for post in posts:
+                    already_touched.add(post.post_id)
+                    if self._consider_group_post(post, name, report):
+                        entry["candidates"] += 1
+        return report
+
+    def scout_facebook_post(self, url: str) -> dict:
+        """Emit a candidate row for the one group post at ``url``, which a
+        person named: it is read and queued without the keyword match or the
+        fit judge."""
+        from backend.services.social_outreach import facebook_outreach as fb
+        from backend.services.social_outreach.reddit_outreach import bidi_reachable
+        from backend.utils.agent_browser_control import agent_browser_control
+
+        report = {"platform": "facebook", "post": url, "candidates": 0, "reason": None}
+        if not kill_switch.is_enabled():
+            report["reason"] = "kill_switch_off"
+            return report
+        blocked = web_access_block_reason("read the Facebook post at that link")
+        if blocked:
+            report["reason"] = "web_access_off"
+            return report
+        with agent_browser_control() as refusal:
+            if refusal:
+                report.update(reason="browser_in_use", detail=str(refusal))
+                return report
+            ok, why = bidi_reachable()
+            if not ok:
+                report.update(reason="browser_unreadable", detail=why)
+                return report
+            post, why = fb.read_group_post(url)
+        if post is None:
+            report.update(reason="post_unreadable", detail=why)
+            return report
+        if not post.actor:
+            report["reason"] = "post_takes_no_comment"
+            return report
+        audit_id = audit.log_candidate(
+            platform="facebook",
+            action="comment",
+            target_url=post.url,
+            target_thread_id=post.post_id,
+            feature_hint=persona.find_relevant_feature(post.text) or "",
+            extras={
+                "title": "",
+                "selftext_preview": post.text[:1200],
+                "source_text": post.text[:audit.SOURCE_TEXT_MAX],
+                "top_comments": post.comments[:5],
+                "author": post.author,
+                "community": post.group_name,
+                "group": post.group,
+                "posts_as": post.actor,
+                "relevance_reason": "You gave this post's link.",
+                "relevance_skipped": True,
+            },
+        )
+        if audit_id is not None:
+            report["candidates"] = 1
+        return report
+
+    def _consider_group_post(self, preview, group_name: str, report: dict) -> bool:
+        """Read the whole post and emit a candidate row if it fits; count why
+        not in ``report`` otherwise."""
+        from backend.services.social_outreach import facebook_outreach as fb
+
+        post, why = fb.read_group_post(preview.url)
+        if post is None:
+            logger.info("recon: facebook post %s not read: %s", preview.url, why)
+            report["skipped_irrelevant"] += 1
+            return False
+        if not post.actor or post.answered:
+            # No comment box for this account, or it has commented already.
+            report["skipped_answered"] += 1
+            return False
+        feature_hint = persona.find_relevant_feature("\n".join([post.text, *post.comments[:5]]))
+        if feature_hint is None:
+            report["skipped_irrelevant"] += 1
+            return False
+
+        group_name = post.group_name or group_name
+        title = post.text.split("\n", 1)[0][:200]
+        relevance = external_grader.score_thread_relevance(
+            title=title,
+            selftext=post.text,
+            top_comments=post.comments,
+            feature_hint=feature_hint,
+            community=f"Facebook group: {group_name}" if group_name else "Facebook group",
+        )
+        if judged_unfit(relevance):
+            report["skipped_by_llm"] += 1
+            logger.info(
+                "recon: facebook post %s skipped by LLM (grade=%.2f, reason=%s)",
+                post.post_id, relevance.get("grade", 0.0), relevance.get("reason", "")[:80],
+            )
+            return False
+
+        extras = {
+            # A group post has no title; the drafter and the approver read the text.
+            "title": "",
+            "selftext_preview": post.text[:1200],
+            "source_text": post.text[:audit.SOURCE_TEXT_MAX],
+            "top_comments": post.comments[:5],
+            "author": post.author,
+            "community": group_name,
+            "group": post.group,
+            "posts_as": post.actor,
+            "relevance_grade": relevance.get("grade"),
+            "relevance_reason": relevance.get("reason", "")[:200],
+            "relevance_skipped": relevance.get("skipped", False),
+        }
+        audit_id = audit.log_candidate(
+            platform="facebook",
+            action="comment",
+            target_url=post.url,
+            target_thread_id=post.post_id,
+            feature_hint=feature_hint,
+            score=relevance.get("grade"),
+            extras=extras,
+        )
+        if audit_id is None:
+            return False
+        report["candidates"] += 1
+        logger.info("recon: queued facebook candidate group=%s post=%s feature=%s", post.group, post.post_id, feature_hint)
+        return True
 
     def scout_youtube(
         self,

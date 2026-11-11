@@ -617,6 +617,36 @@ def execute_unified_task(self, task_id: int):
                         update_progress(80, "Drafting replies")
                         from backend.services.social_outreach.content_agent import ContentAgent
                         output["draft"] = ContentAgent().draft_batch(wanted, after_id=before_id)
+                elif task_type == 'social_outreach_facebook':
+                    from backend.services.social_outreach import audit as outreach_audit
+                    from backend.services.social_outreach.recon import (
+                        DEFAULT_CANDIDATES_PER_PASS,
+                        RecondAgent,
+                    )
+                    try:
+                        wanted = int(wf.get('batch_size') or DEFAULT_CANDIDATES_PER_PASS)
+                    except (TypeError, ValueError):
+                        wanted = DEFAULT_CANDIDATES_PER_PASS
+                    before_id = outreach_audit.latest_id()
+                    post_url = (wf.get('post_url') or '').strip()
+                    if post_url:
+                        update_progress(35, "Reading the Facebook post")
+                        output = RecondAgent().scout_facebook_post(post_url)
+                    else:
+                        groups = list(wf.get("groups") or [])
+                        if not groups:
+                            from backend.tasks.social_outreach_tasks import _load_targets
+                            groups = list((_load_targets().get("facebook") or {}).get("groups") or [])
+                        update_progress(35, "Reading your Facebook groups")
+                        output = RecondAgent().scout_facebook_groups(
+                            groups or None,
+                            max_candidates=wanted,
+                            topic_filters=list(wf.get("keyword_profiles") or []) or None,
+                        )
+                    if wf.get("chain_draft") and output.get("candidates"):
+                        update_progress(80, "Drafting replies")
+                        from backend.services.social_outreach.content_agent import ContentAgent
+                        output["draft"] = ContentAgent().draft_batch(wanted, after_id=before_id)
                 elif task_type == 'social_outreach_youtube_replies':
                     from backend.services.social_outreach import audit as outreach_audit
                     from backend.services.social_outreach.recon import (
