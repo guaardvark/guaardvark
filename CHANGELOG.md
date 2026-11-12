@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.5.1 — Windows 11 through WSL2 and Docker Desktop, and images on Docker Hub
+
+- **Windows 11 through WSL2.** The one-line installer runs inside WSL2 Ubuntu, and the studio opens in your Windows
+  browser at `http://localhost:5173`. Chat on Gemma 4, Z-Image Turbo pictures, the ComfyUI plugin and Wan 2.2 5B
+  video ran on an RTX 5060 Ti 16 GB under Windows 11 Home, with no NVIDIA driver inside Ubuntu.
+  `./start.sh --wsl-keep-alive` keeps Guaardvark running after the Ubuntu window closes. The steps are in
+  [INSTALL.md](INSTALL.md#install-windows-11-through-wsl2).
+- **Docker Desktop on Windows.** The same five containers run on Docker Desktop's WSL 2 backend and reach an NVIDIA
+  card with no Container Toolkit step; chat, pictures and video ran there on the same machine.
+- **Images on Docker Hub.** `guaardvark/guaardvark` and `guaardvark/guaardvark-web` are built from each tagged
+  release. `./start-docker.sh --gpu --pull` downloads them and starts the stack without building anything; the
+  backend image carries PyTorch for GTX 16 and RTX 20 series cards onward, and the launcher still builds for older
+  cards.
+- **Under Docker the chat model follows your card.** A new install picks its chat model from a live hardware check,
+  so chat answers as soon as the two first models are pulled, and a model that is not installed yet is named with
+  the `docker compose` command that pulls it.
+
 ## 3.5.0 — Image Edit, one desktop for Files and Media, Docker runs the Studio plugins, installs without NVIDIA
 
 - **Before you update:** Redis 6.0 or newer is now required (redis-py 8.1 and kombu 5.7); the Docker image's Redis 7,
