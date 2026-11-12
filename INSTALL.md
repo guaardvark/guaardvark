@@ -93,6 +93,30 @@ A fresh Apple Silicon runner installs and imports the backend in CI on every pus
 regression in the above shows up before a person hits it. Report anything else under the
 `mac` label — the install thread is issue #41.
 
+## Install (Windows 11, through WSL2)
+
+Guaardvark runs on Windows 11 inside WSL2, the Linux system Microsoft ships with Windows. On Windows 11 Home with an RTX 5060 Ti 16 GB and the default Ubuntu, chat on Gemma 4, Z-Image Turbo pictures, the ComfyUI plugin and Wan 2.2 5B video all run on the card.
+
+1. Put a current NVIDIA driver on Windows. WSL passes the card through to Ubuntu, so Ubuntu needs no driver of its own.
+2. In PowerShell run `wsl --install` and restart when Windows asks. Ubuntu then opens and asks you to pick a username and password.
+3. In the Ubuntu window:
+
+   ```bash
+   curl -fsSL https://guaardvark.com/install.sh | bash
+   ```
+
+4. Open `http://localhost:5173` in your Windows browser.
+
+**Run it in the background.** Run this once from `~/guaardvark` and Guaardvark keeps running after the Ubuntu window closes:
+
+```bash
+./start.sh --wsl-keep-alive
+```
+
+It sets `instanceIdleTimeout=-1` and `vmIdleTimeout=-1` in your Windows `.wslconfig` and saves the file it found as `.wslconfig.before-guaardvark`. Then run `wsl --shutdown` in PowerShell, open Ubuntu again and run `./start.sh`. From then on `./stop.sh` stops Guaardvark and `wsl --shutdown` stops Ubuntu.
+
+**More memory.** A `memory=` line under `[wsl2]` in the same `.wslconfig` sets how much of the PC's RAM Ubuntu may use; the default is half.
+
 ## Alternative: Docker (Linux)
 
 To run Guaardvark without a native Python install:

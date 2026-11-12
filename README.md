@@ -55,7 +55,7 @@ Then open **http://localhost:5173**. The script is [install.sh](install.sh) from
 /plugin install guaardvark@guaardvark
 ```
 
-Other ways in: [Docker](INSTALL.md#alternative-docker-linux) · [macOS on Apple Silicon](INSTALL.md#install-macos-apple-silicon) · [the CLI from PyPI](#cli) · [the full install guide](INSTALL.md). The current release is in the [VERSION](VERSION) file.
+Other ways in: [Windows 11 through WSL2](INSTALL.md#install-windows-11-through-wsl2) · [Docker](INSTALL.md#alternative-docker-linux) · [macOS on Apple Silicon](INSTALL.md#install-macos-apple-silicon) · [the CLI from PyPI](#cli) · [the full install guide](INSTALL.md). The current release is in the [VERSION](VERSION) file.
 
 ## Features
 
@@ -321,7 +321,7 @@ A newer category: the coding agent runs the studio. As of October 2026, from eac
 | Film crew, director, storyboard | Pipelines, a storyboard approval gate, a live board, director skills | Storyboard, a 3D director for posing characters and cameras, a timeline | Director mode, multi-track editor | Workflow templates | — | Five-role Film Crew, beat-synced music-video director, video editor |
 | Coding swarm, screen agents, outreach, RAG | — | — | — | — | — | Built in |
 | LoRA, upscaling, Hugging Face models | Real-ESRGAN upscaling | ComfyUI LoRA picker, upscale inputs | CivitAI LoRA browser, music-style training, upscaling, Hugging Face downloads | Downloads models and LoRAs from Hugging Face or CivitAI URLs; upscale workflows | — | LoRA training (character, environment, prop) and import, video and image LoRAs, upscaling, models and LoRAs from Hugging Face URLs |
-| OS | macOS, Linux, Windows | macOS, Windows | Windows, Linux; NVIDIA; via Pinokio | macOS, Linux, Windows | Windows (all three), macOS (Promptus, LocalForge), Linux (LocalForge) | Linux; Apple Silicon partial (Metal); WSL2 being verified |
+| OS | macOS, Linux, Windows | macOS, Windows | Windows, Linux; NVIDIA; via Pinokio | macOS, Linux, Windows | Windows (all three), macOS (Promptus, LocalForge), Linux (LocalForge) | Linux; Windows 11 through WSL2 (NVIDIA); Apple Silicon partial (Metal) |
 | License | AGPL-3.0 | AGPL-3.0 | WanGP Non-Commercial | AGPL-3.0 or commercial | Proprietary | MIT |
 
 *"—" means the project's own docs don't list it. Every cell can be checked at the linked repository or site; corrections are welcome in an issue.*
@@ -381,7 +381,7 @@ More screenshots are on [guaardvark.com](https://guaardvark.com).
 
 \* The Wan 2.2 5B declares an 11 GB floor: an 11 GB card can select it by hand, and from 12 GB the automatic pick chooses it. A full render on 12 GB has not been confirmed yet. Every other video family needs a 16 GB-class card; see [docs/HARDWARE.md](docs/HARDWARE.md).
 
-**Platforms.** Linux with one NVIDIA card is the primary target. Apple Silicon is supported, with GPU features arriving through Metal (what works today is in [INSTALL.md](INSTALL.md#install-macos-apple-silicon)). Windows through WSL2 is being verified.
+**Platforms.** Linux with one NVIDIA card is the primary target. Apple Silicon is supported, with GPU features arriving through Metal (what works today is in [INSTALL.md](INSTALL.md#install-macos-apple-silicon)). Windows 11 runs it through WSL2 on an NVIDIA card ([INSTALL.md](INSTALL.md#install-windows-11-through-wsl2)).
 
 ## Running Guaardvark
 
@@ -545,7 +545,7 @@ Yes, once the models you use are downloaded. Only features that reach other serv
 Linux with one NVIDIA GPU. Chat, RAG, voice and the coding swarm run CPU-only; 8–12 GB adds vector RAG, screen agents, images, upscaling and music; video generation needs a 16 GB-class card. Details in [docs/HARDWARE.md](docs/HARDWARE.md).
 
 **Does it run on macOS or Windows?**
-Apple Silicon is supported, with GPU features arriving through Metal; see [INSTALL.md](INSTALL.md#install-macos-apple-silicon). Windows through WSL2 is being verified.
+Apple Silicon is supported, with GPU features arriving through Metal; see [INSTALL.md](INSTALL.md#install-macos-apple-silicon). Windows 11 runs it through WSL2 on an NVIDIA card; see [INSTALL.md](INSTALL.md#install-windows-11-through-wsl2).
 
 **Can I use it from Claude Code, Cursor or Codex?**
 Yes. Install the Claude Code plugin with the two lines in [Quick start](#quick-start), or run `python -m backend.mcp install` to wire the MCP server into every agent client it finds. See [MCP server, agent skills and agent plugins](#mcp-server-agent-skills-and-agent-plugins).
