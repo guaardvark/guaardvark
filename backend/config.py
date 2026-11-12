@@ -419,6 +419,35 @@ def _read_saved_model_name():
     return None
 
 
+_probed_tier: dict = {}
+
+
+def _probed_tier_chat_model() -> "str | None":
+    """The tier's chat model from a live GPU and RAM probe, once per process.
+
+    A container has no cached hardware profile, and under WSL2 (Docker Desktop
+    on Windows) the NVIDIA driver leaves no /proc/driver/nvidia, so the marker
+    check below sees no GPU. The detector's own probe asks nvidia-smi, which
+    works there. Returns None when the probe finds nothing to go on.
+    """
+    if "chat" not in _probed_tier:
+        chat = None
+        try:
+            import platform
+            from backend.services import hardware_policy as hp
+            from backend.services.hardware_detector import HardwareDetector
+
+            det = HardwareDetector()
+            gpu = det._probe_gpu() or {}
+            ram = (det._probe_ram() or {}).get("total_gb", 0)
+            if gpu or ram:
+                chat = hp.model_tier(ram, gpu, platform.machine())["chat"]
+        except Exception:
+            chat = None
+        _probed_tier["chat"] = chat
+    return _probed_tier["chat"]
+
+
 def _hardware_default_llm() -> str:
     """Hardware-aware hard fallback for the default chat model.
 
@@ -444,6 +473,9 @@ def _hardware_default_llm() -> str:
             return hp.model_tier(ram, profile.get("gpu", {}) or {}, profile.get("arch", ""))["chat"]
     except Exception:
         pass
+    live = _probed_tier_chat_model()
+    if live:
+        return live
     try:
         import platform
         arch = platform.machine().lower()
