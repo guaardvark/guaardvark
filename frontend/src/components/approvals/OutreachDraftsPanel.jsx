@@ -29,6 +29,7 @@ import {
 } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
 import { approveDraft, fetchWatchedPost, postNow, rejectDraft } from "../../api/outreachService";
+import OutreachDraftImage from "../outreach/OutreachDraftImage";
 import { useAppStore } from "../../stores/useAppStore";
 import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
@@ -286,6 +287,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
             </Link>
           </Typography>
         )}
+        <OutreachDraftImage draft={selected} sx={{ mb: 2 }} />
         {isWaiting ? (
           renderPostNow()
         ) : (

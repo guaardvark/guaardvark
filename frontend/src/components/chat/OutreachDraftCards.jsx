@@ -30,6 +30,7 @@ import {
   postNow,
   rejectDraft,
 } from "../../api/outreachService";
+import OutreachDraftImage from "../outreach/OutreachDraftImage";
 import { useAppStore } from "../../stores/useAppStore";
 import { useUiTranslation } from "../../i18n";
 
@@ -138,6 +139,7 @@ const DraftCard = ({ draft, watched, onChanged, review }) => {
           {(status === "posted" && draft.posted_text) || draft.text || t("approvals.noText")}
         </Typography>
       )}
+      <OutreachDraftImage draft={draft} sx={{ mt: 1 }} />
 
       {status === "approved" && !watching && (
         <Alert
