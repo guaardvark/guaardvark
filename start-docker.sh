@@ -9,14 +9,19 @@ cd "$SCRIPT_DIR"
 
 GPU_PROFILE=0
 DETACH=1
+USE_PUBLISHED=0
 for arg in "$@"; do
     case "$arg" in
         --gpu) GPU_PROFILE=1 ;;
+        --pull) USE_PUBLISHED=1 ;;
+        --pull=*) USE_PUBLISHED=1; export GUAARDVARK_IMAGE_TAG="${arg#--pull=}" ;;
         --foreground|-f) DETACH=0 ;;
         -h|--help)
-            echo "Usage: ./start-docker.sh [--gpu] [--foreground]"
+            echo "Usage: ./start-docker.sh [--gpu] [--pull[=TAG]] [--foreground]"
             echo ""
             echo "  --gpu          Enable NVIDIA GPU profile for Ollama/backend (requires nvidia-container-toolkit)"
+            echo "  --pull[=TAG]   Download the published images from Docker Hub instead of building"
+            echo "                 them here (TAG defaults to latest; RTX 20 series or newer with --gpu)"
             echo "  --foreground   Run in foreground (default: detached -d)"
             echo ""
             echo "Runs the API, UI, workers, PostgreSQL, Redis and Ollama. ComfyUI, Audio"
@@ -109,6 +114,12 @@ if [ "$GPU_PROFILE" -eq 1 ]; then
         fi
     fi
     export GUAARDVARK_TORCH_CHANNEL="${GUAARDVARK_TORCH_CHANNEL:-}"
+    # The published backend image carries one PyTorch build (cu128, RTX 20 series
+    # and newer). An older card gets a build made for it here instead.
+    if [ "$USE_PUBLISHED" -eq 1 ] && [ -n "${COMPUTE_MAJOR:-}" ] && [ "$COMPUTE_MAJOR" -lt 7 ]; then
+        echo "This GPU needs a PyTorch build the published image does not carry; building here instead."
+        USE_PUBLISHED=0
+    fi
 fi
 
 # ── API key ────────────────────────────────────────────────────────────────
@@ -208,6 +219,12 @@ if ! "${COMPOSE[@]}" "${COMPOSE_FILES[@]}" exec -T -u postgres postgres sh -c '
 fi
 
 UP_ARGS=(up --build)
+if [ "$USE_PUBLISHED" -eq 1 ]; then
+    COMPOSE_FILES+=(-f docker-compose.images.yml)
+    echo "Downloading the Guaardvark images (tag ${GUAARDVARK_IMAGE_TAG:-latest})..."
+    "${COMPOSE[@]}" "${COMPOSE_FILES[@]}" pull backend frontend
+    UP_ARGS=(up --no-build)
+fi
 if [ "$DETACH" -eq 1 ]; then
     UP_ARGS+=(-d)
 fi
