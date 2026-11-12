@@ -2360,7 +2360,10 @@ class BatchVideoGenerator:
                                 "start_time": data.get("start_time"),
                                 "end_time": data.get("end_time"),
                                 "display_name": data.get("metadata", {}).get("display_name"),
-                                "can_retry": bool(data.get("retry_data")),
+                                # Retry re-runs the failed clips; there is nothing to
+                                # retry while the batch is still working through them.
+                                "can_retry": bool(data.get("retry_data"))
+                                and data.get("status") not in ("pending", "queued", "running"),
                             }
                         )
                     except Exception as e:

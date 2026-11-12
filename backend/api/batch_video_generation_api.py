@@ -838,8 +838,10 @@ def get_batch_status(batch_id: str):
                 "output_dir": status.output_dir,
                 "retry_data": getattr(status, "retry_data", None),
                 "error": getattr(status, "error", None),
-                # Why it stopped, the same record for the batch and each clip.
-                "failure": batch_failure(status),
+                # Why it stopped, the same record for the batch and each clip. A
+                # batch still rendering has not stopped: one failed clip is that
+                # clip's failure, reported on its own result.
+                "failure": None if status.status in ("pending", "queued", "running") else batch_failure(status),
             }
         )
     except Exception as e:
