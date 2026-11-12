@@ -316,7 +316,9 @@ def _post(row, before_submit: Callable[[], bool]) -> tuple[bool, str]:
         text = row.posted_text or row.draft_text
         if platform == "reddit":
             from backend.services.social_outreach.reddit_outreach import post_comment_via_servo
-            success, reason = post_comment_via_servo(row.target_url, text, before_submit=before_submit)
+            success, reason = post_comment_via_servo(
+                row.target_url, text, image_path=_image_path(row), before_submit=before_submit,
+            )
         elif platform == "youtube":
             from backend.services.social_outreach.youtube_outreach import post_youtube_comment_via_servo
             success, reason = post_youtube_comment_via_servo(

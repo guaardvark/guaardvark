@@ -380,6 +380,12 @@ def _change_image(row, attach: bool, shown: dict) -> str:
         return f'Took the image off draft #{row.id}. Say "yes" to post it.'
     if not own_posts.takes_image(row.platform, row.action):
         return f"A {row.action} on {platforms.label_for(row.platform)} cannot carry an image here yet."
+    if row.platform == "reddit":
+        from backend.services.social_outreach.reddit_outreach import comments_take_images
+
+        sub = re.search(r"reddit\.com/r/([^/?#]+)", row.target_url or "")
+        if sub and comments_take_images(sub.group(1)) is False:
+            return f"r/{sub.group(1)} does not allow images in comments, so draft #{row.id} stays as text."
     about = " ".join(str((shown.get("source") or {}).get(k) or "") for k in ("title", "text")) + " " + (shown.get("text") or "")
     item = own_posts.best_for(about, exclude=int(current["document_id"]) if current else None)
     if item is None:

@@ -149,3 +149,23 @@ def test_a_topic_the_sheet_does_not_cover_is_named_not_drawn(monkeypatch):
     spec = infographic_maker.write_spec("the Docker install", lambda _s, _u: pytest.fail("the drafter was asked"))
     assert spec["ok"] is False
     assert "docker" in spec["reason"]
+
+
+@pytest.mark.parametrize("about, allowed", [
+    ({"data": {"allowed_media_in_comments": ["giphy", "static"]}}, True),
+    ({"data": {"allowed_media_in_comments": ["giphy"]}}, False),
+    ({"data": {"allowed_media_in_comments": []}}, False),
+    ({"data": {}}, None),
+    (None, None),
+])
+def test_a_subreddit_says_whether_comments_take_images(monkeypatch, about, allowed):
+    from backend.services.social_outreach import reddit_outreach
+
+    monkeypatch.setattr(reddit_outreach, "read_json", lambda _url: about)
+    assert reddit_outreach.comments_take_images("anything") is allowed
+
+
+def test_a_reddit_reply_may_carry_an_image_or_go_without():
+    assert own_posts.takes_image("reddit", "comment")
+    assert own_posts.posts_without_image("reddit", "comment")
+    assert not own_posts.takes_image("youtube", "comment")

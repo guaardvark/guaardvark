@@ -72,6 +72,7 @@ def _document_id(row) -> Optional[int]:
 _IMAGE_POSTERS = {
     ("facebook", "comment"): True,
     ("facebook", ACTION): True,
+    ("reddit", "comment"): True,
     ("reddit", ACTION): False,
 }
 

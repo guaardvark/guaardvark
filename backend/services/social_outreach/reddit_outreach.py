@@ -975,6 +975,66 @@ _FOCUSED_EDITABLE_JS = (
 _FOCUS_WAIT_S = 3.0
 
 
+# The comment box keeps its toolbar, and the file input behind the Image
+# button, inside nested shadow roots.
+_COMPOSER_JS = r"""
+  const all = (root, sel, out = []) => {
+    if (root.shadowRoot) all(root.shadowRoot, sel, out);
+    out.push(...root.querySelectorAll(sel));
+    for (const el of root.querySelectorAll('*')) if (el.shadowRoot) all(el.shadowRoot, sel, out);
+    return out;
+  };
+  const composer = all(document, 'shreddit-composer').find((c) => {
+    const r = c.getBoundingClientRect(); return r.width > 30 && r.height > 20;
+  }) || null;
+  const imageInput = composer ? all(composer, 'input[type="file"]').find((i) => /image\//.test(i.accept || '')) : null;
+"""
+_COMMENT_IMAGE_INPUT_JS = "(() => {" + _COMPOSER_JS + " return imageInput || null; })()"
+_COMMENT_IMAGES_JS = "(() => {" + _COMPOSER_JS + r"""
+  const images = composer ? all(composer, 'rte-image') : [];
+  return JSON.stringify({
+    input: !!imageInput,
+    images: images.length,
+    uploaded: images.filter((i) => i.getAttribute('media-id')).length,
+  });
+})()"""
+_IMAGE_UPLOAD_WAIT_S = 30.0
+
+
+def comments_take_images(subreddit: str) -> Optional[bool]:
+    """Whether r/``subreddit`` lets a comment carry a still image, from the
+    subreddit's own settings; None when they could not be read."""
+    data = read_json(f"{REDDIT_BASE}/r/{quote(subreddit)}/about.json")
+    about = (data or {}).get("data") if isinstance(data, dict) else None
+    if not isinstance(about, dict) or "allowed_media_in_comments" not in about:
+        return None
+    return "static" in (about.get("allowed_media_in_comments") or [])
+
+
+def _comment_images() -> dict:
+    data, _why = bidi_evaluate_json(_COMMENT_IMAGES_JS)
+    return data or {}
+
+
+def _attach_comment_image(image_path: str) -> str:
+    """Hand ``image_path`` to the comment box's Image input and wait for
+    Reddit to finish uploading it. Returns "" once the box holds exactly that
+    one image, else why not."""
+    if not os.path.isfile(image_path):
+        return f"the image file is missing ({os.path.basename(image_path)})"
+    why = bidi_set_files(_COMMENT_IMAGE_INPUT_JS, [image_path])
+    if why:
+        return why
+    deadline = time.monotonic() + _IMAGE_UPLOAD_WAIT_S
+    held: dict = {}
+    while time.monotonic() < deadline:
+        held = _comment_images()
+        if held.get("images") == 1 and held.get("uploaded") == 1:
+            return ""
+        time.sleep(0.5)
+    return f"the comment box shows {held.get('images', 0)} images ({held.get('uploaded', 0)} uploaded) after choosing one"
+
+
 def _focused_editable() -> Optional[dict]:
     """What has keyboard focus in the agent Firefox, or None when unreadable."""
     data, _why = bidi_evaluate_json(_FOCUSED_EDITABLE_JS)
@@ -1012,11 +1072,16 @@ def post_comment_via_servo(
     permalink: str,
     comment_text: str,
     *,
+    image_path: Optional[str] = None,
     before_submit: Optional[Callable[[], bool]] = None,
 ) -> tuple[bool, str]:
     """
     Drive Firefox on DISPLAY=:99 to land the comment.
     Returns (success, reason).
+
+    With ``image_path`` the image is attached after the text is typed; when
+    the subreddit's comment box takes no image, or it cannot be attached,
+    nothing is posted.
 
     Strategy: navigate to the thread on www.reddit.com (modern UI matches
     vision model training distribution), then hand the see-think-act loop a
@@ -1115,6 +1180,14 @@ def post_comment_via_servo(
         held = _focused_editable()
         if held is None or (held.get("text") or "").strip():
             return False, "composer_not_empty: nothing was posted; the comment box held earlier text"
+    if image_path:
+        held_images = _comment_images()
+        if not held_images.get("input"):
+            return False, (
+                "comment_image_unsupported: nothing was posted; this subreddit's comment box offers no image"
+            )
+        if held_images.get("images"):
+            return False, "composer_not_empty: nothing was posted; the comment box already held an image"
     _human_pause(0.5, 1.0)
 
     logger.warning("typing comment (%s chars)", len(comment_text))
@@ -1137,6 +1210,20 @@ def post_comment_via_servo(
             if held is not None else
             "typed_text_unreadable: nothing was posted; the comment box could not be read back"
         )
+
+    if image_path:
+        problem = _attach_comment_image(image_path)
+        held = _focused_editable()
+        if not problem and (held is None or not held.get("editable")):
+            problem = "the comment box lost focus when the image went in"
+        if not problem and not _same_text(held.get("text", ""), comment_text):
+            problem = "the text changed when the image went in"
+        if problem:
+            if held is not None and held.get("editable"):
+                screen.hotkey("ctrl", "a")
+                screen.hotkey("BackSpace")
+            return False, f"comment_image_not_attached: nothing was posted; {problem}"
+        _human_pause()
 
     # Submit via Reddit's standard Ctrl+Enter shortcut. The textarea is
     # already focused from the click and type, so this keystroke routes to
