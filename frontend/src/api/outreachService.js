@@ -151,6 +151,34 @@ export function clearTypingRhythm() {
   return request("/typing-rhythm", { method: "DELETE" });
 }
 
+// Infographics outreach may attach to a post (InfographicKeepersCard). An
+// item is usable only when it is a keeper and the text read back from the
+// rendered image matched what was asked for.
+export async function fetchOutreachInfographics({ keepers = false } = {}) {
+  const out = await request(`/infographics${keepers ? "?keepers=1" : ""}`);
+  if (Array.isArray(out)) return out;
+  return out?.items || out?.data?.items || [];
+}
+
+export function setInfographicKeeper(documentId, keep) {
+  return request(`/infographics/${documentId}/keep`, {
+    method: "POST",
+    body: JSON.stringify({ keep: Boolean(keep) }),
+  });
+}
+
+// Starts a new read-back; the item may answer with status "reading".
+export function rereadInfographic(documentId) {
+  return request(`/infographics/${documentId}/readback`, { method: "POST", body: "{}" });
+}
+
+// The API sends image paths as "/api/..."; this puts them on the base URL the
+// rest of the client calls.
+export function outreachMediaUrl(path) {
+  if (!path || typeof path !== "string") return "";
+  return path.startsWith("/api/") ? `${BASE_URL}${path.slice(4)}` : path;
+}
+
 export function patchDraft(id, payload) {
   return request(`/drafts/${id}`, {
     method: "PATCH",
@@ -217,6 +245,10 @@ export default {
   rejectDraft,
   fetchWatchedPost,
   postNow,
+  fetchOutreachInfographics,
+  setInfographicKeeper,
+  rereadInfographic,
+  outreachMediaUrl,
   patchDraft,
   createDraft,
   draftComment,

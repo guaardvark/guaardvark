@@ -48,6 +48,8 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import * as outreachApi from "../api/outreachService";
 import TypingRhythmCard from "../components/outreach/TypingRhythmCard";
+import InfographicKeepersCard from "../components/outreach/InfographicKeepersCard";
+import OutreachDraftImage from "../components/outreach/OutreachDraftImage";
 import { translate, uiLocale, useUiTranslation, Trans } from "../i18n";
 
 // Per-platform character soft-caps used by the pre-flight panel.
@@ -1042,6 +1044,14 @@ const OutreachPage = () => {
                               sx={{ height: 18, fontSize: "0.65rem" }}
                             />
                           )}
+                          {row.image_url && (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={t("outreach.draftImage.chip")}
+                              sx={{ height: 18, fontSize: "0.65rem" }}
+                            />
+                          )}
                         </Stack>
                       }
                       secondary={
@@ -1073,6 +1083,7 @@ const OutreachPage = () => {
                     {t("outreach.source.threadId", { id: selected.target_thread_id })}
                   </Typography>
                 )}
+                <OutreachDraftImage draft={selected} />
                 {selected.abort_reason && (
                   <Alert severity="warning" sx={{ py: 0.5 }}>{selected.abort_reason}</Alert>
                 )}
@@ -1337,6 +1348,8 @@ const OutreachPage = () => {
       </Box>
 
       <TypingRhythmCard />
+
+      <InfographicKeepersCard />
 
       {/* ── History (read-only audit trail) ─────────────────────────── */}
       <Paper sx={{ p: 2, mt: 2 }}>

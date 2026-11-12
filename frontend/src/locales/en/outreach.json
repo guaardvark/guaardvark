@@ -268,5 +268,46 @@
     "save": "Learn my rhythm",
     "clear": "Forget it",
     "progress": "{{count}} of {{needed}} keys"
+  },
+  "infographics": {
+    "title": "Infographics for outreach",
+    "explain": "Mark the infographics outreach may attach to a post. A kept one is used only after its text has been read back from the finished image and every line asked for was found. That check reads the text only; it does not judge how the image looks.",
+    "filterLabel": "Which infographics to show",
+    "filterKeepers": "Keepers",
+    "filterAll": "All",
+    "emptyKeepers": "No keepers yet. Switch to All and turn on the ones outreach may use.",
+    "emptyAll": "No infographics yet. Make some on the Infographic page.",
+    "summaryKeepers": "{{total}} kept; outreach can attach {{usable}} of them.",
+    "summaryAll": "{{total}} infographics; outreach can attach {{usable}} of them.",
+    "untitled": "Infographic {{id}}",
+    "enlarge": "Open larger: {{name}}",
+    "keeper": "Use for outreach",
+    "usable": "Outreach can attach this one.",
+    "notUsable": "Kept, but outreach will not attach it until its text is read back and matches.",
+    "notUsableOther": "Kept, but outreach is not using this one.",
+    "readNow": "Read the text",
+    "readAgain": "Read again",
+    "showMore": "Show more",
+    "showing": "Showing {{shown}} of {{total}}",
+    "readback": {
+      "passed": "Text read back from the image: it matched what was asked for.",
+      "passedCount": "Text read back from the image: all {{total}} lines asked for were found.",
+      "failed": "Text read back from the image: it did not match what was asked for.",
+      "reading": "Reading the text in the image now…",
+      "unread": "The text in this image has not been read back yet.",
+      "missing": "Asked for but not found in the image:",
+      "extra": "In the image but not asked for:",
+      "transcript": "What was read: {{text}}",
+      "checkedBy": "Read by {{model}}, {{date}}",
+      "checkedAt": "Read {{date}}"
+    }
+  },
+  "draftImage": {
+    "willAttach": "This infographic will be attached to the post.",
+    "chosen": "The infographic picked for this draft.",
+    "altLine": "Alt text: {{alt}}",
+    "altFallback": "Infographic for this post",
+    "enlarge": "Open the infographic larger",
+    "chip": "infographic"
   }
 }
