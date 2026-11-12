@@ -128,6 +128,20 @@ To run Guaardvark without a native Python install:
 
 Docker runs five containers: the backend (the API, Celery and its scheduler), the UI, PostgreSQL with pgvector, Redis and Ollama. ComfyUI (the image and video models), Audio Foundry and Upscaling run inside the backend container: install and start them from their cards on the **Plugins** page, and each model from its own Install button, as in a native install. The screen agent's desktop is not in the default image; use `./start.sh` for it.
 
+**On Windows 11 (Docker Desktop).** The same containers run on Docker Desktop with its WSL 2 backend, and they reach an NVIDIA card with no Container Toolkit step:
+
+1. Install a current NVIDIA driver and [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) on Windows, with Ubuntu from `wsl --install`.
+2. In Docker Desktop open Settings > Resources > WSL integration and switch on your Ubuntu.
+3. In the Ubuntu window:
+
+   ```bash
+   git clone https://github.com/guaardvark/guaardvark.git
+   cd guaardvark
+   ./start-docker.sh --gpu
+   ```
+
+4. Pull the two first models (below), then open `http://localhost:5173` in your Windows browser.
+
 **First models.** Ollama starts empty under Docker. Pull a chat model and the embedding model document search uses, once:
 
 ```bash

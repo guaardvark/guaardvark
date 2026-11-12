@@ -381,7 +381,7 @@ More screenshots are on [guaardvark.com](https://guaardvark.com).
 
 \* The Wan 2.2 5B declares an 11 GB floor: an 11 GB card can select it by hand, and from 12 GB the automatic pick chooses it. A full render on 12 GB has not been confirmed yet. Every other video family needs a 16 GB-class card; see [docs/HARDWARE.md](docs/HARDWARE.md).
 
-**Platforms.** Linux with one NVIDIA card is the primary target. Apple Silicon is supported, with GPU features arriving through Metal (what works today is in [INSTALL.md](INSTALL.md#install-macos-apple-silicon)). Windows 11 runs it through WSL2 on an NVIDIA card ([INSTALL.md](INSTALL.md#install-windows-11-through-wsl2)).
+**Platforms.** Linux with one NVIDIA card is the primary target. Apple Silicon is supported, with GPU features arriving through Metal (what works today is in [INSTALL.md](INSTALL.md#install-macos-apple-silicon)). Windows 11 runs it through WSL2 or Docker Desktop on an NVIDIA card ([INSTALL.md](INSTALL.md#install-windows-11-through-wsl2)).
 
 ## Running Guaardvark
 
