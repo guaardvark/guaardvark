@@ -56,7 +56,12 @@ if ! DOCKER_INFO_ERR="$(docker info 2>&1 >/dev/null)"; then
     else
         echo "Error: the Docker daemon is not answering:" >&2
         printf '  %s\n' "$DOCKER_INFO_ERR" | head -n 3 >&2
-        echo "  Start it with: sudo systemctl enable --now docker" >&2
+        if grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
+            echo "  On Windows: start Docker Desktop, and in its Settings > Resources > WSL integration" >&2
+            echo "  switch on this Ubuntu. Then re-run ./start-docker.sh." >&2
+        else
+            echo "  Start it with: sudo systemctl enable --now docker" >&2
+        fi
     fi
     exit 1
 fi

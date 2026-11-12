@@ -155,10 +155,11 @@ def missing_model_user_message(error_str: str) -> Optional[str]:
     if not match:
         return None
     name = match.group(1)
-    return (
-        f"The model {name} is not installed in Ollama yet, so this can't be answered. "
-        f"Run ./start.sh again to download the models this machine needs, or run: ollama pull {name}"
-    )
+    if os.environ.get("GUAARDVARK_DOCKER") == "1":
+        how = f"Run: docker compose exec ollama ollama pull {name}"
+    else:
+        how = f"Run ./start.sh again to download the models this machine needs, or run: ollama pull {name}"
+    return f"The model {name} is not installed in Ollama yet, so this can't be answered. {how}"
 
 
 def is_vision_model(model_name: str) -> bool:
