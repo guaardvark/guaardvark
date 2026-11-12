@@ -51,7 +51,8 @@ def independent_ok(
     """Whether the independent check found nothing against this draft, and
     what to tell the person who reviews it.
 
-    ``action`` is the audit row's action; a "share" is never graded. Nothing
+    ``action`` is the audit row's action; a "share" or "post" (the account's
+    own post, with no thread under it) is never graded. Nothing
     posts on this answer either way. ``relevance_unchecked`` says the
     thread-fit judge (external_grader.score_thread_relevance) could not run on
     the thread.
@@ -67,7 +68,7 @@ def independent_ok(
       (True,  "unchecked")            the check could not run
       (True,  "share_not_graded")     a share
     """
-    if action == "share":
+    if action in ("share", "post"):
         return True, "share_not_graded"
     label = independent_check_label(ext)
     if label == "failed":

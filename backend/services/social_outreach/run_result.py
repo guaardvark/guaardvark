@@ -37,6 +37,11 @@ _REASONS = {
     "no_groups": "No Facebook group is saved and none you are in matches your outreach keywords.",
     "post_unreadable": "That Facebook post could not be read.",
     "post_takes_no_comment": "That Facebook post has no comment box for this account.",
+    "no_communities": "No community was named and none is saved.",
+    "no_usable_infographics": (
+        "No infographic is ready to post: mark the ones to use on the Outreach page; "
+        "each is usable once its text has been read back and matches."
+    ),
 }
 
 
@@ -103,9 +108,19 @@ def _scout_notes(report: dict) -> list[str]:
     reason = report.get("reason")
     if reason:
         text = _REASONS.get(reason)
+        if text is None and str(reason).startswith("review_backlog:"):
+            waiting = str(reason).split(":", 1)[1]
+            text = (
+                f"{waiting} drafts are already waiting for your review there, so no more were added. "
+                "Review them first."
+            )
         if text is None and str(reason).startswith("sub_bans_self_promo"):
             where = f"r/{report['subreddit']}" if report.get("subreddit") else "That community"
             text = f"{where} bans self-promotion in its rules, so it was left alone."
+        if text is None and reason == "no_backed_text":
+            text = "No infographic was made: the pitch sheet did not back a headline and two labels."
+        if text is None and reason == "render_failed":
+            text = "The infographic's text was written but the picture did not render."
         notes.append(text or f"The scout stopped: {reason}.")
         if report.get("detail"):
             notes[-1] = f"{notes[-1][:-1]} ({report['detail']})."
@@ -113,6 +128,10 @@ def _scout_notes(report: dict) -> list[str]:
 
     found = report.get("threads_found", report.get("comments_found"))
     candidates = int(report.get("candidates") or 0)
+    if report.get("kind") == "own_posts":
+        return _own_post_notes(report, candidates)
+    if report.get("kind") == "made_infographic":
+        return _made_infographic_notes(report)
     if isinstance(report.get("groups"), list):
         notes.extend(_group_notes(report, candidates))
     elif "comments_found" in report:
@@ -159,6 +178,75 @@ def _group_notes(report: dict, candidates: int) -> list[str]:
         else:
             notes.append(f"{name}: {reason}.")
     return notes
+
+
+def _own_post_notes(report: dict, candidates: int) -> list[str]:
+    """What a pass for posts of the account's own chose, community by community."""
+    notes = [f"Chose an infographic for {_count(candidates, 'community', 'communities')}."]
+    for entry in report.get("communities") or []:
+        reason = entry.get("reason") if isinstance(entry, dict) else None
+        if not reason:
+            continue
+        name = entry.get("name") or entry.get("community") or "A community"
+        if reason == "posted_recently":
+            notes.append(f"{name}: you posted there in the last week, so it was left alone.")
+        elif str(reason).startswith("bans_self_promo"):
+            notes.append(f"{name} bans self-promotion in its rules, so it was left alone.")
+        elif reason == "rules_unreadable":
+            notes.append(f"{name}: its rules could not be read, so it was left alone.")
+        elif reason == "no_unused_infographic":
+            notes.append(f"{name}: every infographic you kept has already been posted there.")
+        else:
+            notes.append(f"{name}: {reason}.")
+    return notes
+
+
+def _made_infographic_notes(report: dict) -> list[str]:
+    """A new infographic: what it says, what backs each line, and the read-back."""
+    lines = [report.get("title") or ""] + list(report.get("callouts") or [])
+    notes = [
+        f"Made an infographic (file #{report.get('document_id')}): " + " / ".join(l for l in lines if l) + "."
+    ]
+    for line, sentence in (report.get("backing") or {}).items():
+        notes.append(f"\u201c{line}\u201d rests on: {sentence}")
+    if report.get("dropped"):
+        notes.append("Left off because the pitch sheet did not back them: " + "; ".join(report["dropped"]) + ".")
+    readback = report.get("readback") or {}
+    status = readback.get("status")
+    if status == "passed":
+        notes.append("Read-back: every line asked for is on the picture.")
+    elif status == "failed":
+        missing = "; ".join(readback.get("missing") or []) or "see the Outreach page"
+        notes.append(f"Read-back failed, so outreach cannot use it. Missing or misspelled: {missing}.")
+    else:
+        notes.append("Its text has not been read back yet.")
+    notes.append("It is on the Outreach page under Infographics, All. Mark it there to let outreach use it.")
+    return notes
+
+
+def _turned_away(after_id: int, platform: Optional[str]) -> list[str]:
+    """Drafts of this run that were written and then refused by a check, as
+    lines a person can read: the words and what the check said."""
+    from backend.models import SocialOutreachLog
+
+    rows = SocialOutreachLog.query.filter(
+        SocialOutreachLog.id > int(after_id), SocialOutreachLog.status == "rejected",
+    )
+    if platform:
+        rows = rows.filter(SocialOutreachLog.platform == platform)
+    lines: list[str] = []
+    for row in rows.order_by(SocialOutreachLog.id.asc()).limit(10).all():
+        try:
+            payload = json.loads(row.draft_text or "{}")
+        except ValueError:
+            continue
+        text = payload.get("rejected_draft") if isinstance(payload, dict) else None
+        if not text:
+            continue
+        why = (row.abort_reason or "").strip()
+        said = why[why.find("(") + 1:why.rfind(")")] if "(" in why and why.endswith(")") else why
+        lines.append(f"Turned away (#{row.id}): \u201c{' '.join(text.split())}\u201d The check said: {said or 'no reason given'}")
+    return lines
 
 
 def _task_notes(task) -> list[str]:
@@ -216,6 +304,7 @@ def run_result(
     if done:
         for task in tasks:
             notes.extend(_task_notes(task))
+        notes.extend(_turned_away(after_id, platform))
     return {
         "done": done,
         "tasks": [

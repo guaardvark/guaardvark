@@ -647,6 +647,34 @@ def execute_unified_task(self, task_id: int):
                         update_progress(80, "Drafting replies")
                         from backend.services.social_outreach.content_agent import ContentAgent
                         output["draft"] = ContentAgent().draft_batch(wanted, after_id=before_id)
+                elif task_type == 'social_outreach_make_infographic':
+                    from backend.services.social_outreach import infographic_maker
+                    update_progress(20, "Writing the infographic from the pitch sheet")
+                    output = infographic_maker.make(str(wf.get("topic") or ""))
+                elif task_type == 'social_outreach_own_posts':
+                    from backend.services.social_outreach import audit as outreach_audit
+                    from backend.services.social_outreach import own_posts
+                    try:
+                        wanted = int(wf.get('batch_size') or own_posts.DEFAULT_POSTS_PER_PASS)
+                    except (TypeError, ValueError):
+                        wanted = own_posts.DEFAULT_POSTS_PER_PASS
+                    post_on = (wf.get("post_on") or "facebook").strip().lower()
+                    communities = list(wf.get("communities") or [])
+                    if not communities:
+                        from backend.tasks.social_outreach_tasks import _load_targets
+                        saved = _load_targets()
+                        communities = list(
+                            (saved.get("reddit") or {}).get("share_subs") or []
+                            if post_on == "reddit"
+                            else (saved.get("facebook") or {}).get("groups") or []
+                        )
+                    before_id = outreach_audit.latest_id()
+                    update_progress(35, "Choosing an infographic for each community")
+                    output = own_posts.plan(post_on, communities, max_posts=wanted)
+                    if output.get("candidates"):
+                        update_progress(80, "Writing the posts")
+                        from backend.services.social_outreach.content_agent import ContentAgent
+                        output["draft"] = ContentAgent().draft_batch(wanted, after_id=before_id)
                 elif task_type == 'social_outreach_youtube_replies':
                     from backend.services.social_outreach import audit as outreach_audit
                     from backend.services.social_outreach.recon import (

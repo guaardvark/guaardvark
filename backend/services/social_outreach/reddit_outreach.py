@@ -325,6 +325,64 @@ def bidi_evaluate_json(
 
 
 
+def bidi_set_files(element_expression: str, paths: list[str], timeout: float = 15.0) -> str:
+    """Give ``paths`` to the file input ``element_expression`` evaluates to in
+    the agent Firefox's first tab, the way choosing them in the file dialog
+    would. Returns "" on success, else why not.
+
+    The files must be readable by the browser: a packaged Firefox has its own
+    ``/tmp``, so they are passed by a path under the user's home.
+    """
+    import json as _json
+    import websocket as _ws
+
+    try:
+        ws = _ws.create_connection(
+            f"ws://localhost:{BIDI_PORT}/session", timeout=3, suppress_origin=True,
+        )
+    except Exception as e:
+        return f"connect failed: {e}"
+
+    def call(ident: int, method: str, params: dict) -> dict:
+        ws.send(_json.dumps({"id": ident, "method": method, "params": params}))
+        while True:
+            message = _json.loads(ws.recv())
+            if message.get("id") == ident:
+                return message
+
+    try:
+        if call(1, "session.new", {"capabilities": {}}).get("type") != "success":
+            return "session.new failed"
+        contexts = call(2, "browsingContext.getTree", {}).get("result", {}).get("contexts", [])
+        if not contexts:
+            return "no browsing context"
+        context = contexts[0]["context"]
+        ws.settimeout(timeout)
+        found = call(3, "script.evaluate", {
+            "expression": element_expression, "target": {"context": context}, "awaitPromise": False,
+        })
+        node = found.get("result", {}).get("result", {})
+        if found.get("type") == "error" or node.get("type") != "node" or not node.get("sharedId"):
+            return "no file input on the page"
+        done = call(4, "input.setFiles", {
+            "context": context, "element": {"sharedId": node["sharedId"]}, "files": [str(p) for p in paths],
+        })
+        if done.get("type") != "success":
+            return f"setFiles refused: {str(done.get('message') or '')[:200]}"
+        return ""
+    except Exception as e:
+        return f"exception: {e}"
+    finally:
+        try:
+            ws.send(_json.dumps({"id": 99, "method": "session.end", "params": {}}))
+        except Exception:
+            pass
+        try:
+            ws.close()
+        except Exception:
+            pass
+
+
 # Reason a poster gives when it refuses because the page could not be read back.
 PAGE_CHECK_UNAVAILABLE = "page_check_unavailable"
 # bidi_evaluate_json reasons given after the browser answered the session.
@@ -1212,6 +1270,10 @@ class RedditOutreachLoop:
                 status="aborted", abort_reason="kill_switch_off",
                 task_id=task_id,
             )
+            return report
+        backlog = kill_switch.review_backlog_reason("reddit")
+        if backlog:
+            report["reason"] = backlog
             return report
         if web_access_refused(subreddit, report, task_id):
             return report

@@ -65,9 +65,9 @@ _LINKEDIN_REFUSAL = (
 )
 
 POLICIES: dict[str, PlatformPolicy] = {
-    "reddit": PlatformPolicy(WATCHED, "Reddit", actions=("comment", "share")),
+    "reddit": PlatformPolicy(WATCHED, "Reddit", actions=("comment", "share", "post")),
     "youtube": PlatformPolicy(WATCHED, "YouTube", actions=("comment", "reply")),
-    "facebook": PlatformPolicy(WATCHED, "Facebook", actions=("comment",)),
+    "facebook": PlatformPolicy(WATCHED, "Facebook", actions=("comment", "post")),
     "discord": PlatformPolicy(BOT, "Discord", actions=("comment",)),
     "x": PlatformPolicy(REFUSED, "X", hosts=("x.com", "twitter.com"), refusal=_X_REFUSAL),
     "twitter": PlatformPolicy(REFUSED, "X", hosts=("x.com", "twitter.com"), refusal=_X_REFUSAL),

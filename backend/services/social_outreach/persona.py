@@ -141,6 +141,21 @@ schema to return — follow that schema, not a generic one.
 """
 
 
+# Framing for a post of the account's own that carries an infographic.
+_POST_FRAMING = """This is a new post of your own in a community, NOT a reply. An image is
+attached to it: an infographic. Readers see the image, so the words with it
+do not repeat it line for line. They say, the way this person would, what it
+is and why someone in this community would care.
+
+The pitch sheet below is the source of truth: claim nothing beyond what it
+and the image state, and don't fabricate URLs.
+
+Self-grade the draft 0.0-1.0 on "would a member of this community read this
+as one of them sharing something they built, not as an advert?". 0.7+ is
+post-worthy. The user prompt specifies the exact JSON schema to return.
+"""
+
+
 # Framing for REPLIES on the account's OWN YouTube videos. Different audience
 # (already engaged, watched the video) so different posture (no pitch,
 # no link, no marketing gate). Same factual ground from the pitch sheet.
@@ -243,6 +258,47 @@ def _compose_reply_system(platform: Optional[str] = None) -> str:
         f"{pitch}\n--- END OF REFERENCE SHEET ---\n\n{framing}",
         platform,
     )
+
+
+def _compose_post_system(platform: Optional[str] = None) -> str:
+    """The system message for a post of the account's own with an infographic."""
+    framing = f"You are writing a post under {_account_ref()}.\n{_POST_FRAMING}"
+    pitch = _pitch_sheet()
+    if not pitch:
+        return _voiced_system(framing, platform)
+    return _voiced_system(f"{framing}\n\n--- PITCH SHEET ---\n{pitch}\n", platform)
+
+
+def _build_post_prompt(platform: str, community: str, infographic: dict, link_url: str) -> str:
+    """User-side prompt for a post with an infographic: where it goes, what the
+    image says, and the shape the words take on that platform."""
+    said = [str(infographic.get("headline") or "").strip()]
+    said += [str(line).strip() for line in infographic.get("lines") or []]
+    image_text = "\n".join(f"  {line}" for line in said if line) or "  (its text is not recorded)"
+    if platform == "reddit":
+        shape = (
+            "Write the post's TITLE: one line of at most 150 characters, plain words, "
+            "no link, no hashtags, no emoji. It says what the image shows."
+        )
+    else:
+        shape = (
+            "Write one to three short sentences to go above the image"
+            + (f", ending with this link on the same line: {link_url}" if link_url else "")
+            + ". No hashtags."
+        )
+    return f"""\
+PLATFORM: {platform}
+COMMUNITY: {community}
+
+THE ATTACHED INFOGRAPHIC SAYS:
+{image_text}
+
+INSTRUCTIONS:
+{shape}
+Do not copy the infographic's lines; the reader has them in front of them.
+
+Respond with JSON: {{"draft": "...", "grade": 0.0-1.0, "reason": "..."}}
+"""
 
 
 def _compose_share_system() -> str:
@@ -580,8 +636,10 @@ def draft_outreach_text(
         context: dict with keys depending on mode:
             - comment mode: {"url", "title", "body", "thread_context"}
             - share mode: {"target", "link_url"}
+            - post mode: {"community", "infographic": {"headline", "lines"}}
         tone: optional tone preset from TONE_GUIDES
-        mode: "comment" or "share"
+        mode: "comment", "share", "reply", or "post" (the account's own post
+            with an infographic attached)
         feature_hint: accepted from callers that label a thread with a
             feature key; it is not put in the prompt — the drafter chooses
             its angle from the pitch sheet.
@@ -600,8 +658,34 @@ def draft_outreach_text(
     if llm is None:
         llm = _ollama_json_chat
 
-    if mode in ("share", "comment") and not _pitch_sheet():
+    if mode in ("share", "comment", "post") and not _pitch_sheet():
         return _not_drafted(profile.no_product_reason())
+
+    if mode == "post":
+        # A title carries no link; elsewhere the profile's link closes the post.
+        cta = "" if platform == "reddit" else (
+            (link_url or context.get("link_url") or "").strip() or profile.cta_url(platform)
+        )
+        prompt = _build_post_prompt(
+            platform, context.get("community") or "(unspecified)", context.get("infographic") or {}, cta,
+        )
+        result, draft_text = _draft_in_voice(
+            llm, _compose_post_system(platform), prompt, ("draft", "title", "body"), platform,
+        )
+        draft_text = (draft_text or "").strip()
+        if platform == "reddit":
+            draft_text = " ".join(draft_text.split())
+        elif draft_text and cta and not _draft_already_has_cta(draft_text, cta):
+            draft_text = f"{draft_text} {cta}"
+        draft_text = apply_utm_tags(draft_text, platform=platform, campaign=campaign)
+        reason = result.get("reason", "") or result.get("rationale", "")
+        return {
+            "comment": draft_text,
+            "draft": draft_text,
+            "grade": float(result.get("grade", 0.0) or 0.0),
+            "rationale": reason,
+            "reason": reason,
+        }
 
     if mode == "share":
         target = context.get("target", "(unspecified)")

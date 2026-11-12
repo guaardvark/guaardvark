@@ -257,9 +257,13 @@ def mark_drafted_from_candidate(
         return False
 
 
-def mark_rejected(audit_id: int, reason: str) -> bool:
+def mark_rejected(audit_id: int, reason: str, draft: Optional[str] = None) -> bool:
     """Mark a candidate or draft as rejected (Content agent's grade too low,
     sub bans self-promo discovered late, etc.). Preserves draft_text for audit.
+
+    ``draft`` is the text that was written and turned away; it is kept in the
+    candidate's payload as ``rejected_draft`` so a person can read what the
+    checks refused.
     """
     try:
         from backend.models import SocialOutreachLog
@@ -267,12 +271,36 @@ def mark_rejected(audit_id: int, reason: str) -> bool:
             row = s.get(SocialOutreachLog, audit_id)
             if row is None:
                 return False
+            if draft and row.status == "candidate":
+                try:
+                    payload = json.loads(row.draft_text or "{}")
+                except ValueError:
+                    payload = None
+                if isinstance(payload, dict):
+                    payload["rejected_draft"] = draft
+                    row.draft_text = json.dumps(payload, ensure_ascii=False)
             row.status = "rejected"
             row.abort_reason = reason
             s.commit()
         return True
     except Exception as e:
         logger.error("mark_rejected failed for audit_id %s: %s", audit_id, e)
+        return False
+
+
+def set_media(audit_id: int, media: Optional[dict]) -> bool:
+    """Set (or with None, remove) the image a row's post carries."""
+    try:
+        from backend.models import SocialOutreachLog
+        with _detached_audit_session() as s:
+            row = s.get(SocialOutreachLog, audit_id)
+            if row is None:
+                return False
+            row.media_json = json.dumps(media, ensure_ascii=False) if media else None
+            s.commit()
+        return True
+    except Exception as e:
+        logger.error("set_media failed for audit_id %s: %s", audit_id, e)
         return False
 
 

@@ -324,7 +324,9 @@ def _post(row, before_submit: Callable[[], bool]) -> tuple[bool, str]:
             )
         elif platform == "facebook":
             from backend.services.social_outreach.facebook_outreach import post_comment_via_bidi
-            success, reason = post_comment_via_bidi(row.target_url, text, before_submit=before_submit)
+            success, reason = post_comment_via_bidi(
+                row.target_url, text, image_path=_image_path(row), before_submit=before_submit,
+            )
         else:
             raise _NotPostable(f"unsupported: no poster for action 'comment' on platform '{platform}'")
         if success:
@@ -347,6 +349,34 @@ def _post(row, before_submit: Callable[[], bool]) -> tuple[bool, str]:
         if success:
             record_post_via_backend(
                 row.id, row.target_url, row.target_thread_id, reply_text, row.task_id, platform=platform,
+            )
+        return success, reason
+
+    if action == "post":
+        # The account's own post in a community, with the infographic the row carries.
+        text = (row.posted_text or row.draft_text or "").strip()
+        image = _image_path(row)
+        if not text:
+            raise _NotPostable("post row has no text")
+        if platform == "facebook":
+            from backend.services.social_outreach.facebook_outreach import group_ref, post_to_group_via_bidi
+            group = group_ref(row.target_url or "")
+            if not group:
+                raise _NotPostable("post row names no Facebook group")
+            success, reason = post_to_group_via_bidi(group, text, image_path=image, before_submit=before_submit)
+        elif platform == "reddit":
+            from backend.services.social_outreach.self_share import submit_image_post
+            m = re.search(r"/r/([^/]+)", row.target_url or "")
+            if not m:
+                raise _NotPostable("post row names no subreddit")
+            if not image:
+                raise _NotPostable("post row carries no image")
+            success, reason = submit_image_post(m.group(1), text, image, before_submit=before_submit)
+        else:
+            raise _NotPostable(f"unsupported: no poster for action 'post' on platform '{platform}'")
+        if success:
+            record_post_via_backend(
+                row.id, row.target_url, row.target_thread_id, text, row.task_id, platform=platform,
             )
         return success, reason
 
@@ -375,6 +405,20 @@ def _post(row, before_submit: Callable[[], bool]) -> tuple[bool, str]:
         return success, reason
 
     raise _NotPostable(f"unsupported: no poster for action '{action}' on platform '{platform}'")
+
+
+def _image_path(row) -> Optional[str]:
+    """The file of the image ``row`` carries, or None when it carries none.
+    A row whose image is recorded but no longer on disk cannot be posted."""
+    from backend.services.social_outreach import infographics
+
+    media = infographics.media_of(row)
+    if not media:
+        return None
+    try:
+        return str(infographics.file_path(int(media["document_id"])))
+    except Exception as e:
+        raise _NotPostable(f"attach_failed: nothing was posted; the image for this post is unavailable ({e})")
 
 
 def reply_parts(row) -> tuple[str, str]:

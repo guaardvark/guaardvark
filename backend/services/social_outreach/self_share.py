@@ -294,6 +294,151 @@ def _submit_post_via_servo(
     return True, "ok"
 
 
+# The image-post form: the title it holds, how many images it shows, and the
+# Post button. The fields sit inside the form's components (shadow roots).
+_DEEP_JS = r"""
+  const all = (root, sel, out = []) => {
+    out.push(...root.querySelectorAll(sel));
+    for (const el of root.querySelectorAll('*')) if (el.shadowRoot) all(el.shadowRoot, sel, out);
+    return out;
+  };
+  const inMedia = (el) => ((el.getRootNode().host || {}).tagName || '') === 'R-POST-MEDIA-INPUT';
+"""
+_IMAGE_FORM_JS = "(() => {" + _DEEP_JS + r"""
+  const title = all(document, 'textarea[name="title"]')[0];
+  const shown = new Set(all(document, 'img')
+    .filter((i) => inMedia(i) && /^blob:/.test(i.src || '') && i.naturalWidth > 100).map((i) => i.src));
+  const post = all(document, '#inner-post-submit-button')[0];
+  let button = null;
+  if (post) {
+    post.scrollIntoView({block: 'center', behavior: 'instant'});
+    const r = post.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    button = {
+      disabled: !!post.disabled || post.getAttribute('aria-disabled') === 'true',
+      shown: r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= innerHeight,
+      x: Math.round((window.mozInnerScreenX + r.left + r.width / 2) * dpr),
+      y: Math.round((window.mozInnerScreenY + r.top + r.height / 2) * dpr),
+    };
+  }
+  const notes = all(document, '[role="alert"]').map((e) => (e.innerText || '').trim()).filter(Boolean).join(' | ').slice(0, 200);
+  return JSON.stringify({url: location.href, title: title ? title.value : null, attached: shown.size,
+    has_input: all(document, 'input[type="file"]').some(inMedia), button, notes});
+})()"""
+_IMAGE_INPUT_JS = "(() => {" + _DEEP_JS + r"""
+  return all(document, 'input[type="file"]').find(inMedia) || null;
+})()"""
+
+# Seconds an image gets to show in the form, and to finish uploading after it shows.
+_IMAGE_WAIT_S = 30.0
+_IMAGE_SETTLE_S = 5.0
+
+
+def _image_form_problem(form: Optional[dict], subreddit: str, title: str, attached: int) -> str:
+    """Why the image form must not be submitted, or "" when it holds the draft."""
+    from urllib.parse import urlparse
+
+    if form is None:
+        return "the form could not be read"
+    path = urlparse(form.get("url") or "").path.rstrip("/").lower()
+    if path != f"/r/{subreddit}/submit".lower():
+        return f"the browser is on {str(form.get('url') or '')[:200]}, not r/{subreddit}'s submit form"
+    if form.get("title") is None or not _same_text(form["title"], title):
+        return f"the title field holds {str(form.get('title') or '')[:80]!r}, not the approved title"
+    if not form.get("has_input"):
+        return "the form takes no image (the subreddit may not allow image posts)"
+    if int(form.get("attached") or 0) != attached:
+        return f"the form shows {form.get('attached')} images, not {attached}"
+    button = form.get("button") or {}
+    if attached and (not button or button.get("disabled") or not button.get("shown")):
+        return "the Post button is missing, disabled or off screen"
+    return ""
+
+
+def submit_image_post(
+    subreddit: str,
+    title: str,
+    image_path: str,
+    *,
+    before_submit: Optional[Callable[[], bool]] = None,
+) -> tuple[bool, str]:
+    """Submit an image post to ``subreddit`` through the agent's Firefox.
+
+    The title arrives in the form's address as with a link post; the image is
+    handed to the form's own file input. The form is posted only when it holds
+    exactly the approved title and one image. ``before_submit`` and the check
+    after the submit work as in ``_submit_post_via_servo``.
+    """
+    import os
+    from urllib.parse import urlencode
+
+    from backend.services.agent_control_service import get_agent_control_service
+    from backend.services.local_screen_backend import LocalScreenBackend
+    from backend.services.social_outreach.reddit_outreach import bidi_set_files
+    from backend.utils.agent_display_utils import start_agent_display_if_needed
+
+    if not (title or "").strip():
+        return False, "share row missing title"
+    if not image_path or not os.path.isfile(image_path):
+        return False, "attach_failed: nothing was posted; the image file is missing"
+    if get_agent_control_service().is_active:
+        return False, "agent_busy"
+    if not start_agent_display_if_needed():
+        return False, "display_unavailable"
+    try:
+        screen = LocalScreenBackend()
+    except Exception as e:
+        logger.warning("display not available for image post: %s", e)
+        return False, "display_unavailable"
+    readable, why = bidi_reachable()
+    if not readable:
+        return False, page_check_unavailable_reason(why)
+
+    submit_url = f"{REDDIT_BASE}/r/{subreddit}/submit/?" + urlencode({"type": "IMAGE", "title": title.strip()})
+    if not _bidi_navigate(submit_url, settle_seconds=SERVO_SETTLE_SECONDS, nav_timeout=30.0):
+        return False, "navigate_failed: nothing was posted; the submit form did not load"
+
+    def wait_for(attached: int, wait_s: float) -> tuple[Optional[dict], str]:
+        deadline = time.monotonic() + wait_s
+        while True:
+            form, _why = bidi_evaluate_json(_IMAGE_FORM_JS)
+            problem = _image_form_problem(form, subreddit, title, attached)
+            if not problem or time.monotonic() >= deadline:
+                return form, problem
+            time.sleep(1.0)
+
+    form, problem = wait_for(0, _FORM_WAIT_S)
+    if problem:
+        return False, f"form_not_ready: nothing was posted; {problem}"
+    why = bidi_set_files(_IMAGE_INPUT_JS, [image_path])
+    if why:
+        return False, f"attach_failed: nothing was posted; {why}"
+    form, problem = wait_for(1, _IMAGE_WAIT_S)
+    if problem:
+        return False, f"attach_failed: nothing was posted; {problem}"
+    time.sleep(_IMAGE_SETTLE_S)
+    form, problem = wait_for(1, 3.0)
+    if problem:
+        return False, f"form_not_ready: nothing was posted; {problem}"
+    _human_pause()
+
+    if before_submit is not None and not before_submit():
+        return False, WITHDRAWN_BEFORE_SUBMIT
+    clicked_at = time.time() - 120.0
+    screen.click(int(form["button"]["x"]), int(form["button"]["y"]))
+
+    deadline = time.monotonic() + _LANDED_WAIT_S
+    while True:
+        time.sleep(2.0)
+        landed, where = _post_landed(subreddit, title, "", clicked_at)
+        if landed or time.monotonic() >= deadline:
+            break
+    logger.info("self_share: image post check r/%s: landed=%s %s", subreddit, landed, where)
+    if not landed:
+        return False, f"submit_unverified: {where}"
+    return True, "ok"
+
+
 class SelfShareLoop:
     def run_one_pass(self, subreddit: str, link_url: str, task_id: Optional[int] = None) -> dict:
         with reddit_reading():

@@ -182,6 +182,10 @@ class RecondAgent:
         if not kill_switch.is_enabled():
             report["reason"] = "kill_switch_off"
             return report
+        backlog = kill_switch.review_backlog_reason("reddit")
+        if backlog:
+            report["reason"] = backlog
+            return report
         # Keywords alone are enough to match a thread; a blurb is optional.
         if not profile.load().features:
             report["reason"] = NO_FEATURES_REASON
@@ -273,6 +277,10 @@ class RecondAgent:
         }
         if not kill_switch.is_enabled():
             report["reason"] = "kill_switch_off"
+            return report
+        backlog = kill_switch.review_backlog_reason("reddit")
+        if backlog:
+            report["reason"] = backlog
             return report
         if not profile.load().features:
             report["reason"] = NO_FEATURES_REASON
@@ -438,6 +446,10 @@ class RecondAgent:
         }
         if not kill_switch.is_enabled():
             report["reason"] = "kill_switch_off"
+            return report
+        backlog = kill_switch.review_backlog_reason("facebook")
+        if backlog:
+            report["reason"] = backlog
             return report
         if not profile.load().features:
             report["reason"] = NO_FEATURES_REASON
@@ -666,6 +678,10 @@ class RecondAgent:
 
         if not kill_switch.is_enabled():
             report["reason"] = "kill_switch_off"
+            return report
+        backlog = kill_switch.review_backlog_reason("youtube")
+        if backlog:
+            report["reason"] = backlog
             return report
         # Keywords alone are enough to match a thread; a blurb is optional.
         if not profile.load().features:

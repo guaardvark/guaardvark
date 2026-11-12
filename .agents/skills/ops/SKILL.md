@@ -59,7 +59,7 @@ curl -s -X POST $B/api/infographic/generate -H 'Content-Type: application/json' 
 ```
 Styles: `editorial`, `flat_vector`, `photo_real`, `comic`; aspects `16:9`, `1:1`, `9:16`, `4:5`, `3:2`.
 The call waits for the GPU and returns when the PNG is saved (`image_url`, also filed in the Library
-under Images › Infographics). `model` is optional: Krea 2 Turbo when installed, else Z-Image Turbo;
+under Images › Infographics). `model` is optional: Krea 2 Turbo when installed, else MOSS-Image, else Z-Image Turbo;
 `qwen-image-21` is non-commercial. `GET $B/api/infographic/status` lists the models and which is installed.
 
 ## Rules

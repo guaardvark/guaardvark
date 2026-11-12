@@ -49,19 +49,36 @@ FALLBACK_GRADER_MODEL = "gemma4:e2b"
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 
-GRADER_SYSTEM = """You are a strict outreach-comment grader. You did NOT write this draft. Answer each question below about it with 1 (yes) or 0 (no) and return only JSON.
+GRADER_SYSTEM = """You grade a comment someone wants to post under another person's post in an online community. You did NOT write it. First say in one sentence what the post asks or is about, and whether what the comment offers is for that same thing. Then answer each question with 1 (yes) or 0 (no). Return only JSON.
 
 Questions:
-  engages: Does the comment substantively engage with the specific thread, not generic boilerplate?
-  on_topic: Is the comment relevant to the thread's actual subject?
-  appropriate_tone: Does the tone fit a casual Reddit thread (not corporate, not sycophantic, not spammy)?
+  engages: Does the comment respond to something specific in this post: what it asks, shows or argues? Answer 1 when it answers the post's question, or adds to the exact point the post makes, even in one or two short sentences, and even when it does so by naming the commenter's own tool. Answer 0 when the comment could be pasted under any post, when what it offers is for a different need than the one in this post, when the features it lists have nothing to do with the post, or when it ignores what was asked.
+  on_topic: Is the comment about the post's actual subject?
+  appropriate_tone: Does it read like a person in that community typed it: casual and plain? People there do share what they built, so when engages is 1, a short comment that names the commenter's own project, says what it does for the need in the post, and ends with a link or "give it a try" answers 1. Answer 0 for marketing language (superlatives such as "best" or "comprehensive", "we are excited", "empowers"), for a list of selling points, or for praise piled on the post.
 
-Return ONLY this JSON shape:
-{"engages": 1, "on_topic": 1, "appropriate_tone": 0, "reason": "Engages with the question and stays on topic, but reads like an advert."}"""
+Return ONLY this JSON shape, reason first, with your own answers:
+{"reason": "<one sentence>", "engages": <0 or 1>, "on_topic": <0 or 1>, "appropriate_tone": <0 or 1>}"""
 
 
 RUBRIC_QUESTIONS = ("engages", "on_topic", "appropriate_tone")
-"""The items the grader answers about a comment; it passes only when all are yes."""
+"""The items the grader answers about a comment; it passes only when all are yes.
+
+GRADER_SYSTEM measured on 18 labelled comments under three group posts: 10
+that should pass (short replies that answer the post, most naming the
+commenter's own tool, one naming none) and 8 that should not (replies placed
+under a different post, a feature list, a bare link, an advert, corporate
+copy). Right answers out of 18, as passed/10 and turned away/8:
+
+    qwen3.5:9b   18   (10, 8)
+    gemma4:e2b   13   (10, 3)
+    qwen3.5:4b   11   (4, 7)
+
+The wording before it scored 9 with gemma4:e2b (1, 8) and 8 with qwen3.5:9b
+(0, 8): its example answer showed a failing comment, and it turned away the
+comment that named no tool at all. The check is only as sharp as the model:
+the small ones cannot tell a reply that fits the post from one that does not,
+so GUAARDVARK_OUTREACH_GRADER_MODEL is worth setting to a 9b-class model of a
+family other than the drafter's."""
 
 REPLY_GRADER_SYSTEM = """You grade a reply that a video's creator wants to post under their own video, answering a viewer's comment. You did NOT write this reply. First say in one sentence what the viewer's comment was and whether the reply fits it, then answer each question with 1 (yes) or 0 (no). Return only JSON.
 

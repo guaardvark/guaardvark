@@ -192,6 +192,14 @@ def wanted_identity(url: str) -> tuple[str, str]:
     return (name, POST_AS_ENV) if name else ("", "")
 
 
+def posts_as_allowed(actor: str, wanted: str) -> bool:
+    """True when ``actor`` is an account the setting allows. The setting may
+    name several, separated by commas, for a person who posts as more than one
+    (a profile and a page); empty allows any."""
+    names = {n.strip().casefold() for n in (wanted or "").split(",") if n.strip()}
+    return not names or (actor or "").strip().casefold() in names
+
+
 def _read(expression: str) -> tuple[Optional[dict], str]:
     from backend.services.social_outreach.reddit_outreach import bidi_evaluate_json
 
@@ -291,13 +299,67 @@ def _verify(text: str, actor: str) -> tuple[bool, dict, str]:
         time.sleep(_POLL_S)
 
 
+# The comment box's own file input, and whether the box shows an attachment.
+_COMMENT_FORM_JS = r"""
+  const box = boxes()[0];
+  const form = box ? (box.closest('form') || box.parentElement) : null;
+"""
+_COMMENT_FILE_INPUT_JS = "(() => {" + _JS_HELPERS + _COMMENT_FORM_JS + r"""
+  return form ? form.querySelector('input[type="file"]') : null;
+})()"""
+_COMMENT_ATTACHED_JS = "(() => {" + _JS_HELPERS + r"""
+  const remove = [...scope().querySelectorAll('[aria-label]')]
+    .filter((e) => /^remove (photo|video|attachment)/i.test(e.getAttribute('aria-label')) && shown(e));
+  return JSON.stringify({attached: remove.length});
+})()"""
+
+_ATTACH_WAIT_S = 25.0
+# A preview shows before the upload behind it ends; the submit waits this long after it.
+_ATTACH_SETTLE_S = 4.0
+
+
+def _wait_attached(script: str, wait_s: float = _ATTACH_WAIT_S) -> int:
+    """How many attachments the composer shows, polled until one appears."""
+    deadline = time.monotonic() + wait_s
+    while True:
+        data, _why = _read(script)
+        count = int((data or {}).get("attached") or 0)
+        if count or time.monotonic() >= deadline:
+            return count
+        time.sleep(_POLL_S)
+
+
+def _attach(input_script: str, attached_script: str, image_path: str) -> str:
+    """Hand ``image_path`` to the composer's file input and wait for its
+    preview. Returns "" once exactly one attachment shows, else why not."""
+    from backend.services.social_outreach.reddit_outreach import bidi_set_files
+
+    if not os.path.isfile(image_path):
+        return f"the image file is missing ({os.path.basename(image_path)})"
+    data, _why = _read(attached_script)
+    if int((data or {}).get("attached") or 0):
+        return "the composer already held an attachment"
+    why = bidi_set_files(input_script, [image_path])
+    if why:
+        return why
+    count = _wait_attached(attached_script)
+    if count != 1:
+        return f"the composer shows {count} attachments after choosing the image"
+    time.sleep(_ATTACH_SETTLE_S)
+    return ""
+
+
 def post_comment_via_bidi(
     target_url: str,
     comment_text: str,
     *,
+    image_path: Optional[str] = None,
     before_submit: Optional[Callable[[], bool]] = None,
 ) -> tuple[bool, str]:
     """Post ``comment_text`` as a top-level comment on the Facebook post or reel.
+
+    With ``image_path`` the image is attached to the comment after the text is
+    typed; when it cannot be attached nothing is posted.
 
     ``before_submit`` is called once the text is typed and read back, immediately
     before the Enter that publishes; when it returns False nothing is published
@@ -352,7 +414,7 @@ def post_comment_via_bidi(
 
     actor = str(box.get("actor") or "")
     wanted, setting = wanted_identity(landed)
-    if wanted and actor.casefold() != wanted.casefold():
+    if not posts_as_allowed(actor, wanted):
         return False, (
             f"wrong_identity: nothing was posted; the comment box posts as "
             f"{actor or 'an unnamed account'!r}, not {wanted!r} ({setting})"
@@ -387,6 +449,14 @@ def post_comment_via_bidi(
             "typed_text_unreadable: nothing was posted; the comment box lost focus or could not be read back"
         )
 
+    if image_path:
+        why = _attach(_COMMENT_FILE_INPUT_JS, _COMMENT_ATTACHED_JS, image_path)
+        if why:
+            return False, f"attach_failed: nothing was posted; {why}"
+        held = _composer_focused()
+        if held is None or not _same_text(held.get("text", ""), text):
+            return False, "attach_failed: nothing was posted; the comment box changed while the image was attached"
+
     where = _location()
     if not same_post(where, landed):
         return False, f"wrong_page: nothing was posted; the browser left the post before submitting ({where[:200]})"
@@ -405,6 +475,232 @@ def post_comment_via_bidi(
         return True, "ok"
     if reading and not reading.get("held"):
         return False, f"submitted_unconfirmed: may be live, check the post before approving again ({detail})"
+    return False, f"submit_failed: {detail}"
+
+
+# --- A post of one's own in a group -------------------------------------------
+
+# A group's own-post box. The page shows a "Write something..." button; it
+# opens a dialog holding the text box, a file input, the account posting, and
+# the Post button.
+_XY_JS = r"""
+  const dpr = window.devicePixelRatio || 1;
+  const centre = (el) => { const r = el.getBoundingClientRect(); return {
+    x: Math.round((window.mozInnerScreenX + r.left + r.width / 2) * dpr),
+    y: Math.round((window.mozInnerScreenY + r.top + r.height / 2) * dpr)}; };
+"""
+_GROUP_OPENER_JS = "(() => {" + _XY_JS + r"""
+  const main = document.querySelector('[role="main"]') || document;
+  const opener = [...main.querySelectorAll('[role="button"]')]
+    .find((e) => /^write something/i.test((e.innerText || '').trim()));
+  const loginWall = !!document.querySelector('form[action*="login"], input[name="pass"]');
+  if (!opener) return JSON.stringify({found: false, login_wall: loginWall, url: location.href});
+  opener.scrollIntoView({block: 'center', behavior: 'instant'});
+  return JSON.stringify({found: true, url: location.href, ...centre(opener)});
+})()"""
+_POST_DIALOG_JS = r"""
+  const POST_BOX = /^(create a (public )?post|write something)/i;
+  const dialog = [...document.querySelectorAll('[role="dialog"]')].filter((d) =>
+    [...d.querySelectorAll('[role="textbox"][contenteditable="true"]')]
+      .some((b) => POST_BOX.test(b.getAttribute('aria-label') || b.getAttribute('aria-placeholder') || ''))).pop() || null;
+"""
+_POST_DIALOG_READ_JS = "(() => {" + _XY_JS + _POST_DIALOG_JS + r"""
+  if (!dialog) return JSON.stringify({open: false, url: location.href});
+  const box = [...dialog.querySelectorAll('[role="textbox"][contenteditable="true"]')]
+    .find((b) => POST_BOX.test(b.getAttribute('aria-label') || b.getAttribute('aria-placeholder') || ''));
+  const owner = [...dialog.querySelectorAll('[aria-label]')].map((e) => e.getAttribute('aria-label'))
+    .map((l) => (l.match(/^(.+?)(?:'s|’s) timeline$/i) || [])[1]).find(Boolean) || '';
+  const attached = [...dialog.querySelectorAll('img')]
+    .filter((i) => /^blob:/.test(i.src || '') && i.naturalWidth > 100).length;
+  const post = [...dialog.querySelectorAll('[role="button"][aria-label="Post"]')].pop();
+  if (post) post.scrollIntoView({block: 'nearest', behavior: 'instant'});
+  return JSON.stringify({
+    open: true, actor: owner.trim(), text: box.innerText || '', attached, box: centre(box),
+    post: post ? {disabled: post.getAttribute('aria-disabled') === 'true', ...centre(post)} : null,
+    url: location.href,
+  });
+})()"""
+_POST_FILE_INPUT_JS = "(() => {" + _POST_DIALOG_JS + r"""
+  return dialog ? dialog.querySelector('input[type="file"]') : null;
+})()"""
+_POST_BOX_LABEL = re.compile(r"^(create a (public )?post|write something)", re.IGNORECASE)
+
+# After Post: is the dialog gone, is a post holding the text in the group's
+# feed, and what do alerts say (a group whose admins approve posts says so).
+_GROUP_POSTED_JS = "(() => {" + _POST_DIALOG_JS + r"""
+  const STRIP = /[\p{Extended_Pictographic}‍️\s]/gu;
+  const want = __NEEDLE__.replace(STRIP, '');
+  const feed = document.querySelector('[role="feed"]');
+  const listed = !!want && !!feed && [...feed.children].slice(0, 6)
+    .some((c) => (c.innerText || '').replace(STRIP, '').includes(want));
+  const notes = [...document.querySelectorAll('[role="alert"], [role="status"]')]
+    .map((e) => (e.innerText || '').trim()).filter(Boolean).join(' | ').slice(0, 300);
+  return JSON.stringify({open: !!dialog, listed, notes, url: location.href});
+})()"""
+
+_POSTED_WAIT_S = 30.0
+
+
+def _post_box_focused() -> Optional[dict]:
+    """The focused element when it is the own-post dialog's text box, else None."""
+    from backend.services.social_outreach.reddit_outreach import _focused_editable
+
+    held = _focused_editable()
+    if held and held.get("editable") and _POST_BOX_LABEL.search((held.get("label") or "").strip()):
+        return held
+    return None
+
+
+def post_to_group_via_bidi(
+    group: str,
+    text: str,
+    *,
+    image_path: Optional[str] = None,
+    before_submit: Optional[Callable[[], bool]] = None,
+) -> tuple[bool, str]:
+    """Publish ``text`` as a new post in the Facebook group, with ``image_path``
+    attached when given.
+
+    ``before_submit`` is called once the image shows and the text is typed and
+    read back, immediately before the click on Post; when it returns False
+    nothing is published and the reason is ``transitions.WITHDRAWN_BEFORE_SUBMIT``.
+    A group whose admins approve posts holds the post instead of listing it;
+    that comes back as ``submitted_unconfirmed`` with what the page said.
+    """
+    from backend.services.agent_control_service import get_agent_control_service
+    from backend.services.local_screen_backend import LocalScreenBackend
+    from backend.services.social_outreach.reddit_outreach import (
+        SERVO_SETTLE_SECONDS,
+        _bidi_navigate,
+        _same_text,
+        bidi_reachable,
+        page_check_unavailable_reason,
+    )
+    from backend.utils.agent_display_utils import start_agent_display_if_needed
+
+    body = (text or "").replace("\r\n", "\n").strip()
+    ref = group_ref(group)
+    if not body:
+        return False, "empty_text"
+    if not ref:
+        return False, f"not_a_group: nothing was posted; {str(group)[:120]!r} does not name a Facebook group"
+    if get_agent_control_service().is_active:
+        return False, "agent_busy"
+    if not start_agent_display_if_needed():
+        return False, "display_unavailable"
+    try:
+        screen = LocalScreenBackend()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("facebook poster: display unavailable: %s", e)
+        return False, "display_unavailable"
+    readable, why = bidi_reachable()
+    if not readable:
+        return False, page_check_unavailable_reason(why)
+
+    group_url = f"https://www.facebook.com/groups/{ref}/"
+    if not _bidi_navigate(group_url, settle_seconds=SERVO_SETTLE_SECONDS, nav_timeout=30.0):
+        return False, "navigate_failed: nothing was posted; the browser did not load the group"
+
+    def in_group() -> bool:
+        return group_ref(_location()) == ref
+
+    deadline = time.monotonic() + _COMPOSER_WAIT_S
+    while True:
+        opener, why = _read(_GROUP_OPENER_JS)
+        if (opener or {}).get("found") or time.monotonic() >= deadline:
+            break
+        time.sleep(_POLL_S)
+    if opener is None:
+        return False, f"composer_not_found: nothing was posted; the group could not be read ({why})"
+    if opener.get("login_wall"):
+        return False, "logged_out:facebook: nothing was posted; the agent browser is not signed in to Facebook"
+    if not opener.get("found") or not in_group():
+        return False, (
+            "composer_not_found: nothing was posted; the group shows no box for a new post "
+            f"to this account ({str(opener.get('url') or '')[:200]})"
+        )
+    screen.click(int(opener["x"]), int(opener["y"]))
+
+    deadline = time.monotonic() + _COMPOSER_WAIT_S
+    while True:
+        dialog, why = _read(_POST_DIALOG_READ_JS)
+        if (dialog or {}).get("open") or time.monotonic() >= deadline:
+            break
+        time.sleep(_POLL_S)
+    if not (dialog or {}).get("open"):
+        return False, "composer_not_found: nothing was posted; the new-post box did not open"
+    if (dialog.get("text") or "").strip() or dialog.get("attached"):
+        return False, "composer_not_empty: nothing was posted; the new-post box held an earlier draft"
+
+    actor = str(dialog.get("actor") or "")
+    wanted, setting = wanted_identity(group_url)
+    if not posts_as_allowed(actor, wanted):
+        return False, (
+            f"wrong_identity: nothing was posted; the new-post box posts as "
+            f"{actor or 'an unnamed account'!r}, not {wanted!r} ({setting})"
+        )
+
+    if image_path:
+        attached_script = (
+            "(() => {" + _POST_DIALOG_JS + r""" return JSON.stringify({attached: dialog
+              ? [...dialog.querySelectorAll('img')].filter((i) => /^blob:/.test(i.src || '') && i.naturalWidth > 100).length
+              : 0}); })()"""
+        )
+        why = _attach(_POST_FILE_INPUT_JS, attached_script, image_path)
+        if why:
+            screen.hotkey("Escape")
+            return False, f"attach_failed: nothing was posted; {why}"
+
+    # The image moves the text box, so it is found again before the click.
+    dialog, _why = _read(_POST_DIALOG_READ_JS)
+    if not (dialog or {}).get("open"):
+        return False, "composer_not_found: nothing was posted; the new-post box closed"
+    screen.click(int(dialog["box"]["x"]), int(dialog["box"]["y"]))
+    deadline = time.monotonic() + 3.0
+    while _post_box_focused() is None and time.monotonic() < deadline:
+        time.sleep(0.25)
+    if _post_box_focused() is None:
+        return False, "composer_not_focused: nothing was posted; the click did not reach the new-post box"
+    if not _type_comment(screen, body):
+        return False, "type_failed: nothing was posted; typing into the new-post box failed"
+    time.sleep(0.8)
+
+    dialog, _why = _read(_POST_DIALOG_READ_JS)
+    if not (dialog or {}).get("open") or not _same_text(dialog.get("text", ""), body):
+        shown = " ".join(((dialog or {}).get("text") or "").split())[:60]
+        return False, f"typed_text_mismatch: nothing was posted; the new-post box held {shown!r} instead of the approved text"
+    if image_path and int(dialog.get("attached") or 0) != 1:
+        return False, "attach_failed: nothing was posted; the image was no longer attached"
+    button = dialog.get("post") or {}
+    if not button or button.get("disabled"):
+        return False, "submit_unavailable: nothing was posted; the Post button is missing or disabled"
+    if not in_group():
+        return False, f"wrong_page: nothing was posted; the browser left the group before posting ({_location()[:200]})"
+    if before_submit is not None and not before_submit():
+        return False, WITHDRAWN_BEFORE_SUBMIT
+    screen.click(int(button["x"]), int(button["y"]))
+
+    script = _GROUP_POSTED_JS.replace("__NEEDLE__", json.dumps(body[:_NEEDLE_CHARS]))
+    deadline = time.monotonic() + _POSTED_WAIT_S
+    reading: dict = {}
+    while True:
+        time.sleep(2.0)
+        data, _why = _read(script)
+        reading = data or reading
+        if (reading.get("listed") and not reading.get("open")) or time.monotonic() >= deadline:
+            break
+    detail = (
+        f"listed={reading.get('listed')} box_open={reading.get('open')} "
+        f"notes={reading.get('notes')!r} url={str(reading.get('url') or '')[:200]}"
+    )
+    logger.info("facebook poster: group post check: as=%r %s", actor, detail)
+    if reading.get("listed") and not reading.get("open"):
+        return True, "ok"
+    if reading and not reading.get("open"):
+        return False, (
+            "submitted_unconfirmed: the post left the box but is not listed in the group; "
+            f"it may be waiting for an admin, check the group before approving again ({detail})"
+        )
     return False, f"submit_failed: {detail}"
 
 

@@ -217,7 +217,7 @@ class InfographicGenerator:
         chosen = self.default_model()
         if not chosen:
             raise InfographicModelMissing(
-                "No infographic model is installed. Install Krea 2 Turbo or Z-Image Turbo "
+                "No infographic model is installed. Install Krea 2 Turbo, MOSS-Image or Z-Image Turbo "
                 "from Settings > Generation > Infographic."
             )
         return chosen

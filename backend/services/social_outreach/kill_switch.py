@@ -201,6 +201,37 @@ def _write_setting(key: str, value: str) -> None:
             pass
 
 
+# Drafts waiting for a person on one platform before a scout stops adding to
+# them. A queue of ten is an evening's review; past that the oldest threads
+# have gone stale by the time they are read. GUAARDVARK_OUTREACH_REVIEW_BACKLOG
+# changes it; 0 removes the limit.
+REVIEW_BACKLOG_LIMIT = 10
+
+
+def review_backlog_reason(platform: str) -> Optional[str]:
+    """``review_backlog:<n>`` when ``platform`` has that many drafts waiting
+    for review and the limit is reached; None when a scout may add more."""
+    try:
+        limit = int(os.environ.get("GUAARDVARK_OUTREACH_REVIEW_BACKLOG", REVIEW_BACKLOG_LIMIT))
+    except ValueError:
+        limit = REVIEW_BACKLOG_LIMIT
+    if limit <= 0:
+        return None
+    try:
+        from backend.models import SocialOutreachLog
+
+        waiting = (
+            SocialOutreachLog.query
+            .filter(SocialOutreachLog.platform == (platform or "").strip().lower())
+            .filter(SocialOutreachLog.status == "drafted")
+            .count()
+        )
+    except Exception as e:
+        logger.warning("review backlog unreadable for %s: %s", platform, e)
+        return None
+    return f"review_backlog:{waiting}" if waiting >= limit else None
+
+
 def cadence_allows_post(platform: str) -> tuple[bool, Optional[str]]:
     """
     Returns (allowed, reason_if_not). Fails closed on Redis errors.

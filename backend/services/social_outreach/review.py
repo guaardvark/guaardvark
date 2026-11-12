@@ -41,7 +41,8 @@ ANSWERABLE = ("drafted", "approved")
 
 HINT = (
     'Say "yes" to post it, "skip" to leave it for later, "reject" to discard it, '
-    '"change it to ..." or "make it shorter" to edit it, or "stop" to leave the review.'
+    '"change it to ..." or "make it shorter" to edit it, "add an infographic" or "without the image", '
+    'or "stop" to leave the review.'
 )
 
 _POST_CORE = (
@@ -67,18 +68,26 @@ _REDRAFT = re.compile(
     r"reword(?: it)?|try again|again)\b\s*[,:]?\s*(.*)$",
     re.IGNORECASE | re.DOTALL,
 )
+_IMAGE_OFF = re.compile(r"(?:without|no|remove|drop|lose) (?:the |an |any )?(?:image|picture|infographic|photo)")
+_IMAGE_ON = re.compile(
+    r"(?:add|attach|with|use|include) (?:an? |the )?(?:image|picture|infographic)|"
+    r"(?:a |an |use a |try a )?(?:different|another|other) (?:image|picture|infographic)"
+)
 _REDRAFT_BARE = re.compile(r"(?:shorter|longer|friendlier|simpler|(?:more|less) [a-z]+(?: [a-z]+)?)")
 
 
 def read_answer(text: str) -> tuple[str, str]:
     """(kind, argument) for a message sent while a review is open. Kind is
     post, skip, reject, stop, edit (argument: the new text), redraft
-    (argument: what to change) or unclear."""
+    (argument: what to change), image_off, image_on or unclear."""
     raw = (text or "").strip()
     plain = " ".join(re.sub(r"[^\w\s']", " ", raw.lower()).split())
     if not plain:
         return "unclear", ""
-    for kind, pattern in (("post", _POST), ("skip", _SKIP), ("reject", _REJECT), ("stop", _STOP)):
+    for kind, pattern in (
+        ("image_off", _IMAGE_OFF), ("image_on", _IMAGE_ON),
+        ("post", _POST), ("skip", _SKIP), ("reject", _REJECT), ("stop", _STOP),
+    ):
         if pattern.fullmatch(plain):
             return kind, ""
     edit = _EDIT.match(raw)
@@ -349,7 +358,37 @@ def answer(session_id: str, text: str, spoken: bool = False) -> dict[str, Any]:
         if not transitions.move(row_id, "drafted", ("drafted",), **transitions.edited_fields(row_id, revised["draft"])):
             return reply(_FIXED.format(id=row_id))
         return reply(f'Rewrote draft #{row_id}. Say "yes" to post it.')
+    if kind in ("image_off", "image_on"):
+        return reply(_change_image(row, attach=kind == "image_on", shown=before["current"]))
     return reply(f"Nothing was changed. {HINT}")
+
+
+def _change_image(row, attach: bool, shown: dict) -> str:
+    """Attach an infographic to the draft on show, swap it for another, or
+    take it off; returns what to say."""
+    from backend.services.social_outreach import audit, infographics, own_posts, platforms
+
+    if row.status != "drafted":
+        return _FIXED.format(id=row.id)
+    current = infographics.media_of(row)
+    if not attach:
+        if not current:
+            return f"Draft #{row.id} has no image."
+        if not own_posts.posts_without_image(row.platform, row.action):
+            return f"Draft #{row.id} is an image post on {platforms.label_for(row.platform)}; it cannot go without one."
+        audit.set_media(row.id, None)
+        return f'Took the image off draft #{row.id}. Say "yes" to post it.'
+    if not own_posts.takes_image(row.platform, row.action):
+        return f"A {row.action} on {platforms.label_for(row.platform)} cannot carry an image here yet."
+    about = " ".join(str((shown.get("source") or {}).get(k) or "") for k in ("title", "text")) + " " + (shown.get("text") or "")
+    item = own_posts.best_for(about, exclude=int(current["document_id"]) if current else None)
+    if item is None:
+        return (
+            "There is no other infographic to use: mark more on the Outreach page; "
+            "each is usable once its text has been read back and matches."
+        )
+    audit.set_media(row.id, infographics.media_for(int(item["document_id"])))
+    return f'Attached \u201c{item.get("headline") or "an infographic"}\u201d to draft #{row.id}. Say "yes" to post it.'
 
 
 def post(session_id: str, draft_id: int) -> dict[str, Any]:

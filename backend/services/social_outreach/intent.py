@@ -206,11 +206,21 @@ def _link_platform(url: str) -> Optional[str]:
     return None
 
 
+# "post an infographic in my Facebook groups", "share infographics on r/x".
+# "make an infographic about the Docker install".
+_MAKE_INFOGRAPHIC_RX = re.compile(
+    r"\b(?:make|create|generate|design|draw|render)\b[^.?!]*?\binfographics?\b"
+    r"(?:\s+(?:about|on|for|showing|that shows)\s+(?P<topic>.+))?",
+    re.IGNORECASE | re.DOTALL,
+)
+_OWN_POST_RX = re.compile(r"\b(post|share|put|publish)\b[^.?!]*\binfographics?\b", re.IGNORECASE)
+
+
 def _typed_request(text: str) -> Optional[dict[str, Any]]:
     """The classification of a request whose words settle it, or None.
 
     A link is a request to draft a reply to that page; "post draft 12" starts
-    that post. Neither needs the model, and neither can be talked into
+    that post; "post an infographic in ..." asks for posts of the account's own. Neither needs the model, and neither can be talked into
     something else by the rest of the sentence.
     """
     raw = (text or "").strip()
@@ -219,6 +229,19 @@ def _typed_request(text: str) -> Optional[dict[str, Any]]:
         "platform": None, "topics": [], "draft_id": None, "count": None,
         "confidence": 1.0, "raw_text": raw,
     }
+    made = _MAKE_INFOGRAPHIC_RX.search(raw)
+    if made:
+        return {**base, "intent": "make_infographic", "topic": (made.group("topic") or "").strip(" .?!"),
+                "reason": "make an infographic"}
+    if _OWN_POST_RX.search(raw):
+        from backend.services.social_outreach import facebook_outreach as fb
+
+        subreddit = _extract_subreddit(raw)
+        on_reddit = bool(subreddit) or "reddit" in raw.lower()
+        group = fb.group_ref(link.group(0)) if link and not on_reddit else None
+        return {**base, "intent": "own_posts", "platform": "reddit" if on_reddit else "facebook",
+                "communities": [c for c in (subreddit if on_reddit else group,) if c],
+                "reason": "post an infographic"}
     if link:
         url = link.group(0).rstrip(".,;")
         return {**base, "intent": "draft_url", "url": url, "platform": _link_platform(url),
@@ -394,6 +417,8 @@ def execute_outreach_intent(
             "draft_url": lambda c: _dispatch_draft_url(c, created_by=created_by),
             "scout_and_draft": lambda c: _dispatch_scout(c, created_by=created_by),
             "reply_comments": lambda c: _dispatch_reply_comments(c, created_by=created_by),
+            "own_posts": lambda c: _dispatch_own_posts(c, created_by=created_by),
+            "make_infographic": lambda c: _dispatch_make_infographic(c, created_by=created_by),
         },
         default_handler=_dispatch_refuse,
     )
@@ -780,6 +805,67 @@ def _dispatch_reply_comments(classification: dict[str, Any], *, created_by: str)
     return _queued_ok(
         classification, queued, plat="youtube", after_id=after_id,
         looking="Reading the new comments on your YouTube videos",
+    )
+
+
+def _dispatch_make_infographic(classification: dict[str, Any], *, created_by: str) -> dict[str, Any]:
+    """Queue one new infographic written from the pitch sheet."""
+    if not kill_switch.is_enabled():
+        return _kill_off(classification)
+    after_id = audit.latest_id()
+    try:
+        queued = [queue_outreach_run("make_infographic", topic=classification.get("topic") or "", created_by=created_by)]
+    except (ValueError, RuntimeError) as e:
+        return _base(classification, ok=False, error=str(e), message=str(e))
+    task_ids = [q.get("task_id") for q in queued if q.get("task_id")]
+    return _base(
+        classification,
+        ok=True,
+        queued=queued,
+        task_ids=task_ids,
+        message=(
+            f"Writing an infographic from your pitch sheet and rendering it (task #{task_ids[0]}). "
+            "It is not used for outreach until you mark it on the Outreach page."
+        ),
+        supervised=True,
+        follow={"task_ids": task_ids, "after_id": after_id, "platform": None},
+    )
+
+
+def _dispatch_own_posts(classification: dict[str, Any], *, created_by: str) -> dict[str, Any]:
+    """Queue posts of the account's own, each with an infographic the person kept."""
+    from backend.services.social_outreach import infographics
+
+    if not kill_switch.is_enabled():
+        return _kill_off(classification)
+    if not any(item.get("usable") for item in infographics.items(keepers_only=True)):
+        return _dispatch_refuse({
+            **classification,
+            "intent": "refuse",
+            "reason": (
+                "There is no infographic to post yet. On the Outreach page, mark the ones you want "
+                "used; each is usable once its text has been read back and matches."
+            ),
+        })
+    plat = classification.get("platform") or "facebook"
+    after_id = audit.latest_id()
+    try:
+        queued = [
+            queue_outreach_run(
+                "own_posts",
+                post_on=plat,
+                communities=classification.get("communities") or None,
+                batch_size=classification.get("count") or None,
+                chain_draft=True,
+                created_by=created_by,
+            )
+        ]
+    except (ValueError, RuntimeError) as e:
+        return _base(classification, ok=False, error=str(e), message=str(e))
+    where = "your subreddits" if plat == "reddit" else "your Facebook groups"
+    return _queued_ok(
+        classification, queued, plat=plat, after_id=after_id,
+        looking=f"Choosing an infographic for {where} and writing the post",
     )
 
 
