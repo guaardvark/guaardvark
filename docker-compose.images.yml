@@ -1,0 +1,11 @@
+# Run the images published on Docker Hub instead of building them on this machine.
+# ./start-docker.sh --pull adds this file; the build sections in docker-compose.yml
+# stay the path for developers and for cards the published image does not cover.
+services:
+  backend:
+    image: ${GUAARDVARK_IMAGE:-guaardvark/guaardvark}:${GUAARDVARK_IMAGE_TAG:-latest}
+    pull_policy: missing
+
+  frontend:
+    image: ${GUAARDVARK_WEB_IMAGE:-guaardvark/guaardvark-web}:${GUAARDVARK_IMAGE_TAG:-latest}
+    pull_policy: missing
