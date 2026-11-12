@@ -122,9 +122,11 @@ It sets `instanceIdleTimeout=-1` and `vmIdleTimeout=-1` in your Windows `.wslcon
 To run Guaardvark without a native Python install:
 
 ```bash
-./start-docker.sh          # CPU
-./start-docker.sh --gpu    # NVIDIA GPU (requires nvidia-container-toolkit)
+./start-docker.sh --gpu --pull   # NVIDIA GPU, images downloaded from Docker Hub
+./start-docker.sh --pull         # CPU
 ```
+
+`--pull` downloads [guaardvark/guaardvark](https://hub.docker.com/r/guaardvark/guaardvark) and its web UI image, built from each release with PyTorch for GTX 16 and RTX 20 series cards onward. Leave it off to build the images on your machine, which also covers older cards. On Linux `--gpu` needs NVIDIA Container Toolkit (below).
 
 Docker runs five containers: the backend (the API, Celery and its scheduler), the UI, PostgreSQL with pgvector, Redis and Ollama. ComfyUI (the image and video models), Audio Foundry and Upscaling run inside the backend container: install and start them from their cards on the **Plugins** page, and each model from its own Install button, as in a native install. The screen agent's desktop is not in the default image; use `./start.sh` for it.
 
@@ -137,7 +139,7 @@ Docker runs five containers: the backend (the API, Celery and its scheduler), th
    ```bash
    git clone https://github.com/guaardvark/guaardvark.git
    cd guaardvark
-   ./start-docker.sh --gpu
+   ./start-docker.sh --gpu --pull
    ```
 
 4. Pull the two first models (below), then open `http://localhost:5173` in your Windows browser.
