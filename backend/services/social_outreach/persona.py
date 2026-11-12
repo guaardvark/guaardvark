@@ -785,8 +785,13 @@ def revise_draft(
     "less salesy"). The system message is the one the draft was written
     under, so the rewrite keeps the same rules. Returns {"draft", "reason"};
     draft is "" when the model gave nothing usable."""
-    reply = (action or "").lower() == "reply"
-    system = _compose_reply_system(platform) if reply else _compose_outward_facing_system(platform)
+    kind = (action or "").lower()
+    if kind == "reply":
+        system = _compose_reply_system(platform)
+    elif kind == "post":
+        system = _compose_post_system(platform)
+    else:
+        system = _compose_outward_facing_system(platform)
     source = source or {}
     answered = "\n".join(
         part for part in (
@@ -799,10 +804,14 @@ def revise_draft(
         f"CURRENT DRAFT:\n{current_text}\n\n"
         f"THE APPROVER ASKED FOR THIS CHANGE: {note}\n\n"
         "Rewrite the draft with that change and nothing else changed in what it claims. "
-        'Respond with JSON: {"draft": "...", "reason": "what you changed"}'
+        + ("It is a post TITLE: keep it to one line with no link. " if kind == "post" and platform == "reddit" else "")
+        + 'Respond with JSON: {"draft": "...", "reason": "what you changed"}'
     )
     result = _ollama_json_chat(system, user)
-    return {"draft": str(result.get("draft") or "").strip(), "reason": str(result.get("reason") or "")}
+    draft = str(result.get("draft") or "").strip()
+    if kind == "post" and platform == "reddit":
+        draft = " ".join(draft.split())
+    return {"draft": draft, "reason": str(result.get("reason") or "")}
 
 
 def apply_utm_tags(

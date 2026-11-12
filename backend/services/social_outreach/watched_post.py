@@ -416,7 +416,12 @@ def _image_path(row) -> Optional[str]:
     if not media:
         return None
     try:
-        return str(infographics.file_path(int(media["document_id"])))
+        document_id = int(media["document_id"])
+        # The same picture the person approved, and still one outreach may use.
+        current = infographics.media_for(document_id)
+        if current.get("path") != media.get("path"):
+            raise ValueError("the file behind it changed after the draft was approved")
+        return str(infographics.file_path(document_id))
     except Exception as e:
         raise _NotPostable(f"attach_failed: nothing was posted; the image for this post is unavailable ({e})")
 

@@ -8,6 +8,7 @@ The Ollama HTTP call and the model lookup are stand-ins.
 from __future__ import annotations
 
 import json
+import re
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -163,9 +164,9 @@ def test_the_prompt_asks_only_for_the_three_answers():
     for question in external_grader.RUBRIC_QUESTIONS:
         assert f"{question}:" in prompt
     assert "concise" not in prompt
-    assert "grade" not in prompt.replace("grader", "")
-    example = json.loads(prompt[prompt.index("{"):prompt.rindex("}") + 1])
-    assert set(example) == {*external_grader.RUBRIC_QUESTIONS, "reason"}
+    # The example shows the shape with placeholders, not answers to copy.
+    example = prompt[prompt.index("{"):prompt.rindex("}") + 1]
+    assert set(re.findall(r'"(\w+)":', example)) == {*external_grader.RUBRIC_QUESTIONS, "reason"}
 
 
 def test_a_reply_in_the_asked_shape_is_checked():

@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 
 from backend.services.social_outreach import audit, infographics, kill_switch
 from backend.utils.settings_utils import web_access_block_reason
-from backend.utils.clock import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -42,11 +41,20 @@ def community_url(platform: str, community: str) -> str:
 def _live_rows(platform: str) -> list:
     from backend.models import SocialOutreachLog
 
+    from sqlalchemy import and_, or_
+
     return (
         SocialOutreachLog.query
         .filter(SocialOutreachLog.platform == platform)
         .filter(SocialOutreachLog.action == ACTION)
-        .filter(SocialOutreachLog.status.in_(_LIVE_STATUSES))
+        .filter(or_(
+            SocialOutreachLog.status.in_(_LIVE_STATUSES),
+            # A submit the page did not confirm may be live, or held for an admin.
+            and_(
+                SocialOutreachLog.status == "aborted",
+                SocialOutreachLog.abort_reason.like("%submitted_unconfirmed%"),
+            ),
+        ))
         .all()
     )
 
@@ -154,7 +162,8 @@ def plan(
         document_id = _document_id(row)
         if document_id is not None:
             uses[document_id] = uses.get(document_id, 0) + 1
-    cutoff = utcnow() - timedelta(days=DAYS_BETWEEN_POSTS)
+    # Rows are stamped in local time; the week runs from when the post was drafted.
+    cutoff = datetime.now() - timedelta(days=DAYS_BETWEEN_POSTS)
 
     def consider(community: str, rules_text: Optional[str], name: str) -> None:
         from backend.services.social_outreach.reddit_outreach import is_self_promo_banned
@@ -183,6 +192,13 @@ def plan(
             report["skipped_no_image"] += 1
             return
         document_id = int(item["document_id"])
+        try:
+            media = infographics.media_for(document_id)
+        except Exception as e:  # noqa: BLE001 - a picture that cannot be attached is not planned
+            logger.warning("own posts: infographic %s cannot be attached: %s", document_id, e)
+            entry["reason"] = "image_unavailable"
+            report["skipped_no_image"] += 1
+            return
         said = [item.get("headline") or ""] + list(item.get("lines") or [])
         described = "Infographic: " + " / ".join(line for line in said if line)
         audit_id = audit.log_candidate(
@@ -204,7 +220,12 @@ def plan(
                 "source_text": described,
             },
         )
-        if not audit_id or not audit.set_media(audit_id, infographics.media_for(document_id)):
+        if not audit_id:
+            entry["reason"] = "not_recorded"
+            return
+        if not audit.set_media(audit_id, media):
+            # Without its picture the row must not go on to be drafted.
+            audit.mark_rejected(audit_id, "image_not_recorded")
             entry["reason"] = "not_recorded"
             return
         uses[document_id] = uses.get(document_id, 0) + 1

@@ -71,7 +71,7 @@ _REDRAFT = re.compile(
 _IMAGE_OFF = re.compile(r"(?:without|no|remove|drop|lose) (?:the |an |any )?(?:image|picture|infographic|photo)")
 _IMAGE_ON = re.compile(
     r"(?:add|attach|with|use|include) (?:an? |the )?(?:image|picture|infographic)|"
-    r"(?:a |an |use a |try a )?(?:different|another|other) (?:image|picture|infographic)"
+    r"(?:use |try )?(?:a |an |the )?(?:different|another|other) (?:image|picture|infographic)"
 )
 _REDRAFT_BARE = re.compile(r"(?:shorter|longer|friendlier|simpler|(?:more|less) [a-z]+(?: [a-z]+)?)")
 
@@ -387,8 +387,13 @@ def _change_image(row, attach: bool, shown: dict) -> str:
             "There is no other infographic to use: mark more on the Outreach page; "
             "each is usable once its text has been read back and matches."
         )
-    audit.set_media(row.id, infographics.media_for(int(item["document_id"])))
-    return f'Attached \u201c{item.get("headline") or "an infographic"}\u201d to draft #{row.id}. Say "yes" to post it.'
+    try:
+        media = infographics.media_for(int(item["document_id"]))
+    except Exception as e:  # noqa: BLE001 - said to the person, not raised into the chat
+        return f"That infographic could not be attached: {e}"
+    audit.set_media(row.id, media)
+    words = " Its words were written for the earlier picture; change them if they no longer fit." if current else ""
+    return f'Attached \u201c{item.get("headline") or "an infographic"}\u201d to draft #{row.id}.{words} Say "yes" to post it.'
 
 
 def post(session_id: str, draft_id: int) -> dict[str, Any]:

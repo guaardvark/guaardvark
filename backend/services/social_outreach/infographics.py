@@ -251,7 +251,9 @@ def _document(document_id: int, lock: bool = False):
 
     query = db.session.query(Document).filter(Document.id == int(document_id))
     if lock:
-        query = query.with_for_update()
+        # populate_existing: a row already loaded in this session is otherwise
+        # handed back as it was, without what another writer saved since.
+        query = query.with_for_update().populate_existing()
     doc = query.first()
     meta = _meta(doc) if doc is not None else {}
     if doc is None or not is_infographic(meta):

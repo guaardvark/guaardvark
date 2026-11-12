@@ -185,11 +185,18 @@ def wanted_identity(url: str) -> tuple[str, str]:
     """(name the comment box must post as, the setting it came from) for the
     post at ``url``; ("", "") when no name is required."""
     if group_post_ref(url):
-        name = (os.environ.get(GROUP_POST_AS_ENV) or "").strip()
-        if name:
-            return name, GROUP_POST_AS_ENV
+        return group_identity()
     name = (os.environ.get(POST_AS_ENV) or "").strip()
     return (name, POST_AS_ENV) if name else ("", "")
+
+
+def group_identity() -> tuple[str, str]:
+    """(accounts a post in a group may go out as, the setting they came from)."""
+    for setting in (GROUP_POST_AS_ENV, POST_AS_ENV):
+        name = (os.environ.get(setting) or "").strip()
+        if name:
+            return name, setting
+    return "", ""
 
 
 def posts_as_allowed(actor: str, wanted: str) -> bool:
@@ -633,7 +640,7 @@ def post_to_group_via_bidi(
         return False, "composer_not_empty: nothing was posted; the new-post box held an earlier draft"
 
     actor = str(dialog.get("actor") or "")
-    wanted, setting = wanted_identity(group_url)
+    wanted, setting = group_identity()
     if not posts_as_allowed(actor, wanted):
         return False, (
             f"wrong_identity: nothing was posted; the new-post box posts as "

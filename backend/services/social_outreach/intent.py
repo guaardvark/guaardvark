@@ -207,13 +207,25 @@ def _link_platform(url: str) -> Optional[str]:
 
 
 # "post an infographic in my Facebook groups", "share infographics on r/x".
-# "make an infographic about the Docker install".
+# "make an infographic about the Docker install". Read only at the start of a
+# request that is not a question, so a sentence that merely mentions an
+# infographic is left to the classifier.
 _MAKE_INFOGRAPHIC_RX = re.compile(
-    r"\b(?:make|create|generate|design|draw|render)\b[^.?!]*?\binfographics?\b"
-    r"(?:\s+(?:about|on|for|showing|that shows)\s+(?P<topic>.+))?",
+    r"^\s*(?:please\s+)?(?:make|create|generate|design|draw|render)\s+(?:me\s+)?"
+    r"(?:an?|another|one|a new)?\s*infographics?\b"
+    r"(?:\s+(?:about|on|for|showing|that shows)\s+(?P<topic>.+?))?"
+    r"(?:\s*,?\s+(?:and|then)\s+(?:post|share|publish)\b.*)?\s*$",
     re.IGNORECASE | re.DOTALL,
 )
-_OWN_POST_RX = re.compile(r"\b(post|share|put|publish)\b[^.?!]*\binfographics?\b", re.IGNORECASE)
+# "post an infographic in my Facebook groups", "share infographics on r/x",
+# "create a post with an infographic in my groups".
+_OWN_POST_RX = re.compile(
+    r"^\s*(?:please\s+)?(?:"
+    r"(?:post|share|put|publish)\s+(?:an?|another|one|some|the|my|our)?\s*infographics?\b"
+    r"|(?:create|make|write|draft)\s+(?:a\s+|some\s+)?posts?\s+with\s+(?:an?\s+|the\s+)?infographics?\b"
+    r")",
+    re.IGNORECASE,
+)
 
 
 def _typed_request(text: str) -> Optional[dict[str, Any]]:
@@ -229,27 +241,28 @@ def _typed_request(text: str) -> Optional[dict[str, Any]]:
         "platform": None, "topics": [], "draft_id": None, "count": None,
         "confidence": 1.0, "raw_text": raw,
     }
-    made = _MAKE_INFOGRAPHIC_RX.search(raw)
-    if made:
-        return {**base, "intent": "make_infographic", "topic": (made.group("topic") or "").strip(" .?!"),
-                "reason": "make an infographic"}
-    if _OWN_POST_RX.search(raw):
-        from backend.services.social_outreach import facebook_outreach as fb
-
-        subreddit = _extract_subreddit(raw)
-        on_reddit = bool(subreddit) or "reddit" in raw.lower()
-        group = fb.group_ref(link.group(0)) if link and not on_reddit else None
-        return {**base, "intent": "own_posts", "platform": "reddit" if on_reddit else "facebook",
-                "communities": [c for c in (subreddit if on_reddit else group,) if c],
-                "reason": "post an infographic"}
-    if link:
-        url = link.group(0).rstrip(".,;")
-        return {**base, "intent": "draft_url", "url": url, "platform": _link_platform(url),
-                "reason": "a link was given"}
     if _POST_NOW_RX.match(raw):
         draft_id = _typed_draft_id(None, raw)
         if draft_id is not None:
             return {**base, "intent": "post", "draft_id": draft_id, "reason": "post a numbered draft"}
+    if not raw.endswith("?"):
+        made = _MAKE_INFOGRAPHIC_RX.match(raw)
+        if made:
+            return {**base, "intent": "make_infographic", "topic": (made.group("topic") or "").strip(" .!"),
+                    "reason": "make an infographic"}
+        if _OWN_POST_RX.match(raw):
+            from backend.services.social_outreach import facebook_outreach as fb
+
+            subreddit = _extract_subreddit(raw)
+            on_reddit = bool(subreddit) or "reddit" in raw.lower()
+            group = fb.group_ref(link.group(0)) if link and not on_reddit else None
+            return {**base, "intent": "own_posts", "platform": "reddit" if on_reddit else "facebook",
+                    "communities": [c for c in (subreddit if on_reddit else group,) if c],
+                    "reason": "post an infographic"}
+    if link:
+        url = link.group(0).rstrip(".,;")
+        return {**base, "intent": "draft_url", "url": url, "platform": _link_platform(url),
+                "reason": "a link was given"}
     return None
 
 
