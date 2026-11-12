@@ -118,3 +118,34 @@ def test_the_words_for_a_post_end_with_the_link_except_in_a_reddit_title(monkeyp
     assert "example.org" in on_facebook
     title = persona.draft_outreach_text("reddit", context, mode="post", llm=llm)["draft"]
     assert title == "Made this to show the Docker install."
+
+
+def test_a_sentence_about_something_else_backs_nothing(monkeypatch):
+    monkeypatch.setattr(persona, "_pitch_sheet", lambda: SHEET)
+
+    def llm(_system, _user):
+        return {
+            "headline": {"text": "Your own video studio", "backing": "The product is free and open source under the MIT licence."},
+            "labels": [
+                {"text": "Runs on your PC", "backing": "It runs on your own PC with no cloud API keys."},
+                {"text": "One-click model installs", "backing": "Models install from inside the app with the Install button."},
+            ],
+        }
+
+    spec = infographic_maker.write_spec("", llm)
+    assert spec["ok"] is False
+    assert "Your own video studio" in spec["dropped"]
+
+
+def test_what_must_never_be_said_cannot_back_a_line():
+    sheet = "## Never say\n- that it runs on every phone ever made\n## Facts\n- It runs on your own PC with no cloud API keys.\n"
+    quotable = infographic_maker._fold(infographic_maker._quotable(sheet))
+    assert not infographic_maker._backed("Runs on every phone", "that it runs on every phone ever made", quotable)
+    assert infographic_maker._backed("Runs on your PC", "It runs on your own PC with no cloud API keys.", quotable)
+
+
+def test_a_topic_the_sheet_does_not_cover_is_named_not_drawn(monkeypatch):
+    monkeypatch.setattr(persona, "_pitch_sheet", lambda: SHEET)
+    spec = infographic_maker.write_spec("the Docker install", lambda _s, _u: pytest.fail("the drafter was asked"))
+    assert spec["ok"] is False
+    assert "docker" in spec["reason"]

@@ -43,7 +43,8 @@ Return ONLY JSON in this shape:
 
 headline: at most {headline_words} words, plain and specific to the topic.
 labels: two or three, each at most {label_words} words, each a different point.
-backing: the sentence from the pitch sheet, copied exactly.
+backing: the sentence from the pitch sheet, copied exactly. A line says what its sentence says, in the
+sentence's own words where it can; a sentence about something else does not back it.
 scene: one sentence describing the artwork behind the text. No real people, no logos, no words in the artwork."""
 
 
@@ -51,9 +52,55 @@ def _fold(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").lower()).strip()
 
 
-def _backed(backing: str, sheet: str) -> bool:
+# A heading like "Never say" opens a list of things that must not be claimed.
+_FORBIDDEN_HEADING = re.compile(r"\b(never|do not|don't|not to)\b", re.I)
+
+_FILLER = frozenset(
+    "the and for with from your you our its it's that this than then are was will can not but all any "
+    "about into over what why how who when where which does have has make made get use using "
+    "them they their there here more most just also very own".split()
+)
+
+
+def _quotable(sheet: str) -> str:
+    """The pitch sheet without the sections that list what must not be said."""
+    kept: list[str] = []
+    skipping_below: Optional[int] = None
+    for line in sheet.splitlines():
+        heading = re.match(r"\s*(#+)\s+(.*)", line)
+        if heading:
+            depth = len(heading.group(1))
+            if skipping_below is not None and depth <= skipping_below:
+                skipping_below = None
+            if skipping_below is None and _FORBIDDEN_HEADING.search(heading.group(2)):
+                skipping_below = depth
+        if skipping_below is None:
+            kept.append(line)
+    return "\n".join(kept)
+
+
+def _content_words(text: str, ignore: frozenset = frozenset()) -> list[str]:
+    words = re.findall(r"[a-z0-9]{3,}", (text or "").lower())
+    return [w for w in words if w not in _FILLER and w not in ignore]
+
+
+def _found(word: str, among: set[str]) -> bool:
+    """``word`` or another form of it (install, installs, installed) is in ``among``."""
+    stem = word[:4] if len(word) > 4 else word
+    return any(other == word or (len(other) >= 4 and other.startswith(stem)) for other in among)
+
+
+def _backed(text: str, backing: str, sheet: str, ignore: frozenset = frozenset()) -> bool:
+    """The quoted sentence is in the sheet and is about what the line says: at
+    least half the line's own words appear in it."""
     quote = _fold(backing).strip(" .\"'")
-    return len(quote) >= MIN_BACKING_CHARS and quote in sheet
+    if len(quote) < MIN_BACKING_CHARS or quote not in sheet:
+        return False
+    said = _content_words(text, ignore)
+    if not said:
+        return False
+    quoted = set(re.findall(r"[a-z0-9]{3,}", quote))
+    return 2 * sum(_found(word, quoted) for word in said) >= len(said)
 
 
 def _line(entry: Any, max_words: int) -> tuple[str, str]:
@@ -71,48 +118,80 @@ def write_spec(topic: str, llm: Optional[Callable[[str, str], dict]] = None) -> 
 
     Returns ``{"ok": True, "title", "callouts", "footer", "scene", "backing":
     {line: sentence}, "dropped": [line, ...]}``, or ``{"ok": False, "reason"}``
-    when there is no pitch sheet, or no headline and two labels survive.
+    when there is no pitch sheet, the sheet has nothing on the topic, or no
+    headline and two labels survive.
     """
     from backend.services.social_outreach import persona, profile
 
     pitch = persona._pitch_sheet()
     if not pitch:
         return {"ok": False, "reason": profile.no_product_reason()}
+    sheet = _fold(_quotable(pitch))
+    sheet_words = set(re.findall(r"[a-z0-9]{3,}", sheet))
+    # The product's own name is on every line and proves nothing about one.
+    name = frozenset(_content_words(profile.load().name or ""))
+    topic_words = _content_words(topic, name)
+    unknown = [word for word in topic_words if not _found(word, sheet_words)]
+    if unknown:
+        return {
+            "ok": False, "dropped": [],
+            "reason": "The pitch sheet says nothing about: " + ", ".join(unknown)
+            + ". Add the fact to the product profile, then ask again.",
+        }
     if llm is None:
         llm = persona._ollama_json_chat
     system = _SYSTEM.format(pitch=pitch, headline_words=MAX_HEADLINE_WORDS, label_words=MAX_LABEL_WORDS)
-    result = llm(system, f"TOPIC: {topic.strip() or 'what it is and who it is for'}") or {}
-
-    sheet = _fold(pitch)
+    ask = f"TOPIC: {topic.strip() or 'what it is and who it is for'}"
     backing: dict[str, str] = {}
     dropped: list[str] = []
 
     def keep(entry: Any, max_words: int) -> str:
         text, quote = _line(entry, max_words)
-        if text and _backed(quote, sheet):
+        if text and _backed(text, quote, sheet, name):
             backing[text] = " ".join(quote.split())
             return text
         raw = " ".join(str((entry or {}).get("text") or "").split()) if isinstance(entry, dict) else ""
-        if raw:
+        if raw and raw not in dropped:
             dropped.append(raw)
         return ""
 
-    title = keep(result.get("headline"), MAX_HEADLINE_WORDS)
-    labels = [t for t in (keep(e, MAX_LABEL_WORDS) for e in (result.get("labels") or [])[:MAX_LABELS + 2]) if t]
-    labels = list(dict.fromkeys(labels))[:MAX_LABELS]
-    if not title or len(labels) < 2:
+    def on_topic(lines: list[str]) -> bool:
+        if not topic_words:
+            return True
+        covered = set(re.findall(r"[a-z0-9]{3,}", _fold(" ".join(lines + [backing[l] for l in lines]))))
+        return any(_found(word, covered) for word in topic_words)
+
+    title, labels, scene = "", [], ""
+    # One more try with the refused lines named; a drafter that still cannot
+    # back its lines has nothing true to draw.
+    for attempt in range(2):
+        result = llm(system, ask) or {}
+        title = keep(result.get("headline"), MAX_HEADLINE_WORDS)
+        labels = [t for t in (keep(e, MAX_LABEL_WORDS) for e in (result.get("labels") or [])[:MAX_LABELS + 2]) if t]
+        labels = list(dict.fromkeys(labels))[:MAX_LABELS]
+        scene = " ".join(str(result.get("scene") or "").split())
+        if title and len(labels) >= 2 and on_topic([title, *labels]):
+            break
+        title = ""
+        ask = (
+            f"{ask}\n\nThese lines were refused because the sentence quoted for them is not in the sheet's "
+            "facts or says something else: " + "; ".join(dropped or ["(none written)"])
+            + ".\nWrite the poster again. Build each line from the words of one fact sentence and quote that sentence."
+        )
+    if not title:
         return {
             "ok": False, "dropped": dropped,
-            "reason": "The drafter could not back a headline and two labels with the pitch sheet.",
+            "reason": "The drafter could not back a headline and two labels on that topic with the pitch sheet.",
         }
+    backing = {line: backing[line] for line in [title, *labels]}
+    dropped = [line for line in dropped if line not in backing]
     site = (profile.site_url() or "").split("://")[-1].strip("/")
     return {
         "ok": True,
         "title": title,
         "callouts": labels,
         "footer": site,
-        "scene": " ".join(str(result.get("scene") or "").split())
-        or "an abstract dark background with soft glowing lines",
+        "scene": scene or "an abstract dark background with soft glowing lines",
         "backing": backing,
         "dropped": dropped,
     }
