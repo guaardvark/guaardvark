@@ -24,6 +24,10 @@ POST /api/social-outreach/thread-fit          — internal: ask the thread-fit j
 POST /api/social-outreach/draft-comment       — internal: draft a reply via the LLM, with grade
 POST /api/social-outreach/scout-url           — agent fetches OP + comments for a URL so the human doesn't paste them
 POST /api/social-outreach/run-pass            — fire a Reddit / self-share pass on demand instead of waiting for the cron
+GET  /api/social-outreach/infographics        — the infographics a post may carry ({items}); ?keepers=1 for keepers only
+POST /api/social-outreach/infographics/<id>/keep      — mark or unmark a keeper; a new keeper's text is read back
+POST /api/social-outreach/infographics/<id>/readback  — read the image's text back again
+GET  /api/social-outreach/infographics/<id>/image     — the image file
 
 The draft-comment endpoint is the LLM call site for both the Discord cog and
 the Reddit browser loop. It uses Ollama directly with the persona block — no
@@ -260,6 +264,63 @@ def outreach_run_result():
         return jsonify({"error": "task_ids and after_id must be integers"}), 400
     platform = (request.args.get("platform") or "").strip().lower() or None
     return jsonify(run_result.run_result(task_ids, after_id, platform))
+
+
+# --- Infographics a post may carry ---------------------------------------
+
+@social_outreach_bp.get("/infographics")
+def infographics_list():
+    """``{items}``: every infographic in the Library, newest first, with its
+    keeper mark and read-back; ``?keepers=1`` lists keepers only."""
+    from backend.services.social_outreach import infographics
+
+    keepers = (request.args.get("keepers") or "").strip().lower() in ("1", "true", "yes")
+    return jsonify({"items": infographics.items(keepers_only=keepers)})
+
+
+@social_outreach_bp.post("/infographics/<int:document_id>/keep")
+def infographic_keep(document_id: int):
+    """Mark (``{keep: true}``) or unmark a keeper; ``topics`` (a list of
+    strings) is saved when sent. A new keeper that was never read back comes
+    back with its read-back "reading". Returns the item."""
+    from backend.services.social_outreach import infographics
+
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body.get("keep"), bool):
+        return jsonify({"error": "keep must be true or false"}), 400
+    topics = body.get("topics")
+    if topics is not None and not isinstance(topics, list):
+        return jsonify({"error": "topics must be a list"}), 400
+    try:
+        return jsonify(infographics.mark(document_id, body["keep"], topics))
+    except infographics.InfographicNotFound:
+        return jsonify({"error": "not found"}), 404
+
+
+@social_outreach_bp.post("/infographics/<int:document_id>/readback")
+def infographic_readback(document_id: int):
+    """Queue a read-back of the image's text, replacing any earlier result.
+    Returns the item at once with its read-back "reading"."""
+    from backend.services.social_outreach import infographics
+
+    try:
+        return jsonify(infographics.queue_readback(document_id)), 202
+    except infographics.InfographicNotFound:
+        return jsonify({"error": "not found"}), 404
+
+
+@social_outreach_bp.get("/infographics/<int:document_id>/image")
+def infographic_image(document_id: int):
+    """The image of an infographic document, from the uploads folder."""
+    from flask import send_file
+
+    from backend.services.social_outreach import infographics
+
+    try:
+        path = infographics.file_path(document_id)
+    except (infographics.InfographicNotFound, infographics.InfographicFileMissing):
+        return jsonify({"error": "not found"}), 404
+    return send_file(path)
 
 
 # --- Typing rhythm: how a watched post is typed --------------------------------

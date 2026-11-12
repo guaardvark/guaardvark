@@ -47,8 +47,9 @@ _REASONS = {
 
 def presentable(row) -> dict[str, Any]:
     """A draft row as a person reads it: ``text`` is the words that would
-    post, ``source`` the post or comment it answers, and ``replying_to`` the
-    comment a reply answers."""
+    post, ``source`` the post or comment it answers, ``replying_to`` the
+    comment a reply answers, and ``image_url`` / ``image_alt`` /
+    ``image_document_id`` the infographic it posts with (None without one)."""
     out = row.to_dict()
     text = row.draft_text or ""
     replying_to = None
@@ -67,6 +68,12 @@ def presentable(row) -> dict[str, Any]:
     out["text"] = text
     out["replying_to"] = replying_to
     out["source"] = _source(row, replying_to)
+    from backend.services.social_outreach import infographics
+
+    media = infographics.media_of(row)
+    out["image_document_id"] = media["document_id"] if media else None
+    out["image_url"] = infographics.image_url(media["document_id"]) if media else None
+    out["image_alt"] = media["alt"] if media else None
     return out
 
 

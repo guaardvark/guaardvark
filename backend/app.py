@@ -1436,6 +1436,8 @@ try:
                 ("publish_records", "edited_fields", "ALTER TABLE publish_records ADD COLUMN IF NOT EXISTS edited_fields TEXT"),
                 # The post or comment an outreach draft answers, shown beside the draft.
                 ("social_outreach_log", "source_json", "ALTER TABLE social_outreach_log ADD COLUMN IF NOT EXISTS source_json TEXT"),
+                # The infographic an outreach draft posts with.
+                ("social_outreach_log", "media_json", "ALTER TABLE social_outreach_log ADD COLUMN IF NOT EXISTS media_json TEXT"),
             ):
                 try:
                     from sqlalchemy import text as _sa_text
