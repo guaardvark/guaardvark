@@ -45,6 +45,15 @@ def _with_app_context(fn, *args, **kwargs):
         return fn(*args, **kwargs)
 
 
+@shared_task(name="social_outreach.read_back_infographic", bind=True)
+def read_back_infographic(self, document_id: int) -> dict:
+    """Read the text on one infographic back with a vision model and store
+    the verdict on its Library document. Posts nothing, so the kill switch
+    does not gate it."""
+    from backend.services.social_outreach import infographics
+    return _with_app_context(infographics.readback, document_id)
+
+
 @shared_task(name="social_outreach.engage_with_subreddit", bind=True)
 def engage_with_subreddit(self, subreddit: str, task_id: Any = None) -> dict:
     skipped = _skip_if_kill_switch_off()

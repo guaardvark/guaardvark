@@ -541,6 +541,9 @@ class SocialOutreachLog(db.Model):
     # What the draft answers, as JSON ({title, text, author, community, why}),
     # kept when the Content agent writes its text over the recon payload.
     source_json = db.Column(db.Text, nullable=True)
+    # The image the draft posts with, as JSON ({document_id, path, alt});
+    # see social_outreach/infographics.media_for.
+    media_json = db.Column(db.Text, nullable=True)
     task_id = db.Column(
         db.Integer,
         db.ForeignKey("tasks.id", name="fk_social_outreach_task_id", ondelete="SET NULL"),
