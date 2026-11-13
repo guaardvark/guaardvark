@@ -478,6 +478,7 @@ def filter_dataset_task(self, job_id: str, input_path: str, min_score: float = 0
 
         output_filename = f"filtered_dataset_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
         output_path = PROCESSED_DIR / output_filename
+        PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
         emit(90, f"Saving {len(filtered_pairs)} filtered pairs...")
 
