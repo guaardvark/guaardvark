@@ -186,8 +186,9 @@ class SwarmOrchestrator:
         max_a = max_agents if max_agents is not None else self.config.max_concurrent_agents
         do_merge = auto_merge if auto_merge is not None else self.config.auto_merge
 
-        # generate swarm identity
-        self.swarm_id = generate_swarm_id()
+        # Swarm identity. launch_async has already issued one and handed it to
+        # the caller, which tracks the swarm under it; keep that id.
+        self.swarm_id = self.swarm_id or generate_swarm_id()
         logger.info(f"Starting swarm {self.swarm_id} from {plan_path}")
 
         # parse the plan
