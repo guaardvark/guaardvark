@@ -55,25 +55,41 @@ const muskTheme = createFullTheme({
     },
     MuiAlert: {
       styleOverrides: {
-        filledInfo: {
-          backgroundImage: "linear-gradient(180deg, #1a1a1a, #0d0d0d)",
-          color: "#e0e0e0",
-          border: "1px solid #00e5ff",
-        },
-        filledSuccess: {
-          backgroundImage: "linear-gradient(180deg, #1a1a1a, #0d0d0d)",
-          color: "#e0e0e0",
-          border: "1px solid #4caf50",
-        },
-        filledWarning: {
-          backgroundImage: "linear-gradient(180deg, #1a1a1a, #0d0d0d)",
-          color: "#e0e0e0",
-          border: "1px solid #ff9800",
-        },
-        filledError: {
-          backgroundImage: "linear-gradient(180deg, #1a1a1a, #0d0d0d)",
-          color: "#e0e0e0",
-          border: "1px solid #ff1744",
+        root: {
+          variants: [
+            {
+              props: { variant: "filled", colorSeverity: "info" },
+              style: {
+                backgroundImage: "linear-gradient(180deg, #1a1a1a, #0d0d0d)",
+                color: "#e0e0e0",
+                border: "1px solid #00e5ff",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "success" },
+              style: {
+                backgroundImage: "linear-gradient(180deg, #1a1a1a, #0d0d0d)",
+                color: "#e0e0e0",
+                border: "1px solid #4caf50",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "warning" },
+              style: {
+                backgroundImage: "linear-gradient(180deg, #1a1a1a, #0d0d0d)",
+                color: "#e0e0e0",
+                border: "1px solid #ff9800",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "error" },
+              style: {
+                backgroundImage: "linear-gradient(180deg, #1a1a1a, #0d0d0d)",
+                color: "#e0e0e0",
+                border: "1px solid #ff1744",
+              },
+            },
+          ],
         },
       },
     },
@@ -140,29 +156,45 @@ const hackerTheme = createFullTheme({
     },
     MuiAlert: {
       styleOverrides: {
-        filledInfo: {
-          backgroundColor: "rgba(0, 20, 0, 0.9)",
-          color: "#00ff41",
-          border: "1px solid #00ff41",
-          boxShadow: "0 0 15px rgba(0, 255, 65, 0.2)",
-        },
-        filledSuccess: {
-          backgroundColor: "rgba(0, 20, 0, 0.9)",
-          color: "#00ff41",
-          border: "1px solid #00ff41",
-          boxShadow: "0 0 15px rgba(0, 255, 65, 0.2)",
-        },
-        filledWarning: {
-          backgroundColor: "rgba(0, 20, 0, 0.9)",
-          color: "#ff9800",
-          border: "1px solid #ff9800",
-          boxShadow: "0 0 15px rgba(255, 152, 0, 0.2)",
-        },
-        filledError: {
-          backgroundColor: "rgba(0, 20, 0, 0.9)",
-          color: "#f44336",
-          border: "1px solid #f44336",
-          boxShadow: "0 0 15px rgba(244, 67, 54, 0.2)",
+        root: {
+          variants: [
+            {
+              props: { variant: "filled", colorSeverity: "info" },
+              style: {
+                backgroundColor: "rgba(0, 20, 0, 0.9)",
+                color: "#00ff41",
+                border: "1px solid #00ff41",
+                boxShadow: "0 0 15px rgba(0, 255, 65, 0.2)",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "success" },
+              style: {
+                backgroundColor: "rgba(0, 20, 0, 0.9)",
+                color: "#00ff41",
+                border: "1px solid #00ff41",
+                boxShadow: "0 0 15px rgba(0, 255, 65, 0.2)",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "warning" },
+              style: {
+                backgroundColor: "rgba(0, 20, 0, 0.9)",
+                color: "#ff9800",
+                border: "1px solid #ff9800",
+                boxShadow: "0 0 15px rgba(255, 152, 0, 0.2)",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "error" },
+              style: {
+                backgroundColor: "rgba(0, 20, 0, 0.9)",
+                color: "#f44336",
+                border: "1px solid #f44336",
+                boxShadow: "0 0 15px rgba(244, 67, 54, 0.2)",
+              },
+            },
+          ],
         },
       },
     },
@@ -251,29 +283,45 @@ const vaderTheme = createFullTheme({
     },
     MuiAlert: {
       styleOverrides: {
-        filledInfo: {
-          backgroundColor: "rgba(10, 0, 0, 0.9)",
-          color: "#ffffff",
-          border: "1px solid #d32f2f",
-          boxShadow: "0 0 20px rgba(211, 47, 47, 0.3)",
-        },
-        filledSuccess: {
-          backgroundColor: "rgba(10, 0, 0, 0.9)",
-          color: "#4caf50",
-          border: "1px solid #4caf50",
-          boxShadow: "0 0 20px rgba(76, 175, 80, 0.3)",
-        },
-        filledWarning: {
-          backgroundColor: "rgba(10, 0, 0, 0.9)",
-          color: "#ff9800",
-          border: "1px solid #ff9800",
-          boxShadow: "0 0 20px rgba(255, 152, 0, 0.3)",
-        },
-        filledError: {
-          backgroundColor: "rgba(10, 0, 0, 0.9)",
-          color: "#d32f2f",
-          border: "1px solid #d32f2f",
-          boxShadow: "0 0 20px rgba(211, 47, 47, 0.3)",
+        root: {
+          variants: [
+            {
+              props: { variant: "filled", colorSeverity: "info" },
+              style: {
+                backgroundColor: "rgba(10, 0, 0, 0.9)",
+                color: "#ffffff",
+                border: "1px solid #d32f2f",
+                boxShadow: "0 0 20px rgba(211, 47, 47, 0.3)",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "success" },
+              style: {
+                backgroundColor: "rgba(10, 0, 0, 0.9)",
+                color: "#4caf50",
+                border: "1px solid #4caf50",
+                boxShadow: "0 0 20px rgba(76, 175, 80, 0.3)",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "warning" },
+              style: {
+                backgroundColor: "rgba(10, 0, 0, 0.9)",
+                color: "#ff9800",
+                border: "1px solid #ff9800",
+                boxShadow: "0 0 20px rgba(255, 152, 0, 0.3)",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "error" },
+              style: {
+                backgroundColor: "rgba(10, 0, 0, 0.9)",
+                color: "#d32f2f",
+                border: "1px solid #d32f2f",
+                boxShadow: "0 0 20px rgba(211, 47, 47, 0.3)",
+              },
+            },
+          ],
         },
       },
     },
@@ -342,25 +390,41 @@ const lightTheme = createFullTheme({
     },
     MuiAlert: {
       styleOverrides: {
-        filledInfo: {
-          backgroundColor: "#e0f7fa",
-          color: "#004d40",
-          border: "1px solid #00796b",
-        },
-        filledSuccess: {
-          backgroundColor: "#e8f5e9",
-          color: "#1b5e20",
-          border: "1px solid #4caf50",
-        },
-        filledWarning: {
-          backgroundColor: "#fff8e1",
-          color: "#f57f17",
-          border: "1px solid #ff9800",
-        },
-        filledError: {
-          backgroundColor: "#ffebee",
-          color: "#b71c1c",
-          border: "1px solid #f44336",
+        root: {
+          variants: [
+            {
+              props: { variant: "filled", colorSeverity: "info" },
+              style: {
+                backgroundColor: "#e0f7fa",
+                color: "#004d40",
+                border: "1px solid #00796b",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "success" },
+              style: {
+                backgroundColor: "#e8f5e9",
+                color: "#1b5e20",
+                border: "1px solid #4caf50",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "warning" },
+              style: {
+                backgroundColor: "#fff8e1",
+                color: "#f57f17",
+                border: "1px solid #ff9800",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "error" },
+              style: {
+                backgroundColor: "#ffebee",
+                color: "#b71c1c",
+                border: "1px solid #f44336",
+              },
+            },
+          ],
         },
       },
     },
@@ -416,26 +480,34 @@ const guaardvarkTheme = createFullTheme({
           fontWeight: 400,
           letterSpacing: "2px",
           borderRadius: "4px",
-        },
-        // Muted slate for the default colour only; a button that asks for
-        // error, warning or success must keep that colour or a destructive
-        // action reads like any other.
-        containedPrimary: {
-          backgroundColor: "rgba(255, 255, 255, 0.05)",
-          color: "rgba(255, 255, 255, 0.7)",
-          border: "1px solid rgba(138, 155, 174, 0.3)",
-          "&:hover": {
-            backgroundColor: "rgba(138, 155, 174, 0.15)",
-            boxShadow: "0 0 12px rgba(138, 155, 174, 0.2)",
-          },
-        },
-        outlinedPrimary: {
-          borderColor: "rgba(255, 255, 255, 0.1)",
-          color: "rgba(255, 255, 255, 0.6)",
-          "&:hover": {
-            borderColor: "rgba(138, 155, 174, 0.4)",
-            backgroundColor: "rgba(138, 155, 174, 0.08)",
-          },
+          variants: [
+            // Muted slate for the default colour only; a button that asks for
+            // error, warning or success must keep that colour or a destructive
+            // action reads like any other.
+            {
+              props: { variant: "contained", color: "primary" },
+              style: {
+                backgroundColor: "rgba(255, 255, 255, 0.05)",
+                color: "rgba(255, 255, 255, 0.7)",
+                border: "1px solid rgba(138, 155, 174, 0.3)",
+                "&:hover": {
+                  backgroundColor: "rgba(138, 155, 174, 0.15)",
+                  boxShadow: "0 0 12px rgba(138, 155, 174, 0.2)",
+                },
+              },
+            },
+            {
+              props: { variant: "outlined", color: "primary" },
+              style: {
+                borderColor: "rgba(255, 255, 255, 0.1)",
+                color: "rgba(255, 255, 255, 0.6)",
+                "&:hover": {
+                  borderColor: "rgba(138, 155, 174, 0.4)",
+                  backgroundColor: "rgba(138, 155, 174, 0.08)",
+                },
+              },
+            },
+          ],
         },
       },
     },
@@ -507,66 +579,104 @@ const guaardvarkTheme = createFullTheme({
           borderRadius: "8px",
           color: "rgba(255, 255, 255, 0.8)",
           fontFamily: '"Lato", sans-serif',
+          variants: [
+            {
+              props: { variant: "outlined", colorSeverity: "info" },
+              style: {
+                borderColor: "rgba(138, 155, 174, 0.3)",
+              },
+            },
+            {
+              props: { variant: "outlined", colorSeverity: "success" },
+              style: {
+                borderColor: "rgba(76, 175, 80, 0.4)",
+              },
+            },
+            {
+              props: { variant: "outlined", colorSeverity: "warning" },
+              style: {
+                borderColor: "rgba(255, 152, 0, 0.4)",
+              },
+            },
+            {
+              props: { variant: "outlined", colorSeverity: "error" },
+              style: {
+                borderColor: "rgba(244, 67, 54, 0.4)",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "info" },
+              style: {
+                backgroundColor: "rgba(8, 10, 14, 0.85)",
+                color: "rgba(255, 255, 255, 0.8)",
+                border: "1px solid rgba(138, 155, 174, 0.3)",
+                backdropFilter: "blur(12px)",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "success" },
+              style: {
+                backgroundColor: "rgba(8, 10, 14, 0.85)",
+                color: "rgba(255, 255, 255, 0.8)",
+                border: "1px solid rgba(76, 175, 80, 0.4)",
+                backdropFilter: "blur(12px)",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "warning" },
+              style: {
+                backgroundColor: "rgba(8, 10, 14, 0.85)",
+                color: "rgba(255, 255, 255, 0.8)",
+                border: "1px solid rgba(255, 152, 0, 0.4)",
+                backdropFilter: "blur(12px)",
+              },
+            },
+            {
+              props: { variant: "filled", colorSeverity: "error" },
+              style: {
+                backgroundColor: "rgba(8, 10, 14, 0.85)",
+                color: "rgba(255, 255, 255, 0.8)",
+                border: "1px solid rgba(244, 67, 54, 0.4)",
+                backdropFilter: "blur(12px)",
+              },
+            },
+            {
+              props: { variant: "standard", colorSeverity: "info" },
+              style: {
+                backgroundColor: "rgba(8, 10, 14, 0.6)",
+                border: "1px solid rgba(138, 155, 174, 0.2)",
+              },
+            },
+            {
+              props: { variant: "standard", colorSeverity: "success" },
+              style: {
+                backgroundColor: "rgba(8, 10, 14, 0.6)",
+                border: "1px solid rgba(76, 175, 80, 0.3)",
+              },
+            },
+            {
+              props: { variant: "standard", colorSeverity: "warning" },
+              style: {
+                backgroundColor: "rgba(8, 10, 14, 0.6)",
+                border: "1px solid rgba(255, 152, 0, 0.3)",
+              },
+            },
+            {
+              props: { variant: "standard", colorSeverity: "error" },
+              style: {
+                backgroundColor: "rgba(8, 10, 14, 0.6)",
+                border: "1px solid rgba(244, 67, 54, 0.3)",
+              },
+            },
+          ],
         },
         outlined: {
           backgroundColor: "rgba(8, 10, 14, 0.6)",
           backdropFilter: "blur(8px)",
         },
-        outlinedInfo: {
-          borderColor: "rgba(138, 155, 174, 0.3)",
-        },
-        outlinedSuccess: {
-          borderColor: "rgba(76, 175, 80, 0.4)",
-        },
-        outlinedWarning: {
-          borderColor: "rgba(255, 152, 0, 0.4)",
-        },
-        outlinedError: {
-          borderColor: "rgba(244, 67, 54, 0.4)",
-        },
         filled: {
           backgroundColor: "rgba(8, 10, 14, 0.85)",
           backdropFilter: "blur(12px)",
-        },
-        filledInfo: {
-          backgroundColor: "rgba(8, 10, 14, 0.85)",
-          color: "rgba(255, 255, 255, 0.8)",
-          border: "1px solid rgba(138, 155, 174, 0.3)",
-          backdropFilter: "blur(12px)",
-        },
-        filledSuccess: {
-          backgroundColor: "rgba(8, 10, 14, 0.85)",
-          color: "rgba(255, 255, 255, 0.8)",
-          border: "1px solid rgba(76, 175, 80, 0.4)",
-          backdropFilter: "blur(12px)",
-        },
-        filledWarning: {
-          backgroundColor: "rgba(8, 10, 14, 0.85)",
-          color: "rgba(255, 255, 255, 0.8)",
-          border: "1px solid rgba(255, 152, 0, 0.4)",
-          backdropFilter: "blur(12px)",
-        },
-        filledError: {
-          backgroundColor: "rgba(8, 10, 14, 0.85)",
-          color: "rgba(255, 255, 255, 0.8)",
-          border: "1px solid rgba(244, 67, 54, 0.4)",
-          backdropFilter: "blur(12px)",
-        },
-        standardInfo: {
-          backgroundColor: "rgba(8, 10, 14, 0.6)",
-          border: "1px solid rgba(138, 155, 174, 0.2)",
-        },
-        standardSuccess: {
-          backgroundColor: "rgba(8, 10, 14, 0.6)",
-          border: "1px solid rgba(76, 175, 80, 0.3)",
-        },
-        standardWarning: {
-          backgroundColor: "rgba(8, 10, 14, 0.6)",
-          border: "1px solid rgba(255, 152, 0, 0.3)",
-        },
-        standardError: {
-          backgroundColor: "rgba(8, 10, 14, 0.6)",
-          border: "1px solid rgba(244, 67, 54, 0.3)",
         },
       },
     },

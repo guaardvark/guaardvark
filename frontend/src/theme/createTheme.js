@@ -131,25 +131,41 @@ export function createFullTheme(config) {
       },
       MuiAlert: {
         styleOverrides: {
-          filledInfo: {
-            backgroundColor: bgPaper,
-            color: textPrimary,
-            border: `1px solid ${infoColor}`,
-          },
-          filledSuccess: {
-            backgroundColor: bgPaper,
-            color: textPrimary,
-            border: `1px solid ${successColor}`,
-          },
-          filledWarning: {
-            backgroundColor: bgPaper,
-            color: textPrimary,
-            border: `1px solid ${warningColor}`,
-          },
-          filledError: {
-            backgroundColor: bgPaper,
-            color: textPrimary,
-            border: `1px solid ${errorColor}`,
+          root: {
+            variants: [
+              {
+                props: { variant: "filled", colorSeverity: "info" },
+                style: {
+                  backgroundColor: bgPaper,
+                  color: textPrimary,
+                  border: `1px solid ${infoColor}`,
+                },
+              },
+              {
+                props: { variant: "filled", colorSeverity: "success" },
+                style: {
+                  backgroundColor: bgPaper,
+                  color: textPrimary,
+                  border: `1px solid ${successColor}`,
+                },
+              },
+              {
+                props: { variant: "filled", colorSeverity: "warning" },
+                style: {
+                  backgroundColor: bgPaper,
+                  color: textPrimary,
+                  border: `1px solid ${warningColor}`,
+                },
+              },
+              {
+                props: { variant: "filled", colorSeverity: "error" },
+                style: {
+                  backgroundColor: bgPaper,
+                  color: textPrimary,
+                  border: `1px solid ${errorColor}`,
+                },
+              },
+            ],
           },
         },
       },
@@ -196,6 +212,16 @@ export function createFullTheme(config) {
           root: {
             backgroundImage: "none",
             "&:before": { display: "none" },
+          },
+        },
+      },
+      // The summary row became a <button> in MUI 6, and a button does not
+      // inherit its font from the page the way the old <div> did.
+      MuiAccordionSummary: {
+        styleOverrides: {
+          root: {
+            font: "inherit",
+            letterSpacing: "inherit",
           },
         },
       },
