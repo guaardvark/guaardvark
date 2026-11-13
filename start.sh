@@ -2594,7 +2594,16 @@ vader_separator
 
 # ── ComfyUI detection (on-demand start for video generation) ──
 COMFYUI_DIR="${GUAARDVARK_COMFYUI_DIR:-$GUAARDVARK_ROOT/plugins/comfyui/ComfyUI}"
-if [ -d "$COMFYUI_DIR" ]; then
+if ollama_flag_on "${GUAARDVARK_COMFYUI_EXTERNAL:-}"; then
+    # External ComfyUI: the user runs it; start.sh only checks that it answers.
+    _comfy_url="${GUAARDVARK_COMFYUI_URL:-http://127.0.0.1:8188}"
+    _comfy_url="${_comfy_url%/}"
+    if curl -sf --max-time 3 -o /dev/null "$_comfy_url/" 2>/dev/null; then
+        vader_success "Using external ComfyUI at $_comfy_url (GUAARDVARK_COMFYUI_EXTERNAL=1; never started or stopped by these scripts)"
+    else
+        vader_warn "GUAARDVARK_COMFYUI_EXTERNAL=1 but nothing answers at $_comfy_url. Start your ComfyUI; Guaardvark will not start one."
+    fi
+elif [ -d "$COMFYUI_DIR" ]; then
     if curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8188" 2>/dev/null | grep -q "200"; then
         vader_success "ComfyUI detected and running (port 8188)"
     else
@@ -3331,6 +3340,10 @@ vader_separator
 DISPLAY_PLUGINS="vision_pipeline"
 # Plugins managed elsewhere in start.sh (skip in the loop)
 SKIP_PLUGINS="ollama gpu_embedding"
+# A ComfyUI the user runs themselves is never started here (the ComfyUI card's switch).
+if ollama_flag_on "${GUAARDVARK_COMFYUI_EXTERNAL:-}"; then
+    SKIP_PLUGINS="$SKIP_PLUGINS comfyui"
+fi
 
 AGENT_DISPLAY_STARTED=0
 

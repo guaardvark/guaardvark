@@ -1262,6 +1262,15 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         if explicit_reserve_vram_gb(launch_env(self._project_root)) is not None:
             logger.debug("%s set explicitly; %s keeps the running ComfyUI reserve", "GUAARDVARK_COMFYUI_RESERVE_VRAM", model)
             return None
+        try:
+            from backend.plugins.plugin_manager import comfyui_is_external
+            external = comfyui_is_external()
+        except Exception:  # noqa: BLE001
+            external = False
+        if external:
+            # The user's own ComfyUI is never relaunched; it keeps its own flags.
+            logger.info("%s runs on the ComfyUI you run yourself, with its own --reserve-vram", model)
+            return None
         running = self._running_reserve_vram_gb()
         if running is None or abs(running - needed) < 1e-6:
             return None
