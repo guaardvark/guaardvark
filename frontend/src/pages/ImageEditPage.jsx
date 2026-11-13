@@ -537,13 +537,21 @@ const ImageEditPage = () => {
 
   const poll = useCallback(async (jobId, request) => {
     pollingRef.current = jobId;
+    let failures = 0;
     while (pollingRef.current === jobId) {
       let snapshot;
       try {
         const res = await getJob(jobId, POLL_WAIT_S);
         snapshot = res.data;
+        failures = 0;
       } catch (err) {
         if (pollingRef.current !== jobId) return;
+        // One dropped request does not end a run that is still rendering.
+        failures += 1;
+        if (err.status !== 404 && failures < 5) {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          continue;
+        }
         writeStored(PENDING_KEY, null);
         setRunning(false);
         setJob(null);
