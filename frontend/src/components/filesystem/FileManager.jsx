@@ -1088,6 +1088,8 @@ const FileManager = () => {
       );
     }
   };
+  const fileSelectRef = useRef(handleFileSelectWithPaths);
+  fileSelectRef.current = handleFileSelectWithPaths;
 
   const handleFileSelect = async (files) => {
     if (!files || files.length === 0) return;
@@ -1246,7 +1248,9 @@ const FileManager = () => {
     const filesToUpload = await collectDroppedFiles(snapshotDrop(e.dataTransfer), { prune });
 
     if (filesToUpload.length > 0) {
-      handleFileSelectWithPaths(filesToUpload, prune);
+      // Through the ref: this callback outlives navigation, and its own copy
+      // of the upload function would still target the folder it was made in.
+      fileSelectRef.current(filesToUpload, prune);
     } else if (prune.folders || prune.files) {
       showMessage(t('files.manager.nothingToUpload', { skipped: prunedNote(prune) }), 'info');
     }
