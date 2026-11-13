@@ -632,6 +632,10 @@ const FileManager = () => {
   // Keyboard shortcuts (CTRL+A, Escape)
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Typing in a field keeps its own Ctrl+A and Delete.
+      const el = e.target;
+      const typing = el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable;
+      if (typing && e.key !== 'Escape') return;
       // CTRL+A to select all
       if (e.ctrlKey && e.key === 'a' && !createFolderOpen && !renameFolderOpen && !renameFileOpen) {
         e.preventDefault();
