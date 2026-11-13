@@ -1524,7 +1524,12 @@ class SlashRouter:
                     self._console.print("[llx.dim]Cancelled.[/llx.dim]")
                     return
             except Exception:
-                pass  # if no tty, proceed
+                # Ctrl-C or Ctrl-D at the prompt is a no. Without a terminal
+                # there was nobody to ask, and the call proceeds.
+                import sys
+                if sys.stdin is not None and sys.stdin.isatty():
+                    self._console.print("[llx.dim]Cancelled.[/llx.dim]")
+                    return
 
         # The tool runs once. Nothing after this call may fall back to running it
         # again: an error while printing or recording must not repeat a write.
