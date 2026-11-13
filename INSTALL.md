@@ -176,6 +176,15 @@ sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart doc
 
 `./start-docker.sh` checks each of these before it builds anything and says which one is missing. With `--gpu` it also builds PyTorch for your card and driver: `cu132` (PyTorch 2.14.1) for GTX 16, RTX 20 and newer on driver 580 or later, `cu126` (2.14.1) for GTX 10 and Volta cards or a driver from 525 to 579, `cu128` (2.11) for RTX 50 cards on a driver below 580, and `cu118` (2.7.1) for a driver older than 525. Set `GUAARDVARK_TORCH_CHANNEL` to pick one yourself.
 
+**Updating.** In the folder you cloned, bring the code up to date and start again:
+
+```bash
+git pull
+./start-docker.sh --gpu --pull     # leave out --gpu on a CPU install
+```
+
+`--pull` downloads the newest release's images and recreates the containers on the same volumes, so everything under **What is kept** carries over. To pin one release instead, check out its tag and name it: `git checkout v3.5.2`, then `./start-docker.sh --gpu --pull=3.5.2`. An install on Windows 11 with Docker Desktop went from 3.5.1 to 3.5.2 with `git checkout v3.5.2` and `./start-docker.sh --gpu --pull`, and came back with its chat models, its indexed documents, its pictures and video, and ComfyUI running.
+
 **Restarts.** The containers start again on their own after a reboot or a crash. `docker compose down` stops them until the next `./start-docker.sh`.
 
 **Build stops at "network is unreachable" with an IPv6 address.** Seen on networks without IPv6 routing, where the image build tried Docker Hub's IPv6 address. Running `./start-docker.sh` again got through.
