@@ -178,7 +178,7 @@ const DeviceProfileModal = ({
             {formError}
           </Alert>
         )}
-        <Grid container spacing={2} sx={{ mt: 0 }}>
+        <Grid container spacing={2} sx={{ mt: 2 }}>
           <Grid size={12}>
             <TextField
               autoFocus

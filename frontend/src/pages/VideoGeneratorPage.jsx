@@ -1938,7 +1938,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         />
       </DashboardStrip>
 
-      <Grid container spacing={3} sx={{ mt: 0.5 }}>
+      <Grid container spacing={3} sx={{ mt: 3.5 }}>
         {/* Compose */}
         <Grid size={{ xs: 12, lg: 6 }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, opacity: controlsDisabled ? 0.5 : 1, pointerEvents: controlsDisabled ? "none" : "auto" }}>

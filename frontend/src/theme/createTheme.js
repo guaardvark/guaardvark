@@ -211,6 +211,15 @@ export function createFullTheme(config) {
           arrow: true,
         },
       },
+      // MUI 9 narrowed the icon column of a list row to 36px; lists here were
+      // laid out for 56px. Menus set their own 36px and are unaffected.
+      MuiListItemIcon: {
+        styleOverrides: {
+          root: {
+            minWidth: 56,
+          },
+        },
+      },
       // Merge any per-theme overrides
       ...componentOverrides,
     },

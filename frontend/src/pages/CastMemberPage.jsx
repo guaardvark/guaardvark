@@ -991,7 +991,7 @@ const CastMemberPage = () => {
               onKeep={() => trainingForm.resolve('mine')}
             />
           </Box>
-          <Grid container spacing={2} sx={{ mb: 2, maxWidth: 720 }}>
+          <Grid container spacing={2} sx={{ mb: 2, maxWidth: 704 }}>
             <Grid size={{ xs: 12, sm: 8 }}>
               <TextField
                 select

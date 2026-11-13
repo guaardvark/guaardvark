@@ -1725,7 +1725,7 @@ const FileManager = () => {
         <Grid
           container
           spacing={2}
-          sx={{ p: 2, pt: 3, cursor: 'default' }}
+          sx={{ width: '100%', p: 2, pt: 3, cursor: 'default' }}
           onContextMenu={(e) => {
             if (e.target === e.currentTarget || e.target.closest('.MuiGrid-root') === e.currentTarget) {
               // Call with just event to let defaults apply

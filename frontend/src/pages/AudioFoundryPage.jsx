@@ -1236,7 +1236,7 @@ const AudioFoundryPage = () => {
           </Alert>
         )}
 
-        <Grid container spacing={3} sx={{ mt: 0.5 }}>
+        <Grid container spacing={3} sx={{ mt: 3.5 }}>
           {/* Left Panel: Controls */}
           <Grid size={{ xs: 12, md: 5 }}>
             <Paper elevation={4} sx={{ borderRadius: 3, overflow: "hidden", border: "1px solid rgba(255,255,255,0.05)" }}>
@@ -1995,7 +1995,7 @@ const AudioFoundryPage = () => {
                   <Card variant="outlined" sx={{ borderRadius: 3, backgroundColor: "rgba(0,0,0,0.2)" }}>
                     <CardContent>
                       <Typography variant="overline" sx={{ color: "text.secondary", fontWeight: "bold" }}>{t("audio.monitor.specs")}</Typography>
-                      <Grid container spacing={2} sx={{ mt: 1 }}>
+                      <Grid container spacing={2} sx={{ mt: 3 }}>
                         <Grid size={6}>
                           <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>{t("audio.monitor.backend")}</Typography>
                           <Typography variant="body2" sx={{ fontWeight: "bold" }}>{result.meta?.backend}</Typography>
