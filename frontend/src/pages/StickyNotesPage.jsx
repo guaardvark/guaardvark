@@ -322,6 +322,9 @@ const StickyNotesPage = () => {
 
   // Refs for latest state values — avoids stale closures in saveState/debouncedSave
   const notesRef = useRef(notes);
+  // Set when the saved board could not be read. The page then shows a blank
+  // default board, and saving that would replace the notes still stored.
+  const loadFailedRef = useRef(false);
   const noteColorsRef = useRef(noteColors);
   const minimizedCardsRef = useRef(minimizedCards);
   const pinnedNotesRef = useRef(pinnedNotes);
@@ -451,6 +454,7 @@ const StickyNotesPage = () => {
       } catch (e) {
         console.error("StickyNotes: Error fetching state:", e);
         setLayoutError({ kind: "load", message: e.message });
+        loadFailedRef.current = true;
         const id = `note-${Date.now()}`;
         setNotes({ [id]: { content: "", title: "" } });
         setNoteColors({ [id]: NOTE_COLORS[0] });
@@ -482,6 +486,11 @@ const StickyNotesPage = () => {
 
   const saveState = useCallback(
     async (newLayout, newNoteColors, newMinimizedCards, newLayoutMode, newNotes, newPinnedNotes, newClosedNotes) => {
+      if (loadFailedRef.current) {
+        setLayoutError({ kind: "save" });
+        setSaveIndicator("error");
+        return;
+      }
       setSaveIndicator("saving");
       try {
         const body = {
