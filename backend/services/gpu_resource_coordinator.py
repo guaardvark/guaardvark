@@ -248,8 +248,20 @@ class GPUResourceCoordinator:
             return False
         return True
 
+    @staticmethod
+    def _ollama_in_another_container() -> bool:
+        """Under Docker, Ollama is its own container: nothing here to ask systemctl or pgrep about."""
+        return os.environ.get("GUAARDVARK_DOCKER") == "1"
+
     def _is_ollama_running(self) -> bool:
         """Check if Ollama service is running."""
+        if self._ollama_in_another_container():
+            try:
+                from backend.utils.ollama_resource_manager import get_ollama_base_url
+                return requests.get(f"{get_ollama_base_url()}/api/version", timeout=3).ok
+            except Exception as e:
+                logger.debug(f"Ollama did not answer: {e}")
+                return False
         try:
             # Check systemctl user service first
             result = subprocess.run(
@@ -432,7 +444,9 @@ class GPUResourceCoordinator:
                 }
 
             # Auto-stop Ollama if running — GPU is shared, can't run both
-            ollama_was_running = self._is_ollama_running()
+            # Under Docker there is no service here to stop; models are
+            # unloaded over HTTP by the callers that need the memory.
+            ollama_was_running = not self._ollama_in_another_container() and self._is_ollama_running()
             if ollama_was_running:
                 logger.info("Ollama is running — auto-stopping for video generation...")
                 self._stop_ollama()
