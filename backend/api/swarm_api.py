@@ -2,7 +2,9 @@
 Swarm API — proxy endpoints for the Swarm Orchestrator plugin.
 
 Proxies requests to the swarm service on port 8210.
-No auth needed — this is a local-only orchestration service.
+Launch, merge and cleanup answer this machine or the API key
+(backend/utils/auth_guard.py RUNS_CODE_PATHS); the sidecar itself takes only
+the internal token these proxies add.
 """
 
 import logging

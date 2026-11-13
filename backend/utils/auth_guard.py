@@ -253,6 +253,9 @@ def network_access_open() -> bool:
 #   no allow-list), and connecting or reloading them;
 # - approving and applying a staged self-improvement fix, which writes code
 #   into this install that runs at the next restart.
+# - launching a swarm, whose plan text is the instructions its coding agents
+#   run with their permission prompts off; merging its branches into the
+#   repository; and its cleanup, which removes a folder the caller names.
 # - changing the chat's always-approved tools, which stands in for every
 #   approval card those tools would have shown.
 # Network access does not open these to other devices, and the
@@ -270,6 +273,9 @@ RUNS_CODE_PATHS = (
     '/api/automation/mcp/execute',
     '/api/automation/mcp/connect',
     '/api/automation/mcp/reload-config',
+    '/api/swarm/launch',
+    '/api/swarm/merge',
+    '/api/swarm/cleanup',
 )
 RUNS_CODE_MUTATION_PREFIXES = (
     '/api/automation/mcp/servers/',
@@ -702,6 +708,7 @@ def protected_summary() -> list[str]:
         ]
     items += [
         "Code execution",
+        "Launching, merging and cleaning up a swarm",
         "Changing which chat tools run without asking",
         "The kill switch for all LLM processes",
         "Restarting Guaardvark",
