@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from backend.utils.hosts import is_local_host
 
@@ -118,7 +118,10 @@ class BrowserAutomationService:
     def _own_api_write(parts, method: str) -> bool:
         """A state-changing call to this install's own API. The pages a model
         drives must not flip settings or approve queued posts on its behalf."""
-        if method.upper() in _READ_METHODS or not parts.path.startswith("/api/"):
+        # The server unquotes the path before routing, so "/api%2Fsettings"
+        # reaches /api/settings; compare what it will route.
+        path = "/" + unquote(parts.path).lstrip("/")
+        if method.upper() in _READ_METHODS or not path.startswith("/api/"):
             return False
         own_ports = {os.environ.get("FLASK_PORT", "5000"), os.environ.get("VITE_PORT", "5173")}
         return str(parts.port or "") in own_ports
@@ -127,8 +130,12 @@ class BrowserAutomationService:
         parts = urlsplit(url)
         if parts.scheme not in ("http", "https", "ws", "wss"):
             return True
+        # Checked for every host: this machine's own name or LAN address
+        # reaches the same API as localhost.
+        if self._own_api_write(parts, method):
+            return False
         if is_local_host(parts.hostname):
-            return not self._own_api_write(parts, method)
+            return True
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._outside_allowed)
 
