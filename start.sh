@@ -317,7 +317,7 @@ if [ -z "$SECRET_KEY" ]; then
     if grep -q '^SECRET_KEY=' "$SCRIPT_DIR/.env" 2>/dev/null; then
       # Line exists but is empty (e.g. stripped by code-release sanitizer or
       # a commented-out variant). Replace in place.
-      sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$_generated_key|" "$SCRIPT_DIR/.env"
+      sed -i.bak "s|^SECRET_KEY=.*|SECRET_KEY=$_generated_key|" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
     else
       echo "SECRET_KEY=$_generated_key" >> "$SCRIPT_DIR/.env"
     fi
@@ -2051,7 +2051,7 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
 fi
 # Fail closed: never continue into Celery with a dead REDIS_URL.
 _redis_check_url="${CELERY_BROKER_URL:-${REDIS_URL:-redis://localhost:6379/0}}"
-_redis_check_port=$(echo "$_redis_check_url" | sed -E 's|^redis://([^@]*@)?[^:]+:([0-9]+).*|\2|')
+_redis_check_port=$(echo "$_redis_check_url" | sed -nE 's|^redis://([^@]*@)?[^:]+:([0-9]+).*|\2|p')
 _redis_check_pass=$(echo "$_redis_check_url" | sed -n 's|^redis://:\([^@]*\)@.*|\1|p')
 [ -n "$_redis_check_port" ] || _redis_check_port=6379
 if [ -n "$_redis_check_pass" ]; then
