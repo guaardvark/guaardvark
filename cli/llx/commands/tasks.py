@@ -186,7 +186,8 @@ def tasks_download(
         # Get file info first
         info = api_client.get(f"/api/tasks/{task_id}/file-info")
         file_info = info.get("data", info)
-        filename = file_info.get("filename", f"task_{task_id}_output")
+        # The name comes from the server; keep it inside the destination.
+        filename = Path(str(file_info.get("filename") or "")).name or f"task_{task_id}_output"
         dest_path = Path(dest) / filename
         api_client.download(f"/api/tasks/{task_id}/download", dest_path)
         if json_out or output.is_pipe():
