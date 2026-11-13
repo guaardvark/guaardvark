@@ -269,11 +269,18 @@ RUNS_CODE_MUTATION_PREFIXES = (
 )
 
 
+def _whole_path() -> str:
+    """The request path as the lists matched whole name it. The app routes
+    with strict_slashes off, so "/api/tools/execute/" reaches the same view
+    as "/api/tools/execute" and must be guarded like it."""
+    return request.path.rstrip('/') or '/'
+
+
 def request_runs_code() -> bool:
     """True when the current request targets a route that runs a supplied or
     named program (the lists above)."""
     path = request.path
-    if path in RUNS_CODE_PATHS:
+    if _whole_path() in RUNS_CODE_PATHS:
         return True
     return request.method not in ('GET', 'HEAD', 'OPTIONS') and path.startswith(RUNS_CODE_MUTATION_PREFIXES)
 
@@ -296,7 +303,7 @@ def request_controls_fleet() -> bool:
     """True when the current request targets an Interconnector operator route
     (the FLEET_* lists above)."""
     path = request.path
-    if path.startswith(FLEET_PREFIXES) or (path.rstrip('/') or '/') in FLEET_PATHS:
+    if path.startswith(FLEET_PREFIXES) or _whole_path() in FLEET_PATHS:
         return True
     if request.method in ('GET', 'HEAD', 'OPTIONS'):
         return False
@@ -549,7 +556,7 @@ def _is_protected():
     for prefix in PROTECTED_PREFIXES:
         if path.startswith(prefix):
             return True
-    if (path in TOOL_ENDPOINT_PATHS or path.startswith(TOOL_ENDPOINT_PREFIXES)) and tool_endpoints_protected():
+    if (_whole_path() in TOOL_ENDPOINT_PATHS or path.startswith(TOOL_ENDPOINT_PREFIXES)) and tool_endpoints_protected():
         return True
     for prefix in PROTECTED_FILE_PREFIXES:
         if path.startswith(prefix):
@@ -731,7 +738,7 @@ def check_endpoint_auth():
     if not _is_protected():
         return None
 
-    if request.path.rstrip('/') in MASTER_SIGNED_PATHS and _signed_by_fleet_master():
+    if _whole_path() in MASTER_SIGNED_PATHS and _signed_by_fleet_master():
         return None
 
     if network_access_covers_request():
