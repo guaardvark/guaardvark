@@ -304,7 +304,7 @@ flask_pids=$(pgrep -f "(python.*backend[./]app|flask run)" 2>/dev/null)
 if [ -n "$flask_pids" ]; then
     for pid in $flask_pids; do
         proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
             vader_info "Force killing Flask/SocketIO process (PID: $pid) from this environment..."
             kill -TERM "$pid" 2>/dev/null
             sleep 2
@@ -324,7 +324,7 @@ if [ -n "$celery_pids" ]; then
     env_celery_pids=()
     for pid in $celery_pids; do
         proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
             env_celery_pids+=("$pid")
         fi
     done
@@ -364,7 +364,7 @@ for port in $VITE_PORT 4173 5173 5174 5175 5176 5177; do
         if [ -n "$port_pids" ]; then
             for pid in $port_pids; do
                 proc_cwd=$(_proc_cwd "$pid")
-                if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+                if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
                     vader_info "Force killing node/vite process on port $port (PID: $pid) from this environment..."
                     kill -TERM "$pid" 2>/dev/null
                     sleep 1
@@ -381,7 +381,7 @@ vite_pids=$(pgrep -f "node.*vite" 2>/dev/null)
 if [ -n "$vite_pids" ]; then
     for pid in $vite_pids; do
         proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
             vader_info "Force killing Vite process (PID: $pid) from this environment..."
             kill -TERM "$pid" 2>/dev/null
             sleep 1

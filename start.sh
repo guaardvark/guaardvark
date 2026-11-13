@@ -713,7 +713,7 @@ kill_process() {
         if [ -n "$port_pids" ]; then
             for pid in $port_pids; do
                 local proc_cwd=$(_proc_cwd "$pid")
-                if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+                if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
                     kill -15 "$pid" 2>/dev/null
                     sleep 1
                     if kill -0 "$pid" 2>/dev/null; then
@@ -757,7 +757,7 @@ kill_process() {
             local env_pids=""
             for pid in $pid_list; do
                 local proc_cwd=$(_proc_cwd "$pid")
-                if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+                if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
                     env_pids="$env_pids $pid"
                 fi
             done
@@ -977,7 +977,7 @@ repo_listener_pids() {
     for pid in $pids; do
         local proc_cwd=$(_proc_cwd "$pid")
         if [ -n "$proc_cwd" ]; then
-            if [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+            if { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
                 out="$out $pid"; matched=1
             fi
         fi
@@ -1819,7 +1819,7 @@ if [ -f "$SCRIPT_DIR/pids/celery.pid" ]; then
     celery_pid=$(cat "$SCRIPT_DIR/pids/celery.pid" 2>/dev/null)
     if [ -n "$celery_pid" ] && kill -0 "$celery_pid" 2>/dev/null; then
         proc_cwd=$(_proc_cwd "$celery_pid")
-        if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
             kill -15 "$celery_pid" 2>/dev/null
             sleep 2
             if kill -0 "$celery_pid" 2>/dev/null; then
@@ -1835,7 +1835,7 @@ celery_pids=$(pgrep -f "celery.*(worker|beat)" 2>/dev/null)
 if [ -n "$celery_pids" ]; then
     for pid in $celery_pids; do
         proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
             kill -15 "$pid" 2>/dev/null
             sleep 1
             if kill -0 "$pid" 2>/dev/null; then
