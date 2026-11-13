@@ -16,8 +16,6 @@ _cancel_<kind>() function. The API layer doesn't change.
 from __future__ import annotations
 
 import logging
-import os
-import signal
 from typing import Callable
 
 from backend.services.job_types import JobKind
@@ -83,7 +81,15 @@ def _cancel_task(native_id: str) -> bool:
 
 
 def _cancel_training(native_id: str) -> bool:
-    """Cancel a TrainingJob — PID SIGTERM if known, else mark + Celery revoke."""
+    """Cancel a TrainingJob the way the Training page does (training routes'
+    ``_cancel``): mark the row first, so the task reading the status ends as
+    cancelled rather than failed, then stop the trainer and drop a queued task.
+
+    The recorded pid is only signalled through ``stop_trainer``, which checks it
+    still is a trainer: a row left active by a worker that died keeps a pid that
+    may belong to another program by now. The task is revoked without
+    terminate; a running one notices the cancel and releases the GPU itself.
+    """
     try:
         from backend.models import TrainingJob, db
     except ImportError:
@@ -95,32 +101,33 @@ def _cancel_training(native_id: str) -> bool:
     if job.status in ("completed", "failed", "cancelled"):
         return True
 
-    pid = getattr(job, "pid", None)
-    if pid:
-        try:
-            os.kill(int(pid), signal.SIGTERM)
-            logger.info("cancel_training: SIGTERM'd pid %s for TrainingJob %s", pid, job.id)
-        except (ProcessLookupError, ValueError):
-            logger.info("cancel_training: pid %s already gone for TrainingJob %s", pid, job.id)
-        except Exception as e:
-            logger.warning("cancel_training: SIGTERM failed for pid %s (%s)", pid, e)
-
-    if job.celery_task_id:
-        try:
-            from backend.celery_app import celery
-            celery.control.revoke(job.celery_task_id, terminate=True, signal="SIGTERM")
-        except Exception as e:
-            logger.warning("cancel_training: Celery revoke failed (%s)", e)
-
     try:
         job.status = "cancelled"
         if hasattr(job, "error_message"):
             job.error_message = "Cancelled by user"
+        pid, job.pid = getattr(job, "pid", None), None
         db.session.commit()
-        return True
     except Exception:
         db.session.rollback()
         return False
+
+    if pid:
+        try:
+            from backend.services.training_runner import stop_trainer
+            if stop_trainer(pid):
+                logger.info("cancel_training: stopped trainer pid %s for TrainingJob %s", pid, job.id)
+            else:
+                logger.info("cancel_training: pid %s is not a running trainer for TrainingJob %s", pid, job.id)
+        except Exception as e:
+            logger.warning("cancel_training: stopping pid %s failed (%s)", pid, e)
+
+    if job.celery_task_id:
+        try:
+            from backend.celery_app import celery
+            celery.control.revoke(job.celery_task_id)
+        except Exception as e:
+            logger.warning("cancel_training: Celery revoke failed (%s)", e)
+    return True
 
 
 def _cancel_unified_progress(native_id: str) -> bool:
