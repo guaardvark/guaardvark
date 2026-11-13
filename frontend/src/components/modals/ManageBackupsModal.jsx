@@ -98,7 +98,7 @@ function AutoBackupSettings({ settings, onSave }) {
   return (
     <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, p: 1.5, mb: 2 }}>
       <Typography variant="subtitle2">{t("backups.manageBackups.autoTitle")}</Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1 }}>
         {t("backups.manageBackups.autoHelp")}
       </Typography>
       <FormControlLabel
@@ -143,7 +143,7 @@ function AutoBackupSettings({ settings, onSave }) {
       )}
       <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, mt: 1 }}>
         {state.saved && !dirty && (
-          <Typography variant="caption" color="success.main">{t("backups.manageBackups.saved")}</Typography>
+          <Typography variant="caption" sx={{ color: "success.main" }}>{t("backups.manageBackups.saved")}</Typography>
         )}
         <Button size="small" variant="outlined" onClick={save} disabled={!dirty || state.saving}>
           {t("backups.manageBackups.save")}
@@ -199,10 +199,10 @@ const ManageBackupsModal = ({
         <AutoBackupSettings settings={settings} onSave={onSaveSettings} />
         {normalizedBackups.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 4 }}>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" sx={{ color: "text.secondary" }}>
               {t("backups.manageBackups.empty")}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
               {t("backups.manageBackups.emptyHint")}
             </Typography>
           </Box>
@@ -285,7 +285,7 @@ const ManageBackupsModal = ({
                           />
                         )}
                         {backup.size > 0 && (
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: "text.secondary" }}>
                             {formatBytes(backup.size)}
                           </Typography>
                         )}

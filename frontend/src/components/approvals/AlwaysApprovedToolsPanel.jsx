@@ -57,12 +57,12 @@ const AlwaysApprovedToolsPanel = ({ showMessage }) => {
         </Alert>
       )}
       {tools.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t("approvals.chatTools.empty")}
         </Typography>
       ) : (
         <Stack spacing={1}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 0.5 }}>
             {t("approvals.chatTools.intro")}
           </Typography>
           {tools.map((name) => (

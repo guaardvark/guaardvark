@@ -191,14 +191,14 @@ const ToolCallCard = ({
         {paramSummary && (
           <Typography
             variant="caption"
-            color="text.secondary"
             sx={{
+              color: "text.secondary",
               flex: 1,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
               fontFamily: "monospace",
-              fontSize: "0.65rem",
+              fontSize: "0.65rem"
             }}
           >
             ({paramSummary})
@@ -271,7 +271,10 @@ const ToolCallCard = ({
                         </Typography>
                       )}
                       {consentImage && !consentImageSrc(consentImage) && (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{ color: "text.secondary", display: "block", mt: 0.25 }}
+                        >
                           {t("chat.toolCall.reference", { image: consentImage })}
                         </Typography>
                       )}
@@ -399,7 +402,7 @@ const ToolCallCard = ({
           {/* Thumbs up/down feedback for agent tasks */}
           {showFeedback && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5, justifyContent: "flex-end" }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", mr: 0.5 }}>
                 {t("chat.toolCall.feedbackPrompt")}
               </Typography>
               <Tooltip title={t("chat.toolCall.feedbackUp")}>

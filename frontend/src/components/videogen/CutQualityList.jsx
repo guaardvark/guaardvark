@@ -34,7 +34,7 @@ const CutQualityList = ({ clips, onApprove, onRerender, busy = false, clipUrl })
       <Stack spacing={1}>
         {checked.map((c) => (
           <Box key={c.index}>
-            <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
               <Typography variant="body2" sx={{ mr: 0.5 }}>{t("video.cutQuality.cut", { index: c.index })}</Typography>
               <ReviewStatePill review={c.review} />
               <QualityFlagsPill quality={c.quality} />
@@ -42,7 +42,7 @@ const CutQualityList = ({ clips, onApprove, onRerender, busy = false, clipUrl })
               <ColourMatchPill quality={c.quality} />
               <VlmReviewPill review={c.quality?.vlm_review} />
               {!c.review && !(c.quality?.flags || []).length && (
-                <Typography variant="caption" color="text.secondary">{t("video.cutQuality.noProblems")}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("video.cutQuality.noProblems")}</Typography>
               )}
             </Stack>
             {clipUrl && c.review?.state === "needs_review" && (

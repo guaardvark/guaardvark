@@ -484,7 +484,7 @@ const ClientPage = () => {
                     }}
                   >
                     <CardContent sx={{ flexGrow: 1, p: 0 }}>
-                      <Grid container spacing={1} alignItems="flex-start">
+                      <Grid container spacing={1} sx={{ alignItems: "flex-start" }}>
                         <Grid size={9}>
                           <Typography
                             variant="h6"
@@ -498,27 +498,25 @@ const ClientPage = () => {
                           </Typography>
                           <Typography
                             variant="body2"
-                            color="text.secondary"
-                            sx={{ mb: 0.5 }}
                             noWrap
                             title={client.email || t("clients.page.notAvailable")}
+                            sx={{ color: "text.secondary", mb: 0.5 }}
                           >
                             {t("clients.page.email", { email: client.email || t("clients.page.notAvailable") })}
                           </Typography>
                           <Typography
                             variant="body2"
-                            color="text.secondary"
-                            sx={{ mb: 1 }}
                             noWrap
                             title={client.phone || t("clients.page.notAvailable")}
+                            sx={{ color: "text.secondary", mb: 1 }}
                           >
                             {t("clients.page.phone", { phone: client.phone || t("clients.page.notAvailable") })}
                           </Typography>
                           <Tooltip title={client.notes || t("clients.page.noNotesTooltip")}>
                             <Typography
                               variant="body2"
-                              color="text.secondary"
                               sx={{
+                                color: "text.secondary",
                                 mb: 1,
                                 fontStyle: client.notes ? "normal" : "italic",
                                 height: "3em",
@@ -526,13 +524,13 @@ const ClientPage = () => {
                                 textOverflow: "ellipsis",
                                 display: "-webkit-box",
                                 WebkitLineClamp: 2,
-                                WebkitBoxOrient: "vertical",
+                                WebkitBoxOrient: "vertical"
                               }}
                             >
                               {client.notes || t("clients.page.noNotes")}
                             </Typography>
                           </Tooltip>
-                          <Typography variant="body2" color="text.primary">
+                          <Typography variant="body2" sx={{ color: "text.primary" }}>
                             {t("clients.page.projects", {
                               projects:
                                 client.project_count !== undefined
@@ -658,7 +656,7 @@ const ClientPage = () => {
                               onClick={(e) => handleOpenLinkerModal(client, e)}
                               disabled={isModalSaving}
                             >
-                              <LinkIcon fontSize="small" />
+                              <LinkIcon sx={{ fontSize: "small" }} />
                             </IconButton>
                           </span>
                         </Tooltip>
@@ -687,13 +685,13 @@ const ClientPage = () => {
             {sortedClients.length > 0 && (
               <Typography
                 variant="caption"
-                display="block"
                 sx={{
+                  display: "block",
                   textAlign: "right",
                   p: 1,
                   color: "text.secondary",
                   borderTop: 1,
-                  borderColor: "divider",
+                  borderColor: "divider"
                 }}
               >
                 {t("clients.page.total", { total: sortedClients.length })}

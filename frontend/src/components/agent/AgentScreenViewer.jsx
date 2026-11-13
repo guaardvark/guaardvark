@@ -505,7 +505,7 @@ export default function AgentScreenViewer({ open, onClose }) {
             display: 'flex', alignItems: 'center', gap: 0.5,
             bgcolor: 'rgba(0,0,0,0.5)', borderRadius: 1, px: 0.5, py: 0.1,
           }}>
-            <Typography variant="caption" color="grey.500" sx={{ fontSize: '0.55rem' }}>{t('agents.screen.fps')}</Typography>
+            <Typography variant="caption" sx={{ color: "grey.500", fontSize: '0.55rem' }}>{t('agents.screen.fps')}</Typography>
             <Slider value={fps} onChange={(_, v) => setFps(v)} min={1} max={10} step={1} size="small"
               sx={{ width: 40, color: 'grey.600', py: 0 }} />
           </Box>

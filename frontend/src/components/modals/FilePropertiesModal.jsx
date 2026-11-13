@@ -179,7 +179,7 @@ const FilePropertiesModal = ({
       <DialogContent dividers>
         {/* File Information */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
             {t('dialogs.fileProperties.fileInformation')}
           </Typography>
           <Grid container spacing={2}>
@@ -215,7 +215,7 @@ const FilePropertiesModal = ({
 
         {/* Entity Links */}
         <Box sx={{ mb: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
             {t('dialogs.fileProperties.entityLinks')}
           </Typography>
 
@@ -266,7 +266,7 @@ const FilePropertiesModal = ({
 
         {/* Tags and Notes */}
         <Box>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
             {t('dialogs.fileProperties.metadata')}
           </Typography>
           <Grid container spacing={2}>

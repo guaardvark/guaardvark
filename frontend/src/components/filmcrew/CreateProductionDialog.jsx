@@ -132,7 +132,7 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
                       <Typography variant="body2">
                         {m.name}{m.is_ready ? '' : ` ${t('filmCrew.create.notInstalled')}`}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {m.capabilities.audio_out
                           ? t('filmCrew.create.audioModelHint')
                           : t('filmCrew.create.silentModelHint')}

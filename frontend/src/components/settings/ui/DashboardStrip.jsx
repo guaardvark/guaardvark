@@ -95,12 +95,12 @@ export const DashboardTile = ({ label, help, value, sub, tone, progress, onClick
         sub && (
           <Typography
             variant="caption"
-            color="text.secondary"
             sx={{
+              color: "text.secondary",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
-              ...(large ? { fontSize: "0.82rem" } : {}),
+              ...(large ? { fontSize: "0.82rem" } : {})
             }}
           >
             {sub}

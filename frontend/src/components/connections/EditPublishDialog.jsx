@@ -169,7 +169,7 @@ const EditPublishDialog = ({
           </Box>
         ) : (
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {accountLabel ? `${accountLabel} · ` : ""}
               {platformLabel}
             </Typography>
@@ -200,7 +200,7 @@ const EditPublishDialog = ({
 
             {goesOutAs !== null && (
               <Box>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {t("connections.editDialog.goesOutAs", { platform: platformLabel })}
                 </Typography>
                 <Paper variant="outlined" sx={{ p: 1.5, mt: 0.5, whiteSpace: "pre-wrap" }}>
@@ -210,7 +210,7 @@ const EditPublishDialog = ({
             )}
 
             {(spec.capabilities?.rate_limits || []).map((limit) => (
-              <Typography key={limit.window_seconds} variant="caption" color="text.secondary">
+              <Typography key={limit.window_seconds} variant="caption" sx={{ color: "text.secondary" }}>
                 {describeRateLimit(limit)}
               </Typography>
             ))}
@@ -230,7 +230,7 @@ const EditPublishDialog = ({
         )}
       </DialogContent>
       <DialogActions>
-        <Typography variant="caption" color="text.secondary" sx={{ flex: 1, pl: 1 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", flex: 1, pl: 1 }}>
           {t("connections.editDialog.savingNote")}
         </Typography>
         <ActionButton onClick={onClose} disabled={saving}>

@@ -386,7 +386,7 @@ const NewTrainingJobModal = ({
               </Alert>
             )}
             {notDownloaded.length > 0 && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
                 {t("dialogs.newTrainingJob.notDownloaded", { models: notDownloaded.map((m) => m.name).join(", "), count: notDownloaded.length })}{" "}
                 <Button size="small" onClick={() => setLibrariesOpen(true)} sx={{ p: 0, minWidth: 0, verticalAlign: "baseline" }}>
                   {t("dialogs.newTrainingJob.downloadBaseModels")}
@@ -467,7 +467,7 @@ const NewTrainingJobModal = ({
               </Select>
             </FormControl>
             {selectedProfile && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5, display: "block" }}>
                 {t("dialogs.newTrainingJob.profileSummary", {
                   type: selectedProfile.device_type?.toUpperCase(),
                   batch: selectedProfile.max_batch_size,

@@ -59,7 +59,7 @@ export const MicLevelMeter = ({ threshold }) => {
   return (
     <Box sx={{ mt: 1, mb: 2 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("voice.listening.meterCaption")}
         </Typography>
         <Button size="small" variant="outlined" onClick={toggleTest}>
@@ -101,7 +101,7 @@ export const MicLevelMeter = ({ threshold }) => {
         </Alert>
       )}
       {!testing && error && (
-        <Typography variant="caption" color="warning.main">
+        <Typography variant="caption" sx={{ color: "warning.main" }}>
           {error}
         </Typography>
       )}
@@ -115,7 +115,7 @@ const SliderRow = ({ label, value, limits, format, onChange }) => {
   const { t } = useUiTranslation();
   return (
     <Box sx={{ mb: 1.5 }}>
-      <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.75rem", mb: 0.5 }}>
+      <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.75rem", mb: 0.5 }}>
         {t("voice.listening.sliderValue", { label, amount: format(value) })}
       </Typography>
       <Slider
@@ -179,7 +179,7 @@ const VoiceListeningSettings = ({ settings: settingsProp, onChange, systemName: 
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, mb: 2 }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5, mb: 2 }}>
         {ACTIVATION_MODE_HELP[mode]} {t("voice.listening.holdHint")}
       </Typography>
 
@@ -221,12 +221,12 @@ const VoiceListeningSettings = ({ settings: settingsProp, onChange, systemName: 
           />
         }
         label={
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.8rem" }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.8rem" }}>
             {t("voice.listening.wakeToggle", { systemName })}
           </Typography>
         }
       />
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1 }}>
         {t("voice.listening.wakeHelp")}
       </Typography>
       {settings.wakeWordEnabled && (
@@ -244,12 +244,12 @@ const VoiceListeningSettings = ({ settings: settingsProp, onChange, systemName: 
           <Switch size="small" checked={settings.bargeIn} onChange={(e) => change("bargeIn", e.target.checked)} />
         }
         label={
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.8rem" }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.8rem" }}>
             {t("voice.listening.bargeIn")}
           </Typography>
         }
       />
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
         {t("voice.listening.bargeInHelp")}
       </Typography>
     </Box>

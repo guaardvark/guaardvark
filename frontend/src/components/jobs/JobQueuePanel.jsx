@@ -115,9 +115,9 @@ const JobQueuePanel = () => {
   return (
     <Box sx={{ maxWidth: 1400, mx: "auto", mt: 2, px: 2 }}>
       <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }} data-testid="job-queue-panel">
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ gap: 1, mb: 1 }}>
-          <Typography variant="subtitle1" fontWeight={600}>{t("jobs.queue.title")}</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", gap: 1, mb: 1 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{t("jobs.queue.title")}</Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary", flexGrow: 1 }}>
             {t("jobs.queue.intro")}
           </Typography>
           {classes.map((c) => (
@@ -148,7 +148,7 @@ const JobQueuePanel = () => {
         ))}
 
         {empty && (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", py: 1 }}>
             {t("jobs.queue.empty")}
           </Typography>
         )}
@@ -172,7 +172,7 @@ const JobQueuePanel = () => {
                   <TableCell>
                     {item.label}
                     {item.moved && (
-                      <Typography component="span" variant="caption" color="text.secondary"> {t("jobs.queue.moved")}</Typography>
+                      <Typography component="span" variant="caption" sx={{ color: "text.secondary" }}> {t("jobs.queue.moved")}</Typography>
                     )}
                   </TableCell>
                   <TableCell><ClassChip item={item} classes={classes} /></TableCell>
@@ -218,15 +218,15 @@ const JobQueuePanel = () => {
         {(paused.length > 0 || running.length > 0) && (
           <Stack spacing={0.5} sx={{ mt: queued.length ? 2 : 0 }}>
             {paused.map((item) => (
-              <Stack key={item.id} direction="row" spacing={1} alignItems="center">
+              <Stack key={item.id} direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <Chip size="small" label={t("jobs.queue.paused")} color="warning" variant="outlined" />
                 <ClassChip item={item} classes={classes} />
                 <Typography variant="body2">{item.label}</Typography>
-                <Typography variant="caption" color="text.secondary">{item.reason}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>{item.reason}</Typography>
               </Stack>
             ))}
             {running.map((item) => (
-              <Stack key={item.id} direction="row" spacing={1} alignItems="center">
+              <Stack key={item.id} direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <Chip size="small" label={t("jobs.queue.running")} color="info" variant="outlined" />
                 <ClassChip item={item} classes={classes} />
                 <Typography variant="body2">{item.label}</Typography>

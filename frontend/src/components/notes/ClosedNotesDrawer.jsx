@@ -133,7 +133,7 @@ const ClosedNotesDrawer = ({ open, onClose, closedNotes, onReopen, onDeleteReque
             {note.closedAt && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, pl: 3, mt: 0.5 }}>
                 <AccessTimeIcon sx={{ fontSize: 11, color: "text.secondary" }} />
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
                   {formatRelative(note.closedAt)}
                 </Typography>
               </Box>
@@ -205,7 +205,7 @@ const ClosedNotesDrawer = ({ open, onClose, closedNotes, onReopen, onDeleteReque
       </Box>
       <List sx={{ flex: 1, overflow: "auto", pt: 0 }}>
         {filtered.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, pt: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", px: 2.5, pt: 2 }}>
             {entries.length === 0 ? t("notes.closed.empty") : t("notes.closed.noMatches")}
           </Typography>
         ) : (

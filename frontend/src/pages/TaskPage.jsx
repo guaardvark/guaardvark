@@ -910,12 +910,12 @@ const TaskPage = () => {
         </DashboardStrip>
 
         <Paper sx={{ p: 2, mb: 2, mt: 2, borderRadius: 2 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+          <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
             <Box>
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                 {t("tasks.video.title")}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("tasks.video.intro")}
               </Typography>
             </Box>
@@ -930,7 +930,7 @@ const TaskPage = () => {
           {videoGenLoading && <LinearProgress sx={{ mb: 1 }} />}
 
           {videoGenJobs.length === 0 && !videoGenLoading ? (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("tasks.video.empty")}
             </Typography>
           ) : (
@@ -952,7 +952,7 @@ const TaskPage = () => {
                     </TableCell>
                     <TableCell>
                       {job.progress != null ? (
-                        <Stack direction="row" spacing={1} alignItems="center">
+                        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                           <Box sx={{ width: 80 }}>
                             <LinearProgress
                               variant="determinate"
@@ -963,7 +963,7 @@ const TaskPage = () => {
                           <Typography variant="caption">{Math.round(job.progress)}%</Typography>
                         </Stack>
                       ) : (
-                        <Typography variant="caption" color="text.secondary">—</Typography>
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>—</Typography>
                       )}
                     </TableCell>
                     <TableCell align="right">

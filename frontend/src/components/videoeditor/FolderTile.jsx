@@ -76,8 +76,7 @@ const FolderTile = ({ group, variant = "grid", onOpen }) => {
           </Typography>
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+            sx={{ color: "text.secondary", fontSize: "0.65rem", lineHeight: 1.2 }}
           >
             {t("videoEditor.folder.itemCount", { count })}
           </Typography>

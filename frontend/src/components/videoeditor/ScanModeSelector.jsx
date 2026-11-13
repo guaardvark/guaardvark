@@ -18,7 +18,7 @@ const ScanModeSelector = ({ value, onChange, disabled }) => {
   const { t } = useUiTranslation();
   return (
     <Stack spacing={0.5}>
-      <Typography variant="caption" color="text.secondary">{t("videoEditor.scanMode.title")}</Typography>
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("videoEditor.scanMode.title")}</Typography>
       <ToggleButtonGroup
         size="small"
         value={value}

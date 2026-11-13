@@ -153,7 +153,7 @@ const VideoTextOverlayPage = () => {
               <Stack spacing={2.5}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <TextFieldsIcon color="primary" />
-                  <Typography variant="h6" fontWeight="bold">{t("videoTextOverlay.sourceVideo")}</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: "bold" }}>{t("videoTextOverlay.sourceVideo")}</Typography>
                 </Box>
 
                 <FormControl variant="filled" fullWidth size="small">
@@ -185,7 +185,7 @@ const VideoTextOverlayPage = () => {
                   </Select>
                 </FormControl>
 
-                <Typography variant="h6" fontWeight="bold">{t("videoTextOverlay.text")}</Typography>
+                <Typography variant="h6" sx={{ fontWeight: "bold" }}>{t("videoTextOverlay.text")}</Typography>
                 <TextField
                   fullWidth
                   variant="filled"
@@ -201,10 +201,10 @@ const VideoTextOverlayPage = () => {
                   }}
                 />
 
-                <Typography variant="h6" fontWeight="bold">{t("videoTextOverlay.style")}</Typography>
+                <Typography variant="h6" sx={{ fontWeight: "bold" }}>{t("videoTextOverlay.style")}</Typography>
 
                 <Box>
-                  <Typography variant="caption" fontWeight="bold">{t("videoTextOverlay.fontSize", { size: fontSize })}</Typography>
+                  <Typography variant="caption" sx={{ fontWeight: "bold" }}>{t("videoTextOverlay.fontSize", { size: fontSize })}</Typography>
                   <Slider
                     value={fontSize}
                     min={16}
@@ -272,7 +272,7 @@ const VideoTextOverlayPage = () => {
           {/* Right: preview */}
           <Grid size={{ xs: 12, md: 6 }}>
             <Paper elevation={4} sx={{ p: 3, borderRadius: 3, minHeight: 360 }}>
-              <Typography variant="h6" fontWeight="bold" mb={2}>
+              <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
                 {result ? t("videoTextOverlay.result") : selectedVideo ? t("videoTextOverlay.source") : t("videoTextOverlay.preview")}
               </Typography>
 

@@ -122,7 +122,7 @@ const DesktopToolbar = ({ view, onViewChange, onSort, kinds, itemCount, onSearch
         }}
       />
 
-      <Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", ml: "auto" }}>
         {t("documents.page.itemCount", { count: itemCount })}
       </Typography>
     </Box>

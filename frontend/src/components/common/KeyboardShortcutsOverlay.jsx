@@ -145,8 +145,8 @@ const KeyboardShortcutsOverlay = () => {
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box display="flex" alignItems="center">
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
             <KeyboardIcon sx={{ mr: 1 }} />
             {t("layoutCommon.shortcuts.title")}
           </Box>

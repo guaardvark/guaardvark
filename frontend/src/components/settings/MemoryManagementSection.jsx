@@ -450,7 +450,8 @@ const MemoryManagementSection = ({ title = translate("settingsMemory.title"), ic
 
   return (
     <SettingsSection title={title} icon={icon}>
-      <Typography variant="body2" color="text.secondary" sx={{
+      <Typography variant="body2" sx={{
+        color: "text.secondary",
         marginBottom: "16px"
       }}>
         {t("settingsMemory.intro")}
@@ -741,7 +742,7 @@ const MemoryManagementSection = ({ title = translate("settingsMemory.title"), ic
 
       {memories.length > 0 && (
         <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("settingsMemory.total", { count: total ?? memories.length })}
             {total != null && memories.length < total && (
               <>
@@ -877,7 +878,7 @@ const MemoryManagementSection = ({ title = translate("settingsMemory.title"), ic
             {t("settingsMemory.mergePicker.hint")}
           </Hint>
           {mergeCandidates.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("settingsMemory.mergePicker.none")}
             </Typography>
           ) : (

@@ -56,13 +56,12 @@ const FileGenPopup = ({ open, fileData, onConfirm, onAlways, onDismiss }) => {
         </Typography>
         <Typography
           variant="body2"
-          color="text.secondary"
-          sx={{ fontFamily: "monospace", fontSize: "0.8rem", wordBreak: "break-all" }}
+          sx={{ color: "text.secondary", fontFamily: "monospace", fontSize: "0.8rem", wordBreak: "break-all" }}
         >
           {filename}
         </Typography>
         {detail && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
             {detail}
           </Typography>
         )}

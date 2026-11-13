@@ -143,13 +143,13 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
 
       <DialogContent dividers>
         {error && (
-          <Box mb={2}>
+          <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
           </Box>
         )}
 
         {loading ? (
-          <Box display="flex" justifyContent="center" p={3}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
             <CircularProgress />
           </Box>
         ) : (
@@ -164,7 +164,7 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
                   <ListItemText
                     primary={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                        <Typography variant="body1" fontWeight={500}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
                           {m.name}
                         </Typography>
                         {m.size_gb ? <Chip label={`${m.size_gb} GB`} size="small" variant="outlined" /> : null}
@@ -198,7 +198,7 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
                           value={dl.progress}
                           sx={{ mt: 0.5 }}
                         />
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {(dl.downloaded_gb || 0).toFixed(2)} / {(dl.total_gb || 0).toFixed(2)} GB
                         </Typography>
                       </Box>

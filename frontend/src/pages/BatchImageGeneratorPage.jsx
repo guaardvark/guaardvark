@@ -1529,7 +1529,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     <MenuItem value="auto">
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.auto')}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t('imagesBatch.contentType.autoHelp')}
                         </Typography>
                       </Box>
@@ -1537,7 +1537,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     <MenuItem value="person_portrait">
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.portrait')}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t('imagesBatch.contentType.portraitHelp')}
                         </Typography>
                       </Box>
@@ -1545,7 +1545,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     <MenuItem value="person_full_body">
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.fullBody')}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t('imagesBatch.contentType.fullBodyHelp')}
                         </Typography>
                       </Box>
@@ -1553,7 +1553,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     <MenuItem value="person_working">
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.working')}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t('imagesBatch.contentType.workingHelp')}
                         </Typography>
                       </Box>
@@ -1561,7 +1561,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     <MenuItem value="product_photo">
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.product')}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t('imagesBatch.contentType.productHelp')}
                         </Typography>
                       </Box>
@@ -1569,7 +1569,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     <MenuItem value="landscape">
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.landscape')}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t('imagesBatch.contentType.landscapeHelp')}
                         </Typography>
                       </Box>
@@ -1577,7 +1577,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     <MenuItem value="infographic_preset">
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.infographic')}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t('imagesBatch.contentType.infographicHelp')}
                         </Typography>
                       </Box>
@@ -1585,7 +1585,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     <MenuItem value="general">
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.general')}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t('imagesBatch.contentType.generalHelp')}
                         </Typography>
                       </Box>
@@ -1658,7 +1658,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
                     {t('imagesBatch.cast.title')}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 1 }}>
                     {t('imagesBatch.cast.help')}
                   </Typography>
                   <CharacterPicker
@@ -1675,7 +1675,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
                     {t('imagesBatch.input.single')}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 1 }}>
                     {t('imagesBatch.single.help')}
                   </Typography>
                   <DeferredPromptField
@@ -1697,7 +1697,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     }}
                   />
                   <PromptTokenCounter prompts={finalPrompts} model={params.model} sx={{ mt: -1.5, mb: 1 }} />
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: 'block' }}>
                     {t('imagesBatch.single.note')}
                   </Typography>
                 </Box>
@@ -1729,7 +1729,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   />
                   <PromptTokenCounter prompts={finalPrompts} model={params.model} sx={{ mt: -1.5, mb: 1 }} />
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t('imagesBatch.bulk.ready', { count: uniquePromptCount })}
                     </Typography>
                     <Button
@@ -1756,7 +1756,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                       {t('imagesBatch.bulk.loadExamples')}
                     </Button>
                   </Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: 'block' }}>
                     {t('imagesBatch.bulk.tip')}
                   </Typography>
                 </Box>
@@ -1784,7 +1784,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     }}
                   />
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {inputMode === 'single' ? t('imagesBatch.look.single') : t('imagesBatch.look.bulk', { count: uniquePromptCount })}
                     </Typography>
                     <Button
@@ -1903,7 +1903,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 500 }}>
                     {t('imagesBatch.blueprint.title')}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
                     {t('imagesBatch.blueprint.help')}
                   </Typography>
                   <input
@@ -1935,7 +1935,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     </Alert>
                   )}
 
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {t('imagesBatch.blueprint.format')}
                   </Typography>
                 </Box>
@@ -2012,7 +2012,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                                 <MenuItem key={option.value} value={option.value}>
                                   <Box>
                                     <Typography variant="body2">{option.label}</Typography>
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                                       {option.description}
                                     </Typography>
                                   </Box>
@@ -2033,10 +2033,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           )}
                           {applicableAdapters.length > 0 && (
                             <Box sx={{ mt: 1 }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                              <Typography
+                                variant="caption"
+                                sx={{ color: "text.secondary", display: 'block', mb: 0.5 }}
+                              >
                                 {t('imagesBatch.advanced.yourLoras')}
                               </Typography>
-                              <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+                              <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap" }}>
                                 {applicableAdapters.map((a) => {
                                   const on = selectedAdapters.includes(a.id);
                                   return (
@@ -2059,7 +2062,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           )}
                           {encoderSlots.length > 0 && (
                             <Box sx={{ mt: 1.5 }}>
-                              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                                 {encoderSlots.map((group) => (
                                   <FormControl key={group.slot} size="small" sx={{ minWidth: 220 }}>
                                     <InputLabel>{t('imagesBatch.advanced.textEncoderSlot', { slot: group.label })}</InputLabel>
@@ -2084,22 +2087,27 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                                   </FormControl>
                                 ))}
                               </Stack>
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                              <Typography
+                                variant="caption"
+                                sx={{ color: "text.secondary", display: 'block', mt: 0.5 }}
+                              >
                                 {t('imagesBatch.advanced.encodersHint')}
                               </Typography>
                             </Box>
                           )}
                           {unavailableModels.length > 0 && (
                             <Box sx={{ mt: 1 }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                              <Typography
+                                variant="caption"
+                                sx={{ color: "text.secondary", display: 'block', mb: 0.5 }}
+                              >
                                 {t('imagesBatch.advanced.unavailable')}
                               </Typography>
                               {unavailableModels.map((m) => (
                                 <Tooltip key={m.id} title={m.reason || ''}>
                                   <Typography
                                     variant="caption"
-                                    color="text.disabled"
-                                    sx={{ display: 'block', lineHeight: 1.4 }}
+                                    sx={{ color: "text.disabled", display: 'block', lineHeight: 1.4 }}
                                   >
                                     • {m.label} — {m.reason}
                                   </Typography>
@@ -2121,7 +2129,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                                 <MenuItem key={option.value} value={option.value}>
                                   <Box>
                                     <Typography variant="body2">{option.label}</Typography>
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                                       {option.description}
                                     </Typography>
                                   </Box>
@@ -2129,7 +2137,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                               ))}
                             </Select>
                             {castLocked && (
-                              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                              <Typography
+                                variant="caption"
+                                sx={{ color: "text.secondary", mt: 0.5, display: 'block' }}
+                              >
                                 {castLockedNote}
                               </Typography>
                             )}
@@ -2153,7 +2164,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                             label={
                               <Box>
                                 <Typography variant="body2">{t('imagesBatch.enhance.label')}</Typography>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                                   {!autoEnhance
                                     ? t('imagesBatch.enhance.off')
                                     : prosePrompts
@@ -2257,7 +2268,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                             </Select>
                             {(comfyStills || isModernDit)
                               && (params.width * params.height > Math.max(1024 * 1024, highResOkPixels || 0)) && (
-                              <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block' }}>
+                              <Typography
+                                variant="caption"
+                                sx={{ color: "warning.main", mt: 0.5, display: 'block' }}
+                              >
                                 {t('imagesBatch.dimensions.highResWarning')}
                               </Typography>
                             )}
@@ -2313,32 +2327,32 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                             disabled={isZimage || isFlux3Klein || castLocked}
                           />
                           {castLocked && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            <Typography variant="caption" sx={{ color: "text.secondary", display: 'block' }}>
                               {castLockedNote}
                             </Typography>
                           )}
                           {isZimage && !castLocked && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {t('imagesBatch.guidance.zimageHelp')}
                             </Typography>
                           )}
                           {isQwenImage21 && !castLocked && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {t('imagesBatch.guidance.qwenHelp')}
                             </Typography>
                           )}
                           {isFlux3Klein && !castLocked && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {t('imagesBatch.guidance.flux3KleinHelp')}
                             </Typography>
                           )}
                           {isMossImage && !castLocked && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {t('imagesBatch.guidance.mossHelp')}
                             </Typography>
                           )}
                           {family === 'auto' && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {t('imagesBatch.guidance.autoHelp')}
                             </Typography>
                           )}
@@ -2356,7 +2370,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                               htmlInput: { inputMode: 'numeric' }
                             }}
                           />
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                          <Typography
+                            variant="caption"
+                            sx={{ color: "text.secondary", display: 'block', mt: 0.5 }}
+                          >
                             {parseImageSeed(seedText) != null
                               ? t('imagesBatch.seed.fixed', { seed: parseImageSeed(seedText) })
                               : seedText.trim()
@@ -2379,7 +2396,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                             disabled={oneAtATime}
                           />
                           {oneAtATime && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            <Typography variant="caption" sx={{ color: "text.secondary", display: 'block' }}>
                               {oneAtATimeNote}
                             </Typography>
                           )}
@@ -2496,7 +2513,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   </Typography>
 
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t('imagesBatch.progress.batchId', { id: activeBatch.batch_id })}
                     </Typography>
                     <Chip
@@ -2657,11 +2674,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
             borderRadius: 2
           }}>
             <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   {t('imagesBatch.history.title')}
                 </Typography>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   {batchHistory.length > 0 && (
                     <Button
                       size="small"
@@ -2715,7 +2732,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                 {batchHistory.length === 0 && !historyError && (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
                     <ImageIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t('imagesBatch.history.empty')}
                     </Typography>
                   </Box>
@@ -2759,7 +2776,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
             : t('imagesBatch.preview.title', { count: uniquePromptCount })}
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
             {t('imagesBatch.preview.intro')}
           </Typography>
           <Box sx={{ maxHeight: 400, overflow: 'auto' }}>

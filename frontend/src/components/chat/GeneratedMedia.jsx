@@ -85,8 +85,7 @@ const GeneratedMedia = ({ items, pending, onOpenPicture, maxWidth = 400, maxHeig
           {img.caption && (
             <Typography
               variant="caption"
-              color="text.secondary"
-              sx={{ mt: 0.5, display: "block", fontStyle: "italic" }}
+              sx={{ color: "text.secondary", mt: 0.5, display: "block", fontStyle: "italic" }}
             >
               {img.caption}
             </Typography>

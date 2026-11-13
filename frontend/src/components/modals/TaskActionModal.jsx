@@ -804,7 +804,7 @@ const TaskActionModal = ({
             <StatusPill label={realTimeStatus || t("dialogs.taskAction.unknown")} tone={statusTone} />
           )}
           {isEditMode && isRunning && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("dialogs.taskAction.progress", { progress: Math.round(realTimeProgress) })}
             </Typography>
           )}
@@ -926,7 +926,7 @@ const TaskActionModal = ({
                 <Box component="li" {...props}>
                   <Box>
                     <Typography variant="body2">{option.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {option.description || `${(option.rule_text || "").substring(0, 100)}...`}
                     </Typography>
                   </Box>
@@ -969,7 +969,7 @@ const TaskActionModal = ({
                   <Box component="li" {...props}>
                     <Box>
                       <Typography variant="body2">{option.url}</Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("dialogs.taskAction.websiteOption", { client: option.client?.name || t("dialogs.taskAction.unknown"), project: option.project?.name || t("dialogs.taskAction.unknown") })}
                       </Typography>
                     </Box>
@@ -1048,7 +1048,7 @@ const TaskActionModal = ({
             {modelField}
             {isEditMode && fileInfo?.can_download && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {t("dialogs.taskAction.fileDetails", { size: fileInfo.file_size_mb, type: fileInfo.file_type, status: fileInfo.task_status })}
                 </Typography>
                 <ActionButton startIcon={<DownloadIcon />} onClick={handleDownloadFile} disabled={anyActionInProgress}>
@@ -1185,7 +1185,7 @@ const TaskActionModal = ({
       <DialogActions sx={{ justifyContent: "space-between", px: 3, pb: 2, pt: 2 }}>
         <Box>
           {isCreatingJob && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("dialogs.taskAction.creatingAndStarting")}
             </Typography>
           )}

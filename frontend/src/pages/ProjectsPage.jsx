@@ -453,7 +453,7 @@ function ProjectsPage() {
                     }}
                   >
                     <CardContent sx={{ flexGrow: 1, p: 0 }}>
-                      <Grid container spacing={1} alignItems="flex-start">
+                      <Grid container spacing={1} sx={{ alignItems: "flex-start" }}>
                         <Grid size={9}>
                           <Typography
                             variant="h6"
@@ -467,10 +467,9 @@ function ProjectsPage() {
                           </Typography>
                           <Typography
                             variant="body2"
-                            color="text.secondary"
-                            sx={{ mb: 1 }}
                             noWrap
                             title={getClientName(project.client_id)}
+                            sx={{ color: "text.secondary", mb: 1 }}
                           >
                             {t("projects.list.client", { name: getClientName(project.client_id) })}
                           </Typography>
@@ -481,18 +480,20 @@ function ProjectsPage() {
                           >
                             <Typography
                               variant="body2"
-                              color="text.secondary"
                               sx={{
+                                color: "text.secondary",
                                 mb: 1,
+
                                 fontStyle: project.description
                                   ? "normal"
                                   : "italic",
+
                                 height: "3em",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
                                 display: "-webkit-box",
                                 WebkitLineClamp: 2,
-                                WebkitBoxOrient: "vertical",
+                                WebkitBoxOrient: "vertical"
                               }}
                             >
                               {project.description || t("projects.list.noDescription")}
@@ -652,13 +653,13 @@ function ProjectsPage() {
             {sortedProjects.length > 0 && (
               <Typography
                 variant="caption"
-                display="block"
                 sx={{
+                  display: "block",
                   textAlign: "right",
                   p: 1,
                   color: "text.secondary",
                   borderTop: 1,
-                  borderColor: "divider",
+                  borderColor: "divider"
                 }}
               >
                 {t("projects.list.total", { total: sortedProjects.length })}

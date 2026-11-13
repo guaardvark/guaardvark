@@ -46,7 +46,7 @@ const SelfEditNotice = ({ edit }) => {
     <Box data-testid="self-edit-notice" sx={{ mt: 0.75, p: 1, borderRadius: 1, border: 1, borderColor: "divider" }}>
       <Typography variant="caption" sx={{ display: "block" }}>{line}</Typography>
       {(edit.checks || []).length > 0 && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
           {(edit.checks || []).map((c) => `${c.check}: ${c.ok ? t("chat.selfEdit.checkOk") : c.detail}`).join(" · ")}
         </Typography>
       )}
@@ -55,7 +55,7 @@ const SelfEditNotice = ({ edit }) => {
           {t("chat.selfEdit.conflicts", { files: conflicts.join(", ") })}
         </Alert>
       )}
-      {error && <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{error}</Typography>}
+      {error && <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>{error}</Typography>}
       {["applied", "live"].includes(status) && (
         <Box sx={{ mt: 0.5, display: "flex", gap: 1 }}>
           <ActionButton kind="neutral" loading={busy} onClick={() => revert(Boolean(conflicts))}>

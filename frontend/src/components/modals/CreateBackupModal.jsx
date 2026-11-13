@@ -124,7 +124,7 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
         </Box>
 
         {/* Type selector cards */}
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+        <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
           {t("backups.createBackup.selectType")}:
         </Typography>
         <Box sx={{ display: "flex", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
@@ -145,7 +145,7 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
                 <CardContent sx={{ textAlign: "center", py: 2, px: 1.5 }}>
                   <Box sx={{ color: `${card.color}.main`, mb: 0.5 }}>{card.icon}</Box>
                   <Typography variant="subtitle2">{card.title}</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                     {card.subtitle}
                   </Typography>
                 </CardContent>
@@ -166,7 +166,7 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
         {selectedType === "data" && (
           <>
             <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
               {t("backups.createBackup.selectComponents")}
             </Typography>
             <Box sx={{ display: "flex", gap: 1, mb: 1 }}>

@@ -750,7 +750,7 @@ Please try a different image or check if the vision model is properly loaded.`;
       >
         {fileUploadState.uploading && (
           <Box data-testid="chat-upload-progress">
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("chat.input.uploading", {
                 name: fileUploadState.indexing
                   ? t("chat.input.fileIndexing", { name: fileUploadState.fileName })

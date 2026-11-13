@@ -50,7 +50,7 @@ export const FindingList = ({ findings, max = 50 }) => (
   <Stack spacing={0.75}>
     {(findings || []).slice(0, max).map((f, i) => (
       <Box key={`${f.rule}-${f.path}-${f.line}-${i}`}>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <Chip size="small" label={f.severity} color={SEVERITY_TONE[f.severity] || "default"} sx={{ height: 18 }} />
           <Typography variant="caption" sx={{ fontFamily: "monospace" }}>
             {f.rule} · {f.line ? `${f.path}:${f.line}` : f.path}
@@ -134,7 +134,7 @@ function ReviewDialog({ open, onClose, onChanged }) {
         <Box sx={{ width: 320, flexShrink: 0, overflowY: "auto" }}>
           {loading && <CircularProgress size={18} />}
           {!loading && items.length === 0 && (
-            <Typography variant="body2" color="text.secondary">{t("settingsAccess.inboundGuard.review.nothingWaiting")}</Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("settingsAccess.inboundGuard.review.nothingWaiting")}</Typography>
           )}
           {items.map((entry) => (
             <Box
@@ -150,7 +150,7 @@ function ReviewDialog({ open, onClose, onChanged }) {
               }}
             >
               <Typography variant="body2" sx={{ wordBreak: "break-all" }}>{entry.item.subject}</Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("settingsAccess.inboundGuard.review.entrySummary", {
                   verdict: entry.item.verdict,
                   source: entry.item.source,
@@ -164,7 +164,7 @@ function ReviewDialog({ open, onClose, onChanged }) {
         <Divider orientation="vertical" flexItem />
         <Box sx={{ flex: 1, overflowY: "auto" }}>
           {!item ? (
-            <Typography variant="body2" color="text.secondary">{t("settingsAccess.inboundGuard.review.pickChange")}</Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("settingsAccess.inboundGuard.review.pickChange")}</Typography>
           ) : (
             <Stack spacing={1.5}>
               <Typography variant="subtitle2" sx={{ wordBreak: "break-all" }}>{item.subject}</Typography>

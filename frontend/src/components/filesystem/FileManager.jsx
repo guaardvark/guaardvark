@@ -1792,7 +1792,7 @@ const FileManager = () => {
                       <Typography variant="caption" noWrap sx={{ mt: 0.5, fontSize: '0.75rem' }}>
                         {item.filename}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                      <Typography variant="caption" sx={{ color: "text.secondary", fontSize: '0.65rem' }}>
                         {formatBytes(item.size)}
                       </Typography>
                       {item.index_status && (
@@ -1815,7 +1815,7 @@ const FileManager = () => {
           })}
           {folderItems.length === 0 && fileItems.length === 0 && (
             <Grid size={12}>
-              <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+              <Typography variant="body2" align="center" sx={{ color: "text.secondary", py: 4 }}>
                 {t('files.manager.empty')}
               </Typography>
             </Grid>
@@ -2038,7 +2038,7 @@ const FileManager = () => {
           {items.folders.length === 0 && items.documents.length === 0 && (
             <TableRow>
               <TableCell colSpan={6} align="center">
-                <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
+                <Typography variant="body2" sx={{ color: "text.secondary", py: 4 }}>
                   {t('files.manager.empty')}
                 </Typography>
               </TableCell>

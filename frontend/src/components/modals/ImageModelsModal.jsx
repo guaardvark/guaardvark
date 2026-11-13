@@ -240,7 +240,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
             value={downloadStatus.progress}
             sx={{ mt: 0.5 }}
           />
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {(downloadStatus.downloaded_gb || 0).toFixed(1)} / {(downloadStatus.total_gb || 0).toFixed(1)} GB
           </Typography>
         </Box>
@@ -275,13 +275,13 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
       <DialogTitle>{t("models.imageModels.title")}</DialogTitle>
       <DialogContent dividers>
         {error && (
-          <Box mb={2}>
+          <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
           </Box>
         )}
 
         {loading ? (
-          <Box display="flex" justifyContent="center" p={3}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
             <CircularProgress />
           </Box>
         ) : (
@@ -304,7 +304,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                   <ListItemText
                     primary={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Typography variant="body1" fontWeight={500}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
                           {model.name || model.id}
                         </Typography>
                         {model.recommended && (
@@ -327,11 +327,19 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                     secondary={
                       <>
                         {model.description && (
-                          <Typography variant="body2" color="text.secondary" component="span" display="block">
+                          <Typography
+                            variant="body2"
+                            component="span"
+                            sx={{ color: "text.secondary", display: "block" }}
+                          >
                             {model.description}
                           </Typography>
                         )}
-                        <Typography variant="caption" color="text.secondary" component="span" display="block">
+                        <Typography
+                          variant="caption"
+                          component="span"
+                          sx={{ color: "text.secondary", display: "block" }}
+                        >
                           {model.path}
                         </Typography>
                       </>
@@ -343,7 +351,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
               );
             })}
             {unavailable.length > 0 && (
-              <Typography variant="overline" color="text.secondary" sx={{ display: "block", mt: 2 }}>
+              <Typography variant="overline" sx={{ color: "text.secondary", display: "block", mt: 2 }}>
                 {t("models.imageModels.notAvailable")}
               </Typography>
             )}
@@ -362,7 +370,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
               </ListItem>
             ))}
             {adapters.length > 0 && (
-              <Typography variant="overline" color="text.secondary" sx={{ display: "block", mt: 2 }}>
+              <Typography variant="overline" sx={{ color: "text.secondary", display: "block", mt: 2 }}>
                 {t("models.imageModels.yourLoras")}
               </Typography>
             )}
@@ -374,7 +382,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                 <ListItemText
                   primary={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Typography variant="body1" fontWeight={500}>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
                         {a.name}
                       </Typography>
                       <Chip label={`LoRA · ${a.family}`} size="small" variant="outlined" />
@@ -382,7 +390,11 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                     </Box>
                   }
                   secondary={
-                    <Typography variant="caption" color="text.secondary" component="span" display="block">
+                    <Typography
+                      variant="caption"
+                      component="span"
+                      sx={{ color: "text.secondary", display: "block" }}
+                    >
                       {a.hf_repo}
                     </Typography>
                   }
@@ -391,7 +403,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
               </ListItem>
             ))}
             {encoders.length > 0 && (
-              <Typography variant="overline" color="text.secondary" sx={{ display: "block", mt: 2 }}>
+              <Typography variant="overline" sx={{ color: "text.secondary", display: "block", mt: 2 }}>
                 {t("models.imageModels.yourEncoders")}
               </Typography>
             )}
@@ -403,7 +415,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                 <ListItemText
                   primary={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Typography variant="body1" fontWeight={500}>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
                         {e.name}
                       </Typography>
                       <Chip
@@ -415,7 +427,11 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                     </Box>
                   }
                   secondary={
-                    <Typography variant="caption" color="text.secondary" component="span" display="block">
+                    <Typography
+                      variant="caption"
+                      component="span"
+                      sx={{ color: "text.secondary", display: "block" }}
+                    >
                       {e.hf_repo}
                       {e.shared_with ? ` · ${t("models.imageModels.sharedFile")}` : ""}
                     </Typography>
@@ -426,7 +442,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
             ))}
             {editing.length > 0 && (
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mt: 2 }}>
-                <Typography variant="overline" color="text.secondary">
+                <Typography variant="overline" sx={{ color: "text.secondary" }}>
                   {t("models.imageModels.imageEditing")}
                 </Typography>
                 {editingMissing.length > 0 && (
@@ -449,7 +465,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                 <ListItemText
                   primary={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                      <Typography variant="body1" fontWeight={500}>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
                         {pack.name}
                       </Typography>
                       {(pack.installed ? pack.size_gb : pack.download_gb) > 0 && (
@@ -463,10 +479,18 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                   }
                   secondary={
                     <>
-                      <Typography variant="body2" color="text.secondary" component="span" display="block">
+                      <Typography
+                        variant="body2"
+                        component="span"
+                        sx={{ color: "text.secondary", display: "block" }}
+                      >
                         {pack.description}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary" component="span" display="block">
+                      <Typography
+                        variant="caption"
+                        component="span"
+                        sx={{ color: "text.secondary", display: "block" }}
+                      >
                         {t("models.imageModels.chatTools", { tools: (pack.tools || []).join(", ") })}
                       </Typography>
                     </>
@@ -487,7 +511,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
             FLUX UNETs and LoRAs add via Add new model. Schnell keyframe GGUF
             companions still live under Video Models. */}
         <Box sx={{ mt: 2, p: 1.5, borderRadius: 1, bgcolor: "action.hover" }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             <Trans i18nKey="models.imageModels.fluxNote" components={{ bold: <strong /> }} />
           </Typography>
         </Box>

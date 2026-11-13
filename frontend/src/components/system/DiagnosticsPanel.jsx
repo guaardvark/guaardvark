@@ -363,10 +363,13 @@ const renderLegacyDiagnosticsCards = (ds) => (
               {item.icon ? React.cloneElement(item.icon, { fontSize: "small" }) : renderStatusIcon(val, englishDetails)}
             </Box>
             <Box sx={{ minWidth: 0, flex: 1 }}>
-              <Typography variant="body2" fontWeight={600} sx={{ wordBreak: "break-word" }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: "break-word" }}>
                 {item.label}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, wordBreak: "break-word", overflowWrap: "anywhere" }}>
+              <Typography
+                variant="body2"
+                sx={{ color: "text.secondary", mt: 0.5, wordBreak: "break-word", overflowWrap: "anywhere" }}
+              >
                 {details}
               </Typography>
             </Box>
@@ -475,15 +478,15 @@ const DiagnosticsPanel = ({ showMessage }) => {
     if (!results.categories) return null;
 
     return (
-      <Box mt={2} sx={{ width: "100%", minWidth: 0 }}>
+      <Box sx={{ mt: 2, width: "100%", minWidth: 0 }}>
         {results.overall_status && (
           <Box
-            mb={2}
             sx={{
+              mb: 2,
               display: "flex",
               flexWrap: "wrap",
               gap: 1,
-              alignItems: "center",
+              alignItems: "center"
             }}
           >
             <Chip
@@ -562,7 +565,7 @@ const DiagnosticsPanel = ({ showMessage }) => {
                     variant="outlined"
                   />
                   {categoryData.duration != null && (
-                    <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", whiteSpace: "nowrap" }}>
                       {categoryData.duration.toFixed(2)}s
                     </Typography>
                   )}
@@ -570,7 +573,10 @@ const DiagnosticsPanel = ({ showMessage }) => {
               </AccordionSummary>
               <AccordionDetails sx={{ pt: 0, px: 1.5, pb: 1.5, bgcolor: "background.default" }}>
                 {categoryData.summary && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, wordBreak: "break-word" }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "text.secondary", mb: 1.5, wordBreak: "break-word" }}
+                  >
                     {categoryData.summary}
                   </Typography>
                 )}
@@ -622,7 +628,7 @@ const DiagnosticsPanel = ({ showMessage }) => {
                                 {shortName || test.name || t("dashboardDiagnostics.unnamedTest")}
                               </Typography>
                               {test.duration != null && (
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                                   {test.duration.toFixed(2)}s
                                 </Typography>
                               )}
@@ -631,7 +637,10 @@ const DiagnosticsPanel = ({ showMessage }) => {
                           {(test.details || test.error_message) && (
                             <Box sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: "divider" }}>
                               {test.details && (
-                                <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-word" }}>
+                                <Typography
+                                  variant="body2"
+                                  sx={{ color: "text.secondary", wordBreak: "break-word" }}
+                                >
                                   {test.details}
                                 </Typography>
                               )}
@@ -667,15 +676,15 @@ const DiagnosticsPanel = ({ showMessage }) => {
 
     return (
       <Box
-        mt={2}
         sx={{
+          mt: 2,
           width: "100%",
           minWidth: 0,
           p: 1.5,
           borderRadius: 1,
           border: 1,
           borderColor: "divider",
-          bgcolor: (theme) => alpha(theme.palette.action.hover, theme.palette.mode === "dark" ? 0.35 : 0.6),
+          bgcolor: (theme) => alpha(theme.palette.action.hover, theme.palette.mode === "dark" ? 0.35 : 0.6)
         }}
       >
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}>
@@ -696,14 +705,20 @@ const DiagnosticsPanel = ({ showMessage }) => {
         </Box>
 
         {suite.log_path && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1, wordBreak: "break-all" }}>
+          <Typography
+            variant="caption"
+            sx={{ color: "text.secondary", display: "block", mt: 1, wordBreak: "break-all" }}
+          >
             {t("dashboardDiagnostics.log", { path: suite.log_path })}
           </Typography>
         )}
 
         {failures.length > 0 && (
           <Box sx={{ mt: 1.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "text.secondary", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}
+            >
               {t("dashboardDiagnostics.failureDetails")}
             </Typography>
             <Stack spacing={1} sx={{ mt: 1 }}>
@@ -775,7 +790,7 @@ const DiagnosticsPanel = ({ showMessage }) => {
               ) : null}
               {stdout ? (
                 <Box sx={{ mt: stderr ? 1.5 : 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
                     stdout
                   </Typography>
                   <Typography
@@ -810,7 +825,7 @@ const DiagnosticsPanel = ({ showMessage }) => {
   return (
     <Stack spacing={3} sx={{ width: "100%", minWidth: 0 }}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", minWidth: 0 }}>
-        <Typography variant="subtitle2" color="text.secondary">
+        <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>
           {t("dashboardDiagnostics.depth")}
         </Typography>
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
@@ -872,7 +887,7 @@ const DiagnosticsPanel = ({ showMessage }) => {
       <Divider />
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", minWidth: 0 }}>
-        <Typography variant="subtitle2" color="text.secondary">
+        <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>
           {t("dashboardDiagnostics.testSuite")}
         </Typography>
         <Button variant="outlined" size="small" onClick={handleRunAllTests} disabled={isRunningTests} sx={{ alignSelf: "flex-start" }}>

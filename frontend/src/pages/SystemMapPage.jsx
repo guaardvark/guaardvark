@@ -586,7 +586,7 @@ export default function SystemMapPage() {
             flexWrap: "wrap",
           }}
         >
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ pointerEvents: "auto" }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", pointerEvents: "auto" }}>
             <BubbleChartIcon sx={{ color: P.ink(0.85), fontSize: 28 }} />
             <Typography
               variant="h6"
@@ -615,7 +615,7 @@ export default function SystemMapPage() {
           <Box sx={{ flex: 1 }} />
           {/* Severity HUD */}
           {map && (
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ pointerEvents: "auto" }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", pointerEvents: "auto" }}>
               {sev.high > 0 && (
                 <Chip
                   size="small"
@@ -987,7 +987,7 @@ export default function SystemMapPage() {
         >
           {showDetailPanel ? (
             <Box sx={{ p: 2, overflowY: "auto", flex: 1 }}>
-              <Stack direction="row" alignItems="flex-start" spacing={1}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
                     variant="overline"
@@ -1300,7 +1300,7 @@ function FindingsView({
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <PanelTabs activeTab={activeTab} onTab={onTab} badge={openCount} />
       <Box sx={{ px: 1.5, pb: 1 }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <WarningAmberIcon sx={{ color: P.warn(0.7), fontSize: 16 }} />
           <Typography variant="caption" sx={{ color: P.ink(0.55), fontSize: "0.7rem" }}>
             {t("systemMap.findings.intro")}
@@ -1471,7 +1471,7 @@ function ActivityLogView({ activity, activeTab, onTab }) {
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {onTab && <PanelTabs activeTab={activeTab} onTab={onTab} />}
       <Box sx={{ p: 2, pb: 1.5 }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <BoltIcon sx={{ color: P.ink(0.7), fontSize: 18 }} />
           <Typography
             variant="overline"
@@ -1534,7 +1534,7 @@ function ActivityLogView({ activity, activeTab, onTab }) {
                 borderRadius: "2px",
               }}
             >
-              <Stack direction="row" alignItems="center" spacing={1}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <Typography
                   variant="caption"
                   sx={{

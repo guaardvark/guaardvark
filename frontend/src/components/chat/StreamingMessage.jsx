@@ -498,7 +498,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSeg
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <CircularProgress size={14} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("chat.message.processing")}
             </Typography>
           </Box>
@@ -564,7 +564,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSeg
         {(status === "thinking" || pendingApproval) && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: toolCalls.length > 0 ? 1 : 0 }}>
             <CircularProgress size={14} color="primary" />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {pendingApproval
                 ? t("chat.streaming.waitingApproval")
                 : thinkingText || t("chat.streaming.iteration", { iteration: thinkingIteration })}
@@ -688,8 +688,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSeg
                 {img.caption && (
                   <Typography
                     variant="caption"
-                    color="text.secondary"
-                    sx={{ mt: 0.5, display: "block", fontStyle: "italic" }}
+                    sx={{ color: "text.secondary", mt: 0.5, display: "block", fontStyle: "italic" }}
                   >
                     {img.caption}
                   </Typography>
@@ -754,8 +753,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSeg
         {status === "complete" && truncated && (
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", mt: 0.5, fontStyle: "italic", opacity: 0.8 }}
+            sx={{ color: "text.secondary", display: "block", mt: 0.5, fontStyle: "italic", opacity: 0.8 }}
           >
             {t("chat.message.outputLimit")}
           </Typography>

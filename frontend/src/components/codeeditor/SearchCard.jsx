@@ -142,7 +142,7 @@ const SearchCard = React.forwardRef(
               }}
             />
             {replaceNote && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mt: 0.5 }}>
                 {replaceNoteText}
               </Typography>
             )}
@@ -150,7 +150,7 @@ const SearchCard = React.forwardRef(
 
           <Box sx={{ flex: 1, overflow: 'auto' }}>
             {!searchResults || searchResults.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography variant="body2" sx={{ color: "text.secondary", textAlign: 'center', mt: 2 }}>
                 {t("codeEditor.search.noResults")}
               </Typography>
             ) : (
@@ -161,7 +161,7 @@ const SearchCard = React.forwardRef(
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Chip label={result.fileName} size="small" variant="outlined" />
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: "text.secondary" }}>
                             {t("codeEditor.search.line", { line: result.lineNumber })}
                           </Typography>
                         </Box>

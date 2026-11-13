@@ -283,7 +283,7 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
                           variant="outlined"
                         />
                       )}
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {new Date(item.modified * 1000).toLocaleDateString(uiLocale())}
                       </Typography>
                     </Box>
@@ -315,10 +315,10 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t('files.browser.path', { path: selectedFile?.path })}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t('files.browser.size', { size: selectedFile?.size })}
             </Typography>
           </Box>

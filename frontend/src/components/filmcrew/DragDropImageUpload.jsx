@@ -264,11 +264,11 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
         ) : (
           <>
             <CloudUploadIcon sx={{ fontSize: 36, color: "text.secondary", mb: 1 }} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("filmCrew.upload.dropHint")}
             </Typography>
             {helperText && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
                 {helperText}
               </Typography>
             )}
@@ -307,7 +307,7 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
             width: '100%'
           }}
         >
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 0.5 }}>
             {t("filmCrew.upload.staged", { count: staged.length })}
           </Typography>
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: 'flex-start' }}>
@@ -349,7 +349,7 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
             width: '100%'
           }}
         >
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 0.5 }}>
             {t("filmCrew.upload.trainingSet", {
               count: existingPaths.length + (extraItems?.length || 0),
               approved: (extraItems?.length || 0) > 0

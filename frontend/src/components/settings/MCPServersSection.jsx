@@ -244,7 +244,7 @@ const ServerDetail = ({ name }) => {
           </TableBody>
         </Table>
       ) : (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {detail.connected ? t("settingsAccess.mcp.detail.noTools") : t("settingsAccess.mcp.detail.connectToSee")}
         </Typography>
       )}
@@ -373,7 +373,7 @@ const MCPServersSection = () => {
 
   return (
     <Box>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1.5 }}>
         <Box sx={{ flexGrow: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
           {status ? (
             <>
@@ -386,7 +386,7 @@ const MCPServersSection = () => {
               {!status.sdk_available && <StatusPill tone="error" label={t("settingsAccess.mcp.sdkMissing")} />}
             </>
           ) : (
-            <Typography variant="body2" color="text.secondary">{t("settingsAccess.mcp.loading")}</Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("settingsAccess.mcp.loading")}</Typography>
           )}
         </Box>
         <ActionButton onClick={refresh}>{t("settingsAccess.mcp.refresh")}</ActionButton>
@@ -407,7 +407,7 @@ const MCPServersSection = () => {
       ))}
 
       {servers.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t("settingsAccess.mcp.noServers")}
         </Typography>
       ) : (
@@ -426,7 +426,7 @@ const MCPServersSection = () => {
                 <TableRow hover>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>{s.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {s.command}
                       {s.auto_connect ? ` · ${t("settingsAccess.mcp.connectsAtStart")}` : ""}
                       {s.disabled ? ` · ${t("settingsAccess.mcp.serverDisabled")}` : ""}
@@ -478,7 +478,7 @@ const MCPServersSection = () => {
         </ActionButton>
         <Collapse in={showAudit} unmountOnExit>
           {audit.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{t("settingsAccess.mcp.noCalls")}</Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>{t("settingsAccess.mcp.noCalls")}</Typography>
           ) : (
             <Table size="small" sx={{ mt: 1 }}>
               <TableHead>

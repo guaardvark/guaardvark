@@ -640,7 +640,7 @@ const UpscalingPage = ({ embedded = false }) => {
     title: t("upscaling.page.title"),
     variant: "standard",
     actions: (
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
         <Button size="small" startIcon={<BackIcon />} onClick={() => navigate("/video")}>
           {t("upscaling.page.videoGen")}
         </Button>
@@ -746,15 +746,18 @@ const UpscalingPage = ({ embedded = false }) => {
                 />
                 <UploadIcon sx={{ fontSize: 48, color: "text.secondary", mb: 1 }} />
                 {selectedFiles.length === 0 ? (
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1" sx={{ color: "text.secondary" }}>
                     {isImageMode
                       ? t("upscaling.upload.dropImages")
                       : t("upscaling.upload.dropVideos")}
                   </Typography>
                 ) : (
                   <Stack spacing={0.5} sx={{ mt: 0.5 }} onClick={(e) => e.stopPropagation()}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 0.5 }}>
-                      <Typography variant="body2" color="text.secondary">
+                    <Stack
+                      direction="row"
+                      sx={{ justifyContent: "space-between", alignItems: "center", px: 0.5 }}
+                    >
+                      <Typography variant="body2" sx={{ color: "text.secondary" }}>
                         {t("upscaling.upload.filesReady", { count: selectedFiles.length })}
                       </Typography>
                       <Button size="small" onClick={handleClearFiles} disabled={isUploading}>
@@ -765,13 +768,13 @@ const UpscalingPage = ({ embedded = false }) => {
                       <Stack
                         key={`${f.name}-${i}`}
                         direction="row"
-                        alignItems="center"
                         spacing={1}
                         sx={{
+                          alignItems: "center",
                           bgcolor: "action.hover",
                           px: 1,
                           py: 0.5,
-                          borderRadius: 1,
+                          borderRadius: 1
                         }}
                       >
                         <Typography
@@ -786,7 +789,7 @@ const UpscalingPage = ({ embedded = false }) => {
                         >
                           {f.name}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {(f.size / (1024 * 1024)).toFixed(1)} MB
                         </Typography>
                         <Stack direction="row">
@@ -815,7 +818,7 @@ const UpscalingPage = ({ embedded = false }) => {
 
               {/* Settings */}
               <Stack spacing={2}>
-                <Stack direction="row" spacing={1} alignItems="flex-start">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
                   <FormControl fullWidth size="small" sx={{ flex: 1 }}>
                     <InputLabel>{t("upscaling.settings.model")}</InputLabel>
                     <Select
@@ -883,7 +886,7 @@ const UpscalingPage = ({ embedded = false }) => {
                   </FormControl>
                 ) : (
                   <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
                       {t("upscaling.settings.targetResolution")}
                     </Typography>
                     <ToggleButtonGroup
@@ -913,7 +916,7 @@ const UpscalingPage = ({ embedded = false }) => {
                   label={
                     <Stack>
                       <Typography variant="body2">{t("upscaling.settings.twoPass")}</Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("upscaling.settings.twoPassHelp")}
                       </Typography>
                     </Stack>
@@ -931,7 +934,7 @@ const UpscalingPage = ({ embedded = false }) => {
                   label={
                     <Stack>
                       <Typography variant="body2">{t("upscaling.settings.faceEnhance")}</Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("upscaling.settings.faceEnhanceHelp")}
                       </Typography>
                     </Stack>
@@ -950,7 +953,7 @@ const UpscalingPage = ({ embedded = false }) => {
                     label={
                       <Stack>
                         <Typography variant="body2">{t("upscaling.settings.doubleFps")}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t("upscaling.settings.doubleFpsHelp")}
                         </Typography>
                       </Stack>
@@ -959,8 +962,8 @@ const UpscalingPage = ({ embedded = false }) => {
                 )}
 
                 <Box>
-                  <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">
+                  <Stack direction="row" sx={{ justifyContent: "space-between" }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("upscaling.settings.sharpening")}
                     </Typography>
                     <Typography variant="body2">{sharpen.toFixed(1)}</Typography>
@@ -976,8 +979,8 @@ const UpscalingPage = ({ embedded = false }) => {
                 </Box>
 
                 <Box>
-                  <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">
+                  <Stack direction="row" sx={{ justifyContent: "space-between" }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("upscaling.settings.denoise")}
                     </Typography>
                     <Typography variant="body2">{denoiseStrength.toFixed(1)}</Typography>
@@ -1023,12 +1026,12 @@ const UpscalingPage = ({ embedded = false }) => {
                   {t("upscaling.gpu.title")}
                 </Typography>
                 <Stack spacing={1}>
-                  <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">GPU</Typography>
+                  <Stack direction="row" sx={{ justifyContent: "space-between" }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>GPU</Typography>
                     <Typography variant="body2">{gpu}</Typography>
                   </Stack>
-                  <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">VRAM</Typography>
+                  <Stack direction="row" sx={{ justifyContent: "space-between" }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>VRAM</Typography>
                     <Typography variant="body2">
                       {vramUsed} / {vramTotal} MB
                     </Typography>
@@ -1038,12 +1041,12 @@ const UpscalingPage = ({ embedded = false }) => {
                     value={vramTotal > 0 ? (vramUsed / vramTotal) * 100 : 0}
                     sx={{ height: 6, borderRadius: 1 }}
                   />
-                  <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">{t("upscaling.gpu.activeModel")}</Typography>
+                  <Stack direction="row" sx={{ justifyContent: "space-between" }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("upscaling.gpu.activeModel")}</Typography>
                     <Typography variant="body2">{modelLoaded || t("upscaling.gpu.none")}</Typography>
                   </Stack>
-                  <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">torch.compile</Typography>
+                  <Stack direction="row" sx={{ justifyContent: "space-between" }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>torch.compile</Typography>
                     <Chip
                       label={serviceHealth.compile_enabled ? t("upscaling.gpu.enabled") : t("upscaling.gpu.disabled")}
                       size="small"
@@ -1061,7 +1064,7 @@ const UpscalingPage = ({ embedded = false }) => {
           {imageResult && (
             <Card sx={{ boxShadow: 2, borderRadius: 2, mb: 3 }}>
               <CardContent sx={{ p: 3 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }} noWrap>
                     {imageResult.name}
                   </Typography>
@@ -1091,7 +1094,7 @@ const UpscalingPage = ({ embedded = false }) => {
                     />
                   </Grid>
                 </Grid>
-                <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 2 }}>
+                <Stack direction="row" spacing={1} sx={{ justifyContent: "center", mt: 2 }}>
                   <Button
                     size="small"
                     startIcon={<PreviewIcon />}
@@ -1119,7 +1122,7 @@ const UpscalingPage = ({ embedded = false }) => {
           {previewFile && (
             <Card sx={{ boxShadow: 2, borderRadius: 2, mb: 3 }}>
               <CardContent sx={{ p: 3 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     {t("upscaling.preview.title")}
                   </Typography>
@@ -1129,8 +1132,8 @@ const UpscalingPage = ({ embedded = false }) => {
                 </Stack>
 
                 {!previewUpscaledUrl ? (
-                  <Box textAlign="center">
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  <Box sx={{ textAlign: "center" }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
                       {t("upscaling.preview.hint")}
                     </Typography>
                     <Box
@@ -1194,11 +1197,11 @@ const UpscalingPage = ({ embedded = false }) => {
 
           <Card sx={{ boxShadow: 2, borderRadius: 2 }}>
             <CardContent sx={{ p: 3 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   {t("upscaling.jobs.title")}
                 </Typography>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Button
                     size="small"
                     onClick={handleClearFinished}
@@ -1213,7 +1216,7 @@ const UpscalingPage = ({ embedded = false }) => {
               </Stack>
 
               {jobs.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
+                <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
                   {t("upscaling.jobs.empty")}
                 </Typography>
               ) : (
@@ -1225,7 +1228,10 @@ const UpscalingPage = ({ embedded = false }) => {
                     return (
                     <Card key={job.job_id} variant="outlined">
                       <CardContent sx={{ pb: 1 }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                        <Stack
+                          direction="row"
+                          sx={{ justifyContent: "space-between", alignItems: "flex-start" }}
+                        >
                           <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Typography variant="subtitle2" noWrap>
                               {isBatch
@@ -1257,10 +1263,8 @@ const UpscalingPage = ({ embedded = false }) => {
                         {job.message && (job.status === "pending" || job.status === "running") && (
                           <Typography
                             variant="caption"
-                            color="text.secondary"
-                            display="block"
-                            sx={{ mt: 1 }}
                             data-testid="upscale-job-message"
+                            sx={{ color: "text.secondary", display: "block", mt: 1 }}
                           >
                             {job.message}
                           </Typography>
@@ -1269,11 +1273,11 @@ const UpscalingPage = ({ embedded = false }) => {
                         {/* Progress bar for running jobs */}
                         {job.status === "running" && (
                           <Box sx={{ mt: 1.5 }}>
-                            <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                              <Typography variant="caption" color="text.secondary">
+                            <Stack direction="row" sx={{ justifyContent: "space-between", mb: 0.5 }}>
+                              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                                 {isBatch ? t("upscaling.jobs.imageProgress", { done, total: total || "?" }) : t("upscaling.jobs.frameProgress", { done, total: total || "?" })}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                                 {total > 0 ? `${Math.round((done / total) * 100)}%` : ""}
                               </Typography>
                             </Stack>
@@ -1286,7 +1290,7 @@ const UpscalingPage = ({ embedded = false }) => {
 
                         {/* Error message */}
                         {job.error && (
-                          <Typography variant="caption" color="error" display="block" sx={{ mt: 1 }}>
+                          <Typography variant="caption" color="error" sx={{ display: "block", mt: 1 }}>
                             {job.error}
                           </Typography>
                         )}

@@ -457,7 +457,7 @@ const WebsitesPage = () => {
                     }}
                   >
                     <CardContent sx={{ flexGrow: 1, p: 1.5 }}>
-                      <Grid container spacing={1} alignItems="flex-start">
+                      <Grid container spacing={1} sx={{ alignItems: "flex-start" }}>
                         <Grid size={9}>
                           <Tooltip title={site.url}>
                             <Typography
@@ -472,19 +472,18 @@ const WebsitesPage = () => {
                           </Tooltip>
                           <Typography
                             variant="body2"
-                            color="text.secondary"
-                            sx={{ mb: 0.5 }}
+                            sx={{ color: "text.secondary", mb: 0.5 }}
                           >
                             {t("websites.list.project", { name: getProjectName(site.project_id) })}
                           </Typography>
                           <Tooltip title={site.sitemap || t("websites.list.noSitemap")}>
                             <Typography
                               variant="body2"
-                              color="text.secondary"
                               noWrap
                               sx={{
+                                color: "text.secondary",
                                 mb: 0.5,
-                                fontStyle: site.sitemap ? "normal" : "italic",
+                                fontStyle: site.sitemap ? "normal" : "italic"
                               }}
                             >
                               {t("websites.list.sitemap", { sitemap: site.sitemap || t("websites.list.notAvailable") })}
@@ -492,15 +491,14 @@ const WebsitesPage = () => {
                           </Tooltip>
                           <Typography
                             variant="body2"
-                            color="text.secondary"
-                            sx={{ mb: 0.5 }}
+                            sx={{ color: "text.secondary", mb: 0.5 }}
                           >
                             <Trans
                               i18nKey="websites.list.statusLine"
                               components={{ chip: <WebsiteStatusChip status={site.status} /> }}
                             />
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
                             {t("websites.list.linkedDocs", {
                               docs:
                                 site.document_count !== undefined
@@ -520,9 +518,7 @@ const WebsitesPage = () => {
                           )}
                           <Typography
                             variant="caption"
-                            color="text.secondary"
-                            display="block"
-                            sx={{ mt: 1 }}
+                            sx={{ color: "text.secondary", display: "block", mt: 1 }}
                           >
                             {t("websites.list.lastCrawled", {
                               time: site.last_crawled
@@ -711,13 +707,13 @@ const WebsitesPage = () => {
             {sortedWebsites.length > 0 && (
               <Typography
                 variant="caption"
-                display="block"
                 sx={{
+                  display: "block",
                   textAlign: "right",
                   p: 1,
                   color: "text.secondary",
                   borderTop: 1,
-                  borderColor: "divider",
+                  borderColor: "divider"
                 }}
               >
                 {t("websites.list.total", { total: sortedWebsites.length })}

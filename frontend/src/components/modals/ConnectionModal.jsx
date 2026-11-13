@@ -162,7 +162,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {spec.setup_help && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {spec.setup_help}
               {spec.docs_url && (
                 <>
@@ -266,7 +266,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
             })}
 
           {isOAuth && !isEdit && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("dialogs.connection.saveFirst")}
             </Typography>
           )}

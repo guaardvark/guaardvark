@@ -180,7 +180,7 @@ const AICommandPalette = ({
           {/* Context Info */}
           {currentContext && (
             <Box sx={{ px: 2, py: 1, bgcolor: 'action.hover' }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('codeAssistant.palette.currentFile', {
                   file: currentContext.filePath || t('codeAssistant.untitled'),
                   language: currentContext.language || 'text',
@@ -193,7 +193,7 @@ const AICommandPalette = ({
           <Box sx={{ flex: 1, overflow: 'auto' }}>
             {filteredCommands.length === 0 ? (
               <Box sx={{ p: 3, textAlign: 'center' }}>
-                <Typography color="text.secondary">
+                <Typography sx={{ color: "text.secondary" }}>
                   {t('codeAssistant.palette.noMatches', { search: searchTerm })}
                 </Typography>
               </Box>
@@ -302,7 +302,7 @@ const AICommandPalette = ({
 
           {/* Footer */}
           <Box sx={{ px: 2, py: 1, bgcolor: 'action.hover', borderTop: 1, borderColor: 'divider' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: 'block' }}>
               {t('codeAssistant.palette.keyboardHelp')}
             </Typography>
           </Box>

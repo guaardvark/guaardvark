@@ -370,8 +370,7 @@ const DocumentActionModal = ({
                 {selectedFile && (
                   <Typography
                     variant="caption"
-                    display="block"
-                    sx={{ mt: 1, textAlign: "center" }}
+                    sx={{ display: "block", mt: 1, textAlign: "center" }}
                   >
                     {t("dialogs.documentAction.size", { size: (selectedFile.size / 1024).toFixed(2) })}
                   </Typography>
@@ -520,7 +519,7 @@ const DocumentActionModal = ({
                   onClick={handleOpenLinkingModal}
                   disabled={anyActionInProgress}
                 >
-                  <LinkIcon fontSize="small" />
+                  <LinkIcon sx={{ fontSize: "small" }} />
                 </IconButton>
               </span>
             </Tooltip>

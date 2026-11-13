@@ -174,7 +174,7 @@ const VoiceSettingsContent = ({
       {/* Show install option in header area if some but not all models installed */}
       {!isVoiceLoading && !voiceError && voiceModelsStatus && voiceModelsStatus.installed_count > 0 && !voiceModelsStatus.models?.find(m => m.voice_id === 'libritts')?.installed && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("settingsSections.voice.libriTtsMissing")}
           </Typography>
           <Chip
@@ -236,7 +236,7 @@ const VoiceSettingsContent = ({
           <Grid container spacing={1.5} sx={{ mb: 3 }}>
             {/* Voice Selection */}
             <Grid size={12}>
-              <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>{t("common.voice")}</Typography>
+              <Typography variant="body2" sx={{ color: "text.primary", mb: 0.5, fontSize: '0.75rem' }}>{t("common.voice")}</Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
                 {availableVoices.map((voice) => {
                   const isAvailable = voice.available !== false;
@@ -273,7 +273,7 @@ const VoiceSettingsContent = ({
 
             {/* Quality and Audio in same row */}
             <Grid size={6}>
-              <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>{t("settingsSections.voice.quality")}</Typography>
+              <Typography variant="body2" sx={{ color: "text.primary", mb: 0.5, fontSize: '0.75rem' }}>{t("settingsSections.voice.quality")}</Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                 <Chip
                   label={t("settingsSections.voice.low")}
@@ -315,7 +315,7 @@ const VoiceSettingsContent = ({
             </Grid>
 
             <Grid size={6}>
-              <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>{t("settingsSections.voice.audio")}</Typography>
+              <Typography variant="body2" sx={{ color: "text.primary", mb: 0.5, fontSize: '0.75rem' }}>{t("settingsSections.voice.audio")}</Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                 <Chip
                   label={t("settingsSections.voice.gain")}

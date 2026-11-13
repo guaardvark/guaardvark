@@ -659,7 +659,7 @@ const FileGenerationPage = () => {
             </RadioGroup>
           </FormControl>
 
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
             {fileFormat === "csv" ? (
               <>{t("fileGeneration.page.csvDescription")}</>
             ) : (
@@ -804,7 +804,7 @@ const FileGenerationPage = () => {
                     <Box component="li" key={key} {...otherProps}>
                       <Box>
                         <Typography variant="body2">{option.url}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t("fileGeneration.page.websiteOptionDetails", {
                             client: option.client?.name || t("fileGeneration.page.unknown"),
                             project: option.project?.name || t("fileGeneration.page.unknown"),
@@ -956,9 +956,8 @@ const FileGenerationPage = () => {
             <Grid size={12}>
               <Typography
                 variant="caption"
-                display="block"
                 gutterBottom
-                sx={{ color: "text.secondary" }}
+                sx={{ display: "block", color: "text.secondary" }}
               >
                 {t("fileGeneration.page.itemsLabel")}
               </Typography>
@@ -992,8 +991,7 @@ const FileGenerationPage = () => {
               </Typography>
               <Typography
                 variant="body2"
-                color="text.secondary"
-                sx={{ mb: 2 }}
+                sx={{ color: "text.secondary", mb: 2 }}
               >
                 {t("fileGeneration.page.insertDescription")}
               </Typography>
@@ -1102,7 +1100,7 @@ const FileGenerationPage = () => {
           <Typography variant="h5" gutterBottom component="div">
             {t("fileGeneration.page.singleTitle")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
             {t("fileGeneration.page.singleDescription")}
           </Typography>
           <Grid container spacing={2}>

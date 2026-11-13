@@ -100,7 +100,7 @@ const CodeMetricsCard = React.forwardRef(
               </ListItem>
             </List>
           ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", textAlign: 'center', mt: 2 }}>
               {t("codeEditor.metrics.noFile")}
             </Typography>
           )}

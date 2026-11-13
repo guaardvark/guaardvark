@@ -144,7 +144,7 @@ const VramBudgetBar = ({ plugins, gpuVram }) => {
             {gpuVram?.gpu_name ? `— ${gpuVram.gpu_name}` : ''}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
           {gpuVram?.utilization_percent != null && (
             <Chip
               size="small"
@@ -153,7 +153,7 @@ const VramBudgetBar = ({ plugins, gpuVram }) => {
               variant="outlined"
             />
           )}
-          <Typography variant="body2" color="text.secondary" data-testid="vram-totals">
+          <Typography variant="body2" data-testid="vram-totals" sx={{ color: "text.secondary" }}>
             {vramKnown
               ? t('plugins.vram.totals', {
                   used: (usedMb / 1024).toFixed(1),
@@ -212,8 +212,8 @@ const VramBudgetBar = ({ plugins, gpuVram }) => {
       )}
 
       {/* Legend + free VRAM */}
-      <Stack direction="row" spacing={2} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
-        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+      <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: "wrap", mt: 1 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
           {freeMb != null
             ? t('plugins.vram.free', { size: (freeMb / 1024).toFixed(1) })
             : t('plugins.vram.freeUnknown')}
@@ -228,7 +228,7 @@ const VramBudgetBar = ({ plugins, gpuVram }) => {
                 bgcolor: PLUGIN_COLORS[p.id] || '#90a4ae',
               }}
             />
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t('plugins.vram.pluginEstimate', {
                 name: p.name,
                 size: (p.vram_estimate_mb / 1024).toFixed(1),
@@ -287,7 +287,7 @@ const LogViewer = ({ pluginId, open }) => {
   return (
     <Box sx={{ mt: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t('plugins.logs.heading')}
         </Typography>
         <IconButton size="small" onClick={fetchLogs} disabled={loading}>
@@ -421,7 +421,7 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
           />
         </Box>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
           {plugin.description || t('plugins.card.noDescription')}
         </Typography>
 
@@ -434,7 +434,7 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
           </Alert>
         )}
 
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mb: 1 }}>
           <Chip size="small" label={`v${plugin.version}`} variant="outlined" />
           {comfy.installed && (
             <Chip size="small" label={`ComfyUI ${comfy.installed}`} variant="outlined" />
@@ -458,14 +458,14 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
 
         <Collapse in={expanded}>
           <Divider sx={{ my: 1.5 }} />
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t('plugins.card.category', { category: plugin.category })}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t('plugins.card.id', { id: plugin.id })}
           </Typography>
           {plugin.plugin_dir && (
-            <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", wordBreak: 'break-all' }}>
               {t('plugins.card.path', { path: plugin.plugin_dir })}
             </Typography>
           )}
@@ -733,7 +733,7 @@ const RestartOllamaDialog = ({ open, onClose, onConfirm, loading }) => {
     <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="xs" fullWidth>
       <DialogTitle>{t('plugins.restartOllama.title')}</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t('plugins.restartOllama.body')}
         </Typography>
       </DialogContent>
@@ -1048,7 +1048,7 @@ const PluginsPage = () => {
         </Button>
       }
     >
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
         {t('plugins.page.intro')}
       </Typography>
 
@@ -1067,7 +1067,7 @@ const PluginsPage = () => {
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <PluginIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" gutterBottom>{t('plugins.page.emptyTitle')}</Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t('plugins.page.emptyBody')}
           </Typography>
         </Paper>

@@ -2116,7 +2116,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                     {isUploading ? (
                       <CircularProgress size={28} />
                     ) : (
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{ color: "text.secondary" }}>
                         {t("videoGenerator.prompt.dropImages")}
                       </Typography>
                     )}
@@ -2764,11 +2764,11 @@ const VideoGeneratorPage = ({ embedded = false }) => {
           {queue.length > 0 && (
             <Card sx={{ mb: 3, boxShadow: 2, borderRadius: 2 }}>
               <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     {t("videoGenerator.queue.title")}
                   </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                     {queue.some((q) => ["completed", "error", "cancelled"].includes(q.status)) && (
                       <Button
                         size="small"
@@ -2812,7 +2812,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                           bgcolor: q.is_running ? 'action.hover' : 'transparent',
                         }}
                       >
-                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
                           <Chip
                             label={slotTag}
                             size="small"
@@ -2823,7 +2823,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                             <Typography variant="body2" noWrap title={q.batch_id}>
                               {q.display_name || q.batch_id}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {t("videoGenerator.queue.videos", { done: q.completed_videos + q.failed_videos, total: q.total_videos })}
                               {q.failed_videos > 0 ? ` ${t("videoGenerator.queue.failed", { count: q.failed_videos })}` : ''}
                             </Typography>
@@ -2888,10 +2888,10 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                 </Typography>
 
                 <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {t("videoGenerator.progress.batchId", { id: batchStatus.batch_id })}
                   </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1, flexWrap: "wrap" }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 1, flexWrap: "wrap" }}>
                     <Chip
                       label={batchStatusLabel(batchStatus.status).toUpperCase()}
                       color={batchStatus.status === 'running' ? 'primary' :
@@ -2955,10 +2955,13 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   <Box sx={{ mb: 2 }}>
                     <LiveLatentPreview src={getPreviewUrl(activeStep.job_id)} />
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "text.secondary", textTransform: 'capitalize' }}
+                      >
                         {activeStep.message || t("videoGenerator.progress.rendering")}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {activeStep.progress || 0}%
                       </Typography>
                     </Box>
@@ -3069,7 +3072,11 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                               </Box>
                             )}
                           </Box>
-                          <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            sx={{ alignItems: "center", flexWrap: "wrap" }}
+                          >
                             {/* A held clip is not "Ready": its pill says it waits for a person. */}
                             {res.review?.state !== "needs_review" && (
                               <Chip
@@ -3193,7 +3200,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                 >
                   {t("videoGenerator.progress.statusTitle")}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                <Typography variant="body2" sx={{ color: "text.secondary", textAlign: 'center', py: 3 }}>
                   {t("videoGenerator.progress.none")}
                 </Typography>
               </CardContent>
@@ -3206,7 +3213,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             borderRadius: 2
           }}>
             <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   {t("videoGenerator.library.title")}
                 </Typography>
@@ -3231,7 +3238,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               {batches.length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <VideoIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {t("videoGenerator.library.empty")}
                   </Typography>
                 </Box>
@@ -3272,7 +3279,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         fullWidth
       >
         <DialogTitle>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
             <Typography variant="h6">
               {selectedBatch ? (
                 <>
@@ -3299,7 +3306,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             // Show images from selected batch
             batchImages.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography color="text.secondary">{t("videoGenerator.gallery.noImages")}</Typography>
+                <Typography sx={{ color: "text.secondary" }}>{t("videoGenerator.gallery.noImages")}</Typography>
               </Box>
             ) : (
               <Grid container spacing={1}>
@@ -3357,8 +3364,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             // Show batches
             galleryBatches.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography color="text.secondary">{t("videoGenerator.gallery.noBatches")}</Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography sx={{ color: "text.secondary" }}>{t("videoGenerator.gallery.noBatches")}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {t("videoGenerator.gallery.noBatchesHint")}
                 </Typography>
               </Box>

@@ -522,7 +522,7 @@ const DevToolsPage = () => {
           <Typography variant="h6" gutterBottom>
             {t("devTools.summary.heading")}
           </Typography>
-          <Box display="flex" gap={2} flexWrap="wrap">
+          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
             <Chip
               icon={health && !healthError ? <CheckCircle /> : <ErrorIcon />}
               label={t("devTools.summary.backend", { state: health && !healthError ? t("devTools.status.healthy") : t("devTools.status.error") })}
@@ -555,7 +555,7 @@ const DevToolsPage = () => {
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                 <Typography variant="h6">
                   {t("devTools.backend.heading")}
                 </Typography>
@@ -567,14 +567,14 @@ const DevToolsPage = () => {
               </Box>
               {health && !healthError ? (
                 <>
-                  <Box display="flex" alignItems="center" mb={1}>
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                     <CheckCircle color="success" sx={{ mr: 1 }} />
                     <Chip label={health.status} color="success" size="small" />
                   </Box>
                   <Typography variant="body2">{t("devTools.backend.version", { version: health.version })}</Typography>
                   <Typography variant="body2">{t("devTools.backend.uptime", { seconds: Math.round(health.uptime_seconds) })}</Typography>
                   {health.index_loaded && (
-                    <Typography variant="body2" color="success.main">
+                    <Typography variant="body2" sx={{ color: "success.main" }}>
                       {t("devTools.backend.indexLoaded")}
                     </Typography>
                   )}
@@ -588,7 +588,7 @@ const DevToolsPage = () => {
                   {errorText(healthError)}
                 </Alert>
               ) : (
-                <Box display="flex" alignItems="center">
+                <Box sx={{ display: "flex", alignItems: "center" }}>
                   <CircularProgress size={20} sx={{ mr: 1 }} />
                   <Typography variant="body2">{t("devTools.checking")}</Typography>
                 </Box>
@@ -604,7 +604,7 @@ const DevToolsPage = () => {
               </Typography>
               {dbHealth && !dbError ? (
                 <>
-                  <Box display="flex" alignItems="center" mb={1}>
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                     {dbHealth.status === "ok" ? (
                       <CheckCircle color="success" sx={{ mr: 1 }} />
                     ) : (
@@ -635,7 +635,7 @@ const DevToolsPage = () => {
                   {errorText(dbError)}
                 </Alert>
               ) : (
-                <Box display="flex" alignItems="center">
+                <Box sx={{ display: "flex", alignItems: "center" }}>
                   <CircularProgress size={20} sx={{ mr: 1 }} />
                   <Typography variant="body2">{t("devTools.checking")}</Typography>
                 </Box>
@@ -651,24 +651,24 @@ const DevToolsPage = () => {
               </Typography>
               {celeryHealth && !celeryError ? (
                 <>
-                  <Box display="flex" alignItems="center" mb={1}>
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                     <CheckCircle color="success" sx={{ mr: 1 }} />
                     <Chip label={celeryHealth.status} color="success" size="small" />
                   </Box>
                   {celeryHealth.result && (
-                    <Typography variant="body2" color="success.main">
+                    <Typography variant="body2" sx={{ color: "success.main" }}>
                       {t("devTools.celery.ping", { result: celeryHealth.result })}
                     </Typography>
                   )}
                   {celeryTasks && (
-                    <Box mt={1}>
+                    <Box sx={{ mt: 1 }}>
                       <Typography variant="body2">
                         {t("devTools.celery.active", { count: Object.keys(celeryTasks.active || {}).length })}
                       </Typography>
                       <Typography variant="body2">
                         {t("devTools.celery.queued", { count: Object.keys(celeryTasks.reserved || {}).length })}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("devTools.celery.debug", { tasks: JSON.stringify(celeryTasks.active || {}) })}
                       </Typography>
                     </Box>
@@ -683,7 +683,7 @@ const DevToolsPage = () => {
                   {errorText(celeryError)}
                 </Alert>
               ) : (
-                <Box display="flex" alignItems="center">
+                <Box sx={{ display: "flex", alignItems: "center" }}>
                   <CircularProgress size={20} sx={{ mr: 1 }} />
                   <Typography variant="body2">{t("devTools.checking")}</Typography>
                 </Box>
@@ -699,11 +699,11 @@ const DevToolsPage = () => {
               </Typography>
               {redisHealth && !redisError ? (
                 <>
-                  <Box display="flex" alignItems="center" mb={1}>
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
                     <CheckCircle color="success" sx={{ mr: 1 }} />
                     <Chip label={redisHealth.status} color="success" size="small" />
                   </Box>
-                  <Typography variant="body2" color="success.main">
+                  <Typography variant="body2" sx={{ color: "success.main" }}>
                     {t("devTools.redis.connected")}
                   </Typography>
                 </>
@@ -716,7 +716,7 @@ const DevToolsPage = () => {
                   {errorText(redisError)}
                 </Alert>
               ) : (
-                <Box display="flex" alignItems="center">
+                <Box sx={{ display: "flex", alignItems: "center" }}>
                   <CircularProgress size={20} sx={{ mr: 1 }} />
                   <Typography variant="body2">{t("devTools.checking")}</Typography>
                 </Box>
@@ -748,7 +748,7 @@ const DevToolsPage = () => {
               <Typography variant="h6" gutterBottom>
                 {t("devTools.controls.heading")}
               </Typography>
-              <Box display="flex" gap={1} flexWrap="wrap">
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                 <Button
                   variant="outlined"
                   size="small"
@@ -774,8 +774,8 @@ const DevToolsPage = () => {
                   {t("devTools.controls.restartServices")}
                 </Button>
               </Box>
-              <Box mt={2}>
-                <Typography variant="body2" color="text.secondary">
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {t("devTools.controls.autoRefresh")}
                 </Typography>
               </Box>
@@ -786,11 +786,11 @@ const DevToolsPage = () => {
         <Grid size={12}>
           <Card>
             <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
                 <Typography variant="h6">
                   {t("devTools.jobs.heading")}
                 </Typography>
-                <Box display="flex" gap={1}>
+                <Box sx={{ display: "flex", gap: 1 }}>
                   <Chip 
                     label={t("devTools.jobs.activeCount", { count: incompleteJobs.length })} 
                     color={incompleteJobs.length > 5 ? 'warning' : 'success'} 
@@ -818,7 +818,7 @@ const DevToolsPage = () => {
                 </Box>
               </Box>
               
-              <Box display="flex" gap={1} mb={2}>
+              <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
                 <Button
                   variant="outlined"
                   size="small"
@@ -872,7 +872,7 @@ const DevToolsPage = () => {
                 </AccordionSummary>
                 <AccordionDetails>
                   {progressJobs.length === 0 ? (
-                    <Typography color="text.secondary">{t("devTools.jobs.noActive")}</Typography>
+                    <Typography sx={{ color: "text.secondary" }}>{t("devTools.jobs.noActive")}</Typography>
                   ) : (
                     <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
@@ -905,7 +905,7 @@ const DevToolsPage = () => {
                                 }}
                               >
                                 <TableCell>
-                                  <Box display="flex" alignItems="center">
+                                  <Box sx={{ display: "flex", alignItems: "center" }}>
                                     {job.id || job.job_id || `job_${index + 1}`}
                                     {isStale && (
                                       <Tooltip title={t("devTools.jobs.staleTooltip")}>
@@ -930,14 +930,13 @@ const DevToolsPage = () => {
                                 </TableCell>
                                 <TableCell>{job.progress || 0}%</TableCell>
                                 <TableCell>
-                                  <Typography variant="body2" color="text.secondary">
+                                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                                     {isValidDate ? lastUpdate.toLocaleString(uiLocale()) : (rawTimestamp ? t("devTools.jobs.invalidDate") : t("devTools.jobs.noTimestamp"))}
                                     {isValidDate && hoursSinceUpdate > 1 && (
                                       <Typography 
                                         component="span" 
-                                        variant="body2" 
-                                        color="warning.main"
-                                        sx={{ ml: 0.5 }}
+                                        variant="body2"
+                                        sx={{ color: "warning.main", ml: 0.5 }}
                                       >
                                         {" "}{t("devTools.jobs.hoursAgo", { hours: Math.round(hoursSinceUpdate) })}
                                       </Typography>
@@ -958,7 +957,7 @@ const DevToolsPage = () => {
                     </TableContainer>
                   )}
                   {progressJobs.length > 10 && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
                       {t("devTools.jobs.moreJobs", { count: progressJobs.length - 10 })}
                     </Typography>
                   )}
@@ -996,11 +995,11 @@ const DevToolsPage = () => {
 
                   {/* Uncle Claude Status Card */}
                   <Paper variant="outlined" sx={{ p: 2, mb: 2, borderColor: UNCLE_GOLD, borderWidth: 2 }}>
-                    <Stack direction="row" spacing={2} alignItems="center">
+                    <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
                       <PsychologyIcon sx={{ color: UNCLE_GOLD, fontSize: 32 }} />
                       <Box sx={{ flex: 1 }}>
                         <Typography variant="subtitle2" sx={{ color: UNCLE_GOLD }}>Uncle Claude</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {uncleStatus?.model || t("devTools.family.notConfigured")} | {uncleStatus?.available ? t("devTools.family.online") : t("devTools.family.offline")}
                         </Typography>
                         {uncleStatus?.usage && (
@@ -1028,18 +1027,23 @@ const DevToolsPage = () => {
                   {familyLoading ? (
                     <CircularProgress size={24} />
                   ) : familyNodes.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("devTools.family.noNodes")}
                     </Typography>
                   ) : (
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
                       {familyNodes.map((node) => (
                         <Paper key={node.node_id} variant="outlined" sx={{ p: 1.5 }}>
-                          <Stack direction="row" spacing={2} alignItems="center">
+                          <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
                             <HubIcon sx={{ color: FAMILY_BLUE }} />
                             <Box sx={{ flex: 1 }}>
                               <Typography variant="subtitle2">{node.node_name || node.node_id}</Typography>
-                              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                              <Stack
+                                direction="row"
+                                spacing={0.5}
+                                useFlexGap
+                                sx={{ flexWrap: "wrap", mt: 0.5 }}
+                              >
                                 {node.model_name && <Chip label={node.model_name} size="small" variant="outlined" />}
                                 {node.specialties && JSON.parse(node.specialties || "[]").map((s, i) => (
                                   <Chip key={i} label={s} size="small" variant="outlined" sx={{ fontSize: "0.6rem" }} />
@@ -1047,7 +1051,7 @@ const DevToolsPage = () => {
                               </Stack>
                               {node.vram_total > 0 && (
                                 <Box sx={{ mt: 0.5 }}>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                                     {t("devTools.family.vram", { free: node.vram_free || 0, total: node.vram_total })}
                                   </Typography>
                                   <LinearProgress
@@ -1077,7 +1081,7 @@ const DevToolsPage = () => {
         <Grid size={12}>
           <Card>
             <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
                 <Typography variant="h6" gutterBottom>
                   {t("devTools.logs.heading")}
                 </Typography>
@@ -1155,7 +1159,7 @@ const DevToolsPage = () => {
                   </pre>
                 </Box>
               ) : (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {t("devTools.selfTest.resultsEmpty")}
                 </Typography>
               )}

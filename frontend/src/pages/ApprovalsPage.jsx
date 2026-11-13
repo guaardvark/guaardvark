@@ -277,7 +277,7 @@ const ApprovalsPage = () => {
           >
             <ListItemText
               primary={
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
                     {connectionName(record)}
                   </Typography>
@@ -290,12 +290,12 @@ const ApprovalsPage = () => {
               secondary={
                 <Typography
                   variant="caption"
-                  color="text.secondary"
                   sx={{
+                    color: "text.secondary",
                     display: "-webkit-box",
                     WebkitLineClamp: 2,
                     WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
+                    overflow: "hidden"
                   }}
                 >
                   {record.title || record.body || t("approvals.noText")} · {formatWhen(record.created_at)}
@@ -318,7 +318,7 @@ const ApprovalsPage = () => {
   const renderDetail = () => {
     if (!selected) {
       return (
-        <Typography variant="body2" color="text.secondary" sx={{ p: 3 }}>
+        <Typography variant="body2" sx={{ color: "text.secondary", p: 3 }}>
           {t("approvals.publishes.selectPrompt")}
         </Typography>
       );
@@ -333,7 +333,7 @@ const ApprovalsPage = () => {
             {t("approvals.publishes.draftedReview", { drafted })}
           </Alert>
         )}
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2 }}>
           <Typography variant="h6">{connectionName(selected)}</Typography>
           <Chip
             label={publishStatusLabel(selected.status)}
@@ -368,20 +368,20 @@ const ApprovalsPage = () => {
           </Typography>
         )}
 
-        <Stack direction="row" spacing={2} sx={{ mb: 2 }} flexWrap="wrap">
-          <Typography variant="caption" color="text.secondary">
+        <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", mb: 2 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("approvals.publishes.requestedBy", {
               source: selected.requested_by,
               when: formatWhen(selected.created_at),
             })}
           </Typography>
           {selected.edited_at && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {editedLine(selected)}
             </Typography>
           )}
           {!!selected.media_refs?.length && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("approvals.publishes.mediaItems", { count: selected.media_refs.length })}
             </Typography>
           )}
@@ -408,7 +408,7 @@ const ApprovalsPage = () => {
         {isPending && (
           <>
             <Divider sx={{ my: 2 }} />
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", mb: 1, display: "block" }}>
               {selected.scheduled_at && new Date(selected.scheduled_at).getTime() > Date.now()
                 ? t("approvals.publishes.approveSchedules", {
                     when: formatAt(selected.scheduled_at),
@@ -463,7 +463,7 @@ const ApprovalsPage = () => {
       title={t("approvals.title")}
       subtitle={t("approvals.subtitle")}
       actions={
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           {desktopNotificationsAvailable() && (
             <FormControlLabel
               control={

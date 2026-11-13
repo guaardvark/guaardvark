@@ -273,7 +273,7 @@ const AudioFoundryModelsModal = ({
         <ListItemText
           primary={
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-              <Typography variant="body1" fontWeight={500}>
+              <Typography variant="body1" sx={{ fontWeight: 500 }}>
                 {m.name}
               </Typography>
               {size && <Chip label={size} size="small" variant="outlined" />}
@@ -328,7 +328,7 @@ const AudioFoundryModelsModal = ({
                 value={dl.progress}
                 sx={{ mt: 0.5 }}
               />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {(dl.downloaded_gb || 0).toFixed(2)} / {(dl.total_gb || 0).toFixed(2)} GB
               </Typography>
             </Box>
@@ -375,7 +375,7 @@ const AudioFoundryModelsModal = ({
 
       <DialogContent dividers>
         {error && (
-          <Box mb={2}>
+          <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
           </Box>
         )}
@@ -397,7 +397,7 @@ const AudioFoundryModelsModal = ({
         </Box>
 
         {loading ? (
-          <Box display="flex" justifyContent="center" p={3}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
             <CircularProgress />
           </Box>
         ) : (
@@ -410,8 +410,7 @@ const AudioFoundryModelsModal = ({
                 {idx > 0 && <Divider sx={{ my: 1.5 }} />}
                 <Typography
                   variant="subtitle2"
-                  color="text.secondary"
-                  sx={{ mb: 0.5, px: 1 }}
+                  sx={{ color: "text.secondary", mb: 0.5, px: 1 }}
                 >
                   {labels[group] || group}
                 </Typography>

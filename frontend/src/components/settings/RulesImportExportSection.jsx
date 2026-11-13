@@ -125,7 +125,7 @@ const RulesImportExportSection = ({ isLoading }) => {
           <Typography variant="subtitle2" gutterBottom>
             {t("settingsSections.rulesImportExport.importRules")}
           </Typography>
-          <Grid container spacing={2} alignItems="center">
+          <Grid container spacing={2} sx={{ alignItems: "center" }}>
             <Grid size={{ xs: 12, sm: 6 }}>
               <input
                 accept=".json"
@@ -166,8 +166,7 @@ const RulesImportExportSection = ({ isLoading }) => {
             <Grid size={12}>
               <Typography
                 variant="caption"
-                display="block"
-                sx={{ textAlign: "center", mt: 1 }}
+                sx={{ display: "block", textAlign: "center", mt: 1 }}
               >
                 {t("settingsSections.rulesImportExport.selected", { name: selectedFileNameForImport })}
               </Typography>

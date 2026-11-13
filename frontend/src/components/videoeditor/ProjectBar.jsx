@@ -148,7 +148,7 @@ const ProjectBar = ({
         </Button>
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", minWidth: 0 }}>
             {isDirty && (
               <Box
                 component="span"
@@ -160,17 +160,16 @@ const ProjectBar = ({
             )}
             <Typography
               variant="subtitle2"
-              fontWeight={600}
               noWrap
               title={projectName}
-              sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              sx={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
             >
               {projectName}
             </Typography>
           </Stack>
         </Box>
 
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
           {savingCaption}
         </Typography>
       </Paper>
@@ -200,7 +199,7 @@ const ProjectBar = ({
             <SaveIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>{t("videoEditor.project.save")}</ListItemText>
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", ml: 2 }}>
             Ctrl+S
           </Typography>
         </MenuItem>

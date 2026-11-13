@@ -408,7 +408,7 @@ const InfographicGenerator = () => {
     const running = currentBatch && POLLABLE_STATUSES.has(currentBatch.status);
     return (
       <Stack spacing={1.5}>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
           <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 0 }} noWrap title={currentBatch?.display_name || currentBatchId}>
             {currentBatch?.display_name || currentBatchId}
           </Typography>
@@ -609,7 +609,7 @@ const InfographicGenerator = () => {
             </TextField>
           </Stack>
 
-          <Stack direction="row" spacing={2} alignItems="flex-start">
+          <Stack direction="row" spacing={2} sx={{ alignItems: "flex-start" }}>
             <TextField
               label={t('images.infographic.quantity')}
               type="number"
@@ -633,7 +633,7 @@ const InfographicGenerator = () => {
                   htmlInput: { inputMode: 'numeric' }
                 }}
               />
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mt: 0.5 }}>
                 {typedSeed != null
                   ? t('imagesBatch.seed.fixed', { seed: typedSeed })
                   : seedText.trim()

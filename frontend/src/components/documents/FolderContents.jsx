@@ -672,7 +672,7 @@ const FolderContents = ({
           }
         }}
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t('documents.folder.empty')}
         </Typography>
       </Box>
@@ -801,14 +801,14 @@ const FolderContents = ({
                   </Box>
                 </TableCell>
                 <TableCell align="right">
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {isFolder
                       ? formatDate(item.updated_at)
                       : formatDate(item.uploaded_at)}
                   </Typography>
                 </TableCell>
                 <TableCell align="right">
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {isFolder
                       ? t('documents.folder.itemCount', { count: (item.subfolder_count || 0) + (item.document_count || 0) })
                       : formatBytes(item.size)}
@@ -1001,7 +1001,7 @@ const FolderContents = ({
                           {item.filename}
                         </Typography>
                       </Tooltip>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                      <Typography variant="caption" sx={{ color: "text.secondary", fontSize: '0.65rem' }}>
                         {formatBytes(item.size)}
                       </Typography>
                     </>

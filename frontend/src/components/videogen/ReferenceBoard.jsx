@@ -132,7 +132,12 @@ const ReferenceTile = ({ row, entry, index, count, tags, names, limits, readS, o
       <Box sx={{ p: 1, display: "flex", flexDirection: "column", gap: 0.75 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <TagChip tag={tag} onInsert={onInsertTag} />
-          <Typography variant="caption" color="text.secondary" noWrap title={entry.fileName} sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="caption"
+            noWrap
+            title={entry.fileName}
+            sx={{ color: "text.secondary", flex: 1, minWidth: 0 }}
+          >
             {entry.fileName}
           </Typography>
         </Box>

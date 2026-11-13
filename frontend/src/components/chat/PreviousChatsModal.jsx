@@ -113,7 +113,7 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
           </Box>
         ) : failure?.load ? null : sessions.length === 0 ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <Typography color="text.secondary">{t("chat.previousChats.empty")}</Typography>
+            <Typography sx={{ color: "text.secondary" }}>{t("chat.previousChats.empty")}</Typography>
           </Box>
         ) : (
           <List disablePadding>

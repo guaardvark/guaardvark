@@ -246,7 +246,10 @@ const PlanCard = ({ plan: initialPlan, onRunStarted, onKeepPlanning, onStop, onP
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {t("chat.plan.stepHeading", { index: step.index, title: step.title })}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", whiteSpace: "pre-wrap" }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", display: "block", whiteSpace: "pre-wrap" }}
+                >
                   {step.action}
                 </Typography>
                 <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.25 }}>
@@ -277,7 +280,7 @@ const PlanCard = ({ plan: initialPlan, onRunStarted, onKeepPlanning, onStop, onP
       {((plan.checks || []).length + (plan.risks || []).length + (plan.questions || []).length) > 0 && (
         <Box sx={{ mt: 0.5 }}>
           <Box sx={{ display: "flex", alignItems: "center", cursor: "pointer" }} onClick={() => setDetailsOpen((o) => !o)}>
-            <Typography variant="caption" color="text.secondary">{t("chat.plan.details")}</Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("chat.plan.details")}</Typography>
             <IconButton size="small" aria-label={t("chat.plan.details")}>
               {detailsOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
             </IconButton>

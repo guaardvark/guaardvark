@@ -371,7 +371,7 @@ const TrainingLibrariesModal = ({
     <Dialog open={open} onClose={() => !running && !busy && !converterBusy && onClose()} maxWidth="sm" fullWidth>
       <DialogTitle>{t("dialogs.trainingLibraries.title")}</DialogTitle>
       <DialogContent dividers>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
           {t("dialogs.trainingLibraries.intro")}
         </Typography>
 
@@ -391,13 +391,13 @@ const TrainingLibrariesModal = ({
           </Alert>
         )}
         {info && hardware.practical && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1 }}>
             {t("dialogs.trainingLibraries.thisMachine", { hardware: hardwareLine() || hardware.reason })}
           </Typography>
         )}
 
         {loading && !info ? (
-          <Box display="flex" justifyContent="center" p={3}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
             <CircularProgress />
           </Box>
         ) : (
@@ -410,7 +410,7 @@ const TrainingLibrariesModal = ({
                 <ListItemText
                   primary={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                      <Typography variant="body1" fontWeight={500}>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
                         {lib.name}
                       </Typography>
                       <Chip
@@ -454,7 +454,7 @@ const TrainingLibrariesModal = ({
         {info && installLabel && (info.changes?.length > 0 || info.left_out?.length > 0) && (
           <Box sx={{ mt: 2, p: 1.5, borderRadius: 1, bgcolor: "action.hover" }}>
             {info.changes?.map((c) => (
-              <Typography key={c.name} variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              <Typography key={c.name} variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                 <Trans
                   i18nKey="dialogs.trainingLibraries.alsoMoves"
                   values={{ name: c.name, installed: c.installed, needs: c.needs, why: c.why }}
@@ -463,7 +463,7 @@ const TrainingLibrariesModal = ({
               </Typography>
             ))}
             {info.left_out?.map((l) => (
-              <Typography key={l.name} variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              <Typography key={l.name} variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                 <Trans i18nKey="dialogs.trainingLibraries.leavesOut" values={{ name: l.name, why: l.why }} components={{ bold: <strong /> }} />
               </Typography>
             ))}
@@ -544,10 +544,10 @@ const TrainingLibrariesModal = ({
         )}
 
         <Divider sx={{ my: 2 }} />
-        <Typography variant="subtitle1" fontWeight={500}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
           {t("dialogs.trainingLibraries.baseModels")}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
           {t("dialogs.trainingLibraries.baseModelsIntro")}
         </Typography>
         {baseError && (
@@ -561,7 +561,7 @@ const TrainingLibrariesModal = ({
           </Alert>
         )}
         {!baseInfo && !baseError ? (
-          <Box display="flex" justifyContent="center" p={2}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
             <CircularProgress size={24} />
           </Box>
         ) : (
@@ -573,7 +573,7 @@ const TrainingLibrariesModal = ({
                   <ListItemText
                     primary={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                        <Typography variant="body1" fontWeight={500}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
                           {model.name}
                         </Typography>
                         <Chip label={sizeLabel(model.size_gb * 1000)} size="small" variant="outlined" />
@@ -584,12 +584,12 @@ const TrainingLibrariesModal = ({
                       <>
                         {model.description}
                         {model.trainable === false && (
-                          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                          <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                             {t("dialogs.trainingLibraries.notMeasured")}
                           </Typography>
                         )}
                         {!model.fits && (
-                          <Typography variant="caption" color="warning.main" sx={{ display: "block" }}>
+                          <Typography variant="caption" sx={{ color: "warning.main", display: "block" }}>
                             {t("dialogs.trainingLibraries.doesNotFitReason", { reason: model.fit_reason })}
                           </Typography>
                         )}
@@ -612,7 +612,7 @@ const TrainingLibrariesModal = ({
                   />
                   <Box sx={{ ml: 2, minWidth: 130, textAlign: "right" }}>
                     {model.installed ? (
-                      <Stack spacing={1} alignItems="flex-end">
+                      <Stack spacing={1} sx={{ alignItems: "flex-end" }}>
                         <Chip icon={<CheckCircleIcon />} label={t("dialogs.trainingLibraries.downloaded")} color="success" size="small" variant="outlined" />
                         <ActionButton
                           kind="destructive"
@@ -644,10 +644,10 @@ const TrainingLibrariesModal = ({
 
         <Divider sx={{ my: 2 }} />
         <Box ref={converterSection}>
-          <Typography variant="subtitle1" fontWeight={500}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
             {t("dialogs.trainingLibraries.converter")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
             {t("dialogs.trainingLibraries.converterIntro")}
           </Typography>
           {converterError && (
@@ -666,7 +666,7 @@ const TrainingLibrariesModal = ({
             </Alert>
           )}
           {!converter && !converterError ? (
-            <Box display="flex" justifyContent="center" p={2}>
+            <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
               <CircularProgress size={24} />
             </Box>
           ) : converter ? (
@@ -675,7 +675,7 @@ const TrainingLibrariesModal = ({
                 <ListItemText
                   primary={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                      <Typography variant="body1" fontWeight={500}>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
                         {t("dialogs.trainingLibraries.converterName", { project: converter.project })}
                       </Typography>
                       <Chip
@@ -699,7 +699,7 @@ const TrainingLibrariesModal = ({
                   secondary={
                     <>
                       {converter.role}
-                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                      <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                         {t("dialogs.trainingLibraries.checkedWith", {
                           architectures: (converter.architectures || []).join(", ") || t("dialogs.trainingLibraries.noneYet"),
                           levels: (converter.levels || []).map((l) => l.label).join(", "),
@@ -727,7 +727,7 @@ const TrainingLibrariesModal = ({
                 />
                 <Box sx={{ ml: 2, minWidth: 130, textAlign: "right" }}>
                   {converter.state === "installed" ? (
-                    <Stack spacing={1} alignItems="flex-end">
+                    <Stack spacing={1} sx={{ alignItems: "flex-end" }}>
                       <Chip icon={<CheckCircleIcon />} label={t("dialogs.trainingLibraries.installed")} color="success" size="small" variant="outlined" />
                       <ActionButton
                         kind="destructive"
@@ -738,7 +738,7 @@ const TrainingLibrariesModal = ({
                       </ActionButton>
                     </Stack>
                   ) : (
-                    <Stack spacing={1} alignItems="flex-end">
+                    <Stack spacing={1} sx={{ alignItems: "flex-end" }}>
                       <Button
                         variant="outlined"
                         size="small"

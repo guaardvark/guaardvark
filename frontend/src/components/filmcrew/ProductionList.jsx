@@ -65,7 +65,7 @@ const ProductionList = ({ productions, selectedId, onSelect }) => {
         ))}
         {productions.length === 0 && (
           <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t('filmCrew.list.empty')}
             </Typography>
           </Box>

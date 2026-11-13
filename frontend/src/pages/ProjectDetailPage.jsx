@@ -717,7 +717,7 @@ const ProjectDetailPage = () => {
       }
       headerContent={
         <Box sx={{ px: 2, pb: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("projects.detail.header", {
               client: project?.client?.name || t("projects.detail.notAvailable"),
               id: project?.id,

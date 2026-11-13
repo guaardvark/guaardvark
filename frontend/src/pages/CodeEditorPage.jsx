@@ -1569,7 +1569,7 @@ const CodeEditorPage = () => {
                         backgroundImage: 'none',
                       }}
                     >
-                      <Typography color="warning.contrastText">
+                      <Typography sx={{ color: "warning.contrastText" }}>
                         {t("code.page.missingCard", { card: cardId })}
                       </Typography>
                     </Paper>
@@ -1582,7 +1582,10 @@ const CodeEditorPage = () => {
       </Box>
       {relatedFiles.length > 0 && (
         <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+          <Typography
+            variant="caption"
+            sx={{ color: "text.secondary", fontWeight: 'bold', display: 'block', mb: 0.5 }}
+          >
             {t("code.page.relatedFiles")}
           </Typography>
           <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>

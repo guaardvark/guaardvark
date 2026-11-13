@@ -244,7 +244,7 @@ const FolderPropertiesModal = ({
         )}
         {/* Folder Information */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
             {t('dialogs.folderProperties.folderInformation')}
           </Typography>
           <Grid container spacing={2}>
@@ -340,7 +340,7 @@ const FolderPropertiesModal = ({
 
         {/* Entity Links */}
         <Box sx={{ mb: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
             {t('dialogs.fileProperties.entityLinks')}
           </Typography>
 
@@ -403,7 +403,7 @@ const FolderPropertiesModal = ({
 
         {/* Tags and Notes */}
         <Box>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
             {t('dialogs.fileProperties.metadata')}
           </Typography>
           <Grid container spacing={2}>

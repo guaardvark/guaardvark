@@ -120,7 +120,7 @@ const CodeRepoDashboard = ({ folder }) => {
         <DialogContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2, mb: 2 }}>
             <Typography variant="subtitle1" noWrap>{folder.name}</Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", flexShrink: 0 }}>
               {t('documents.codeRepo.analyzed', { date: formatAnalyzedAt(analyzed_at) })}
             </Typography>
           </Box>
@@ -133,7 +133,7 @@ const CodeRepoDashboard = ({ folder }) => {
 
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
                 {t('documents.codeRepo.languagesFrameworks')}
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
@@ -149,7 +149,7 @@ const CodeRepoDashboard = ({ folder }) => {
               </Box>
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
                 {t('documents.codeRepo.statistics')}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>

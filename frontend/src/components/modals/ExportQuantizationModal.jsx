@@ -165,7 +165,7 @@ const ExportQuantizationModal = ({
                   <MenuItem key={option.value} value={option.value}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
                       <Typography sx={{ minWidth: 70 }}>{option.label}</Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                      <Typography variant="body2" sx={{ color: "text.secondary", flex: 1 }}>
                         {option.description}
                       </Typography>
                       {option.recommended && (
@@ -214,7 +214,7 @@ const ExportQuantizationModal = ({
 
           {job?.base_model && (
             <Grid size={12}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("dialogs.exportQuantization.baseModel", { model: job.base_model })}
               </Typography>
             </Grid>

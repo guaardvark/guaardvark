@@ -102,7 +102,7 @@ const VoiceClipManager = ({ clips, onChanged, onRemoved, defaultOpen = false }) 
                 <Typography variant="body2" noWrap title={clip.filename}>
                   {clip.filename}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {sizeLabel(clip.size_bytes)}
                 </Typography>
               </Box>
@@ -136,13 +136,13 @@ const VoiceClipManager = ({ clips, onChanged, onRemoved, defaultOpen = false }) 
       >
         <DialogTitle sx={{ fontSize: "1rem" }}>{t("audio.clips.withdrawTitle")}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-          <Typography variant="body2" fontWeight="bold" sx={{ wordBreak: "break-word" }}>
+          <Typography variant="body2" sx={{ fontWeight: "bold", wordBreak: "break-word" }}>
             {withdrawing?.filename}
           </Typography>
           <Typography variant="body2">
             {t("audio.clips.withdrawText")}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("audio.clips.withdrawRunning")}
           </Typography>
         </DialogContent>

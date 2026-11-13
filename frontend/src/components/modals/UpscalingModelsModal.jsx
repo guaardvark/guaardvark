@@ -117,13 +117,13 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
       <DialogTitle>{t("models.upscalingModels.title")}</DialogTitle>
       <DialogContent dividers>
         {error && (
-          <Box mb={2}>
+          <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
           </Box>
         )}
 
         {loading ? (
-          <Box display="flex" justifyContent="center" p={3}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
             <CircularProgress />
           </Box>
         ) : (
@@ -138,7 +138,7 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
                   <ListItemText
                     primary={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                        <Typography variant="body1" fontWeight={500}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
                           {model.name}
                         </Typography>
                         <Chip

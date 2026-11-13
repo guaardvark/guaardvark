@@ -296,7 +296,10 @@ const ProgressFooterBar = () => {
                                 <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
                                     {entryHeading(entry)}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ color: "text.secondary", display: 'block' }}
+                                >
                                     {statusLine(entry)}
                                     {!entry.waiting && entry.progress != null ? ` (${Math.round(entry.progress)}%)` : ''}
                                 </Typography>

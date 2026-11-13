@@ -161,7 +161,10 @@ const BatchHistoryCard = React.memo(function BatchHistoryCard({
           {label}
         </Typography>
         {dateStr && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mb: 0.5 }}>
+          <Typography
+            variant="caption"
+            sx={{ color: "text.secondary", fontSize: '0.7rem', display: 'block', mb: 0.5 }}
+          >
             {dateStr}
           </Typography>
         )}

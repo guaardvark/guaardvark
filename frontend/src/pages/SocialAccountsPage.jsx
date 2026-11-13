@@ -275,7 +275,7 @@ const SocialAccountsPage = () => {
               {conn.display_name || conn.handle || conn.account_slug}
             </Typography>
             {conn.handle && conn.handle !== conn.display_name && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {conn.handle}
               </Typography>
             )}
@@ -283,7 +283,7 @@ const SocialAccountsPage = () => {
               label={statusLabels()[conn.status] || conn.status}
               tone={STATUS_TONE[conn.status] || "neutral"}
             />
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {conn.has_credentials
                 ? `${conn.auth_kind.replace("_", " ")} · ${conn.credential_hint}`
                 : t("social.accounts.noCredentials")}
@@ -361,7 +361,7 @@ const SocialAccountsPage = () => {
     <PageLayout
       title={t("social.accounts.title")}
       actions={
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <ActionButton kind="link" onClick={() => openPosts(null)}>
             {t("social.accounts.socialPosts")}
           </ActionButton>
@@ -495,7 +495,7 @@ const SocialAccountsPage = () => {
       )}
 
       {storeHealth && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 3 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 3 }}>
           {t("social.accounts.storedOutside", {
             state: storeHealth.encrypted ? t("social.accounts.encrypted") : t("social.accounts.unencrypted"),
           })}{" "}

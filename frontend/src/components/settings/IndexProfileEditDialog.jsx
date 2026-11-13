@@ -172,19 +172,19 @@ const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
               rowGap: 0.5,
             }}
           >
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("settingsSections.indexProfileEdit.embeddingModel")}
             </Typography>
             <Typography variant="body2">
               {profile.embedding_model || t("settingsSections.indexProfileEdit.globalModel")}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("settingsSections.indexProfileEdit.vectorWidth")}
             </Typography>
             <Typography variant="body2">
               {profile.embed_dim ? `${profile.embed_dim}d` : t("settingsSections.indexProfileEdit.notBuiltYet")}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("settingsSections.indexProfileEdit.chunking")}
             </Typography>
             <Typography variant="body2">

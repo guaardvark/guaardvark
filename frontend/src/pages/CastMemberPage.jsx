@@ -891,8 +891,8 @@ const CastMemberPage = () => {
                 helperText={t('cast.overview.descriptionHelp')}
               />
               <Divider sx={{ my: 1 }} />
-              <Typography variant="overline" color="text.secondary">{t('cast.fields.bible')}</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              <Typography variant="overline" sx={{ color: "text.secondary" }}>{t('cast.fields.bible')}</Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 1 }}>
                 {t('cast.overview.bibleHelp')}
               </Typography>
               {(subject.ref_image_paths || []).length > 0 && !subject.bible_vision_grounded && (
@@ -929,9 +929,9 @@ const CastMemberPage = () => {
                 >
                   {rebuildingBible ? t('cast.overview.scanning') : t('cast.overview.sync')}
                 </Button>
-                {savedNote && !overview.isDirty && <Typography variant="caption" color="success.main">{t('cast.common.saved')}</Typography>}
+                {savedNote && !overview.isDirty && <Typography variant="caption" sx={{ color: "success.main" }}>{t('cast.common.saved')}</Typography>}
                 {overview.isDirty && !saving && (
-                  <Typography variant="caption" color="text.secondary">{t('cast.common.unsaved')}</Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>{t('cast.common.unsaved')}</Typography>
                 )}
               </Box>
             </Box>
@@ -943,7 +943,7 @@ const CastMemberPage = () => {
       {tab === 1 && (
         <Box sx={{ maxWidth: 1100, mx: 'auto', pb: 6, width: '100%' }}>
           {/* Intro and status info stay at top */}
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
             {t('cast.trainingData.intro')}
           </Typography>
 
@@ -980,7 +980,7 @@ const CastMemberPage = () => {
 
           <Divider sx={{ my: 3 }} />
           <Typography variant="subtitle2" gutterBottom>{t('cast.trainingData.hyperparameters')}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
             {t('cast.trainingData.hyperparametersHelp')}
           </Typography>
           <Box sx={{ maxWidth: 720, mb: 1.5 }}>
@@ -1048,10 +1048,10 @@ const CastMemberPage = () => {
                 {savingTrainingSettings ? t('cast.common.saving') : t('cast.trainingData.saveSettings')}
               </Button>
               {trainingSettingsSaved && !trainingForm.isDirty && (
-                <Typography variant="caption" color="success.main" sx={{ ml: 2 }}>{t('cast.common.saved')}</Typography>
+                <Typography variant="caption" sx={{ color: "success.main", ml: 2 }}>{t('cast.common.saved')}</Typography>
               )}
               {trainingForm.isDirty && !savingTrainingSettings && (
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", ml: 2 }}>
                   {t('cast.trainingData.unsavedSettings')}
                 </Typography>
               )}
@@ -1060,7 +1060,7 @@ const CastMemberPage = () => {
 
           <Divider sx={{ my: 3 }} />
           <Typography variant="subtitle2" gutterBottom>{t('cast.trainingData.trainTitle')}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
             {refCount > 0
               ? approvedCount > 0
                 ? t('cast.trainingData.poolPending', { images: t('cast.trainingSetImages', { count: refCount }), count: approvedCount })
@@ -1100,7 +1100,7 @@ const CastMemberPage = () => {
             )}
           </Box>
           {subject.training_status && subject.training_status !== 'untrained' && (
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", ml: 2 }}>
               {t('cast.trainingData.status', { status: trainingStatusLabel })} {lastTrainedCount > 0 ? t('cast.trainingData.lastVerified', { count: lastTrainedCount }) : ''}
             </Typography>
           )}
@@ -1116,7 +1116,7 @@ const CastMemberPage = () => {
                 variant={trainingJob?.progress != null ? "determinate" : "indeterminate"}
                 value={trainingJob?.progress || 0}
               />
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5, display: 'block' }}>
                 {trainingJob?.message || t('cast.trainingData.running')}
                 {trainingJob?.id && ` · ${t('cast.trainingData.jobRef', { id: String(trainingJob.id).slice(0, 12) })}`}
                 {` · ${t('cast.trainingData.busyNote')}`}
@@ -1178,7 +1178,7 @@ const CastMemberPage = () => {
                   color={approvedCount > 0 ? 'success' : 'default'} variant="outlined" />
           </Box>
 
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 2 }}>
             {subject.lora_path ? (
               subject.base_model_name ? (
                 <Trans
@@ -1228,7 +1228,7 @@ const CastMemberPage = () => {
             ) : (
               /* No badge and no number: the score is withheld until the method is
                  proven on labelled pairs, and a colour would be a verdict. */
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 2 }}>
                 {subject.smoke_identity.reason
                   ? t('cast.generate.identityNotMeasuredReason', { reason: subject.smoke_identity.reason })
                   : t('cast.generate.identityNotMeasured')}
@@ -1241,7 +1241,7 @@ const CastMemberPage = () => {
           {total > 0 && (
             <Box sx={{ mb: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {active
                     ? t('cast.generate.progressGenerating', { done: doneCount, total })
                     : samples.some((s) => s.status === 'cancelled') && doneCount < total
@@ -1256,7 +1256,7 @@ const CastMemberPage = () => {
                           : t('cast.generate.progressPartial', { done: doneCount, total })
                         : t('cast.generate.progressDone', { total })}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">{doneCount}/{total}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>{doneCount}/{total}</Typography>
               </Box>
               <LinearProgress
                 variant={active && doneCount === 0 ? 'indeterminate' : 'determinate'}
@@ -1266,7 +1266,7 @@ const CastMemberPage = () => {
           )}
 
           {!sheetSamples.length ? (
-            <Typography color="text.secondary" sx={{ p: 4, textAlign: 'center' }}>
+            <Typography sx={{ color: "text.secondary", p: 4, textAlign: 'center' }}>
               {samples.some((s) => s.promoted_to_training)
                 ? <Trans i18nKey="cast.generate.allPromoted" components={{ bold: <b /> }} />
                 : <Trans i18nKey="cast.generate.emptySheet" components={{ bold: <b /> }} />}
@@ -1294,9 +1294,9 @@ const CastMemberPage = () => {
                       <Box sx={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center',
                                  bgcolor: 'action.hover' }}>
                         {s.status === 'generating' ? <CircularProgress size={22} />
-                          : s.status === 'pending' ? <Typography variant="caption" color="text.secondary">{t('cast.generate.queued')}</Typography>
+                          : s.status === 'pending' ? <Typography variant="caption" sx={{ color: "text.secondary" }}>{t('cast.generate.queued')}</Typography>
                           : s.status === 'failed' ? <Typography variant="caption" color="error">{t('cast.generate.failedSample')}</Typography>
-                          : <Typography variant="caption" color="text.secondary">{s.status}</Typography>}
+                          : <Typography variant="caption" sx={{ color: "text.secondary" }}>{s.status}</Typography>}
                       </Box>
                     )}
                     <CardContent sx={{ py: 1 }}>
@@ -1381,7 +1381,7 @@ const CastMemberPage = () => {
                     disabled={busy || training || approvedCount === 0}>
               {training ? t('cast.trainingData.training') : hasPendingAmend ? t('cast.trainingData.trainAmend') : t('cast.trainingData.train')}
             </Button>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {approvedCount === 0
                 ? t('cast.generate.approveToTrain')
                 : t('cast.generate.trainsOn', { images: t('cast.trainingSetImages', { count: refCount }), samples: t('cast.generate.approvedSamples', { count: approvedCount }) })}
@@ -1409,7 +1409,7 @@ const CastMemberPage = () => {
               </span>
             </Tooltip>
             {subject.lora_path && (
-              <Typography variant="caption" color="text.secondary" sx={{ ml: 1.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", ml: 1.5 }}>
                 {t('cast.versions.importHelp')}
               </Typography>
             )}
@@ -1420,7 +1420,7 @@ const CastMemberPage = () => {
             <Typography variant="subtitle2" gutterBottom>{t('cast.versions.byBase')}</Typography>
             {makeDefaultError && <Alert severity="error" sx={{ mb: 1 }}>{makeDefaultError}</Alert>}
             {loraBaseGroups.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">{t('cast.versions.empty')}</Typography>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>{t('cast.versions.empty')}</Typography>
             ) : (
               loraBaseGroups.map(({ base, current, isDefault }) => (
                 <Box key={base} sx={{
@@ -1438,7 +1438,7 @@ const CastMemberPage = () => {
                       </Button>
                     )}
                   </Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                     {current.trigger_word
                       ? t('cast.versions.versionLine', {
                         version: current.version,
@@ -1450,7 +1450,10 @@ const CastMemberPage = () => {
                         source: current.source === 'imported' ? t('cast.versions.imported') : t('cast.versions.trained'),
                       })}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ wordBreak: 'break-all' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", display: "block", wordBreak: 'break-all' }}
+                  >
                     {current.lora_path}
                   </Typography>
                 </Box>
@@ -1460,7 +1463,7 @@ const CastMemberPage = () => {
 
           {subject.training_status === 'trained' && (
             <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" color="text.secondary">{t('cast.versions.useIn')}</Typography>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>{t('cast.versions.useIn')}</Typography>
               <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
                 <Link component="button" onClick={() => navigate(`/batch-images?character=${subject.id}`)}>{t('cast.versions.useInImages')}</Link>
                 <Link component="button" onClick={() => navigate('/music-video')}>{t('cast.versions.useInMusicVideo')}</Link>
@@ -1489,7 +1492,7 @@ const CastMemberPage = () => {
       <Dialog open={importOpen} onClose={() => !importBusy && setImportOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('cast.versions.import')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
             {t('cast.import.intro')}
           </Typography>
           {importError && <Alert severity="error" sx={{ mb: 2 }}>{importError}</Alert>}
@@ -1534,7 +1537,7 @@ const CastMemberPage = () => {
                    alt={sheetSamples[lightboxIdx].angle || t('cast.generate.sampleAlt', { number: lightboxIdx + 1 })}
                    sx={{ maxWidth: '100%', maxHeight: '82vh', objectFit: 'contain', display: 'block' }} />
             ) : (
-              <Typography color="grey.500">{sheetSamples[lightboxIdx].status}</Typography>
+              <Typography sx={{ color: "grey.500" }}>{sheetSamples[lightboxIdx].status}</Typography>
             )}
             <IconButton onClick={() => setLightboxIdx((i) => Math.max(0, i - 1))} disabled={lightboxIdx === 0}
                         sx={{ position: 'absolute', left: 8, color: 'white', bgcolor: 'rgba(0,0,0,0.45)',
@@ -1555,7 +1558,7 @@ const CastMemberPage = () => {
           </DialogContent>
           <DialogActions sx={{ justifyContent: 'space-between', bgcolor: 'grey.900' }}>
             <Tooltip title={sheetSamples[lightboxIdx].image_prompt || ''}>
-              <Typography variant="caption" color="grey.400" noWrap sx={{ px: 1, maxWidth: '70%' }}>
+              <Typography variant="caption" noWrap sx={{ color: "grey.400", px: 1, maxWidth: '70%' }}>
                 {lightboxIdx + 1}/{sheetSamples.length} · {sheetSamples[lightboxIdx].angle || t('cast.generate.shot', { number: lightboxIdx + 1 })}
                 {sampleTrainStatus(sheetSamples[lightboxIdx], subject)
                   ? ` · ${sampleTrainStatus(sheetSamples[lightboxIdx], subject).label}`

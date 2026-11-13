@@ -307,7 +307,7 @@ const ArtifactCard = ({ artifact }) => {
           <Chip label={fileType} size="small" variant="outlined" sx={{ height: 18, fontSize: "0.6rem" }} />
         )}
         {size && (
-          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", whiteSpace: "nowrap" }}>
             {size}
           </Typography>
         )}
@@ -358,8 +358,7 @@ const ArtifactCard = ({ artifact }) => {
       {note && (
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", px: 1, py: 0.5, fontStyle: "italic" }}
+          sx={{ color: "text.secondary", display: "block", px: 1, py: 0.5, fontStyle: "italic" }}
         >
           {note}
         </Typography>

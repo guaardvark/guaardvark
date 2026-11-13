@@ -208,7 +208,7 @@ const PostFields = ({
         </TextField>
       ))}
       {fixedVisibilities.length > 0 && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {fixedVisibilityNote(fixedVisibilities)}
         </Typography>
       )}
@@ -226,7 +226,7 @@ const PostFields = ({
           label={t("social.postFields.aiLabel")}
         />
         {requiredDisclosures.map((entry) => (
-          <Typography key={entry.label} variant="caption" color="text.secondary" sx={{ display: "block" }}>
+          <Typography key={entry.label} variant="caption" sx={{ color: "text.secondary", display: "block" }}>
             {t("social.postFields.alwaysOn", { target: entry.label, rule: entry.rule })}
           </Typography>
         ))}
@@ -249,7 +249,7 @@ const PostFields = ({
           label={t("social.postFields.schedule")}
         />
         {scheduleRefusal && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
             {scheduleRefusal}
           </Typography>
         )}
@@ -267,7 +267,7 @@ const PostFields = ({
               }}
             />
             {scheduleNotes.map((entry) => (
-              <Typography key={entry.label} variant="caption" color="text.secondary">
+              <Typography key={entry.label} variant="caption" sx={{ color: "text.secondary" }}>
                 {entry.label}: {entry.note}
               </Typography>
             ))}

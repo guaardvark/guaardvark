@@ -36,7 +36,12 @@ const FrameSlot = ({ label, frameName, value, onChange, onUploadFile, uploading 
           <Box component="img" src={value.thumbnailUrl} alt={value.name} sx={{ width: "100%", height: 117, objectFit: "cover", display: "block" }} />
           <Box sx={{ px: 1, py: 0.5, display: "flex", alignItems: "center", gap: 0.5 }}>
             <Typography variant="caption" sx={{ fontWeight: 600 }}>{label}</Typography>
-            <Typography variant="caption" color="text.secondary" noWrap title={value.name} sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="caption"
+              noWrap
+              title={value.name}
+              sx={{ color: "text.secondary", flex: 1, minWidth: 0 }}
+            >
               {value.name}
             </Typography>
             <Tooltip title={t("video.frameSlot.remove", { frame })}>

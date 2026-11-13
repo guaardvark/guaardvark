@@ -54,7 +54,7 @@ const InspectPanel = ({ report, inspecting }) => {
     return (
       <Box sx={{ mt: 1 }}>
         <LinearProgress />
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("dialogs.trainingDataset.reading")}
         </Typography>
       </Box>
@@ -91,7 +91,7 @@ const InspectPanel = ({ report, inspecting }) => {
       )}
       {report.samples?.length > 0 && (
         <Box sx={{ mt: 1 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("dialogs.trainingDataset.firstRows")}
           </Typography>
           {report.samples.map((sample, i) => (

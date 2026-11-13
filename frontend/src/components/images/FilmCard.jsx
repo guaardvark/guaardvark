@@ -72,7 +72,7 @@ const FilmCard = React.memo(function FilmCard({ film, index, dateStr, onPlay, on
           {film.name}
         </Typography>
         {dateStr && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", fontSize: '0.6rem' }}>
             {dateStr}
           </Typography>
         )}

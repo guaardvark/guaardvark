@@ -158,7 +158,7 @@ const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApp
                 </Box>
               </Box>
               <CardContent sx={{ flexGrow: 1 }}>
-                <Typography variant="caption" color="text.secondary" gutterBottom>
+                <Typography variant="caption" gutterBottom sx={{ color: "text.secondary" }}>
                   {t('filmCrew.storyboard.sceneShot', { scene: shot.scene_number, shot: shot.shot_number })}
                 </Typography>
                 <Typography variant="body2" sx={{ 
@@ -173,9 +173,8 @@ const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApp
                 {shot.curator_advice?.verdict && (
                   <Typography
                     variant="caption"
-                    display="block"
                     color={shot.curator_advice.verdict === 'flag' ? 'warning.main' : 'success.main'}
-                    sx={{ mt: 1 }}
+                    sx={{ display: "block", mt: 1 }}
                   >
                     {curatorLine(shot.curator_advice)}
                   </Typography>

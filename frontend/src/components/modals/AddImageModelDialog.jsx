@@ -210,7 +210,7 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
         )}
         {preview && !unwired && (
           <>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {preview.hf_repo}
               {preview.has_model_index ? " · " + t("models.addImageModel.diffusersRepo") : " · " + t("models.addImageModel.filesOnly")}
               {preview.license ? ` · ${preview.license}` : ""}
@@ -222,7 +222,7 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
               {preview.truncated ? " · " + t("models.addModel.fileListTruncated") : ""}
             </Typography>
             {(preview.warnings || []).map((w) => (
-              <Typography key={w} variant="caption" color="warning.main">
+              <Typography key={w} variant="caption" sx={{ color: "warning.main" }}>
                 {w}
               </Typography>
             ))}
@@ -274,7 +274,7 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
               <Hint>{t("models.addImageModel.wholeRepo")}</Hint>
             ) : (
               <>
-                <Typography variant="overline" color="text.secondary">
+                <Typography variant="overline" sx={{ color: "text.secondary" }}>
                   {t("models.addModel.filesPickOne")}
                 </Typography>
                 {files.length > 8 && (
@@ -287,7 +287,7 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
                 )}
                 <Box sx={{ maxHeight: 240, overflow: "auto", border: 1, borderColor: "divider", borderRadius: 1, px: 1 }}>
                   {files.length === 0 && (
-                    <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary", py: 1 }}>
                       {t("models.addModel.noWeightFiles")}
                     </Typography>
                   )}

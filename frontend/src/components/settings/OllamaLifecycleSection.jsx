@@ -89,7 +89,7 @@ const OllamaLifecycleSection = ({ title = "Ollama" }) => {
         }
         label={<Typography variant="body2">{t("settingsSections.ollama.external")}</Typography>}
       />
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {t("settingsSections.ollama.note")}
         {state.env_writable === false ? ` ${t("settingsSections.ollama.envNotWritable")}` : ""}
       </Typography>

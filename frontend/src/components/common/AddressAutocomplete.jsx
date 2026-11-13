@@ -120,7 +120,7 @@ const AddressAutocomplete = ({
             <Box>
               <Typography variant="body2">{labelOf(option)}</Typography>
               {option?.source ? (
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {option.source}
                 </Typography>
               ) : null}

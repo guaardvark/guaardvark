@@ -479,7 +479,7 @@ const ClientActionModal = ({
             <Grid sx={{ mt: 2 }} size={12}>
               <Accordion>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="subtitle1" fontWeight="bold">
+                  <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
                     {t("dialogs.clientAction.ragSection")}
                   </Typography>
                 </AccordionSummary>

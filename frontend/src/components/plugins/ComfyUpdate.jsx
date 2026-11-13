@@ -364,7 +364,7 @@ export const ComfyUpdateSection = ({ comfy }) => {
 
       {running && (
         <Box data-testid="comfyui-update-progress" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t('plugins.comfyUpdate.progress', {
               versions: versionArrow(status.from, status.to),
               phase: status.phase_label || t('plugins.comfyUpdate.working'),

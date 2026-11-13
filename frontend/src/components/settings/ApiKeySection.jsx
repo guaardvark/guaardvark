@@ -132,7 +132,7 @@ function NewKeyDialog({ apiKey, onClose }) {
     <Dialog open={Boolean(apiKey)} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ fontSize: "1rem" }}>{t("settingsAccess.apiKey.newKey.title")}</DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t("settingsAccess.apiKey.newKey.body")}
         </Typography>
         <Line nowrap>

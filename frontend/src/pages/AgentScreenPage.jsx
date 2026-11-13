@@ -220,7 +220,7 @@ export default function AgentScreenPage() {
             {control ? <MouseIcon fontSize="small" /> : <MouseOutlinedIcon fontSize="small" />}
           </IconButton>
         </Tooltip>
-        <Typography variant="caption" color="text.secondary" sx={{ minWidth: 34, textAlign: 'right' }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", minWidth: 34, textAlign: 'right' }}>
           {t('agents.screen.fpsValue', { fps })}
         </Typography>
         <Slider

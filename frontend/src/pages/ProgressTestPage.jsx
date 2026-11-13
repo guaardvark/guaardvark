@@ -127,7 +127,7 @@ const ProgressTestPage = () => {
         Progress Tracking Debug
       </Typography>
 
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
         Test progress tracking for all system processes. Check the ProgressFooterBar at the bottom of the screen.
       </Typography>
 
@@ -217,7 +217,7 @@ const ProgressTestPage = () => {
                       </Alert>
                     )}
                     {results[test.id].process_id && (
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Process ID: {results[test.id].process_id}
                       </Typography>
                     )}
@@ -256,7 +256,7 @@ const ProgressTestPage = () => {
             4. You can run multiple tests simultaneously to see how the system handles concurrent processes
           </Typography>
           <Divider sx={{ my: 2 }} />
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             <strong>Expected Behavior:</strong> All process types (ImageGen, FileGen, CSV, Indexing, Analysis, Upload) 
             should appear in the ProgressFooterBar with appropriate colors and messages.
           </Typography>

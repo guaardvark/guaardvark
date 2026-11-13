@@ -181,7 +181,7 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
               {shown?.id}
             </Typography>
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
             {shown?.description}
           </Typography>
         </DialogTitle>

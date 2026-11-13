@@ -78,8 +78,7 @@ const ThinkingCard = ({ text = "", streaming = false, elapsedMs = null, defaultE
 
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ flex: 1, fontSize: "0.65rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          sx={{ color: "text.secondary", flex: 1, fontSize: "0.65rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
         >
           {streaming ? t("chat.thinking.streaming") : t("chat.thinking.done")}
         </Typography>

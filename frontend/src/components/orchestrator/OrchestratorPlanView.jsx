@@ -69,7 +69,7 @@ const StepItem = ({ step, embedded }) => {
                 </ListItemIcon>
                 <ListItemText
                     primary={
-                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" gap={1}>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1 }}>
                             <Typography variant={embedded ? 'caption' : 'subtitle1'} sx={{ fontWeight: embedded ? 600 : undefined }}>
                                 {t('agents.plan.step', { id: step.id, description: step.description })}
                             </Typography>
@@ -84,7 +84,7 @@ const StepItem = ({ step, embedded }) => {
                     }
                     secondary={
                         <React.Fragment>
-                            <Typography component="span" variant="caption" color="text.secondary">
+                            <Typography component="span" variant="caption" sx={{ color: "text.secondary" }}>
                                 {t('agents.plan.stepStatus', { status: statusLabel(step.status) })}
                             </Typography>
                             {step.result && (
@@ -258,7 +258,7 @@ const OrchestratorPlanView = ({ plan, planId, onExecutionComplete, embedded = fa
                     {t('agents.plan.heading', { count: stepCount })}
                 </Typography>
 
-                <Box display="flex" alignItems="center" gap={embedded ? 0.5 : 1.5}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: embedded ? 0.5 : 1.5 }}>
                     <Chip
                         label={statusLabel(currentPlan.status)}
                         size="small"
@@ -295,7 +295,7 @@ const OrchestratorPlanView = ({ plan, planId, onExecutionComplete, embedded = fa
                     </List>
 
                     {currentPlan.status === 'planning' && (
-                        <Box display="flex" justifyContent="flex-end" mt={embedded ? 1 : 2}>
+                        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: embedded ? 1 : 2 }}>
                             <Button
                                 variant="contained"
                                 color="primary"

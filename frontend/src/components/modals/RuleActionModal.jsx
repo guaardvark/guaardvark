@@ -363,10 +363,10 @@ const RuleActionModal = ({
 
           {/* Type Display & Command */}
           <Grid size={12}>
-            <Grid container spacing={2} alignItems="center">
+            <Grid container spacing={2} sx={{ alignItems: "center" }}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {t("dialogs.ruleAction.type")}:
                   </Typography>
                   <Typography
@@ -382,7 +382,7 @@ const RuleActionModal = ({
                   >
                     {typeInfo.label}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {typeInfo.description}
                     {!isNewRule &&
                       " " + t("dialogs.ruleAction.keptOnSave", { level: effective.level, type: effective.type || t("dialogs.ruleAction.noType") })}

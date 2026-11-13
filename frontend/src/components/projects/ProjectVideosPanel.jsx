@@ -132,7 +132,7 @@ export default function ProjectVideosPanel({ projectId }) {
       {loading ? (
         <CircularProgress size={24} />
       ) : rows.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t("projects.videos.empty")}
         </Typography>
       ) : (
@@ -143,7 +143,7 @@ export default function ProjectVideosPanel({ projectId }) {
                 <Thumbnail row={row} />
                 <CardContent sx={{ pb: 1 }}>
                   <Typography variant="subtitle2" noWrap>{row.name}</Typography>
-                  <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }} flexWrap="wrap" useFlexGap>
+                  <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap", mt: 0.5 }}>
                     <Chip size="small" variant="outlined" label={kindLabel(row.kind)} />
                     <StatusPill label={stagePill(row)[0]} tone={stagePill(row)[1]} />
                     {row.overall_pct != null && row.current_stage !== "complete" && (

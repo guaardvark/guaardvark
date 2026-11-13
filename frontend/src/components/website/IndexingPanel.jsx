@@ -172,7 +172,7 @@ const IndexingPanel = ({ website, onFeedback }) => {
   }
 
   if (!status) {
-    return <Typography color="text.secondary">{t("websites.indexing.noStatus")}</Typography>;
+    return <Typography sx={{ color: "text.secondary" }}>{t("websites.indexing.noStatus")}</Typography>;
   }
 
   return (
@@ -188,8 +188,7 @@ const IndexingPanel = ({ website, onFeedback }) => {
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={2}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
+          sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" } }}
         >
           <Box>
             <Typography variant="subtitle2" gutterBottom>
@@ -204,7 +203,7 @@ const IndexingPanel = ({ website, onFeedback }) => {
                   remaining: status.quota_remaining,
                 }}
                 components={{
-                  detail: <Typography component="span" variant="body2" color="text.secondary" />,
+                  detail: <Typography component="span" variant="body2" sx={{ color: "text.secondary" }} />,
                 }}
               />
             </Typography>
@@ -226,7 +225,7 @@ const IndexingPanel = ({ website, onFeedback }) => {
         <Typography variant="subtitle2" gutterBottom>
           {t("websites.indexing.queue")}
         </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
           <Chip label={t("websites.indexing.queuePending", { count: queue.pending || 0 })} size="small" />
           <Chip
             label={t("websites.indexing.queueIndexed", { count: queue.success || 0 })}
@@ -240,11 +239,11 @@ const IndexingPanel = ({ website, onFeedback }) => {
           />
         </Stack>
 
-        <Stack direction="row" spacing={3} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
-          <Typography variant="caption" color="text.secondary">
+        <Stack direction="row" spacing={3} useFlexGap sx={{ flexWrap: "wrap", mt: 1.5 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("websites.indexing.lastSitemapSync", { time: formatTime(status.last_sitemap_sync) })}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("websites.indexing.lastRun", { time: formatTime(status.last_run_at) })}
           </Typography>
         </Stack>
@@ -260,7 +259,7 @@ const IndexingPanel = ({ website, onFeedback }) => {
 
       {/* Per-URL submission log */}
       <Box>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
           <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
             {t("websites.indexing.logTitle")}
           </Typography>
@@ -304,8 +303,7 @@ const IndexingPanel = ({ website, onFeedback }) => {
                     <TableCell colSpan={4}>
                       <Typography
                         variant="body2"
-                        color="text.secondary"
-                        sx={{ py: 2, textAlign: "center", fontStyle: "italic" }}
+                        sx={{ color: "text.secondary", py: 2, textAlign: "center", fontStyle: "italic" }}
                       >
                         {logLoading
                           ? t("websites.indexing.loading")

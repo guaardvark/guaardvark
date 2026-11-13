@@ -338,15 +338,14 @@ const ToolsPage = () => {
 
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ mb: 2, minHeight: 40 }}
+            sx={{ color: "text.secondary", mb: 2, minHeight: 40 }}
           >
             {tool.description}
           </Typography>
 
           <Divider sx={{ my: 1 }} />
 
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("tools.parameters")}:
           </Typography>
 
@@ -461,7 +460,7 @@ const ToolsPage = () => {
                   <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <Build fontSize="small" color="action" />
-                      <Typography variant="body2" fontWeight="medium">
+                      <Typography variant="body2" sx={{ fontWeight: "medium" }}>
                         {tool.name}
                       </Typography>
                     </Box>
@@ -476,12 +475,12 @@ const ToolsPage = () => {
                   <TableCell>
                     <Typography
                       variant="body2"
-                      color="text.secondary"
                       sx={{
+                        color: "text.secondary",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
-                        maxWidth: 400,
+                        maxWidth: 400
                       }}
                     >
                       {tool.description}
@@ -521,7 +520,7 @@ const ToolsPage = () => {
                           />
                         )}
                         {totalParams === 0 && (
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
                             {t("tools.table.noParams")}
                           </Typography>
                         )}
@@ -555,7 +554,7 @@ const ToolsPage = () => {
             {sortedFilteredTools.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">
+                  <Typography sx={{ color: "text.secondary" }}>
                     {t("tools.noMatch", { query: searchQuery })}
                   </Typography>
                 </TableCell>
@@ -657,9 +656,7 @@ const ToolsPage = () => {
               {sortedFilteredTools.length === 0 && (
                 <Grid size={12}>
                   <Typography
-                    color="text.secondary"
-                    textAlign="center"
-                    sx={{ py: 4 }}
+                    sx={{ color: "text.secondary", textAlign: "center", py: 4 }}
                   >
                     {t("tools.noMatch", { query: searchQuery })}
                   </Typography>
@@ -782,7 +779,7 @@ const ToolsPage = () => {
         <DialogContent>
           {selectedTool && (
             <>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
                 {selectedTool.description}
               </Typography>
 

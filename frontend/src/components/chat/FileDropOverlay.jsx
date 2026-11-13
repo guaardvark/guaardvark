@@ -40,7 +40,7 @@ const FileDropOverlay = ({ active, label, compact = false }) => {
       <Typography variant={compact ? "caption" : "subtitle1"} color="primary" sx={{ fontWeight: 600 }}>
         {label === undefined ? t("chat.fileDrop.label") : label}
       </Typography>
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {t("chat.fileDrop.hint")}
       </Typography>
     </Box>

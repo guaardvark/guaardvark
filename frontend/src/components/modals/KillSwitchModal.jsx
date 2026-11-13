@@ -183,7 +183,7 @@ const KillSwitchModal = ({ open, onClose }) => {
               )}
             </Box>
           ) : (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t('backups.killSwitch.statusHint')}
             </Typography>
           )}

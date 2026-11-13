@@ -4058,7 +4058,7 @@ const SettingsPage = () => {
       variant="standard"
       actions={
         appVersion ? (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             v{appVersion}
           </Typography>
         ) : null

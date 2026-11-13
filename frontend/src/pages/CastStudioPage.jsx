@@ -15,7 +15,7 @@ const CastStudioPage = () => {
     <Box sx={{ p: { xs: 1, sm: 2 } }}>
       <Box sx={{ px: 2, pt: 1 }}>
         <Typography variant="h4" sx={{ fontWeight: 600 }}>{t('cast.studio.title')}</Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t('cast.studio.intro')}
         </Typography>
       </Box>

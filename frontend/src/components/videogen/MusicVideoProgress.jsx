@@ -40,7 +40,7 @@ export default function MusicVideoProgress({ progress, clips = [], compact = fal
     return (
       <Box sx={{ minWidth: 120 }} data-testid="mv-progress-unknown">
         <LinearProgress sx={{ height: compact ? 4 : 8, borderRadius: 1 }} />
-        <Typography variant="caption" color="text.secondary" noWrap display="block">
+        <Typography variant="caption" noWrap sx={{ color: "text.secondary", display: "block" }}>
           {t("video.progress.working")}
         </Typography>
       </Box>
@@ -58,7 +58,7 @@ export default function MusicVideoProgress({ progress, clips = [], compact = fal
     return (
       <Box sx={{ minWidth: 120 }} data-testid="mv-progress-compact">
         <LinearProgress variant="determinate" value={pct} color={barColor} sx={{ height: 4, borderRadius: 1 }} />
-        <Typography variant="caption" color="text.secondary" noWrap display="block">
+        <Typography variant="caption" noWrap sx={{ color: "text.secondary", display: "block" }}>
           {Math.round(pct)}%{active ? ` · ${active.message || active.label}` : ""}
         </Typography>
       </Box>
@@ -76,7 +76,11 @@ export default function MusicVideoProgress({ progress, clips = [], compact = fal
             <StepLabel
               error={s.state === "failed"}
               optional={
-                <Typography variant="caption" color="text.secondary" display="block" align="center">
+                <Typography
+                  variant="caption"
+                  align="center"
+                  sx={{ color: "text.secondary", display: "block" }}
+                >
                   {s.state === "done" && s.duration_s != null
                     ? formatDuration(s.duration_s)
                     : ["active", "queued"].includes(s.state) && s.pct
@@ -92,7 +96,7 @@ export default function MusicVideoProgress({ progress, clips = [], compact = fal
       </Stepper>
 
       <Box>
-        <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "baseline" }}>
           <Typography variant="body2">
             <b>{Math.round(pct)}%</b>
             {active && (
@@ -102,7 +106,7 @@ export default function MusicVideoProgress({ progress, clips = [], compact = fal
               </>
             )}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {[eta, progress.elapsed_seconds != null ? t("video.progress.elapsed", { duration: formatDuration(progress.elapsed_seconds) }) : ""]
               .filter(Boolean)
               .join(" · ")}
@@ -126,7 +130,7 @@ export default function MusicVideoProgress({ progress, clips = [], compact = fal
       {activeClips.length > 0 && (
         <Box>
           {clipLine && (
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
               {clipLine}
             </Typography>
           )}

@@ -598,7 +598,7 @@ function WordPressPagesPage() {
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>
                       {page.title || t("wordpress.pages.untitled")}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {page.slug}
                     </Typography>
                   </TableCell>
@@ -617,7 +617,7 @@ function WordPressPagesPage() {
                     )}
                   </TableCell>
                   <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
                       <Tooltip title={t("wordpress.pages.viewDetails")}>
                         <IconButton size="small" onClick={() => handleViewDiff(page)}>
                           <VisibilityIcon />
@@ -671,10 +671,10 @@ function WordPressPagesPage() {
 
       {pages.length === 0 && !isLoading && (
         <Box sx={{ textAlign: "center", py: 8 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>
+          <Typography variant="h6" gutterBottom sx={{ color: "text.secondary" }}>
             {t("wordpress.pages.emptyTitle")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
             {selectedSite
               ? t("wordpress.pages.emptyPull")
               : t("wordpress.pages.emptySelect")}
@@ -746,7 +746,7 @@ function WordPressPagesPage() {
       <Dialog open={diffDialogOpen} onClose={() => setDiffDialogOpen(false)} maxWidth="lg" fullWidth>
         <DialogTitle>
           <Typography variant="h6">{t("wordpress.pages.detailsTitle")}</Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {selectedPage?.title}
           </Typography>
           {selectedPage && (
@@ -795,7 +795,7 @@ function WordPressPagesPage() {
                     ) : (
                       selectedPage.process_status === "pending" && (
                         <Paper sx={{ p: 2, mb: 2 }}>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
                             {t("wordpress.pages.notProcessed")}
                           </Typography>
                         </Paper>
@@ -812,7 +812,7 @@ function WordPressPagesPage() {
                       {selectedPage.content ? (
                         <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedPage.content) }} />
                       ) : (
-                        <Typography variant="body2" color="text.secondary">{t("wordpress.pages.notAvailable")}</Typography>
+                        <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("wordpress.pages.notAvailable")}</Typography>
                       )}
                     </Paper>
                     {selectedPage.improved_content ? (
@@ -827,7 +827,7 @@ function WordPressPagesPage() {
                     ) : (
                       selectedPage.process_status === "pending" && (
                         <Paper sx={{ p: 2, mb: 2 }}>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
                             {t("wordpress.pages.notProcessed")}
                           </Typography>
                         </Paper>
@@ -855,7 +855,7 @@ function WordPressPagesPage() {
                     ) : (
                       selectedPage.process_status === "pending" && (
                         <Paper sx={{ p: 2, mb: 2 }}>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
                             {t("wordpress.pages.notProcessed")}
                           </Typography>
                         </Paper>

@@ -314,7 +314,7 @@ const OutputModal = ({
                     <Typography variant="h4" sx={{ fontWeight: "bold", color: "success.main" }}>
                       {output.active_rows}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t("dialogs.output.generated")}
                     </Typography>
                   </Box>
@@ -324,7 +324,7 @@ const OutputModal = ({
                     <Typography variant="h4" sx={{ fontWeight: "bold", color: "warning.main" }}>
                       {output.replaced_rows}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t("dialogs.output.replaced")}
                     </Typography>
                   </Box>
@@ -334,7 +334,7 @@ const OutputModal = ({
                     <Typography variant="h4" sx={{ fontWeight: "bold", color: "error.main" }}>
                       {output.failed_rows}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t("dialogs.output.failed")}
                     </Typography>
                   </Box>
@@ -344,7 +344,7 @@ const OutputModal = ({
                     <Typography variant="h4" sx={{ fontWeight: "bold", color: "primary.main" }}>
                       {output.success_rate.toFixed(0)}%
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t("dialogs.output.successRate")}
                     </Typography>
                   </Box>
@@ -361,7 +361,7 @@ const OutputModal = ({
               </Typography>
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {t("dialogs.output.generated")}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: "medium" }}>
@@ -369,7 +369,7 @@ const OutputModal = ({
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {t("dialogs.output.llmModel")}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: "medium", fontFamily: "monospace" }}>
@@ -377,7 +377,7 @@ const OutputModal = ({
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {t("dialogs.output.targetRows")}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: "medium" }}>
@@ -385,7 +385,7 @@ const OutputModal = ({
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {t("dialogs.output.fileSize")}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: "medium" }}>
@@ -393,7 +393,7 @@ const OutputModal = ({
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {t("dialogs.output.totalRows")}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: "medium" }}>
@@ -402,7 +402,7 @@ const OutputModal = ({
                 </Grid>
                 {output.client && (
                   <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.output.client")}
                     </Typography>
                     <Typography variant="body1" sx={{ fontWeight: "medium" }}>
@@ -412,7 +412,7 @@ const OutputModal = ({
                 )}
                 {output.project && (
                   <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.output.project")}
                     </Typography>
                     <Typography variant="body1" sx={{ fontWeight: "medium" }}>
@@ -521,7 +521,7 @@ const OutputModal = ({
       >
         <DialogTitle>{t("dialogs.output.retryTitle")}</DialogTitle>
         <DialogContent sx={{ p: 3 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
             {t("dialogs.output.retryIntro", { count: output?.inactive_rows || 0, job: output?.job_id })}
           </Typography>
 
@@ -549,7 +549,7 @@ const OutputModal = ({
                 label={t("dialogs.output.modePartial", { count: output?.replaced_rows || 0 })}
               />
             </RadioGroup>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", mt: 1, display: 'block' }}>
               {t("dialogs.output.retryTip")}
             </Typography>
           </Box>

@@ -161,7 +161,7 @@ const LikenessReport = ({ likeness, t }) => {
   const spread = people.length === 1 ? people[0].faces_with_likeness : 0;
   return (
     <Stack spacing={0.5}>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
         {people.map((p) => {
           const label = t(`imageEdit.likeness.${p.band}`, { score: p.score?.toFixed(2) });
           const who = p.person === 1 ? t("imageEdit.scene.you") : t("imageEdit.scene.second");
@@ -174,7 +174,7 @@ const LikenessReport = ({ likeness, t }) => {
         })}
       </Stack>
       {spread > 1 && (
-        <Typography variant="caption" color="warning.main">
+        <Typography variant="caption" sx={{ color: "warning.main" }}>
           {t("imageEdit.likeness.onMany", { count: spread })}
         </Typography>
       )}
@@ -271,11 +271,11 @@ const PhotoSlot = ({
         }}
       >
         {uploading ? <CircularProgress size={28} /> : <AddPhotoIcon color="action" />}
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {uploading ? t("imageEdit.photos.uploading") : label}
         </Typography>
         {!uploading && (
-          <Typography variant="caption" color="text.secondary">{t("imageEdit.photos.drop")}</Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("imageEdit.photos.drop")}</Typography>
         )}
         <input
           ref={inputRef}
@@ -312,7 +312,7 @@ const PhotoSlot = ({
         </IconButton>
       </Box>
       {faceCheck && (
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
           <FaceStatus photo={photo} t={t} />
           {photo.consented && <Chip size="small" variant="outlined" label={t("imageEdit.consent.confirmed")} />}
         </Stack>
@@ -735,7 +735,7 @@ const ImageEditPage = () => {
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
-      <Typography variant="body2" color="text.secondary">{t(`imageEdit.modeHelp.${mode}`)}</Typography>
+      <Typography variant="body2" sx={{ color: "text.secondary" }}>{t(`imageEdit.modeHelp.${mode}`)}</Typography>
 
       {caps && !modeCaps.available && (
         <Alert
@@ -757,7 +757,7 @@ const ImageEditPage = () => {
                   : mode === "edit" ? t("imageEdit.photos.editSource") : t("imageEdit.photos.source")}
               </Typography>
               {mode === "identity" && !restage && (
-                <Typography variant="caption" color="text.secondary">{t("imageEdit.photos.facesHelp")}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("imageEdit.photos.facesHelp")}</Typography>
               )}
               <Grid container spacing={1}>
                 {photoSlots().map((slot) => (
@@ -765,7 +765,7 @@ const ImageEditPage = () => {
                 ))}
               </Grid>
               {mode === "edit" && maxExtras > 0 && primary && (
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {t("imageEdit.photos.references")}: {t("imageEdit.photos.referencesHelp")}
                 </Typography>
               )}
@@ -789,7 +789,7 @@ const ImageEditPage = () => {
                       {t("imageEdit.identityEngine.kontext")}
                     </ToggleButton>
                   </ToggleButtonGroup>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {restage ? t("imageEdit.identityEngine.kontextHelp") : t("imageEdit.identityEngine.pulidHelp")}
                   </Typography>
                 </Box>
@@ -809,7 +809,7 @@ const ImageEditPage = () => {
                     <ToggleButton value="only" sx={{ textTransform: "none" }}>{t("imageEdit.people.only")}</ToggleButton>
                     <ToggleButton value="others" sx={{ textTransform: "none" }}>{t("imageEdit.people.others")}</ToggleButton>
                   </ToggleButtonGroup>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {withOthers ? t("imageEdit.people.othersHelp") : t("imageEdit.people.onlyHelp")}
                   </Typography>
                 </Box>
@@ -819,7 +819,7 @@ const ImageEditPage = () => {
             {mode === "identity" && withOthers && !restage && (
               <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
                 <Typography variant="subtitle2">{t("imageEdit.people.second")}</Typography>
-                <Typography variant="caption" color="text.secondary">{t("imageEdit.people.secondHelp")}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("imageEdit.people.secondHelp")}</Typography>
                 <Grid container spacing={1}>
                   {person2.map((photo) => (
                     <Grid key={photo.url} size={{ xs: 12, sm: 6 }}>
@@ -864,8 +864,13 @@ const ImageEditPage = () => {
                   helperText={mode === "identity" ? t("imageEdit.prompt.identityHelp") : undefined}
                 />
                 {mode === "identity" && (
-                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                    <Typography variant="caption" color="text.secondary">{t("imageEdit.prompt.framing")}</Typography>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    useFlexGap
+                    sx={{ alignItems: "center", flexWrap: "wrap" }}
+                  >
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("imageEdit.prompt.framing")}</Typography>
                     {FRAMING.map((key) => (
                       <Chip key={key} size="small" variant="outlined" label={t(`imageEdit.framing.${key}`)}
                         onClick={() => addFraming(key)} />
@@ -903,10 +908,10 @@ const ImageEditPage = () => {
                           marks={[{ value: 0.8, label: "0.8" }, { value: 1.0, label: "1.0" }, { value: 1.2, label: "1.2" }]}
                           onChange={(_e, value) => setStrength(Number(value))}
                         />
-                        <Typography variant="caption" color="text.secondary">{t("imageEdit.settings.strengthHelp")}</Typography>
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("imageEdit.settings.strengthHelp")}</Typography>
                       </Box>
                     )}
-                    <Stack direction="row" spacing={2} alignItems="center">
+                    <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
                       <TextField
                         size="small"
                         type="number"
@@ -953,13 +958,13 @@ const ImageEditPage = () => {
                       <Alert severity="info">{t("imageEdit.settings.insideFrame")}</Alert>
                     )}
                     <Typography variant="body2">{t("imageEdit.settings.sides")}</Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                       {Object.entries(EXPAND_PRESETS).map(([key, value]) => (
                         <Chip key={key} size="small" variant="outlined" label={t(`imageEdit.settings.${key}`)}
                           onClick={() => setPad(value)} />
                       ))}
                     </Stack>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                       {["left", "right", "top", "bottom"].map((side) => (
                         <TextField
                           key={side}
@@ -995,7 +1000,7 @@ const ImageEditPage = () => {
               </span>
             </Tooltip>
             {blocker && caps && modeCaps.available && (
-              <Typography variant="caption" color="text.secondary">{blocker}</Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>{blocker}</Typography>
             )}
           </Stack>
         </Grid>
@@ -1006,7 +1011,7 @@ const ImageEditPage = () => {
             {running && (
               <Box>
                 <LinearProgress />
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
                   {job?.status === "queued"
                     ? job?.note || t("imageEdit.job.queued")
                     : t("imageEdit.job.running", { seconds: Math.round(job?.elapsed_s || 0) })}
@@ -1020,13 +1025,13 @@ const ImageEditPage = () => {
                   <Alert severity="warning">{t("imageEdit.scene.noFaces")}</Alert>
                 ) : (
                   <>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {assignTarget === "person2" && person2.length
                         ? t("imageEdit.scene.helpSecond") : t("imageEdit.scene.help")}
                     </Typography>
                     {person2.length > 0 && (
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography variant="caption" color="text.secondary">{t("imageEdit.scene.pickFor")}</Typography>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("imageEdit.scene.pickFor")}</Typography>
                         <Chip size="small" label={t("imageEdit.scene.you")}
                           color={assignTarget === "person1" ? "success" : "default"}
                           onClick={() => setAssignTarget("person1")} />
@@ -1038,7 +1043,7 @@ const ImageEditPage = () => {
                     <SceneChooser scene={scene} assign={assign} onPick={pickFace} t={t} />
                   </>
                 )}
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                   <Button variant="contained" size="small" disabled={!facesReady || running} onClick={placeFaces}>
                     {t("imageEdit.scene.apply")}
                   </Button>
@@ -1050,13 +1055,13 @@ const ImageEditPage = () => {
               </Box>
             )}
             {!running && !result && !scene && (
-              <Typography variant="body2" color="text.secondary">{t("imageEdit.result.empty")}</Typography>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("imageEdit.result.empty")}</Typography>
             )}
             {result && !scene && (
               <>
-                <Grid container spacing={1} alignItems="flex-start">
+                <Grid container spacing={1} sx={{ alignItems: "flex-start" }}>
                   <Grid size={4}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {resultSources.length > 1 ? t("imageEdit.result.beforeMany") : t("imageEdit.result.before")}
                     </Typography>
                     <Stack spacing={0.5}>
@@ -1067,7 +1072,7 @@ const ImageEditPage = () => {
                     </Stack>
                   </Grid>
                   <Grid size={8}>
-                    <Typography variant="caption" color="text.secondary">{t("imageEdit.result.after")}</Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("imageEdit.result.after")}</Typography>
                     <Box
                       component="img"
                       src={guardedMediaSrc(result.url)}
@@ -1079,12 +1084,12 @@ const ImageEditPage = () => {
                 </Grid>
                 {result.mode === "identity" && <LikenessReport likeness={result.likeness} t={t} />}
                 {restageMissed && (
-                  <Typography variant="caption" color="text.secondary">{t("imageEdit.likeness.retryPulidHelp")}</Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("imageEdit.likeness.retryPulidHelp")}</Typography>
                 )}
                 {result.seed !== null && result.seed !== undefined && result.mode === "identity" && (
-                  <Typography variant="caption" color="text.secondary">{t("imageEdit.result.seed", { seed: result.seed })}</Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("imageEdit.result.seed", { seed: result.seed })}</Typography>
                 )}
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                   {restageMissed && (
                     <Button size="small" variant="outlined" startIcon={<FaceIcon />} disabled={running}
                       onClick={() => { setIdentityEngine("pulid"); setRetryWithPulid(true); }}>
@@ -1119,7 +1124,7 @@ const ImageEditPage = () => {
 
           {history.length > 0 && (
             <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+              <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                 <Typography variant="subtitle2">{t("imageEdit.result.history")}</Typography>
                 <Button size="small" onClick={clearHistory}>{t("imageEdit.result.clearHistory")}</Button>
               </Stack>

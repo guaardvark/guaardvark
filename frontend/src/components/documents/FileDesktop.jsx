@@ -2443,7 +2443,7 @@ const FileDesktop = forwardRef(({
   if (loading) {
     return (
       <Box sx={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Typography color="text.secondary">{t('documents.page.loadingFolders')}</Typography>
+        <Typography sx={{ color: "text.secondary" }}>{t('documents.page.loadingFolders')}</Typography>
       </Box>
     );
   }
@@ -2500,7 +2500,10 @@ const FileDesktop = forwardRef(({
           {/* The bottom of the last card, so the desktop scrolls that far */}
           <Box sx={{ position: 'absolute', top: desktopExtent, left: 0, width: 1, height: 1, pointerEvents: 'none' }} />
           {showAll && allLoading && allFiles.length === 0 && (
-            <Typography variant="body2" color="text.secondary" sx={{ position: 'absolute', top: 16, left: 16 }}>
+            <Typography
+              variant="body2"
+              sx={{ color: "text.secondary", position: 'absolute', top: 16, left: 16 }}
+            >
               {t('documents.page.loadingAll')}
             </Typography>
           )}
@@ -2520,10 +2523,10 @@ const FileDesktop = forwardRef(({
               }}
             >
               <BrandLogo size={64} sx={{ opacity: 0.4 }} />
-              <Typography variant="h6" color="text.secondary">
+              <Typography variant="h6" sx={{ color: "text.secondary" }}>
                 {t('documents.page.emptyTitle')}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t('documents.page.emptyHint')}
               </Typography>
             </Box>
@@ -2633,13 +2636,24 @@ const FileDesktop = forwardRef(({
                     <FolderOutlined sx={{ fontSize: 26, color: windowColors[window.id] || theme.palette.primary.main }} />
                   </Box>
                   <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>{window.folder.name}</Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap sx={{ width: 110, flexShrink: 0 }}>
+                  <Typography
+                    variant="caption"
+                    noWrap
+                    sx={{ color: "text.secondary", width: 110, flexShrink: 0 }}
+                  >
                     {t('documents.page.kindLabel.folder')}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ width: 150, flexShrink: 0, textAlign: 'right' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", width: 150, flexShrink: 0, textAlign: 'right' }}
+                  >
                     {formatDate(window.folder.updated_at || window.folder.created_at)}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap sx={{ width: 72, flexShrink: 0, textAlign: 'right' }}>
+                  <Typography
+                    variant="caption"
+                    noWrap
+                    sx={{ color: "text.secondary", width: 72, flexShrink: 0, textAlign: 'right' }}
+                  >
                     {itemCount > 0 ? t('documents.page.folderItemCount', { count: itemCount }) : ''}
                   </Typography>
                 </Box>
@@ -3185,7 +3199,7 @@ const FileDesktop = forwardRef(({
             onKeyPress={(e) => e.key === 'Enter' && handleRenameSubmit()}
           />
           {renameItem?.type !== 'folder' && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mt: 1 }}>
               {t('documents.rename.fileHint')}
             </Typography>
           )}
