@@ -100,21 +100,48 @@ class SystemCommandTool(BaseTool):
                 skip_next = False
                 continue
             if base_cmd == "find":
+                if not find_expr and arg in ("-L", "-H", "-P"):
+                    continue  # symlink options come before the start paths
                 if find_expr or arg.startswith("-") or arg in ("(", ")", "!", ","):
                     find_expr = True  # everything after the first expression token is expression
                     continue
                 paths.append(arg)
                 continue
-            if base_cmd == "grep":
-                if arg in ("-e", "--regexp"):
-                    pattern_seen, skip_next = True, True
+            if base_cmd == "grep" and arg.startswith("--"):
+                # --regexp=PAT and --file=FILE carry their value; getopt also
+                # accepts a unique prefix of --regexp.
+                name, eq, value = arg.partition("=")
+                if len(name) >= 5 and "--regexp".startswith(name):
+                    pattern_seen, skip_next = True, not eq
                     continue
-                if arg in ("-f", "--file"):
+                if name == "--file":
                     pattern_seen = True
-                    if i + 1 < len(args):
+                    if eq:
+                        paths.append(value)
+                    elif i + 1 < len(args):
                         paths.append(args[i + 1])
-                    skip_next = True
+                    skip_next = not eq
                     continue
+            elif base_cmd == "grep" and arg.startswith("-") and len(arg) > 1:
+                # A short cluster: -e and -f end it, with their value attached
+                # ("-e." / "-fpatterns.txt") or in the next argument.
+                handled = False
+                for pos, ch in enumerate(arg[1:], start=1):
+                    rest = arg[pos + 1:]
+                    if ch == "e":
+                        pattern_seen, skip_next, handled = True, not rest, True
+                    elif ch == "f":
+                        pattern_seen, handled = True, True
+                        if rest:
+                            paths.append(rest)
+                        elif i + 1 < len(args):
+                            paths.append(args[i + 1])
+                        skip_next = not rest
+                    elif ch in "ABCmdD":
+                        skip_next, handled = not rest, True
+                    if handled:
+                        break
+                continue
             if arg in value_opts:
                 skip_next = True
                 continue
@@ -175,6 +202,17 @@ class SystemCommandTool(BaseTool):
                     success=False,
                     error="Redirects are not supported: there is no shell, and the output comes back to you directly. Drop the redirect and run the command again.",
                 )
+
+            # Options that read a list of names or dates from a file print that
+            # file's lines back in their error messages.
+            if base_cmd == "date" and any(
+                (a.startswith("--") and len(a.partition("=")[0]) >= 3 and "--file".startswith(a.partition("=")[0]))
+                or (a.startswith("-") and not a.startswith("--") and "f" in a)
+                for a in parts[1:]
+            ):
+                return ToolResult(success=False, error="date -f/--file is not allowed: it reads a file")
+            if base_cmd == "wc" and any(a.startswith("--f") for a in parts[1:]):
+                return ToolResult(success=False, error="wc --files0-from is not allowed: name the files directly")
 
             if base_cmd == "find":
                 bad = [a for a in parts[1:] if a in self.FIND_FORBIDDEN or a.startswith("-fprint")]
