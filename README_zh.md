@@ -89,7 +89,7 @@ cp .env.example .env       # 使用您的配置进行编辑
 
 **后端：** Flask 3.0 · SQLAlchemy + PostgreSQL（pgvector）· Celery + Redis · LlamaIndex + Ollama · PyTorch · Diffusers · Whisper.cpp · Chatterbox / Kokoro / Piper TTS
 
-**前端：** React 18 · Vite · Material-UI v5 · Zustand · Monaco Editor · Socket.io
+**前端：** React 19 · Vite · Material UI v9 · Zustand · Monaco Editor · Socket.io
 
 **CLI：** Typer · Rich · httpx · python-socketio
 

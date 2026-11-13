@@ -66,7 +66,7 @@ scripts/lint.sh                                    # flake8 (syntax-only: E9,E11
 
 **Plugins (`plugins/`).** Each plugin is a self-contained service with a `plugin.json` manifest (id, port, `vram_estimate_mb`, endpoints, config): ollama, comfyui, audio_foundry, upscaling, vision_pipeline, lora_trainer, gpu_embedding, video_editor, swarm, discord and zvec_grep. Plugins run as separate processes on their own ports and are health-checked. `plugins/training` is not a plugin; it holds the fine-tuning notes and helper scripts (`PIPELINE.md`, `scripts/`). No single component owns the GPU: `PluginOperationGate` (`backend/plugins/plugin_manager.py`) lets one GPU plugin start or stop at a time, `backend/services/plugin_bridge.py` starts the plugins a page or pipeline stage needs, and GPU work claims the card through `gpu_session` (`backend/services/gpu_resource_policy.py`). That composes `JobOperationGate` (one exclusive GPU job at a time), `GPUResourceCoordinator` (the cross-process lock) and `GPUMemoryOrchestrator` (the VRAM budget) and, when the job needs the room, frees VRAM held by Ollama, ComfyUI, Audio Foundry or the upscaler before it loads.
 
-**Frontend (`frontend/src/`).** React 18 + Vite + Material-UI v5. `pages/` (about 50 page components), `components/` (chat, agent, videoeditor, documents, swarm, …), `stores/` (Zustand for global state, React Context for layout/status). REST via Axios, realtime via `socket.io-client`, code editing via Monaco, graph views via reactflow/d3-force, VNC viewer via `@novnc/novnc`. The Vite config proxies to Flask on `:5000` and includes node polyfills for browser builds.
+**Frontend (`frontend/src/`).** React 19 + Vite + Material UI v9. `pages/` (about 50 page components), `components/` (chat, agent, videoeditor, documents, swarm, …), `stores/` (Zustand for global state, React Context for layout/status). REST via Axios, realtime via `socket.io-client`, code editing via Monaco, graph views via reactflow/d3-force, VNC viewer via `@novnc/novnc`. The Vite config proxies to Flask on `:5000` and includes node polyfills for browser builds.
 
 **CLI (`cli/llx/`).** The `llx` command (published to PyPI as `guaardvark`) — a REPL + command catalog (`commands/`, `command_catalog.py`) that talks to the backend, with its own lite server fallback. Version is single-sourced from the repo-root `VERSION` file.
 
@@ -223,5 +223,5 @@ These have real teeth — understand them before touching agent/self-improvement
 
 - Commit messages: conventional format `type(scope): description` (`feat`, `fix`, `refactor`, `style`, `docs`, `test`, `chore`).
 - Python: type hints where surrounding code uses them; imports grouped stdlib / third-party / local; paths via `backend.config`.
-- React: functional components + hooks; MUI v5 for UI; Zustand for global state, Context for layout.
+- React: functional components + hooks; MUI v9 for UI; Zustand for global state, Context for layout.
 - Keep changes focused and match surrounding style; one concern per PR.
