@@ -11,9 +11,10 @@ import logging
 import os
 import subprocess
 from pathlib import Path
+from urllib.parse import quote
 
 import requests
-from flask import Blueprint, has_request_context, request as flask_request
+from flask import Blueprint, abort, has_request_context, request as flask_request
 
 from backend.services.guarded_code_service import default_repo_root
 from backend.utils.response_utils import success_response, error_response
@@ -48,6 +49,18 @@ def _internal_secret() -> str:
 
 def _internal_headers() -> dict:
     return {INTERNAL_TOKEN_HEADER: _internal_secret()}
+
+
+def _segment(value: str) -> str:
+    """A caller-supplied id as exactly one path segment of a sidecar URL.
+
+    Flask hands the view the decoded value, so "launch%3Fx" arrives as
+    "launch?x"; pasted into the URL as it is, the open bus routes would reach
+    the sidecar's launch, merge and cleanup.
+    """
+    if value in (".", ".."):
+        abort(404)
+    return quote(value, safe="")
 
 
 def _proxy_get(path: str, timeout: int = SWARM_TIMEOUT, params: dict | None = None):
@@ -247,7 +260,7 @@ def all_status():
 
 @swarm_bp.route("/status/<swarm_id>", methods=["GET"])
 def swarm_status(swarm_id):
-    data, status = _proxy_get(f"/swarm/status/{swarm_id}")
+    data, status = _proxy_get(f"/swarm/status/{_segment(swarm_id)}")
     if status == 404:
         return error_response("Swarm not found", 404, "SWARM_NOT_FOUND")
     if status == 503:
@@ -262,7 +275,7 @@ def swarm_status(swarm_id):
 @swarm_bp.route("/<swarm_id>/logs/<task_id>", methods=["GET"])
 def task_logs(swarm_id, task_id):
     lines = flask_request.args.get("lines", 50, type=int)
-    data, status = _proxy_get(f"/swarm/{swarm_id}/logs/{task_id}?lines={lines}")
+    data, status = _proxy_get(f"/swarm/{_segment(swarm_id)}/logs/{_segment(task_id)}?lines={lines}")
     if status >= 400:
         return error_response(_extract_error(data, "Logs unavailable"), status)
     return success_response(data=data, message="Logs retrieved")
@@ -270,7 +283,7 @@ def task_logs(swarm_id, task_id):
 
 @swarm_bp.route("/<swarm_id>/diff/<task_id>", methods=["GET"])
 def task_diff(swarm_id, task_id):
-    data, status = _proxy_get(f"/swarm/{swarm_id}/diff/{task_id}")
+    data, status = _proxy_get(f"/swarm/{_segment(swarm_id)}/diff/{_segment(task_id)}")
     if status >= 400:
         return error_response(_extract_error(data, "Diff unavailable"), status)
     return success_response(data=data, message="Diff retrieved")
@@ -280,9 +293,9 @@ def task_diff(swarm_id, task_id):
 def bus_state(swarm_id):
     # Only an explicit POST writes: Flask also routes HEAD here.
     if flask_request.method == "POST":
-        data, status = _proxy_post(f"/swarm/{swarm_id}/bus/state", flask_request.get_json() or {})
+        data, status = _proxy_post(f"/swarm/{_segment(swarm_id)}/bus/state", flask_request.get_json() or {})
     else:
-        data, status = _proxy_get(f"/swarm/{swarm_id}/bus/state")
+        data, status = _proxy_get(f"/swarm/{_segment(swarm_id)}/bus/state")
     if status >= 400:
         return error_response(_extract_error(data, "Bus state unavailable"), status)
     return success_response(data=data, message="Bus state updated" if flask_request.method == "POST" else "Bus state retrieved")
@@ -290,7 +303,7 @@ def bus_state(swarm_id):
 
 @swarm_bp.route("/<swarm_id>/bus/broadcast", methods=["POST"])
 def bus_broadcast(swarm_id):
-    data, status = _proxy_post(f"/swarm/{swarm_id}/bus/broadcast", flask_request.get_json() or {})
+    data, status = _proxy_post(f"/swarm/{_segment(swarm_id)}/bus/broadcast", flask_request.get_json() or {})
     if status >= 400:
         return error_response(_extract_error(data, "Bus broadcast failed"), status)
     return success_response(data=data, message="Bus event broadcast")
@@ -341,7 +354,7 @@ def templates():
 
 @swarm_bp.route("/templates/<filename>", methods=["GET"])
 def template_content(filename: str):
-    data, status = _proxy_get(f"/swarm/templates/{filename}")
+    data, status = _proxy_get(f"/swarm/templates/{_segment(filename)}")
     if status >= 400:
         return error_response(_extract_error(data, "Template not found"), status)
     return success_response(data=data, message="Template retrieved")
