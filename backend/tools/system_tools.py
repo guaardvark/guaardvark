@@ -68,12 +68,13 @@ class SystemCommandTool(BaseTool):
     }
     
     # find(1) expressions that execute programs, delete or write files.
+    # -files0-from reads start paths from a file and prints its lines in errors.
     FIND_FORBIDDEN = {"-exec", "-execdir", "-ok", "-okdir", "-delete", "-fprint", "-fprint0",
-                      "-fprintf", "-fls"}
+                      "-fprintf", "-fls", "-files0-from"}
     # Options whose next argument is a value, not a path.
     VALUE_OPTIONS = {
         "grep": {"-m", "--max-count", "-A", "-B", "-C", "--after-context", "--before-context",
-                 "--context", "--label", "--color", "--colour", "-d", "-D"},
+                 "--context", "--label", "-d", "-D"},
         "head": {"-n", "-c", "--lines", "--bytes"},
         "tail": {"-n", "-c", "--lines", "--bytes"},
         "ls": {"-I", "--ignore", "--hide", "-w", "--width", "-T", "--tabsize", "--sort", "--time-style"},
@@ -92,20 +93,41 @@ class SystemCommandTool(BaseTool):
     def _path_args(self, base_cmd, args):
         """The args that name files or directories (checked for credential files
         and, when paths are confined, for containment)."""
+        return self._scan_args(base_cmd, args)[0]
+
+    def _scan_args(self, base_cmd, args):
+        """``(paths, options_end)``: the args that name files or directories,
+        and the index of the "--" that ends the options (``len(args)`` without one)."""
         paths, skip_next, pattern_seen = [], False, False
         value_opts = self.VALUE_OPTIONS.get(base_cmd, set())
         find_expr = False
+        options_end = len(args)
         for i, arg in enumerate(args):
             if skip_next:
                 skip_next = False
                 continue
+            if i > options_end:
+                # After "--" every argument is an operand, dash or not.
+                if base_cmd == "grep" and not pattern_seen:
+                    pattern_seen = True
+                    continue
+                paths.append(arg)
+                continue
             if base_cmd == "find":
-                if not find_expr and arg in ("-L", "-H", "-P"):
-                    continue  # symlink options come before the start paths
+                if not find_expr:
+                    # Options that come before the start paths.
+                    if arg in ("-L", "-H", "-P", "--") or arg.startswith("-O"):
+                        continue
+                    if arg == "-D":
+                        skip_next = True
+                        continue
                 if find_expr or arg.startswith("-") or arg in ("(", ")", "!", ","):
                     find_expr = True  # everything after the first expression token is expression
                     continue
                 paths.append(arg)
+                continue
+            if arg == "--":
+                options_end = i
                 continue
             if base_cmd == "grep" and arg.startswith("--"):
                 # --regexp=PAT and --file=FILE carry their value; getopt also
@@ -151,7 +173,7 @@ class SystemCommandTool(BaseTool):
                 pattern_seen = True  # first positional is the pattern
                 continue
             paths.append(arg)
-        return paths
+        return paths, options_end
 
     def execute(self, **kwargs) -> ToolResult:
         """Execute the system command"""
@@ -261,7 +283,15 @@ class SystemCommandTool(BaseTool):
             # Recursive greps must not print secrets from credential files.
             from backend.utils.path_safety import SENSITIVE_PATTERNS
 
-            parts = parts[:1] + [f"--exclude={p}" for p in SENSITIVE_PATTERNS] + ["--exclude-dir=.git"] + parts[1:]
+            excludes = [f"--exclude={p}" for p in SENSITIVE_PATTERNS]
+            args = parts[1:]
+            end = self._scan_args("grep", args)[1]
+            # grep lets the last matching --include/--exclude win, so a caller's
+            # --include would re-admit a credential file: repeat ours after the
+            # caller's options. The first is doubled in case a trailing option
+            # that wants a value takes it.
+            again = excludes[:1] + excludes if any(a.startswith("--inc") for a in args[:end]) else []
+            parts = parts[:1] + excludes + ["--exclude-dir=.git"] + args[:end] + again + args[end:]
 
         try:
             # Execute
