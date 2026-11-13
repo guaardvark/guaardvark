@@ -2269,6 +2269,7 @@ const ChatPage = () => {
                       )
                     );
                   },
+                  null,
                   signal
                 );
               },
