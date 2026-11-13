@@ -978,7 +978,8 @@ def regen_sample(sample_id: int, prompt_override: str | None = None, seed: int |
                     job_id, "Regen cancelled",
                     additional_data={"sample_id": sample_id, "status": row.status},
                 )
-            else:
+            elif row.status != "failed":
+                # A failed render already closed the job with its error above.
                 get_unified_progress().complete_process(
                     job_id, "Regen complete",
                     additional_data={"sample_id": sample_id, "status": row.status},
