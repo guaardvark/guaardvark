@@ -474,7 +474,8 @@ def delete_job_route(job_id):
         # Remove from file system
         progress_dir = Path(output_dir) / ".progress_jobs"
         job_dir = contained(progress_dir, job_id)
-        if job_dir.exists() and job_dir.is_dir():
+        # An id of "." names the folder that holds every job.
+        if job_dir != contained(progress_dir) and job_dir.exists() and job_dir.is_dir():
             import shutil
             shutil.rmtree(job_dir)
             logger.info(f"Deleted job directory: {job_id}")
