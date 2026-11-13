@@ -519,7 +519,7 @@ const DocumentActionModal = ({
                   onClick={handleOpenLinkingModal}
                   disabled={anyActionInProgress}
                 >
-                  <LinkIcon sx={{ fontSize: "small" }} />
+                  <LinkIcon fontSize="small" />
                 </IconButton>
               </span>
             </Tooltip>

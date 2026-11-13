@@ -656,7 +656,7 @@ const ClientPage = () => {
                               onClick={(e) => handleOpenLinkerModal(client, e)}
                               disabled={isModalSaving}
                             >
-                              <LinkIcon sx={{ fontSize: "small" }} />
+                              <LinkIcon fontSize="small" />
                             </IconButton>
                           </span>
                         </Tooltip>
