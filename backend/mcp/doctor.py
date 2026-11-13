@@ -294,11 +294,11 @@ def _scan_mcp_servers_obj(obj: Any) -> Iterator[tuple[str, list[str]]]:
         return
     command = entry.get("command", "")
     if isinstance(command, dict):  # zed shape: {"path": ..., "args": ...}
-        yield str(command.get("path", "")), [str(a) for a in command.get("args", [])]
+        yield str(command.get("path", "")), [str(a) for a in (command.get("args") or [])]
     elif isinstance(command, list):  # opencode shape: [executable, *args]
         yield str(command[0]) if command else "", [str(a) for a in command[1:]]
     else:
-        yield str(command), [str(a) for a in entry.get("args", [])]
+        yield str(command), [str(a) for a in (entry.get("args") or [])]
 
 
 def _client_config_sources() -> list[tuple[str, Path, list[str]]]:
