@@ -701,23 +701,25 @@ class BrainState:
             try:
                 import requests
                 from backend.config import OLLAMA_BASE_URL
-                from backend.utils.ollama_resource_manager import request_options
+                from backend.utils.ollama_resource_manager import load_in_flight, request_options
+                # Sized like the chat that follows, so this load is the one that serves it.
+                options = request_options(self.active_model, num_predict=1)
                 # Use Ollama's canonical warmup primitive instead of llama_index
                 # chat(): the latter's httpx stack silently timed out on slow
                 # hardware even though Ollama itself was making progress. 15-min
                 # read deadline covers cold-load on pre-AVX2 CPUs with HDDs.
-                resp = requests.post(
-                    f"{OLLAMA_BASE_URL}/api/generate",
-                    json={
-                        "model": self.active_model,
-                        "prompt": "ok",
-                        "stream": False,
-                        # Sized like the chat that follows, so this load is the one that serves it.
-                        "options": request_options(self.active_model, num_predict=1),
-                        "keep_alive": "30m",
-                    },
-                    timeout=(10.0, 900.0),
-                )
+                with load_in_flight(self.active_model, options.get("num_ctx")):
+                    resp = requests.post(
+                        f"{OLLAMA_BASE_URL}/api/generate",
+                        json={
+                            "model": self.active_model,
+                            "prompt": "ok",
+                            "stream": False,
+                            "options": options,
+                            "keep_alive": "30m",
+                        },
+                        timeout=(10.0, 900.0),
+                    )
                 resp.raise_for_status()
                 self.health.warm_up_status = WarmUpStatus.READY
                 logger.info(f"Model warm-up complete: {self.active_model} is hot")

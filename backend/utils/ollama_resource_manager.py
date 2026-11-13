@@ -13,7 +13,8 @@ import re
 import threading
 import time
 import weakref
-from typing import Dict, NamedTuple, Optional, Tuple
+from contextlib import contextmanager
+from typing import Dict, Iterator, List, NamedTuple, Optional, Tuple
 
 import requests
 
@@ -63,6 +64,10 @@ _unreachable_ttl = 15  # seconds
 # instances from different threads.
 _provisional_llms: "weakref.WeakValueDictionary[int, object]" = weakref.WeakValueDictionary()
 _provisional_lock = threading.Lock()
+
+# Windows of model loads still under way in this process (full model name -> num_ctx list).
+_loads_in_flight: Dict[str, List[int]] = {}
+_loads_lock = threading.Lock()
 
 
 class OverheadProfile(NamedTuple):
@@ -892,6 +897,44 @@ def compute_optimal_num_ctx(model_name: str) -> int:
     return decide_num_ctx(model_name).num_ctx
 
 
+@contextmanager
+def load_in_flight(model_name: str, num_ctx: Optional[int]) -> Iterator[None]:
+    """Mark a request that may load ``model_name`` at ``num_ctx`` for as long as it runs.
+
+    Mid-load a model already holds most of its memory but is not yet in
+    /api/ps, so sizing it then counts that memory as someone else's: gemma4:12b
+    on a 16 GB card was sized 8,192 while a warm-up loaded it at 32,768. A
+    request with the other window makes Ollama reload the model, and a
+    keep_alive -1 pin on the loaded copy cancels that unload, so the request
+    waits until its client gives up (Ollama 0.40.16, Keep ready on: every chat
+    timed out; 2026-11-13). While a load is marked here, sizing that model
+    returns the window being loaded.
+    """
+    key = _full_model_name(model_name) if model_name else ""
+    if not key or not num_ctx or int(num_ctx) <= 0:
+        yield
+        return
+    with _loads_lock:
+        _loads_in_flight.setdefault(key, []).append(int(num_ctx))
+    try:
+        yield
+    finally:
+        with _loads_lock:
+            windows = _loads_in_flight.get(key, [])
+            if int(num_ctx) in windows:
+                windows.remove(int(num_ctx))
+            if not windows:
+                _loads_in_flight.pop(key, None)
+
+
+def _window_in_flight(model_name: str) -> int:
+    """The window of a load of ``model_name`` this process has under way, else 0."""
+    key = _full_model_name(model_name) if model_name else ""
+    with _loads_lock:
+        windows = _loads_in_flight.get(key)
+        return windows[0] if windows else 0
+
+
 def decide_num_ctx(model_name: str) -> NumCtxDecision:
     """
     Compute the optimal num_ctx for a model based on available system resources.
@@ -917,6 +960,11 @@ def decide_num_ctx(model_name: str) -> NumCtxDecision:
         default = _fallback_num_ctx(model_name)
         logger.info("No model info for '%s', using default num_ctx=%d", model_name, default)
         return NumCtxDecision(default, resolved=False)
+
+    loading_at = _window_in_flight(model_name)
+    if loading_at:
+        logger.info("Adaptive context for '%s': num_ctx=%d, the window it is being loaded with", model_name, loading_at)
+        return NumCtxDecision(loading_at, resolved=True)
 
     entry = loaded_entry(model_name)
     own_ram_mb = _own_ram_mb(entry)
@@ -1171,6 +1219,10 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
     model_info = get_model_info(model_name)
     if not model_info:
         return True, "Model info unavailable — proceeding with defaults", override or _fallback_num_ctx(model_name)
+
+    loading_at = _window_in_flight(model_name)
+    if loading_at:
+        return True, f"OK — being loaded, num_ctx={loading_at}", loading_at
 
     entry = loaded_entry(model_name)
     if _gpu_loaded_window(entry, model_info):
