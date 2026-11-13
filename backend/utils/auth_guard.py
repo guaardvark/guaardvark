@@ -10,7 +10,8 @@ other hosts are refused. With network access on (GUAARDVARK_NETWORK_ACCESS),
 every device on this machine's local network passes as well, key or not,
 except on the routes that run a program a caller supplies or names
 (RUNS_CODE_PATHS and RUNS_CODE_MUTATION_PREFIXES), the backup routes
-(BACKUP_PREFIXES) and the Interconnector's operator routes (FLEET_*): those
+(BACKUP_PREFIXES), the Interconnector's operator routes (FLEET_*) and the
+routes that create, replace or remove the key (KEY_PREFIXES): those
 keep the rule above from every other device, whatever
 GUAARDVARK_PROTECT_TOOL_ENDPOINTS says. A client also answers its
 fleet master's signed request to start a sync (MASTER_SIGNED_PATHS).
@@ -164,6 +165,9 @@ FLEET_CODE = "fleet_key_required"
 # backups_key_required: network access is on, no key, and the route lists,
 # hands out, makes, restores or deletes a backup.
 BACKUPS_CODE = "backups_key_required"
+# key_change_key_required: network access is on, no key, and the route creates
+# the key, which would open the routes above to the device that made it.
+KEY_CHANGE_CODE = "key_change_key_required"
 API_KEY_CODE = "api_key_required"
 SCREENSHOT_LINK_CODE = "screenshot_link_invalid"
 LOCAL_ONLY_MESSAGE = (
@@ -197,6 +201,11 @@ BACKUPS_MESSAGE = (
     "local network is on. Create an API key in Settings → Access on {machine} and "
     "enter it on this device; command-line and API clients send it in the "
     "X-API-Key header."
+)
+KEY_CHANGE_MESSAGE = (
+    "The API key is created on {machine} itself, even while Trust local "
+    "network is on: open Settings → Access on {machine}, create the key there "
+    "and enter it on this device."
 )
 API_KEY_MESSAGE = (
     "This action needs {machine}'s API key. In the web UI, enter it in "
@@ -299,6 +308,19 @@ def request_touches_backups() -> bool:
     return request.path.startswith(BACKUP_PREFIXES)
 
 
+# Creating, replacing and removing the API key. The key opens the routes
+# above from any address, so a device that network access lets in must not be
+# able to make one for itself.
+KEY_PREFIXES = (
+    '/api/auth/key',
+)
+
+
+def request_changes_key() -> bool:
+    """True when the current request targets a key route (KEY_PREFIXES)."""
+    return request.path.startswith(KEY_PREFIXES)
+
+
 def request_controls_fleet() -> bool:
     """True when the current request targets an Interconnector operator route
     (the FLEET_* lists above)."""
@@ -330,7 +352,8 @@ def network_access_covers_request() -> bool:
     if request_is_from_this_machine():
         return True
     return (request_is_from_local_network() and not request_runs_code()
-            and not request_touches_backups() and not request_controls_fleet())
+            and not request_touches_backups() and not request_controls_fleet()
+            and not request_changes_key())
 
 
 def machine_name() -> str:
@@ -757,6 +780,8 @@ def check_endpoint_auth():
                 return _refusal(BACKUPS_MESSAGE, BACKUPS_CODE, 403)
             if request_controls_fleet():
                 return _refusal(FLEET_MESSAGE, FLEET_CODE, 403)
+            if request_changes_key():
+                return _refusal(KEY_CHANGE_MESSAGE, KEY_CHANGE_CODE, 403)
             return _refusal(OUTSIDE_NETWORK_MESSAGE, OUTSIDE_NETWORK_CODE, 403)
         return _refusal(LOCAL_ONLY_MESSAGE, LOCAL_ONLY_CODE, 403)
 
