@@ -191,6 +191,30 @@ def registrable_path(physical_path) -> Optional[Path]:
     return None
 
 
+def _virtual_path_problem(db_path: str, physical: Path) -> Optional[str]:
+    """Why a constructed Document.path may not be stored, or None.
+
+    The names come from the caller (a sidecar over HTTP included) and the
+    path is later joined onto the uploads folder and the install root to find
+    the file, so it must be a plain relative path, and where one of those
+    joins already names a file, that file must be the one being registered.
+    """
+    from backend.config import GUAARDVARK_ROOT
+    if "\\" in db_path or "\x00" in db_path:
+        return "the folder or file name holds a backslash or a null character"
+    parts = db_path.split("/")
+    if db_path.startswith("/") or any(part in ("", ".", "..") for part in parts):
+        return "the folder or file name is not a plain relative path"
+    for base in (UPLOAD_DIR, GUAARDVARK_ROOT):
+        other = Path(base) / db_path
+        try:
+            if other.is_file() and not other.samefile(physical):
+                return "that path already names a different file"
+        except OSError:
+            return "that path could not be checked"
+    return None
+
+
 def ensure_subfolder(parent_folder_name: str, subfolder_name: str) -> Folder:
     """
     Ensure a subfolder exists under a parent folder (e.g. Images/ImageBatch_04-02-2026_001).
@@ -290,6 +314,10 @@ def register_file(
             db_path = f"{folder_name}/{subfolder_name}/{filename}"
         else:
             db_path = f"{folder_name}/{filename}"
+        problem = _virtual_path_problem(db_path, p)
+        if problem:
+            logger.warning(f"Refusing to register {physical_path} as {db_path!r}: {problem}")
+            return None
 
     # Ensure folder record exists. The subfolder is the one the file really
     # sits in: a batch folder moved below its top-level folder keeps its record.

@@ -123,6 +123,24 @@ def _candidates_for_doc(doc) -> list[Path]:
     return candidates
 
 
+def _servable(candidate: Path) -> bool:
+    """True when a candidate lies in the uploads folder or in this install's
+    data and generator folders. Document.path is joined onto the install root
+    and the generator bases as it is stored, so a row holding ``..`` segments
+    or naming a file at the root (``.env``) must not resolve."""
+    try:
+        from backend.config import UPLOAD_DIR
+        from backend.utils.path_guard import PathEscapesRoot, contained_path
+        try:
+            contained_path(UPLOAD_DIR, candidate)
+            return True
+        except PathEscapesRoot:
+            pass
+    except ImportError:
+        pass
+    return _inside_install_outputs(candidate)
+
+
 def resolve_document_path(doc) -> Optional[Path]:
     """Return the first candidate path that actually exists on disk.
 
@@ -134,7 +152,7 @@ def resolve_document_path(doc) -> Optional[Path]:
 
     for candidate in _candidates_for_doc(doc):
         try:
-            if candidate.is_file():
+            if candidate.is_file() and _servable(candidate):
                 return candidate.resolve()
         except (OSError, ValueError):
             continue
