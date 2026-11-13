@@ -1362,6 +1362,46 @@ def refresh_context_window(llm) -> int:
     return decision.num_ctx
 
 
+def follow_loaded_window(llm) -> int:
+    """Set ``llm`` to the window its model is loaded with on the GPU; returns the window in force.
+
+    For a long-lived instance in a process that does not own the chat model's
+    load (the Celery worker's startup LLM). Loads under way are known per
+    process, so an instance built while another process loads the model is
+    sized against a card that looks half full, and that size sticks: the
+    worker got 8,192 beside a 32,768 load. Its next request then reloads the
+    model, and with Keep ready pinning the loaded copy the request never runs
+    (see :func:`load_in_flight`). Following the loaded copy costs one cached
+    /api/ps read per request. Not loaded on the GPU, or sized by
+    GUAARDVARK_NUM_CTX: the instance keeps its own window.
+    """
+    current = int(getattr(llm, "context_window", 0) or 0)
+    model = getattr(llm, "model", "") or ""
+    if not model:
+        return current
+    try:
+        if num_ctx_override(model):
+            return current
+        entry = loaded_entry(model)
+        if not entry:
+            return current
+        model_info = get_model_info(model)
+        loaded = _gpu_loaded_window(entry, model_info) if model_info else 0
+    except Exception as e:  # noqa: BLE001
+        logger.debug("Could not read the loaded window of '%s': %s", model, e)
+        return current
+    if not loaded or loaded == current:
+        return current
+    llm.context_window = loaded
+    extra = getattr(llm, "additional_kwargs", None)
+    if isinstance(extra, dict):
+        extra["num_ctx"] = loaded
+    with _provisional_lock:
+        _provisional_llms.pop(id(llm), None)
+    logger.info("num_ctx for '%s': %d, the window it is loaded with (was %d)", model, loaded, current)
+    return loaded
+
+
 def _refresh_provisional_instances(model_name: str) -> None:
     """Re-size every provisional instance of ``model_name`` from freshly cached info.
 
