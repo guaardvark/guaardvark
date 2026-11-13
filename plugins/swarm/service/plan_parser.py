@@ -69,6 +69,18 @@ def parse_plan(plan_path: str | Path) -> list[SwarmTask]:
         task = _parse_block(heading, body)
         tasks.append(task)
 
+    # A task id names the task's worktree folder and branch. A heading with no
+    # ASCII letters or digits slugs to "", and two headings can slug alike.
+    seen: set[str] = set()
+    for number, task in enumerate(tasks, start=1):
+        base = task.id or f"task-{number}"
+        task_id, suffix = base, 2
+        while task_id in seen:
+            task_id = f"{base}-{suffix}"
+            suffix += 1
+        seen.add(task_id)
+        task.id = task_id
+
     # resolve freeform dependency references to actual task IDs
     _resolve_dependencies(tasks)
 
