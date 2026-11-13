@@ -432,6 +432,11 @@ const ChatPage = () => {
       localStorage.setItem(storageKey, storedSessionId);
     }
 
+    // A turn still running belongs to the chat being left; its reply is saved
+    // there. Without this the chat being opened shows Stop and a spinner.
+    setIsSending(false);
+    setIsStreamingMessage(false);
+    setAgentWorking(false);
     setMessages([]);
     historyLoadedRef.current = null;
     _setSessionId(storedSessionId);
@@ -562,6 +567,11 @@ const ChatPage = () => {
         });
     }
 
+    // A turn still running belongs to the chat being left; its reply is saved
+    // there. Without this the chat being opened shows Stop and a spinner.
+    setIsSending(false);
+    setIsStreamingMessage(false);
+    setAgentWorking(false);
     setMessages([]);
 
     setError('');
@@ -2814,6 +2824,12 @@ const ChatPage = () => {
           }
           const storageKey = `guaardvark_chat_session_id_${projectId || 'global'}`;
           localStorage.setItem(storageKey, selectedSessionId);
+          // A turn still running belongs to the chat being left; its reply is saved
+          // there. Without this the chat being opened shows Stop and a spinner.
+          setIsSending(false);
+          setIsStreamingMessage(false);
+          setAgentWorking(false);
+          streamingServiceRef.current = null;
           setMessages([]);
           historyLoadedRef.current = false;
           historyLoadingRef.current = false;
