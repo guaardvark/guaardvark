@@ -813,8 +813,10 @@ class PluginManager:
             pass
 
         try:
+            # Listeners only: a bare ":port" also lists every process holding a
+            # connection to it, such as a Celery worker with a kept-alive socket.
             result = subprocess.run(
-                ['lsof', '-ti', f':{port}'],
+                ['lsof', '-t', f'-iTCP:{port}', '-sTCP:LISTEN'],
                 capture_output=True, text=True, timeout=5
             )
             pids = [p for p in result.stdout.strip().split('\n') if p.strip().isdigit()]
