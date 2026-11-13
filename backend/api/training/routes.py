@@ -97,6 +97,21 @@ def _job_dict(job) -> dict:
             "export_levels": training_gguf_converter.levels() if verified else []}
 
 
+def _output_name_problem(name) -> Optional[str]:
+    """Why a trained model may not take this name, or None. The trainer makes
+    a folder of that name under the training models folder, so it must stay
+    a relative name without ``..`` (an Ollama name such as "me/model:tag" is
+    fine)."""
+    if name is None or name == "":
+        return None
+    if not isinstance(name, str):
+        return "The output model name must be text."
+    if (os.path.isabs(name) or "\\" in name or "\x00" in name
+            or any(part in ("", ".", "..") for part in name.split("/"))):
+        return "The output model name cannot be a path."
+    return None
+
+
 def _export_refused(job):
     """The 409 for a job whose export cannot run now, or None."""
     from backend.tasks.training_tasks import export_block
@@ -454,6 +469,10 @@ def create_job():
             return error_response("Base model is required", 400)
         if not data.get("dataset_id"):
             return error_response("Dataset ID is required", 400)
+
+        name_problem = _output_name_problem(data.get("output_model_name"))
+        if name_problem:
+            return error_response(name_problem, 400)
 
         device_profile_id = data.get("device_profile_id")
         refusal = _start_refusal(data["base_model"], data["dataset_id"], data.get("config") or {},
@@ -1322,6 +1341,9 @@ def export_to_ollama(job_id):
 
         data = request.get_json() or {}
         model_name = data.get("model_name") or job.output_model_name or f"guaardvark-{job.name.lower().replace(' ', '-')}"
+        name_problem = _output_name_problem(model_name)
+        if name_problem:
+            return error_response(name_problem, 400)
         requested = str(data.get("quantization") or "").lower()
 
         # A GGUF already exported at the level asked for (or with none asked
