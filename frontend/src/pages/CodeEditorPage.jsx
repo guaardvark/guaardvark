@@ -730,7 +730,7 @@ const CodeEditorPage = () => {
         openTabs: openTabs.map(tab => ({
           id: tab.id,
           filePath: tab.filePath,
-          content: tab.content?.substring(0, 100),
+          content: tab.content,
           language: tab.language,
           isModified: tab.isModified,
         })),
@@ -852,7 +852,7 @@ const CodeEditorPage = () => {
           openTabs: openTabs.map(tab => ({
             id: tab.id,
             filePath: tab.filePath,
-            content: tab.content?.substring(0, 100),
+            content: tab.content,
             language: tab.language,
             isModified: tab.isModified,
           })),
