@@ -63,7 +63,9 @@ mkdir -p "$COMFYUI_DIR"
 PRESERVED_DIRS=(models custom_nodes user input output temp)
 RSYNC_OPTS=(-a --delete)
 for dir in "${PRESERVED_DIRS[@]}"; do
-  RSYNC_OPTS+=(--exclude "/$dir/")
+  # "/name/" matches a real directory only; the second pattern keeps a symlink
+  # (weights on another drive) from being deleted.
+  RSYNC_OPTS+=(--exclude "/$dir/" --exclude "/$dir")
 done
 if [ "$DRY_RUN" -eq 1 ]; then
   RSYNC_OPTS+=(--dry-run -v)
