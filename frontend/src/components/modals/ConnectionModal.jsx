@@ -276,8 +276,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
               {tokenExpiry && (
                 <Typography
                   variant="body2"
-                  color={tokenExpiry < new Date() ? "error" : "text.secondary"}
-                  sx={{ mb: 1 }}
+                  sx={{ color: tokenExpiry < new Date() ? "error.main" : "text.secondary", mb: 1 }}
                 >
                   {tokenExpiry < new Date()
                     ? t("dialogs.connection.expired", { date: tokenExpiry.toLocaleDateString(uiLocale()) })

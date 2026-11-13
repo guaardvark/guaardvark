@@ -110,7 +110,7 @@ const GeneratedMedia = ({ items, pending, onOpenPicture, maxWidth = 400, maxHeig
         >
           {clip.status !== "failed" && <CircularProgress size={16} />}
           <Box>
-            <Typography variant="body2" color={clip.status === "failed" ? "error" : "text.secondary"}>
+            <Typography variant="body2" sx={{ color: clip.status === "failed" ? "error.main" : "text.secondary" }}>
               {clip.status === "failed"
                 ? t("chat.generatedMedia.videoFailed", { error: clip.error || "" })
                 : t("chat.generatedMedia.videoPending")}

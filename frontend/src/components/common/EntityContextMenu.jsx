@@ -87,7 +87,7 @@ const EntityContextMenu = ({ anchorPosition, onClose, actions = [] }) => {
             )}
             {hasIconColumn ? (
               <ListItemText slotProps={{
-                primary: { fontSize: '0.8125rem' }
+                primary: { sx: { fontSize: '0.8125rem' } }
               }}>
                 {action.label}
               </ListItemText>

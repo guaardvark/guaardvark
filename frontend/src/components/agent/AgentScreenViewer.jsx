@@ -481,7 +481,7 @@ export default function AgentScreenViewer({ open, onClose }) {
                 }}
               />
             ) : (
-              <Typography variant="caption" color={captureError ? 'error.main' : 'grey.600'}>
+              <Typography variant="caption" sx={{ color: captureError ? 'error.main' : 'grey.600' }}>
                 {captureError || (displayStarting ? t('agents.screen.starting') : streaming ? t('agents.screen.connecting') : t('agents.screen.paused'))}
               </Typography>
             )}

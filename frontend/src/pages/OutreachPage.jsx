@@ -1005,7 +1005,7 @@ const OutreachPage = () => {
                             : undefined
                         }
                         slotProps={{
-                          secondary: { variant: "caption", fontSize: "0.6rem" }
+                          secondary: { variant: "caption", sx: { fontSize: "0.6rem" } }
                         }}
                       />
                     </ListItemButton>
@@ -1197,7 +1197,7 @@ const OutreachPage = () => {
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("outreach.drafting.words", { count: wordCount })}
               </Typography>
-              <Typography variant="caption" color={lengthOk === false ? "warning.main" : "text.secondary"}>
+              <Typography variant="caption" sx={{ color: lengthOk === false ? "warning.main" : "text.secondary" }}>
                 {t("outreach.drafting.chars", { count: charCount })}
                 {limit.max > 0 ? ` / ${limit.max}` : ""}
               </Typography>

@@ -1071,10 +1071,12 @@ const CastMemberPage = () => {
             {' '}{t('cast.trainingData.incorporates')}
           </Typography>
           {subject.caption_coverage && subject.caption_coverage.images > 0 && (
-            <Typography variant="caption" color={
-              (subject.caption_coverage.bare_captions || 0) > (subject.caption_coverage.images / 2)
-                ? 'warning.main' : 'text.secondary'
-            } sx={{ display: 'block', mb: 1 }}>
+            <Typography variant="caption" sx={{
+              color: (subject.caption_coverage.bare_captions || 0) > (subject.caption_coverage.images / 2)
+                ? 'warning.main' : 'text.secondary',
+              display: 'block',
+              mb: 1,
+            }}>
               {(subject.caption_coverage.bare_captions || 0) > (subject.caption_coverage.images / 2)
                 ? t('cast.trainingData.captionsMostlyBare', {
                   rich: subject.caption_coverage.rich_captions || 0,

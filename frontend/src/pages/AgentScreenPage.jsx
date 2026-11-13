@@ -260,7 +260,7 @@ export default function AgentScreenPage() {
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', cursor }}
           />
         ) : (
-          <Typography variant="caption" color={error ? 'error.main' : 'grey.600'}>
+          <Typography variant="caption" sx={{ color: error ? 'error.main' : 'grey.600' }}>
             {error || t('agents.screen.starting')}
           </Typography>
         )}

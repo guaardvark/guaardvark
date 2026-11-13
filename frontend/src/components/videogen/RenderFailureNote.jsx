@@ -21,9 +21,8 @@ const RenderFailureNote = ({ failure, error }) => {
   return (
     <Typography
       variant="caption"
-      color={failure?.kind === "cancelled" ? "text.secondary" : "error"}
       data-failure-kind={failure?.kind || undefined}
-      sx={{ display: "block", mt: 0.5 }}
+      sx={{ color: failure?.kind === "cancelled" ? "text.secondary" : "error.main", display: "block", mt: 0.5 }}
     >
       {text}
     </Typography>

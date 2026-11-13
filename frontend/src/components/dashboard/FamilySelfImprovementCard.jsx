@@ -163,8 +163,7 @@ const FamilySelfImprovementCard = React.forwardRef(
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
                   <Typography
                     variant="caption"
-                    color={`${STAGE_COLORS[progress.stage] || "info"}.main`}
-                    sx={{ fontWeight: "bold" }}
+                    sx={{ color: `${STAGE_COLORS[progress.stage] || "info"}.main`, fontWeight: "bold" }}
                   >
                     {progress.stage === "starting" && t("dashboard.family.stages.starting")}
                     {progress.stage === "testing" && t("dashboard.family.stages.testing")}

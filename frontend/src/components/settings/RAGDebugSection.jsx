@@ -235,8 +235,10 @@ const RAGDebugSection = () => {
                   <Typography variant="body2">{t("settingsSections.ragDebug.errorRate")}</Typography>
                   <Typography
                     variant="body2"
-                    color={systemHealth.system_metrics?.error_rate > 0.05 ? "error.main" : "text.primary"}
-                    sx={{ fontWeight: "bold" }}
+                    sx={{
+                      color: systemHealth.system_metrics?.error_rate > 0.05 ? "error.main" : "text.primary",
+                      fontWeight: "bold",
+                    }}
                   >
                     {((systemHealth.system_metrics?.error_rate || 0) * 100).toFixed(1)}%
                   </Typography>

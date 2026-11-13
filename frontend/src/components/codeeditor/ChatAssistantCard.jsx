@@ -1595,7 +1595,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             <ListItemText
                               primary={error.message || error}
                               slotProps={{
-                                primary: { fontSize: '0.7rem' }
+                                primary: { sx: { fontSize: '0.7rem' } }
                               }}
                             />
                           </ListItem>
@@ -1608,7 +1608,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             <ListItemText
                               primary={warning.message || warning}
                               slotProps={{
-                                primary: { fontSize: '0.7rem' }
+                                primary: { sx: { fontSize: '0.7rem' } }
                               }}
                             />
                           </ListItem>
@@ -1621,7 +1621,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             <ListItemText
                               primary={suggestion.message || suggestion}
                               slotProps={{
-                                primary: { fontSize: '0.7rem' }
+                                primary: { sx: { fontSize: '0.7rem' } }
                               }}
                             />
                           </ListItem>
@@ -1634,7 +1634,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             <ListItemText
                               primary={t("codeAssistant.context.noIssues")}
                               slotProps={{
-                                primary: { fontSize: '0.7rem', color: 'success.main' }
+                                primary: { sx: { fontSize: '0.7rem', color: 'success.main' } }
                               }}
                             />
                           </ListItem>
@@ -1793,16 +1793,18 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
           role="menu"
           aria-labelledby="grid-menu-button"
           aria-label={t("codeAssistant.menu.label")}
-          PaperProps={{
-            sx: {
-              mt: 1,
-              minWidth: 300,
-              maxWidth: 400,
-              '& .MuiMenuItem-root': {
-                px: 2,
-                py: 1,
+          slotProps={{
+            paper: {
+              sx: {
+                mt: 1,
+                minWidth: 300,
+                maxWidth: 400,
+                '& .MuiMenuItem-root': {
+                  px: 2,
+                  py: 1,
+                }
               }
-            }
+            },
           }}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}

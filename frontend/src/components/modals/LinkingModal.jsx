@@ -397,11 +397,7 @@ const LinkingModal = ({
                         }
                         slotProps={{
                           primary: { noWrap: true },
-
-                          secondary: {
-                            noWrap: true,
-                            fontSize: "0.75rem",
-                          }
+                          secondary: { noWrap: true, sx: { fontSize: "0.75rem" } },
                         }} />
                     </ListItemButton>
                   ))}

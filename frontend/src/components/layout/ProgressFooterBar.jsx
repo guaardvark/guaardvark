@@ -326,7 +326,7 @@ const ProgressFooterBar = () => {
                     zIndex: 9999,
                 }}
             >
-                <Typography variant="caption" color="white">
+                <Typography variant="caption" sx={{ color: "white" }}>
                     {t('layout.progressFooter.renderError')}
                 </Typography>
             </Box>

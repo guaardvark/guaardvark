@@ -287,7 +287,6 @@ const UnifiedUploadModal = ({
       onClose={handleClose} 
       maxWidth="sm" 
       fullWidth
-      disableEscapeKeyDown={isUploading}
     >
       <DialogTitle>
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>

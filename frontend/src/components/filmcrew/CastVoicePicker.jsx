@@ -88,7 +88,7 @@ const CastVoicePicker = ({ value, onChange, disabled = false }) => {
           select: {
             displayEmpty: true,
             renderValue,
-            MenuProps: { PaperProps: { sx: { maxHeight: 420 } } },
+            MenuProps: { slotProps: { paper: { sx: { maxHeight: 420 } } } },
           },
 
           inputLabel: { shrink: true }

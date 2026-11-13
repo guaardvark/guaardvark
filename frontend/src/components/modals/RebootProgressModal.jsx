@@ -338,7 +338,6 @@ const RebootProgressModal = ({ open, onClose }) => {
       onClose={handleClose}
       maxWidth="md"
       fullWidth
-      disableEscapeKeyDown={status === 'running'}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {statusIcon}

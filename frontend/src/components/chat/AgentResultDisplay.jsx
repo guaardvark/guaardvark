@@ -30,7 +30,7 @@ import { useUiTranslation } from "../../i18n";
  * Displays the results of an agent reasoning loop execution
  * Shows each step with thoughts, tool calls, and observations
  */
-const AgentResultDisplay = ({ result, isLoading = false }) => {
+const AgentResultDisplay = ({ result = null, isLoading = false }) => {
   const { t } = useUiTranslation();
   const [expandedStep, setExpandedStep] = useState(null);
 
@@ -248,11 +248,6 @@ AgentResultDisplay.propTypes = {
     success: PropTypes.bool,
   }),
   isLoading: PropTypes.bool,
-};
-
-AgentResultDisplay.defaultProps = {
-  result: null,
-  isLoading: false,
 };
 
 export default AgentResultDisplay;

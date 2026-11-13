@@ -163,7 +163,7 @@ const VideoTextOverlayPage = () => {
                     onChange={(e) => { setSelectedDocId(e.target.value); setResult(null); }}
                     disabled={loadingVideos || rendering}
                     sx={{ borderRadius: 2 }}
-                    MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { maxHeight: 360 } } } }}
                   >
                     {videos.length === 0 && (
                       <MenuItem value="" disabled>

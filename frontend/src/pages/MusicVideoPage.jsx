@@ -756,7 +756,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                 <label htmlFor="mv-autosave" style={{ fontSize: "0.75rem" }}>{t("musicVideo.plan.autosave")}</label>
               </Stack>
             </Tooltip>
-            <Typography variant="caption" color={saveState === "error" ? "error" : "text.secondary"} data-testid="mv-save-state">
+            <Typography variant="caption" sx={{ color: saveState === "error" ? "error.main" : "text.secondary" }} data-testid="mv-save-state">
               {saveState === "saving"
                 ? t("musicVideo.plan.saving")
                 : saveState === "error"

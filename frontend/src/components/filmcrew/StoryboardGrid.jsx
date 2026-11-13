@@ -173,8 +173,11 @@ const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApp
                 {shot.curator_advice?.verdict && (
                   <Typography
                     variant="caption"
-                    color={shot.curator_advice.verdict === 'flag' ? 'warning.main' : 'success.main'}
-                    sx={{ display: "block", mt: 1 }}
+                    sx={{
+                      color: shot.curator_advice.verdict === 'flag' ? 'warning.main' : 'success.main',
+                      display: "block",
+                      mt: 1,
+                    }}
                   >
                     {curatorLine(shot.curator_advice)}
                   </Typography>

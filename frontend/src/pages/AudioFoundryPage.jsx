@@ -1291,7 +1291,7 @@ const AudioFoundryPage = () => {
                         <Select
                           value={voiceId}
                           onChange={(e) => setVoiceId(e.target.value)}
-                          MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+                          MenuProps={{ slotProps: { paper: { sx: { maxHeight: 360 } } } }}
                           sx={{ borderRadius: 2 }}
                         >
                           <MenuItem value={DEFAULT_VOICE}>
@@ -1371,7 +1371,7 @@ const AudioFoundryPage = () => {
                               onChange={(e) => {
                                 handlePickClip(voiceClipLibrary.find((x) => x.filename === e.target.value));
                               }}
-                              MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
+                              MenuProps={{ slotProps: { paper: { sx: { maxHeight: 300 } } } }}
                               sx={{ borderRadius: 2 }}
                             >
                               {voiceClipLibrary.map((c) => (

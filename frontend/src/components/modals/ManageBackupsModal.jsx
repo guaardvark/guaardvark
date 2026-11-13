@@ -131,7 +131,7 @@ function AutoBackupSettings({ settings, onSave }) {
         ))}
       </Box>
       {disk && (
-        <Typography variant="caption" color={disk.ok ? "text.secondary" : "error"} sx={{ display: "block", mt: 1 }}>
+        <Typography variant="caption" sx={{ color: disk.ok ? "text.secondary" : "error.main", display: "block", mt: 1 }}>
           {t("backups.manageBackups.diskLine", { free: formatBytes(disk.free), needed: formatBytes(disk.needed) })}
           {!disk.ok && ` ${t("backups.manageBackups.diskLow")}`}
         </Typography>

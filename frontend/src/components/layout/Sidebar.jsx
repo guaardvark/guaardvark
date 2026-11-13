@@ -265,9 +265,8 @@ const Sidebar = () => {
                             primary={navigationLabel(item.text, item)}
                             slotProps={{
                               primary: {
-                                fontSize: "0.825rem",
-                                fontWeight: isActive ? 600 : 400,
                                 noWrap: true,
+                                sx: { fontSize: "0.825rem", fontWeight: isActive ? 600 : 400 },
                               }
                             }}
                           />
