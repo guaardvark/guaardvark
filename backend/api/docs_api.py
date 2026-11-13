@@ -811,7 +811,15 @@ def manage_document(doc_id):
                     if not os.path.isabs(doc_path_to_delete)
                     else doc_path_to_delete
                 )
-                if os.path.exists(full_doc_path):
+                # The same limit the content write above keeps: a row's path
+                # may be absolute or hold "..", and only a file inside uploads
+                # or outputs is this document's to remove.
+                storage_roots = [upload_folder, current_app.config.get("OUTPUT_DIR")]
+                if not is_within(full_doc_path, storage_roots):
+                    logger.warning(
+                        f"Leaving the file of document {doc_id} on disk: its path resolves outside uploads and outputs"
+                    )
+                elif os.path.exists(full_doc_path):
                     os.remove(full_doc_path)
                     logger.info(f"Deleted file from disk: {full_doc_path}")
                 else:
