@@ -472,11 +472,11 @@ const OutreachPage = () => {
 
   const handleSeedNewDraftLLM = async () => {
     if (!ndContext.trim()) {
-      setError(t("outreach.errors.needContext"));
+      setModalError(t("outreach.errors.needContext"));
       return;
     }
     setNdBusy(true);
-    setError(null);
+    setModalError(null);
     try {
       const out = await outreachApi.draftComment({
         platform: ndPlatform,
@@ -495,7 +495,7 @@ const OutreachPage = () => {
       if (out.audit_id) setNdSeededId(out.audit_id);
       await fetchQueue();
     } catch (e) {
-      setError(t("outreach.errors.seed", { error: e.message }));
+      setModalError(t("outreach.errors.seed", { error: e.message }));
     } finally {
       setNdBusy(false);
     }
@@ -503,11 +503,11 @@ const OutreachPage = () => {
 
   const handleSaveNewDraft = async () => {
     if (!ndBody.trim()) {
-      setError(t("outreach.errors.emptyBody"));
+      setModalError(t("outreach.errors.emptyBody"));
       return;
     }
     setNdBusy(true);
-    setError(null); setInfo(null);
+    setModalError(null); setInfo(null);
     try {
       // If the LLM seeded this draft, /draft-comment already wrote the row —
       // PATCH it. Otherwise POST a fresh row.
@@ -533,7 +533,7 @@ const OutreachPage = () => {
       // editing or hit Approve without hunting for it in the list.
       selectQueueItem(row);
     } catch (e) {
-      setError(t("outreach.errors.save", { error: e.message }));
+      setModalError(t("outreach.errors.save", { error: e.message }));
     } finally {
       setNdBusy(false);
     }
@@ -590,11 +590,11 @@ const OutreachPage = () => {
   const handleScoutUrl = async ({ silent = false } = {}) => {
     const url = (ndUrl || "").trim();
     if (!url || !/^https?:\/\//i.test(url)) {
-      if (!silent) setError(t("outreach.errors.needUrl"));
+      if (!silent) setModalError(t("outreach.errors.needUrl"));
       return;
     }
     setNdScouting(true);
-    if (!silent) setError(null);
+    if (!silent) setModalError(null);
     try {
       const out = await outreachApi.scoutUrl(url);
       // The scout returns thread_context already concatenated. If the user
@@ -614,7 +614,7 @@ const OutreachPage = () => {
         );
       }
     } catch (e) {
-      if (!silent) setError(t("outreach.errors.scout", { error: e.message }));
+      if (!silent) setModalError(t("outreach.errors.scout", { error: e.message }));
     } finally {
       setNdScouting(false);
     }
