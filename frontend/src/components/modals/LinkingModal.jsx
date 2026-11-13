@@ -11,7 +11,7 @@ import {
   DialogActions,
   Button,
   List,
-  ListItem,
+  ListItemButton,
   ListItemIcon,
   Checkbox,
   ListItemText,
@@ -357,16 +357,14 @@ const LinkingModal = ({
               ) : (
                 <List dense>
                   {availableItems.map((item) => (
-                    <ListItem
+                    <ListItemButton
                       key={item.id}
                       onClick={() => handleToggleChecked(item.id)}
                       // MODIFIED: Removed secondaryAction prop to delete right-hand checkbox
                       sx={{
                         cursor: "pointer",
                         "&:hover": { backgroundColor: "action.hover" },
-                      }}
-                      button
-                    >
+                      }}>
                       <ListItemIcon sx={{ minWidth: "auto", mr: 1.5 }}>
                         <Checkbox
                           edge="start"
@@ -399,7 +397,7 @@ const LinkingModal = ({
                           fontSize: "0.75rem",
                         }}
                       />
-                    </ListItem>
+                    </ListItemButton>
                   ))}
                 </List>
               )}

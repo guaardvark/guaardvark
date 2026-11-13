@@ -7,7 +7,7 @@ import {
   Paper,
   TextField,
   List,
-  ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
   ListItemSecondaryAction,
@@ -203,8 +203,7 @@ const AICommandPalette = ({
 
                   return (
                     <React.Fragment key={commandKey}>
-                      <ListItem
-                        button
+                      <ListItemButton
                         selected={isSelected}
                         onClick={() => handleCommandClick(commandKey)}
                         sx={{
@@ -222,8 +221,7 @@ const AICommandPalette = ({
                               bgcolor: 'primary.main',
                             },
                           },
-                        }}
-                      >
+                        }}>
                         <ListItemIcon
                           sx={{
                             color: isSelected ? 'inherit' : command.color + '.main',
@@ -289,7 +287,7 @@ const AICommandPalette = ({
                             )}
                           </Box>
                         </ListItemSecondaryAction>
-                      </ListItem>
+                      </ListItemButton>
                       {index < filteredCommands.length - 1 && (
                         <Divider variant="inset" component="li" />
                       )}

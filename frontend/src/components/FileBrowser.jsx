@@ -7,7 +7,7 @@ import {
   Paper,
   Typography,
   List,
-  ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
   IconButton,
@@ -265,12 +265,10 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
         ) : (
           <List>
             {items.map((item) => (
-              <ListItem
+              <ListItemButton
                 key={item.path}
-                button
                 onClick={() => navigateTo(item)}
-                sx={{ cursor: 'pointer' }}
-              >
+                sx={{ cursor: 'pointer' }}>
                 <ListItemIcon>
                   {item.is_directory ? <FolderIcon color="primary" /> : <FileIcon />}
                 </ListItemIcon>
@@ -291,7 +289,7 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
                     </Box>
                   }
                 />
-              </ListItem>
+              </ListItemButton>
             ))}
           </List>
         )}
