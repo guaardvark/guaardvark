@@ -451,6 +451,9 @@ const StickyNotesPage = () => {
             setLayout(dl);
           }
         }
+        // A later read that succeeds (the effect can run twice) shows the
+        // stored board, so saving is safe again.
+        loadFailedRef.current = false;
       } catch (e) {
         console.error("StickyNotes: Error fetching state:", e);
         setLayoutError({ kind: "load", message: e.message });
