@@ -47,6 +47,14 @@
     "note": "Ambos se aplicam na próxima parada ou início — nada reinicia agora. Por padrão, stop.sh para apenas o Ollama que o start.sh iniciou. Estes escrevem GUAARDVARK_OLLAMA_KEEP_RUNNING / GUAARDVARK_OLLAMA_EXTERNAL em .env.",
     "envNotWritable": "(.env não é gravável pelo servidor; defina-os manualmente.)"
   },
+  "comfyui": {
+    "saved": "Salvo em .env; aplica-se agora",
+    "saveFailed": "Não foi possível salvar: {{error}}",
+    "external": "Eu mesmo executo o ComfyUI: nunca o inicie ou pare",
+    "note": "O Guaardvark passa a usar o ComfyUI em GUAARDVARK_COMFYUI_URL (ou a URL de serviço do plugin) e nunca inicia, para, instala ou atualiza um. Isto escreve GUAARDVARK_COMFYUI_EXTERNAL em .env.",
+    "models": "Instalar continua gravando os modelos em GUAARDVARK_COMFYUI_DIR/models. O seu ComfyUI precisa carregar essa pasta, por exemplo como um volume de modelos compartilhado.",
+    "envNotWritable": "(.env não é gravável pelo servidor; defina-o manualmente.)"
+  },
   "profile": {
     "setTo": "Perfil definido para {{profile}}. Reinicie para aplicar.",
     "setFailed": "Falha ao definir perfil: {{error}}",

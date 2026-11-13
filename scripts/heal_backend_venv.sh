@@ -25,6 +25,8 @@ LOG_FILE="$LOG_DIR/heal_backend_venv.log"
 
 # shellcheck source=lib/venv_pins.sh
 . "$SCRIPT_DIR/lib/venv_pins.sh"
+# shellcheck source=lib/ollama_lifecycle.sh
+. "$SCRIPT_DIR/lib/ollama_lifecycle.sh"   # ollama_flag_on
 
 SKIP_CV=0
 COMFYUI_ONLY=0
@@ -324,6 +326,18 @@ restart_comfyui_if_requested() {
         return 0
     fi
     log "=== Step 7: restart ComfyUI ==="
+    # The ComfyUI card's switch, read as stop.sh reads it: .env wins over the environment.
+    local external="${GUAARDVARK_COMFYUI_EXTERNAL:-}" line=""
+    if [ -f "$REPO_ROOT/.env" ]; then
+        line=$(grep -E '^GUAARDVARK_COMFYUI_EXTERNAL=' "$REPO_ROOT/.env" | tail -1 || true)
+    fi
+    if [ -n "$line" ]; then
+        external="${line#*=}"
+    fi
+    if ollama_flag_on "$external"; then
+        log "Skipping ComfyUI restart: you run ComfyUI yourself (GUAARDVARK_COMFYUI_EXTERNAL)"
+        return 0
+    fi
     if [ -x "$REPO_ROOT/plugins/comfyui/scripts/stop.sh" ]; then
         bash "$REPO_ROOT/plugins/comfyui/scripts/stop.sh" || true
         sleep 2

@@ -90,6 +90,20 @@ class UpdateRefused(Exception):
     """The job was not started; the message says why (HTTP 409)."""
 
 
+def _comfyui_external() -> bool:
+    """The ComfyUI card's "I run ComfyUI myself: never start or stop it" switch."""
+    from backend.plugins.plugin_manager import comfyui_is_external
+    return comfyui_is_external()
+
+
+def _refuse_if_external(verb: str) -> None:
+    """While the user runs their own ComfyUI, this checkout's tree is not the
+    one in use, and no job here may stop or start a server."""
+    if _comfyui_external():
+        from backend.plugins.plugin_manager import external_refusal
+        raise UpdateRefused(external_refusal(PLUGIN_ID, verb)["error"])
+
+
 class UpdateError(Exception):
     """A phase failed; the job rolls back."""
 
@@ -577,6 +591,7 @@ class ComfyUIUpdateService:
             ),
             "notes": rel.get("notes"),
             "needs_repair": needs_repair,
+            "external": _comfyui_external(),
         }
 
     def status(self) -> Dict[str, Any]:
@@ -620,6 +635,7 @@ class ComfyUIUpdateService:
 
     def start(self, target: Optional[str] = None, *, background: bool = True) -> Dict[str, Any]:
         """Begin the update; raises :class:`UpdateRefused` instead of starting."""
+        _refuse_if_external("updated")
         tag, rel = self._release(target)
         check = self.check(tag)
         if check["installed"] is None and not check["needs_repair"]:
@@ -641,6 +657,7 @@ class ComfyUIUpdateService:
 
         Raises :class:`UpdateRefused` instead of starting.
         """
+        _refuse_if_external("installed")
         tag, rel = self._release(target)
         check = self.check(tag)
         if not check["installable"]:
@@ -662,6 +679,7 @@ class ComfyUIUpdateService:
 
     def restore_previous(self, *, background: bool = True) -> Dict[str, Any]:
         """Swap back to the kept ``ComfyUI.prev-*`` tree."""
+        _refuse_if_external("restored")
         check = self.check()
         self._refuse_if_blocked(check)
         prev = self.previous_tree()
@@ -679,6 +697,7 @@ class ComfyUIUpdateService:
 
     def repair(self, *, background: bool = True) -> Dict[str, Any]:
         """Walk an interrupted job back to the old tree and start it."""
+        _refuse_if_external("repaired")
         if get_status()["state"] == "running":
             raise UpdateRefused("A ComfyUI update is already running")
         reason = self.needs_repair()

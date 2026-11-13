@@ -32,6 +32,20 @@ except ImportError:
 from backend.services.comfyui_video_generator import VideoGenerationRequest, VideoGenerationResult
 
 
+def _comfyui_external() -> bool:
+    """The ComfyUI card's "I run ComfyUI myself: never start or stop it" switch."""
+    try:
+        from backend.plugins.plugin_manager import comfyui_is_external
+        return comfyui_is_external()
+    except Exception:
+        return False
+
+
+def _comfyui_external_down() -> str:
+    from backend.plugins.plugin_manager import external_down_message
+    return external_down_message("comfyui", COMFYUI_URL)
+
+
 class VideoGenerationRouter:
     """Routes video generation to ComfyUI or Offline backend based on availability and config."""
 
@@ -55,6 +69,10 @@ class VideoGenerationRouter:
             off = self._get_offline()
             if off:
                 return True
+        # A local tree only counts because it can be started, which the
+        # "I run ComfyUI myself" switch forbids.
+        if _comfyui_external():
+            return False
         return Path(COMFYUI_DIR).exists()
 
     def _get_comfyui(self, force_refresh=False):
@@ -120,6 +138,8 @@ class VideoGenerationRouter:
                 )
                 return gen
 
+        if _comfyui_external():
+            raise RuntimeError(f"No video generation backend available. {_comfyui_external_down()}")
         raise RuntimeError(
             "No video generation backend available. "
             "ComfyUI is not running and Offline generator is not installed."
@@ -219,6 +239,10 @@ class VideoGenerationRouter:
         if self._check_comfyui():
             logger.info("ComfyUI is already running")
             return True
+
+        if _comfyui_external():
+            logger.error(f"Not starting ComfyUI from {COMFYUI_DIR}: {_comfyui_external_down()}")
+            return False
 
         comfyui_dir = Path(COMFYUI_DIR)
         if not comfyui_dir.exists():
