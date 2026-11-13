@@ -15,6 +15,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     melt \
     && rm -rf /var/lib/apt/lists/*
 
+# pg_dump/pg_restore for the daily backup and for restores. The client must match the server's major version
+# (pgvector/pgvector:pg16 in docker-compose.yml): restores run with --exit-on-error, and a newer client's dump
+# opens with settings a 16 server rejects. Debian's own postgresql-client is a newer major, so the client comes
+# from the PostgreSQL project's apt repository.
+ARG PG_MAJOR=16
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && . /etc/os-release \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-${PG_MAJOR} \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # PyTorch for the card this image will run on. start-docker.sh --gpu passes
