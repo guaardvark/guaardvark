@@ -112,9 +112,8 @@ def test_the_timeout_text_names_the_servers_variable():
     text = tools_adapter._timeout_message("search_code", 120, read_only=True)
 
     assert "GUAARDVARK_MCP_SERVER_TIMEOUT" in text
-    # A read-only tool only times out when it is slow, so its message says the
-    # first run is still going instead of inviting an immediate retry.
-    assert "starts a second one behind it" in text
+    # The first run is still going, and a retry waits for it rather than stacking a second.
+    assert "waits for this run instead of starting a second one" in text
 
 
 @pytest.mark.parametrize("value", [0, -5, "0", True])

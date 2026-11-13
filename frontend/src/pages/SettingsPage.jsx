@@ -383,6 +383,11 @@ const SettingsPage = () => {
   const [selectedEmbeddingModel, setSelectedEmbeddingModel] = useState("");
   const [isSwitchingEmbedding, setIsSwitchingEmbedding] = useState(false);
   const [confirmEmbeddingOpen, setConfirmEmbeddingOpen] = useState(false);
+  // GET /api/model/embedding/prompts: whether the index was built with the
+  // active model's document prompt.
+  const [embeddingPrompts, setEmbeddingPrompts] = useState(null);
+  const [confirmReindexOpen, setConfirmReindexOpen] = useState(false);
+  const [isReindexing, setIsReindexing] = useState(false);
   const [embedDimFilter, setEmbedDimFilter] = useState(null); // null = all, or a number like 1024
   const [chatSizeFilter, setChatSizeFilter] = useState(null); // null = all, or "small"/"medium"/"large"
 
@@ -1077,13 +1082,26 @@ const SettingsPage = () => {
     }
   }, []);
 
+  const fetchEmbeddingPrompts = useCallback(async () => {
+    try {
+      const r = await fetch("/api/model/embedding/prompts");
+      if (r.ok) {
+        const d = await r.json();
+        if (d.success) setEmbeddingPrompts(payloadOf(d));
+      }
+    } catch (e) {
+      console.warn("Failed to fetch embedding prompts:", e);
+    }
+  }, []);
+
   useEffect(() => {
     fetchResources();
     fetchEmbeddingModels();
+    fetchEmbeddingPrompts();
     // Refresh resources periodically while on settings page
     const interval = setInterval(fetchResources, 15000);
     return () => clearInterval(interval);
-  }, [fetchResources, fetchEmbeddingModels]);
+  }, [fetchResources, fetchEmbeddingModels, fetchEmbeddingPrompts]);
 
   // Refresh resources after a model switch completes
   useEffect(() => {
@@ -2201,6 +2219,19 @@ const SettingsPage = () => {
   // Asks first (ConfirmActionDialog below); switchEmbedding runs on confirm.
   const handleSetEmbeddingClick = () => setConfirmEmbeddingOpen(true);
 
+  // Indexed text with no document behind it is not re-indexed; say what and
+  // how to rebuild it.
+  const notRebuiltNote = (payload) => {
+    const notRebuilt = payload?.not_rebuilt || [];
+    return notRebuilt.length
+      ? ` ${t("settings.embedding.notRebuilt", {
+          items: notRebuilt
+            .map((n) => t("settings.embedding.notRebuiltItem", { rows: n.rows, kind: n.kind.replace(/_/g, " "), how: n.how }))
+            .join(" "),
+        })}`
+      : "";
+  };
+
   const switchEmbedding = async () => {
     setConfirmEmbeddingOpen(false);
     setIsSwitchingEmbedding(true);
@@ -2219,16 +2250,8 @@ const SettingsPage = () => {
         const dims = payload?.dimensions;
         const queued = payload?.reindex_queued ?? 0;
         const pending = payload?.reindex_pending ?? 0;
-        // Indexed text with no document behind it is not re-indexed; say what
-        // and how to rebuild it.
         const notRebuilt = payload?.not_rebuilt || [];
-        const notRebuiltText = notRebuilt.length
-          ? ` ${t("settings.embedding.notRebuilt", {
-              items: notRebuilt
-                .map((n) => t("settings.embedding.notRebuiltItem", { rows: n.rows, kind: n.kind.replace(/_/g, " "), how: n.how }))
-                .join(" "),
-            })}`
-          : "";
+        const notRebuiltText = notRebuiltNote(payload);
         showMessage(
           payload?.index_cleared
             ? (pending
@@ -2238,6 +2261,7 @@ const SettingsPage = () => {
           payload?.index_cleared && (pending || notRebuilt.length) ? "warning" : "success",
         );
         fetchResources();
+        fetchEmbeddingPrompts();
         setProfilesReloadKey((k) => k + 1);
       } else {
         showMessage(formatUiError(d.error) || t("settings.embedding.switchFailed"), "error");
@@ -2246,6 +2270,36 @@ const SettingsPage = () => {
       showMessage(t("settings.embedding.notSwitched", { error: formatUiError(e) || t("settings.embedding.requestFailed") }), "error");
     } finally {
       setIsSwitchingEmbedding(false);
+    }
+  };
+
+  // Embeds every document again with the model's document prompt; the
+  // catch-up's progress shows in the footer.
+  const reindexForPrompts = async () => {
+    setConfirmReindexOpen(false);
+    setIsReindexing(true);
+    try {
+      const r = await fetch("/api/model/embedding/reindex", { method: "POST" });
+      const d = await handleResponse(r, { quiet: true });
+      if (d.success) {
+        const payload = payloadOf(d);
+        const queued = payload?.reindex_queued ?? 0;
+        const pending = payload?.reindex_pending ?? 0;
+        const notRebuiltText = notRebuiltNote(payload);
+        showMessage(
+          (pending
+            ? t("settings.embedding.reindexStartedPending", { model: payload?.model, queued, pending })
+            : t("settings.embedding.reindexStarted", { model: payload?.model, queued })) + notRebuiltText,
+          pending || notRebuiltText ? "warning" : "success",
+        );
+      } else {
+        showMessage(t("settings.embedding.reindexFailed", { error: formatUiError(d.error) || t("settings.embedding.requestFailed") }), "error");
+      }
+    } catch (e) {
+      showMessage(t("settings.embedding.reindexFailed", { error: formatUiError(e) || t("settings.embedding.requestFailed") }), "error");
+    } finally {
+      setIsReindexing(false);
+      fetchEmbeddingPrompts();
     }
   };
 
@@ -3032,6 +3086,22 @@ const SettingsPage = () => {
             <RefreshIcon sx={{ fontSize: 16 }} />
           </ActionButton>
         </Line>
+        {embeddingPrompts?.reindex_suggested && (
+          <Line>
+            <Hint sx={{ flex: 1 }}>
+              {t("settings.modelsPanel.reindexHint", { model: embeddingPrompts.model })}
+            </Hint>
+            <ActionButton
+              kind="primary"
+              disabled={isSwitchingEmbedding}
+              loading={isReindexing}
+              onClick={() => setConfirmReindexOpen(true)}
+              tooltip={t("settings.modelsPanel.reindexTooltip")}
+            >
+              {t("settings.modelsPanel.reindex")}
+            </ActionButton>
+          </Line>
+        )}
       </Cluster>
     </SettingsPanel>
   );
@@ -4189,6 +4259,18 @@ const SettingsPage = () => {
         keeps={t("settings.dialogs.embeddingKeeps")}
         confirmLabel={t("settings.dialogs.embeddingConfirm")}
         busy={isSwitchingEmbedding}
+      />
+      <ConfirmActionDialog
+        open={confirmReindexOpen}
+        onClose={() => setConfirmReindexOpen(false)}
+        onConfirm={reindexForPrompts}
+        title={t("settings.dialogs.reindexTitle")}
+        description={t("settings.dialogs.reindexDescription", { model: embeddingPrompts?.model || "" })}
+        facts={[{ label: t("settings.dialogs.documentPrompt"), value: embeddingPrompts?.new_index?.document || "—" }]}
+        keeps={t("settings.dialogs.reindexKeeps")}
+        confirmLabel={t("settings.dialogs.reindexConfirm")}
+        busy={isReindexing}
+        reversible
       />
       <ConfirmActionDialog
         open={rebootDialogOpen}

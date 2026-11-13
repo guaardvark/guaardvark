@@ -3,7 +3,7 @@
 # Version 1.0 - Phase 3 implementation
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, List
 
 from flask import Blueprint, request, jsonify
@@ -14,6 +14,37 @@ from backend.services.task_handlers import get_handler_registry, register_all_ha
 logger = logging.getLogger(__name__)
 
 task_scheduler_bp = Blueprint("task_scheduler_api", __name__, url_prefix="/api/scheduler")
+
+
+class CronUnavailable(RuntimeError):
+    """croniter is missing from the backend venv, so no cron schedule can be read."""
+
+
+def _next_cron_run(expression: str) -> tuple[datetime, datetime]:
+    """The next time ``expression`` fires, read in the server's local time.
+
+    Returns (local naive, UTC naive): next_run_at is shown in local time, and
+    the scheduler beat compares due_date with the UTC clock. Raises
+    CronUnavailable when croniter is not installed and ValueError for an
+    expression it cannot read.
+    """
+    try:
+        from croniter import croniter
+    except ImportError as e:
+        logger.error("Cron task refused: croniter is not installed in the backend venv (%s)", e)
+        raise CronUnavailable(
+            "Cron schedules need the croniter package, which is not installed in the "
+            "backend venv. It is listed in backend/requirements.txt; run ./start.sh "
+            "to reinstall the backend requirements."
+        ) from e
+    try:
+        local_run = croniter(expression, datetime.now().astimezone()).get_next(datetime)
+    except (ValueError, KeyError, TypeError, AttributeError) as e:  # a non-string raises AttributeError
+        raise ValueError(f"Cron expression {expression!r} is not valid: {e}") from e
+    return (
+        local_run.replace(tzinfo=None),
+        local_run.astimezone(timezone.utc).replace(tzinfo=None),
+    )
 
 
 def _ensure_handlers_registered():
@@ -84,7 +115,7 @@ def get_queue_summary():
 
         running_task_details = []
         for task in running_tasks:
-            handler = registry.get_handler(task.task_handler) if task.task_handler else None
+            handler = registry.get(task.task_handler) if task.task_handler else None
             running_task_details.append({
                 "id": task.id,
                 "job_id": task.job_id,
@@ -216,7 +247,7 @@ def create_task():
             return error_response("handler is required", status_code=400)
 
         registry = _ensure_handlers_registered()
-        handler = registry.get_handler(handler_name)
+        handler = registry.get(handler_name)
         if not handler:
             return error_response(f"Unknown handler: {handler_name}", status_code=400)
 
@@ -236,14 +267,18 @@ def create_task():
             retry_delay=data.get("retry_delay", 60)
         )
 
-        # Set next_run_at for scheduled tasks
+        # A cron task waits for its first run time. check_scheduled_tasks
+        # dispatches pending tasks by due_date, and one without a due_date runs
+        # at once.
         if task.schedule_type == "scheduled" and task.cron_expression:
             try:
-                from croniter import croniter
-                cron = croniter(task.cron_expression, datetime.now())
-                task.next_run_at = cron.get_next(datetime)
-            except Exception as e:
-                logger.warning(f"Could not parse cron expression: {e}")
+                local_run, utc_run = _next_cron_run(task.cron_expression)
+            except CronUnavailable as e:
+                return error_response(str(e), status_code=503, error_code="CRON_UNAVAILABLE")
+            except ValueError as e:
+                return error_response(str(e), status_code=400, error_code="INVALID_CRON")
+            task.next_run_at = local_run
+            task.due_date = utc_run
 
         db.session.add(task)
         db.session.commit()
@@ -287,7 +322,7 @@ def get_task(task_id):
             return error_response(f"Task {task_id} not found", status_code=404)
 
         registry = _ensure_handlers_registered()
-        handler = registry.get_handler(task.task_handler) if task.task_handler else None
+        handler = registry.get(task.task_handler) if task.task_handler else None
 
         return success_response({
             "task": {
@@ -415,7 +450,7 @@ def execute_task(task_id):
             return error_response(f"Task {task_id} is not pending (status: {task.status})", status_code=400)
 
         registry = _ensure_handlers_registered()
-        handler = registry.get_handler(task.task_handler)
+        handler = registry.get(task.task_handler)
         if not handler:
             return error_response(f"Handler {task.task_handler} not found", status_code=400)
 

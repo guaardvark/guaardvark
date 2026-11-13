@@ -16547,6 +16547,10 @@
       "en": "6616e6a85bcc",
       "out": "747c7babd3e1"
     },
+    "contextMenu.upscale": {
+      "en": "5cdb1f7d7aa7",
+      "out": "c16919f0cf06"
+    },
     "infographic.failed": {
       "en": "e16305f8b09b",
       "out": "380c3c270fb6"
@@ -17194,6 +17198,26 @@
     "audio.heading": {
       "en": "e9e15776c614",
       "out": "85b7936bd98f"
+    },
+    "upscale.running": {
+      "en": "16af9174c00a",
+      "out": "d86dbe7df33c"
+    },
+    "upscale.done": {
+      "en": "86042e2ee30f",
+      "out": "7bb419574d28"
+    },
+    "upscale.queued": {
+      "en": "1e5cbfb72c25",
+      "out": "415652c7cc86"
+    },
+    "upscale.videoDone": {
+      "en": "5572e1225c4e",
+      "out": "c0c2197a1526"
+    },
+    "upscale.videoFailed": {
+      "en": "37eaecf1d2f6",
+      "out": "90e3f7eff3f8"
     }
   },
   "imagesBatch": {
@@ -25962,6 +25986,42 @@
     "page.emptyBody": {
       "en": "d788e35fb821",
       "out": "aa32a977d457"
+    },
+    "install.notInstalled": {
+      "en": "b88f10e106ce",
+      "out": "0e31c09c7872"
+    },
+    "install.downloads": {
+      "en": "a90e72da1324",
+      "out": "83059ba81877"
+    },
+    "install.install": {
+      "en": "fd6c3ebf7bef",
+      "out": "ce88d35b1876"
+    },
+    "install.installing": {
+      "en": "8d27882331d1",
+      "out": "057cbde0f6ac"
+    },
+    "install.done": {
+      "en": "550659146892",
+      "out": "67596dbb6240"
+    },
+    "install.failed": {
+      "en": "aa3113dac403",
+      "out": "94de88e4fa08"
+    },
+    "install.failedHint": {
+      "en": "fd8d6f9ede68",
+      "out": "269e0c09e40e"
+    },
+    "embeddingPath.inUse": {
+      "en": "ac545ce38743",
+      "out": "e6941b95f671"
+    },
+    "embeddingPath.notUsed": {
+      "en": "2ef0b4004be3",
+      "out": "47d48e5d768d"
     }
   },
   "progress": {

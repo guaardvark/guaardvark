@@ -24,7 +24,7 @@ import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import axios from "axios";
 import { ActionButton, StatusPill } from "../settings/ui";
-import { enablePlugin, startPlugin } from "../../api/pluginsService";
+import { enablePlugin, pluginGateRefusal, startPlugin } from "../../api/pluginsService";
 import { startPluginsForRoute } from "../../hooks/useGpuIntent";
 import { translate, useUiTranslation, Trans } from "../../i18n";
 
@@ -220,10 +220,11 @@ const AudioFoundryModelsModal = ({
     } catch {
       /* already enabled is fine */
     }
-    const res = await startPlugin("audio_foundry");
-    // A gate refusal (cooling down, GPU busy) answers 200 with data.success false.
-    if (res?.data?.success === false) {
-      return res.data.error || res.message || t("models.audioFoundryModels.pluginStartFailed");
+    try {
+      await startPlugin("audio_foundry");
+    } catch (err) {
+      // A gate refusal (cooling down, GPU busy) is a 409 carrying the gate's reason.
+      return pluginGateRefusal(err)?.message || err?.message || t("models.audioFoundryModels.pluginStartFailed");
     }
     return null;
   };

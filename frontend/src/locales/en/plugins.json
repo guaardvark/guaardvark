@@ -151,5 +151,18 @@
     "loading": "Loading plugins...",
     "emptyTitle": "No Plugins Found",
     "emptyBody": "Add plugins to the /plugins/ directory and click Refresh."
+  },
+  "install": {
+    "notInstalled": "Not installed yet. Install downloads what this plugin needs, once.",
+    "downloads": "Downloads: {{what}}",
+    "install": "Install",
+    "installing": "Installing…",
+    "done": "{{name}} is installed.",
+    "failed": "Installing {{name}} failed (exit {{code}}). The log is on the card.",
+    "failedHint": "The last Install failed (exit {{code}})."
+  },
+  "embeddingPath": {
+    "inUse": "The indexer embeds through this plugin: {{model}}, {{dim}} dimensions, probe vector matched.",
+    "notUsed": "The indexer is not using this plugin: {{reason}}"
   }
 }

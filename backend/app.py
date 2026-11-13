@@ -1567,6 +1567,18 @@ try:
             except Exception as folder_err:
                 app.logger.warning(f"Default folder setup skipped: {folder_err}")
 
+            # The shipped persona, rules and lessons (backend/rule_bundles,
+            # backend/lesson_bundles); never over what a person changed.
+            try:
+                from backend.services.shipped_bundles import apply_shipped_bundles
+                apply_shipped_bundles()
+            except Exception as bundle_err:
+                app.logger.warning(f"Shipped bundles skipped: {bundle_err}")
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+
             try:
                 for _ext_id, _outcome in _ext.run_seeds(_extensions, app).items():
                     _ext.record(_ext_id, "seed", not _outcome.startswith("error"), _outcome)

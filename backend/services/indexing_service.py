@@ -690,7 +690,9 @@ def _get_cached_query_embedding(query: str):
         if embed_model is None:
             return None
         from backend.config import get_active_embedding_model
-        key = (get_active_embedding_model(), query)
+        # The query prompt is part of the key: a re-index for the model's prompts
+        # changes it, and a vector cached before would be in the old space.
+        key = (get_active_embedding_model(), _client_prompts(embed_model)[0], query)
         now = _time.time()
         with _index_operation_lock:
             hit = _query_embed_cache.get(key)
@@ -728,13 +730,39 @@ _embed_dim_cache: Dict[str, int] = {}
 _embed_sync_gave_up: Optional[str] = None
 
 
+def _client_prompts(client) -> tuple:
+    """(query, document) prompts an embedding client applies, None for none."""
+    return tuple((getattr(client, attr, None) or None) for attr in ("query_instruction", "text_instruction"))
+
+
+def _follow_recorded_prompts() -> None:
+    """Rebuild the client when the index's prompt record no longer matches it.
+
+    A re-index started in another process records new prompts while this one
+    holds a loaded index, which search does not reload. Reads the record file
+    only; the fuller check runs in get_or_create_index.
+    """
+    try:
+        from llama_index.core import Settings as _LISettings
+        from backend.services.embedding_prompts import recorded_prompts
+        client = getattr(_LISettings, "embed_model", None)
+        model = getattr(client, "model_name", None)
+        recorded = recorded_prompts(model) if isinstance(model, str) else None
+        if recorded is not None and _client_prompts(client) != tuple(recorded):
+            _sync_embed_model()
+    except Exception as e:
+        logger.debug("Prompt record check skipped: %s", e)
+
+
 def _sync_embed_model(model: Optional[str] = None) -> None:
-    """Rebuild the embedding client when Settings chose a different model.
+    """Rebuild the embedding client when Settings chose a different model, or
+    the index's recorded prompts no longer match the client's.
 
     A Celery worker keeps the client it built when it started. After a switch in
     Settings it would go on embedding with the old model into the old width's
-    table while chat searched the new one. The web server swaps its own client
-    in the switch route, so there this is a no-op.
+    table while chat searched the new one; after a re-index for the model's
+    prompts it would go on embedding passages without them. The web server swaps
+    its own client in the switch route, so there a model change is a no-op.
     """
     global index, storage_context, _embed_sync_gave_up
     try:
@@ -744,8 +772,10 @@ def _sync_embed_model(model: Optional[str] = None) -> None:
         if not model or model == _embed_sync_gave_up:
             return
         from llama_index.core import Settings as _LISettings
-        current = getattr(getattr(_LISettings, "embed_model", None), "model_name", None)
-        if current == model:
+        from backend.services.embedding_prompts import index_prompts
+        current_client = getattr(_LISettings, "embed_model", None)
+        current = getattr(current_client, "model_name", None)
+        if current == model and _client_prompts(current_client) == tuple(index_prompts(model)):
             return
         from backend.utils.llm_service import get_default_embed_model
         client = get_default_embed_model()
@@ -767,8 +797,9 @@ def _sync_embed_model(model: Optional[str] = None) -> None:
         except Exception:
             pass
         logger.info(
-            "Embedding model is %s (this process had %s): client rebuilt, index handle reset",
-            model, current,
+            "Embedding model is %s with prompts %s (this process had %s with %s): "
+            "client rebuilt, index handle reset",
+            model, _client_prompts(client), current, _client_prompts(current_client),
         )
     except Exception as e:
         logger.warning("Could not bring the embedding client in line with %s: %s", model, e)
@@ -1611,15 +1642,52 @@ def _index_embedding_meta_path(persist_dir: str) -> str:
     return os.path.join(persist_dir, "embedding_meta.json")
 
 
+def _embedding_path_counts() -> dict:
+    try:
+        from backend.utils.embedding_router import get_embedding_router
+        return get_embedding_router().path_counts()
+    except Exception:
+        return {}
+
+
+def _record_embedding_path(db_document, before: dict, timings: dict) -> None:
+    """Note which embedding path indexed this document while the GPU Embedding plugin is on.
+
+    Written to the log, the phase timings and ``file_metadata["embedding_path"]``;
+    nothing is written while the plugin is off.
+    """
+    try:
+        from backend.utils.embedding_router import get_embedding_router
+        router = get_embedding_router()
+        gate = router.plugin_gate()
+        if not gate.enabled():
+            return
+        after = router.path_counts()
+        used = {k: after[k] - before.get(k, 0) for k in after if after[k] - before.get(k, 0) > 0}
+        status = gate.status()
+        record = {"texts": used, "plugin_in_use": status["in_use"], "plugin_reason": status["reason"]}
+        timings["embedding_path"] = used
+        logger.info("Embedded %s via %s (GPU Embedding plugin: %s)",
+                    getattr(db_document, "filename", "?"),
+                    ", ".join(f"{k}={v}" for k, v in used.items()) or "nothing", status["reason"])
+        meta = json.loads(db_document.file_metadata) if db_document.file_metadata else {}
+        if isinstance(meta, dict):
+            meta["embedding_path"] = record
+            db_document.file_metadata = json.dumps(meta)
+    except Exception as e:
+        logger.debug(f"Could not record embedding path: {e}")
+
+
 def _record_index_embedding_model(project_id=None):
     """Stamp the active embedding model onto the index dir (best-effort). Called whenever
     content is indexed, so the sidecar reflects the model the index was actually built with."""
     try:
         from backend.config import get_active_embedding_model
+        from backend.services.embedding_prompts import write_meta
         persist_dir = _persist_dir_for(project_id)
-        os.makedirs(persist_dir, exist_ok=True)
-        with open(_index_embedding_meta_path(persist_dir), "w") as f:
-            json.dump({"embedding_model": get_active_embedding_model()}, f)
+        # Merged, so the prompt record beside the model name survives.
+        write_meta({"embedding_model": get_active_embedding_model()},
+                   _index_embedding_meta_path(persist_dir))
     except Exception as e:
         logger.debug(f"Could not record index embedding model: {e}")
 
@@ -2333,6 +2401,7 @@ def search_with_llamaindex(
         return {"results": results, "trace": trace} if with_trace else results
 
     try:
+        _follow_recorded_prompts()
         with _index_operation_lock:
             local_index = index
             if local_index is None or vector_store_fallback_reason():
@@ -2424,6 +2493,8 @@ def search_with_llamaindex(
         try:
             from backend.config import get_active_embedding_model
             trace["embedding_model"] = get_active_embedding_model()
+            # The prompt the query is embedded with (None: the index has none).
+            trace["query_prompt"] = _client_prompts(getattr(local_index, "_embed_model", None))[0]
         except Exception:
             pass
 
@@ -3851,6 +3922,7 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
                     _dispatcher.add_event_handler(_embed_clock)
                 except Exception:
                     pass
+                _paths_before = _embedding_path_counts()
                 try:
                     with _phase("insert_ms", timings):
                         index.insert_nodes(nodes)
@@ -3861,6 +3933,7 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
                         except Exception:
                             pass
                 _record_index_embedding_model(getattr(db_document, "project_id", None))  # stamp model
+                _record_embedding_path(db_document, _paths_before, timings)
 
                 # Replace, don't append: pgvector INSERTs rather than upserting by
                 # node id, so the previous copy (rows up to the watermark) goes now

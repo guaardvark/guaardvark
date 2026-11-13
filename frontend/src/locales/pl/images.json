@@ -123,7 +123,8 @@
     "viewFullSize": "Pokaż pełny rozmiar",
     "edit": "Edytuj",
     "publish": "Udostępnij / Opublikuj…",
-    "details": "Szczegóły…"
+    "details": "Szczegóły…",
+    "upscale": "Skaluj"
   },
   "infographic": {
     "failed": "Błąd generowania",
@@ -306,5 +307,12 @@
   },
   "audio": {
     "heading": "Utwory i dźwięki"
+  },
+  "upscale": {
+    "running": "Skalowanie {{name}}…",
+    "done": "Zapisano kopię po skalowaniu obok jako {{name}}.",
+    "queued": "Skalowanie w kolejce. {{name}} pojawi się obok wideo po zakończeniu zadania; postęp jest w stopce.",
+    "videoDone": "{{name}} jest gotowe obok wideo.",
+    "videoFailed": "Błąd skalowania {{name}}: {{error}}"
   }
 }

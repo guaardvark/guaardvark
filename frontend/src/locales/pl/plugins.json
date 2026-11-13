@@ -151,5 +151,18 @@
     "loading": "Ładowanie wtyczek...",
     "emptyTitle": "Nie znaleziono wtyczek",
     "emptyBody": "Dodaj wtyczki do katalogu /plugins/ i kliknij Odśwież."
+  },
+  "install": {
+    "notInstalled": "Nie zainstalowano. Instalacja pobierze wymagane elementy tego wtyczki raz.",
+    "downloads": "Pobieranie: {{what}}",
+    "install": "Instaluj",
+    "installing": "Instalowanie…",
+    "done": "{{name}} zostało zainstalowane.",
+    "failed": "Instalacja {{name}} nie powiodła się (kod wyjścia {{code}}). Log jest na karcie.",
+    "failedHint": "Ostatnia instalacja nie powiodła się (kod wyjścia {{code}})."
+  },
+  "embeddingPath": {
+    "inUse": "Indekserator używa tej wtyczki: {{model}}, {{dim}} wymiarów, dopasowano wektor sondy.",
+    "notUsed": "Indekserator nie używa tej wtyczki: {{reason}}"
   }
 }

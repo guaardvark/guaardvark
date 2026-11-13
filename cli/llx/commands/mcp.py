@@ -11,6 +11,7 @@ import typer
 
 from llx import output
 from llx.commands.system import _find_project_root
+from llx.global_opts import get_global_json
 from llx.theme import make_console
 
 console = make_console()
@@ -80,9 +81,17 @@ def _run_mcp(args: list[str]) -> int:
     return result.returncode
 
 
+# The names live in backend/mcp/config.py (TOOLSETS); the server lists them when given a wrong one.
+_TOOLSET_HELP = (
+    "Serve one named toolset of at most 15 tools, such as media, knowledge or code, or all "
+    "(default: GUAARDVARK_MCP_TOOLSET, then data/config/mcp.json, then all)"
+)
+
+
 @mcp_app.command("serve")
 def mcp_serve(
     http: bool = typer.Option(False, "--http", help="Run MCP server over HTTP instead of stdio"),
+    toolset: str = typer.Option(None, "--toolset", "-t", help=_TOOLSET_HELP),
 ):
     """Run the MCP server (stdio by default, or HTTP with --http)."""
     py, root = _python_and_root()
@@ -91,6 +100,8 @@ def mcp_serve(
         raise typer.Exit(1)
 
     cmd = [py, "-m", "backend.mcp", "http"] if http else [py, "-m", "backend.mcp"]
+    if toolset:
+        cmd += ["--toolset", toolset]
     os.chdir(str(root))
     os.execv(py, cmd)
 
@@ -141,9 +152,14 @@ def mcp_doctor(
 
 
 @mcp_app.command("list-tools")
-def mcp_list_tools():
-    """Print tools the MCP server exposes."""
-    raise typer.Exit(_run_mcp(["list-tools"]))
+def mcp_list_tools(
+    toolset: str = typer.Option(None, "--toolset", "-t", help=_TOOLSET_HELP),
+):
+    """Print tools the MCP server exposes (a JSON array with --json)."""
+    args = ["list-tools", "--toolset", toolset] if toolset else ["list-tools"]
+    if get_global_json() or output.is_json_mode():
+        args.append("--json")
+    raise typer.Exit(_run_mcp(args))
 
 
 # `guaardvark mcp client ...`: the external MCP servers the agent itself uses.

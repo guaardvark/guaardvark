@@ -1,4 +1,3 @@
-import os
 import typer
 
 from llx import __version__
@@ -249,9 +248,6 @@ def main(
 
 
 def run():
-    import sys as _sys
-    if _sys.argv and os.path.basename(_sys.argv[0]) == "llx":
-        print("Warning: 'llx' is deprecated. Use 'guaardvark' instead.", file=_sys.stderr)
     app()
 
 

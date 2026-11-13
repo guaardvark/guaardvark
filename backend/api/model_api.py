@@ -636,6 +636,27 @@ def get_resources():
     }, "Resources retrieved")
 
 
+@model_bp.route("/embedding/path", methods=["GET"])
+def embedding_path():
+    """Which path the indexer embeds through: the GPU Embedding plugin or its own Ollama path, and why."""
+    try:
+        from backend.utils.embedding_router import get_embedding_router
+        router = get_embedding_router()
+        gate = router.plugin_gate()
+        if gate.enabled():
+            # One real decision (and a probe the first time per model), so the
+            # answer is the one the next indexing call would get.
+            with router.lock:
+                router._via_plugin_check()
+        status = gate.status()
+        status["model"] = router._model_name()
+        status["path"] = "gpu_embedding_plugin" if status["in_use"] else (
+            "ollama_gpu" if router.profile_config["gpu_enabled"] else "ollama_cpu")
+        return success_response(status, "Embedding path")
+    except Exception as e:
+        return error_response(f"Could not read the embedding path: {e}", 500, "EMBEDDING_PATH_ERROR")
+
+
 @model_bp.route("/embedding/list", methods=["GET"])
 def list_embedding_models():
     """List available embedding models from Ollama."""
@@ -652,7 +673,7 @@ def list_embedding_models():
         name = m.get("name", "").lower()
         if any(p in name for p in embedding_patterns):
             # Get embedding dimensions from model details
-            # The key is architecture-prefixed, e.g. "bert.embedding_length" or "llama.embedding_length"
+            # Keys are architecture-prefixed, e.g. "bert.embedding_length"
             dims = None
             try:
                 detail_resp = requests.post(
@@ -662,10 +683,11 @@ def list_embedding_models():
                 if detail_resp.ok:
                     show_data = detail_resp.json()
                     model_info = show_data.get("model_info", {})
-                    for key, value in model_info.items():
-                        if key.endswith(".embedding_length"):
-                            dims = value
-                            break
+                    widths = {key.rsplit(".", 1)[-1]: value for key, value in model_info.items()
+                              if key.count(".") == 1}
+                    # The vector width: embedding_length_out where the model projects
+                    # its hidden state (gemma-embedding2: 512 hidden, 768 out).
+                    dims = widths.get("embedding_length_out") or widths.get("embedding_length")
             except Exception:
                 pass
             embedding_models.append({
@@ -846,6 +868,10 @@ def set_embedding_model():
                 # either would be searched with the new model.
                 idx_svc.empty_vector_tables(embed_dim)
                 idx_svc._record_index_embedding_model()
+                # The new model's index starts empty: record the prompts a new index
+                # uses for it before the documents are queued (config.EMBEDDING_PROMPTS).
+                from backend.services.embedding_prompts import record_declared_prompts
+                record_declared_prompts(model_name)
             except Exception as clear_err:
                 logger.warning(f"Failed to clear the old model's vectors: {clear_err}")
             try:
@@ -878,6 +904,66 @@ def set_embedding_model():
     except Exception as e:
         logger.error(f"Failed to switch embedding model: {e}", exc_info=True)
         return error_response(f"Failed to switch embedding model: {str(e)}", 500, "SWITCH_FAILED")
+
+
+@model_bp.route("/embedding/prompts", methods=["GET"])
+def embedding_prompts():
+    """The prompts the index embeds with, against those a new index would use for
+    the active model.
+
+    ``reindex_suggested`` is true when a new index would use a document prompt this
+    one was built without; only a re-index (POST /embedding/reindex) changes that.
+    """
+    try:
+        from backend.services.embedding_prompts import prompt_status
+        return success_response(prompt_status(), "Embedding prompts")
+    except Exception as e:
+        return error_response(f"Could not read the embedding prompts: {e}", 500, "EMBEDDING_PROMPTS_ERROR")
+
+
+@model_bp.route("/embedding/reindex", methods=["POST"])
+def reindex_with_model_prompts():
+    """Index every document again with the prompts a new index uses for the active model.
+
+    The prompts are recorded on the index first, so the indexer and every
+    search use them from then on; the documents then go through the usual
+    catch-up, with its progress in the footer. The tables are not emptied:
+    each document's previous rows stay searchable until its new ones are in.
+    Rows with no document behind them keep their vectors (``not_rebuilt``).
+    """
+    try:
+        from backend.config import get_active_embedding_model
+        from backend.services.embedding_prompts import prompt_status, record_declared_prompts
+        import backend.services.indexing_service as idx_svc
+
+        model = get_active_embedding_model()
+        status = prompt_status(model)
+        if not status["reindex_suggested"]:
+            return error_response(
+                f"The index already embeds with {model}'s document prompt", 409, "ALREADY_PROMPTED")
+        query, document = record_declared_prompts(model)
+        # This process's client and index handle; others follow on their next call.
+        idx_svc._sync_embed_model(model)
+        not_rebuilt = idx_svc.rows_not_rebuilt(idx_svc._active_embed_dim())
+
+        from backend.api.indexing_api import requeue_documents_for_new_index
+        requeued = requeue_documents_for_new_index()
+        logger.info(
+            "Re-index for %s's prompts (document %r, query %r): %d document(s) queued, %d left pending",
+            model, document, query, requeued["queued"], requeued["pending"],
+        )
+        return success_response({
+            "model": model,
+            "query_prompt": query,
+            "document_prompt": document,
+            "reindex_queued": requeued["queued"],
+            "reindex_pending": requeued["pending"],
+            "reindex_by_status": requeued.get("by_status", {}),
+            "not_rebuilt": not_rebuilt,
+        }, f"Re-indexing for {model}'s prompts")
+    except Exception as e:
+        logger.error(f"Re-index for the embedding prompts failed: {e}", exc_info=True)
+        return error_response(f"Could not start the re-index: {e}", 500, "REINDEX_FAILED")
 
 
 def _listed_chat_model(requested: str, available_models) -> "str | None":

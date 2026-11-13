@@ -10,6 +10,7 @@ import ImageLightbox from "../images/ImageLightbox";
 import PublishModal from "../modals/PublishModal";
 import MediaDetailsModal from "./MediaDetailsModal";
 import { getDocumentRecipe, regenerateMedia } from "../../api/mediaRecipeService";
+import { getJob, upscaleDocument } from "../../api/upscalingService";
 import { useSnackbar } from "../common/SnackbarProvider";
 import { useUiTranslation } from "../../i18n";
 
@@ -19,6 +20,15 @@ export const isMediaFile = (file) => {
   const name = file?.filename || file?.name || "";
   return isImageFile(name) || isVideoFile(name) || isAudioFile(name);
 };
+
+// What /api/upscaling/upscale/document accepts (OpenCV stills, ffmpeg video).
+const UPSCALE_EXT = new Set(["png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff", "mp4", "webm", "mov", "mkv", "avi"]);
+const isUpscalable = (file) => {
+  const name = file?.filename || file?.name || "";
+  return name.includes(".") && UPSCALE_EXT.has(name.split(".").pop().toLowerCase());
+};
+const UPSCALE_POLL_MS = 3000;
+const UPSCALE_TERMINAL = new Set(["completed", "failed", "cancelled"]);
 
 const downloadUrl = (file) => `${API_BASE}/document/${file.id}/download?v=${file.updated_at || ""}`;
 
@@ -52,6 +62,40 @@ const useMediaActions = ({ onEdited } = {}) => {
   const onFileClick = useCallback((file, siblings) => {
     if (isMediaFile(file)) openDetails(file, siblings);
   }, [openDetails]);
+
+  const upscale = useCallback(async (file) => {
+    const name = file.filename || file.name;
+    showMessage?.(t("images.upscale.running", { name }), "info");
+    try {
+      const res = await upscaleDocument(file.id);
+      const data = res?.data || {};
+      if (!data.job_id) {
+        showMessage?.(t("images.upscale.done", { name: data.filename }), "success");
+        onEdited?.();
+        return;
+      }
+      const output = data.output_file;
+      showMessage?.(t("images.upscale.queued", { name: output }), "info");
+      const poll = async () => {
+        try {
+          const job = (await getJob(data.job_id))?.data || {};
+          if (!UPSCALE_TERMINAL.has(job.status)) {
+            setTimeout(poll, UPSCALE_POLL_MS);
+          } else if (job.status === "completed") {
+            showMessage?.(t("images.upscale.videoDone", { name: output }), "success");
+            onEdited?.();
+          } else {
+            showMessage?.(t("images.upscale.videoFailed", { name, error: job.error || job.message || job.status }), "error");
+          }
+        } catch {
+          setTimeout(poll, UPSCALE_POLL_MS * 2);
+        }
+      };
+      setTimeout(poll, UPSCALE_POLL_MS);
+    } catch (e) {
+      showMessage?.(e.message, "error");
+    }
+  }, [t, showMessage, onEdited]);
 
   const queuedMessage = useCallback((queued) => (
     t("images.details.queued", { page: t(`images.details.queues.${queued.queue}`) })
@@ -88,9 +132,10 @@ const useMediaActions = ({ onEdited } = {}) => {
           }
         },
       },
+      ...(isUpscalable(file) ? [{ label: t("images.contextMenu.upscale"), onClick: () => upscale(file) }] : []),
       { label: t("images.contextMenu.publish"), onClick: () => setPublishDocuments([file]) },
     ];
-  }, [t, openDetails, showMessage, queuedMessage, navigate]);
+  }, [t, openDetails, showMessage, queuedMessage, navigate, upscale]);
 
   const step = (setter, delta) => setter((prev) => {
     if (!prev) return prev;

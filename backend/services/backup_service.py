@@ -1250,7 +1250,7 @@ def create_full_backup(name: str | None = None) -> str:
                 # Root level plugins directory
                 "plugins/",
 
-                # CLI tool (llx command)
+                # CLI tool (guaardvark command)
                 "cli/",
 
                 # Frontend source code (excluding node_modules and dist)
@@ -1667,7 +1667,7 @@ def create_code_release(name: str | None = None) -> str:
                 # Root level plugins directory (code only)
                 "plugins/",
 
-                # CLI tool (llx command)
+                # CLI tool (guaardvark command)
                 "cli/",
 
                 # Agent recipes (deterministic action library — not user data)

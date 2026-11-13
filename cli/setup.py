@@ -73,7 +73,8 @@ setup(
     ],
     packages=find_packages(),
     install_requires=[
-        "typer[all]>=0.9.0",
+        # 0.12 is the first typer that installs rich and shellingham without an extra.
+        "typer>=0.12.0",
         "rich>=13.0.0",
         "python-socketio>=5.10.0",
         "httpx>=0.25.0",

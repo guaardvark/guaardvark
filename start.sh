@@ -3467,7 +3467,8 @@ AUTOSTART
 }
 
 # The API wraps the manager's result: {"success": true, "data": {"success": ..,
-# "message"/"error": ..}}; a gate refusal is a 200 with data.success false.
+# "message"/"error": ..}}; a refusal, the operation gate's included, is
+# {"success": false, "message": ..} with a 4xx status.
 comfyui_start_outcome() {
     "$_comfy_py" -c '
 import json, sys

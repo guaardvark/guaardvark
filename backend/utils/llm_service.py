@@ -638,8 +638,16 @@ def get_default_embed_model():
         from backend.config import get_active_embedding_model, get_embedding_keep_alive
         from llama_index.embeddings.ollama import OllamaEmbedding
 
+        from backend.services.embedding_prompts import index_prompts
+
         model_name = get_active_embedding_model()
-        logger.info(f"Using Ollama embedding model: {model_name}")
+        # This client embeds every passage the index stores and every query that
+        # searches it, so both sides take the prompts recorded on the index.
+        query_prompt, document_prompt = index_prompts(model_name)
+        logger.info(
+            f"Using Ollama embedding model: {model_name} "
+            f"(query prompt {query_prompt!r}, document prompt {document_prompt!r})"
+        )
 
         embed_model = OllamaEmbedding(
             model_name=model_name,
@@ -648,6 +656,8 @@ def get_default_embed_model():
             # A short idle TTL: consecutive queries reuse the loaded model instead of
             # paying a cold load each, and VRAM still frees between sessions.
             keep_alive=get_embedding_keep_alive(),
+            query_instruction=query_prompt,
+            text_instruction=document_prompt,
         )
         return embed_model
 

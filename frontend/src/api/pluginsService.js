@@ -34,7 +34,26 @@ export const getPluginHealth = async (pluginId) => {
 };
 
 /**
- * Start a plugin
+ * The operation gate's refusal of a start, stop or restart (cooling down,
+ * another plugin operation in progress, the GPU in use), or null.
+ *
+ * The API answers 409 with the gate's result in error.context, so a refusal
+ * arrives as the Error handleResponse throws. A response body with data.gated
+ * is read the same way.
+ * Returns { message, cooldown } (cooldown in whole seconds, or null).
+ */
+export const pluginGateRefusal = (errOrResponse) => {
+  const context = errOrResponse?.data?.error?.context;
+  const gate = context?.gated ? context : errOrResponse?.data?.gated ? errOrResponse.data : null;
+  if (!gate) return null;
+  return {
+    message: gate.error || errOrResponse?.message || "",
+    cooldown: gate.cooldown_remaining > 0 ? Math.ceil(gate.cooldown_remaining) : null,
+  };
+};
+
+/**
+ * Start a plugin. A refusal, the gate's included, throws with the reason.
  */
 export const startPlugin = async (pluginId) => {
   const response = await fetch(`${BASE_URL}/${pluginId}/start`, {
@@ -118,6 +137,24 @@ export const refreshPlugins = async () => {
 /**
  * Get plugin logs
  */
+/** The plugin's declared Install step: {state, installed, downloads, exit_code, log_tail}. */
+export const getPluginInstall = async (pluginId) => {
+  const response = await fetch(`${BASE_URL}/${pluginId}/install`, { method: "GET" });
+  return handleResponse(response);
+};
+
+/** Run the plugin's declared Install step in the background. */
+export const startPluginInstall = async (pluginId) => {
+  const response = await fetch(`${BASE_URL}/${pluginId}/install`, { method: "POST" });
+  return handleResponse(response);
+};
+
+/** Which path the indexer embeds through (GPU Embedding plugin or its own), and why. */
+export const getEmbeddingPath = async () => {
+  const response = await fetch(`${API_BASE_URL}/model/embedding/path`, { method: "GET" });
+  return handleResponse(response);
+};
+
 export const getPluginLogs = async (pluginId, lines = 100) => {
   const response = await fetch(`${BASE_URL}/${pluginId}/logs?lines=${lines}`, {
     method: "GET",

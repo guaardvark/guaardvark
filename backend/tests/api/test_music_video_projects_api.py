@@ -56,6 +56,10 @@ def _no_dispatch(monkeypatch, tmp_path):
         "backend.api.music_video_api.get_video_generator",
         lambda: type("VG", (), {"service_available": True})(),
     )
+    # The box's own Plugins page settings never decide a test's outcome.
+    monkeypatch.setattr("backend.services.plugin_bridge.job_plugin_blocker", lambda plugin_id: None)
+    # Finished-cut history is read fresh in every test, never from a cache.
+    monkeypatch.setattr("backend.api.music_video_api.CUT_HISTORY_TTL_S", 0.0)
 
 
 def _video(tmp_path, *, stage="complete", rendered=True, project_id=None):

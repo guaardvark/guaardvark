@@ -121,7 +121,8 @@
     "viewFullSize": "Voir en taille réelle",
     "edit": "Modifier",
     "publish": "Partager / Publier…",
-    "details": "Détails…"
+    "details": "Détails…",
+    "upscale": "Mise à l'échelle"
   },
   "infographic": {
     "failed": "Échec de la génération",
@@ -300,5 +301,12 @@
   },
   "audio": {
     "heading": "Chansons et sons"
+  },
+  "upscale": {
+    "running": "Mise à l'échelle de {{name}}…",
+    "done": "Copie mise à l'échelle enregistrée à côté sous le nom {{name}}.",
+    "queued": "Mise à l'échelle en file d'attente. {{name}} apparaîtra à côté de la vidéo une fois le travail terminé ; la progression est dans le pied de page.",
+    "videoDone": "{{name}} est prêt à côté de la vidéo.",
+    "videoFailed": "Échec de la mise à l'échelle de {{name}} : {{error}}"
   }
 }

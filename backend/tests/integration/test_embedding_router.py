@@ -150,6 +150,34 @@ class TestEmbeddingRouter:
         assert embedding[0] == 0.1
         mock_gpu.get_text_embedding.assert_called_once_with("test text")
 
+    def test_get_query_embedding_uses_query_side(self, router):
+        """A search query goes through the client's query side, not the passage side"""
+        router.profile_config["gpu_enabled"] = True
+        dim = router.embed_dim
+
+        mock_gpu = Mock()
+        mock_gpu.get_query_embedding.return_value = [0.3] * dim
+        router._gpu_embedding = mock_gpu
+
+        embedding = router.get_query_embedding("what broke on apollo 13")
+
+        assert embedding[0] == 0.3
+        mock_gpu.get_query_embedding.assert_called_once_with("what broke on apollo 13")
+        mock_gpu.get_text_embedding.assert_not_called()
+
+    def test_other_prompts_get_their_own_client(self, router):
+        """An index recorded with other prompts than the model's is embedded by a
+        client built for those prompts; the declared-prompt client is left alone"""
+        router.use_model("embeddinggemma-2:latest", 768)
+        router.profile_config["gpu_enabled"] = True
+        declared = Mock()
+        router._gpu_embedding = declared
+        client = router._get_gpu_embedding((None, None))
+        assert client is not declared
+        assert client.query_instruction is None and client.text_instruction is None
+        assert router._get_gpu_embedding(router._declared_prompts()) is declared
+        assert router._get_gpu_embedding() is declared
+
     def test_get_embeddings_batch_cpu_fallback(self, router):
         """Test batch embedding uses the CPU client when GPU is disabled"""
         router.profile_config["gpu_enabled"] = False
@@ -215,17 +243,34 @@ class TestRouterEmbeddingAdapter:
         assert adapter.embed_dim == router.embed_dim
 
     def test_adapter_get_text_embedding(self):
-        """Test adapter single embedding"""
+        """Passages are embedded with the document prompt recorded on the index"""
         mock_router = Mock()
         mock_router._active_model_name = "qwen3-embedding:4b-q4_K_M"
         mock_router.embed_dim = 2560
         mock_router.get_embedding.return_value = [0.1] * 2560
 
         adapter = RouterEmbeddingAdapter(mock_router)
-        embedding = adapter._get_text_embedding("test")
+        with patch("backend.services.embedding_prompts.index_prompts", return_value=("q:", "d:")):
+            embedding = adapter._get_text_embedding("test")
 
         assert len(embedding) == 2560
-        mock_router.get_embedding.assert_called_once_with("test")
+        mock_router.get_embedding.assert_called_once_with("test", prompts=("q:", "d:"))
+
+    def test_adapter_query_embedding_routes_to_query_side(self):
+        """Retriever queries reach the router's query path with the index's prompts"""
+        mock_router = Mock()
+        mock_router._active_model_name = "embeddinggemma-2:latest"
+        mock_router.embed_dim = 768
+        mock_router.get_query_embedding.return_value = [0.2] * 768
+
+        adapter = RouterEmbeddingAdapter(mock_router)
+        with patch("backend.services.embedding_prompts.index_prompts", return_value=(None, None)):
+            embedding = adapter._get_query_embedding("test")
+            assert adapter.query_instruction is None and adapter.text_instruction is None
+
+        assert len(embedding) == 768
+        mock_router.get_query_embedding.assert_called_once_with("test", prompts=(None, None))
+        mock_router.get_embedding.assert_not_called()
 
     def test_adapter_get_text_embeddings(self):
         """Test adapter batch embeddings"""
@@ -238,10 +283,11 @@ class TestRouterEmbeddingAdapter:
         ]
 
         adapter = RouterEmbeddingAdapter(mock_router)
-        embeddings = adapter.get_text_embeddings(["text1", "text2"])
+        with patch("backend.services.embedding_prompts.index_prompts", return_value=(None, None)):
+            embeddings = adapter.get_text_embeddings(["text1", "text2"])
 
         assert len(embeddings) == 2
-        mock_router.get_embeddings_batch.assert_called_once_with(["text1", "text2"])
+        mock_router.get_embeddings_batch.assert_called_once_with(["text1", "text2"], prompts=(None, None))
 
 
 @pytest.mark.skipif(not ROUTER_AVAILABLE, reason="EmbeddingRouter not available")

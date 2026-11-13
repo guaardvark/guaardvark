@@ -32,7 +32,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +214,48 @@ def ensure_plugins_for_stage(
         get_orchestrator().prepare_for_stage(context, stage)
     except Exception:
         logger.warning("GPU prepare_for_stage failed for %s/%s (non-fatal)", context, stage)
+
+
+def _registry_and_user_prefs():
+    """The plugin registry and the person's on/off choices (user_enabled).
+
+    Uses the process's PluginManager when one exists; otherwise reads the
+    registry and the state file directly, because building a manager probes,
+    kills orphans and restores services.
+    """
+    from backend.plugins import plugin_manager as manager_module
+    manager = getattr(manager_module, "_manager", None)
+    if manager is not None:
+        return manager.registry, manager.state_store.get_user_enabled()
+    from backend.plugins.plugin_registry import get_plugin_registry
+    from backend.plugins.plugin_state_store import PluginStateStore
+    registry = get_plugin_registry()
+    store = PluginStateStore(registry.plugins_dir.parent / "data" / "plugin_state.json")
+    return registry, store.get_user_enabled()
+
+
+def job_plugin_blocker(plugin_id: str) -> Optional[Tuple[str, str]]:
+    """(reason, remedy) when a job could not get ``plugin_id`` started once it
+    reaches the stage that needs it, else None.
+
+    A plugin the person turned off on the Plugins page is never started for a
+    job (the veto in _try_start_plugin), and one that is not installed cannot
+    be. Long pipelines read this before they spend GPU time on the stages that
+    come first. Reads only; never enables anything.
+    """
+    try:
+        registry, prefs = _registry_and_user_prefs()
+        meta = registry.get_plugin(plugin_id)
+        if meta is None:
+            return (f"The {plugin_id} plugin is not installed",
+                    f"Restore plugins/{plugin_id} in this checkout")
+        name = getattr(meta, "name", None) or plugin_id
+        if prefs.get(plugin_id) is False:
+            return (f"The {name} plugin is turned off",
+                    f"Turn it on from the Plugins page (or POST /api/plugins/{plugin_id}/enable)")
+    except Exception as exc:  # noqa: BLE001 - an unreadable state store blocks nothing
+        logger.warning("plugin_bridge: could not read the state of %s: %s", plugin_id, exc)
+    return None
 
 
 def get_orchestrator_state() -> Dict[str, Any]:

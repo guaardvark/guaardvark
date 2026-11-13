@@ -38,6 +38,6 @@ def current_trusted_caller() -> Optional[str]:
 def approval_required_message(tool_name: str) -> str:
     return (
         f"'{tool_name}' requires the user's approval before it can run, and this "
-        f"request path cannot ask for it. Use the streaming chat (web UI or `llx chat`) "
+        f"request path cannot ask for it. Use the streaming chat (web UI or `guaardvark chat`) "
         f"to be prompted, or run it yourself from the Tools page."
     )

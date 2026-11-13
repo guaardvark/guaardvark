@@ -62,6 +62,14 @@ ASSEMBLE_STEPS: list[tuple[str, str, float]] = [
 
 DEFAULT_ASSEMBLE_S = 90  # display-only fallback for the assembler's share of the ETA
 
+# Seconds per cut when neither this box's finished cuts nor the model's registry
+# entry (music_video_cut_s) gives a figure. Not measured against any one model.
+FALLBACK_SECONDS_PER_CLIP = 75.0
+# Finished cuts at the same model and settings needed before their median
+# replaces the model's registry figure; the first cut of a run also loads the
+# model, so one cut alone is not a fair sample.
+HISTORY_MIN_CLIPS = 3
+
 NEEDS_REVIEW = "needs_review"
 
 
@@ -111,6 +119,37 @@ def _is_cancelled(stage: str, status: str) -> bool:
     return status.startswith("cancelled") or stage == "cancelled"
 
 
+def estimate_seconds_per_clip(
+    *,
+    history: list | None,
+    measured: dict | None,
+    steps: int | None = None,
+    width: int | None = None,
+    height: int | None = None,
+) -> tuple[float, str]:
+    """Seconds one cut takes, and where the number came from.
+
+    ``history`` holds the elapsed_s of cuts this box finished at the same
+    model, steps and size; with HISTORY_MIN_CLIPS of them their median wins.
+    Otherwise ``measured`` (the model's music_video_cut_s registry figure) is
+    scaled linearly to ``steps`` and to the pixel area of ``width`` x
+    ``height`` where they differ from what it was measured at; None leaves a
+    factor as measured. Basis: "history", "model" or "fallback".
+    """
+    times = [float(x) for x in (history or []) if isinstance(x, (int, float)) and x > 0]
+    if len(times) >= HISTORY_MIN_CLIPS:
+        return median(times), "history"
+    if measured and measured.get("seconds"):
+        seconds = float(measured["seconds"])
+        if steps and measured.get("steps"):
+            seconds *= float(steps) / float(measured["steps"])
+        ref_area = float(measured.get("width") or 0) * float(measured.get("height") or 0)
+        if width and height and ref_area:
+            seconds *= float(width) * float(height) / ref_area
+        return seconds, "model"
+    return FALLBACK_SECONDS_PER_CLIP, "fallback"
+
+
 def compute_progress(
     *,
     current_stage: str | None,
@@ -119,7 +158,7 @@ def compute_progress(
     settings: dict | None,
     live: dict | None = None,
     now: datetime | None = None,
-    seconds_per_clip: float = 75.0,
+    seconds_per_clip: float = FALLBACK_SECONDS_PER_CLIP,
 ) -> dict[str, Any]:
     """The whole run as one dict: overall percent, a row per stage, the clip in
     flight and an ETA. ``live`` is the job record of the clip being rendered

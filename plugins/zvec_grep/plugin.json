@@ -27,5 +27,10 @@
   "endpoints": {
     "mcp": "/mcp",
     "health": "/healthz"
+  },
+  "install": {
+    "script": "scripts/setup.sh",
+    "installed_when": ["node_modules/.bin/zg", "cache/models/**/model.safetensors"],
+    "downloads": "The @zvec/zvec-grep npm package pinned by package-lock.json, and the local code embedding model potion-code-16m-v2 into cache/models. Needs Node.js 22 or newer."
   }
 }

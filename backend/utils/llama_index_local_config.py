@@ -60,53 +60,20 @@ _local_config_applied = False
 # trailing space and the formatter joins it with a single space — matching each
 # model card's canonical convention (e.g. nomic's "search_query: <text>").
 #
-# Data-driven, fully offline. Unknown models get no prefix (safe no-op default).
-# NOTE: changing passage prefixes requires a REINDEX to take full effect, because
-# stored passage vectors must be re-embedded with the document instruction.
+# The prompts are declared per model in config.EMBEDDING_PROMPTS. These are the
+# model's own prompts; what an index actually uses is its recorded pair
+# (backend/services/embedding_prompts.py), since a document prompt only helps an
+# index whose passages were embedded with it.
 def get_embedding_instructions(model_name: str):
-    """Return (query_instruction, text_instruction) for an embedding model.
+    """Return (query_instruction, text_instruction) declared for an embedding model.
 
     Matching is substring-based and case-insensitive so tagged Ollama names
     (e.g. "nomic-embed-text:latest", "snowflake-arctic-embed:l") resolve to the
     right family. Returns (None, None) for unknown models — a safe default that
     leaves embeddings unprefixed rather than guessing a wrong convention.
     """
-    if not model_name:
-        return None, None
-    name = model_name.lower()
-
-    # nomic-embed-text (v1/v1.5): canonical task prefixes per model card.
-    if "nomic-embed-text" in name:
-        return "search_query:", "search_document:"
-
-    # Google embeddinggemma: pipe-delimited task prompts per model card.
-    if "embeddinggemma" in name:
-        return "task: search result | query:", "title: none | text:"
-
-    # BGE family (bge-m3, bge-large, ...): query instruction only; passages raw.
-    if "bge" in name:
-        return ("Represent this sentence for searching relevant passages:", None)
-
-    # E5 family (intfloat/e5, multilingual-e5): symmetric "query:"/"passage:".
-    if "e5" in name:
-        return "query:", "passage:"
-
-    # Snowflake Arctic-embed: query-side instruction; passages raw.
-    if "arctic-embed" in name or "snowflake" in name:
-        return (
-            "Represent this sentence for searching relevant passages:",
-            None,
-        )
-
-    # qwen3-embedding: instruction-aware query side; passages raw.
-    if "qwen3-embedding" in name:
-        return (
-            "Instruct: Given a search query, retrieve relevant passages\nQuery:",
-            None,
-        )
-
-    # mxbai-embed-large and anything unrecognized: no prefix (safe default).
-    return None, None
+    from backend.config import get_embedding_prompts
+    return get_embedding_prompts(model_name)
 
 
 def force_local_llama_index_config():
@@ -178,9 +145,11 @@ def force_local_llama_index_config():
             from backend.config import OLLAMA_BASE_URL, get_active_embedding_model, get_embedding_keep_alive
 
             model_name = get_active_embedding_model()
-            query_instruction, text_instruction = get_embedding_instructions(model_name)
-            # Asymmetric query/passage prefixes (P1-4a). Only pass when defined so
-            # unknown models keep LlamaIndex's default (no prefix).
+            # The prompts recorded on the index, read from its file (no database at
+            # import). With no record yet this starts unprompted; the indexing
+            # service's _sync_embed_model brings the client in line before first use.
+            from backend.services.embedding_prompts import NO_PROMPTS, recorded_prompts
+            query_instruction, text_instruction = recorded_prompts(model_name) or NO_PROMPTS
             _instr_kwargs = {}
             if query_instruction:
                 _instr_kwargs["query_instruction"] = query_instruction
@@ -197,9 +166,8 @@ def force_local_llama_index_config():
             )
             if _instr_kwargs:
                 logger.info(
-                    f"Embedding instructions for {model_name}: "
-                    f"query={query_instruction!r} text={text_instruction!r} "
-                    f"(reindex required for passage prefix to take effect)"
+                    f"Embedding prompts recorded on the index for {model_name}: "
+                    f"query={query_instruction!r} document={text_instruction!r}"
                 )
             if not hasattr(local_embed_model, "model_name"):
                 local_embed_model.model_name = model_name

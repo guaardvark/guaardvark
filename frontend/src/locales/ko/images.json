@@ -119,7 +119,8 @@
     "viewFullSize": "전체 크기로 보기",
     "edit": "편집",
     "publish": "공유 / 게시…",
-    "details": "상세 정보…"
+    "details": "상세 정보…",
+    "upscale": "업스케일링"
   },
   "infographic": {
     "failed": "생성 실패",
@@ -294,5 +295,12 @@
   },
   "audio": {
     "heading": "곡 및 사운드"
+  },
+  "upscale": {
+    "running": "{{name}} 업스케일링 중…",
+    "done": "업스케일링된 복사본이 {{name}}으로 옆에 저장되었습니다.",
+    "queued": "업스케일링 대기열에 추가되었습니다. 작업이 완료되면 {{name}}이 비디오 옆에 나타나며, 진행 상황은 하단에 표시됩니다.",
+    "videoDone": "{{name}}이 비디오 옆에 준비되었습니다.",
+    "videoFailed": "{{name}} 업스케일링 실패: {{error}}"
   }
 }

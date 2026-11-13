@@ -3,6 +3,7 @@
 
 import collections
 import logging
+import math
 import re
 import subprocess
 from pathlib import Path
@@ -106,8 +107,12 @@ def list_plugins():
         
         plugins = manager.list_plugins()
         logger.debug(f"Retrieved {len(plugins)} plugins from manager")
+        from backend.services import plugin_install_service
         for plugin in plugins:
             enrich_with_secrets(plugin.get("id", ""), plugin)
+            install = plugin_install_service.status(plugin.get("id", ""))
+            if install is not None:
+                plugin["install"] = install
 
         return success_response(
             data={
@@ -151,6 +156,27 @@ def plugin_health(plugin_id):
         return error_response(str(e), 500, "HEALTH_CHECK_ERROR")
 
 
+def _gate_refusal(result: dict):
+    """A start, stop or restart the operation gate held back (cooling down,
+    another plugin operation in progress, the GPU in use): 409 with the gate's
+    reason.
+
+    The manager's result rides in error.context, so ``gated`` and
+    ``cooldown_remaining`` are there for a countdown; Retry-After carries the
+    wait too. Nothing was started or stopped, so this is never a 2xx.
+    """
+    cooldown = float(result.get('cooldown_remaining') or 0)
+    response, status = error_response(
+        result.get('error') or 'Plugin operation held back; try again shortly',
+        409,
+        "PLUGIN_GATED",
+        data=result,
+    )
+    if cooldown > 0:
+        response.headers['Retry-After'] = str(math.ceil(cooldown))
+    return response, status
+
+
 @plugins_bp.route("/<plugin_id>/start", methods=["POST"])
 def start_plugin(plugin_id):
     """Start a plugin."""
@@ -168,14 +194,8 @@ def start_plugin(plugin_id):
                 data=result,
                 message=result.get('message', 'Plugin started')
             )
-        # Gate rejections (cooldown / GPU exclusivity) are NOT errors — they're
-        # expected backpressure. Return 200 with success=false so the frontend
-        # can show a friendly snackbar instead of an error toast.
         if result.get('gated'):
-            return success_response(
-                data=result,
-                message=result.get('error', 'Plugin operation rate-limited')
-            )
+            return _gate_refusal(result)
         return error_response(
             result.get('error', 'Failed to start plugin'),
             400,
@@ -209,10 +229,7 @@ def stop_plugin(plugin_id):
                 message=result.get('message', 'Plugin stopped')
             )
         if result.get('gated'):
-            return success_response(
-                data=result,
-                message=result.get('error', 'Plugin operation rate-limited')
-            )
+            return _gate_refusal(result)
         return error_response(
             result.get('error', 'Failed to stop plugin'),
             400,
@@ -240,6 +257,8 @@ def restart_plugin(plugin_id):
                 data=result,
                 message=result.get('message', 'Plugin restarted')
             )
+        elif result.get('gated'):
+            return _gate_refusal(result)
         else:
             return error_response(
                 result.get('error', 'Failed to restart plugin'),
@@ -469,6 +488,26 @@ def get_all_status():
     except Exception as e:
         logger.error(f"Error getting plugin status: {e}", exc_info=True)
         return error_response(str(e), 500, "STATUS_ERROR")
+
+
+@plugins_bp.route("/<plugin_id>/install", methods=["GET"])
+def plugin_install_status(plugin_id):
+    """Whether the plugin's declared Install step has run, and its progress."""
+    from backend.services import plugin_install_service
+    status = plugin_install_service.status(plugin_id)
+    if status is None:
+        return error_response("This plugin has no Install step", 404, "NO_INSTALL_STEP")
+    return success_response(data=status, message="Install status")
+
+
+@plugins_bp.route("/<plugin_id>/install", methods=["POST"])
+def plugin_install_start(plugin_id):
+    """Run the plugin's declared Install step (the only place its downloads happen)."""
+    from backend.services import plugin_install_service
+    status, refusal = plugin_install_service.start(plugin_id)
+    if refusal:
+        return error_response(refusal, 404 if "no Install" in refusal else 409, "INSTALL_REFUSED")
+    return success_response(data=status, message="Install started", status_code=202)
 
 
 @plugins_bp.route("/<plugin_id>/logs", methods=["GET"])

@@ -2,9 +2,9 @@
 Adapter: Guaardvark ``BaseTool`` → MCP ``Tool``.
 
 Walks the in-process ``ToolRegistry``, filters through the configured policy
-(``config.py``), emits MCP tool descriptors with proper JSON Schemas, and
+and the active toolset (``config.py``), emits MCP tool descriptors with proper JSON Schemas, and
 dispatches ``tools/call`` to the tool on a worker thread behind a
-``ToolExecutionGuard`` kept per client session.
+``ToolExecutionGuard`` kept per client connection.
 
 Targets the mcp 2.x SDK: handlers are built here and passed to the
 ``Server`` constructor (``on_list_tools`` / ``on_call_tool``) rather than
@@ -32,8 +32,12 @@ from backend.mcp.config import (
     SERVER_TIMEOUT_ENV,
     WAIT_HEADROOM_SECONDS,
     WAIT_TIMEOUT_SECONDS,
+    ALL_TOOLSET,
     MCPConfig,
+    ToolPolicy,
     tool_is_exposed,
+    toolset_members,
+    toolsets_with,
 )
 from backend.services.agent_tools import BaseTool, get_tool_registry
 from backend.services.tool_execution_guard import ToolExecutionGuard
@@ -44,7 +48,7 @@ logger = logging.getLogger(__name__)
 # the same key waits for, or returns, the first run instead of starting a
 # second one. The adapter consumes it; tools never see it.
 IDEMPOTENCY_KEY = "idempotency_key"
-# Keyed calls remembered per session, oldest dropped first.
+# Keyed calls remembered per connection, oldest dropped first.
 MAX_KEYED_CALLS = 256
 # A tool that keeps failing is paused this long, then tried once more.
 BREAKER_COOLDOWN_S = 60.0
@@ -194,6 +198,43 @@ def collect_exposed_tools(config: MCPConfig) -> list[tuple[BaseTool, mcp_types.T
     return out
 
 
+def narrow_to_toolset(
+    exposed: list[tuple[BaseTool, mcp_types.Tool]], policy: ToolPolicy,
+) -> tuple[list[tuple[BaseTool, mcp_types.Tool]], dict[str, list[str]]]:
+    """Keep the exposed tools that belong to the active toolset.
+
+    Returns (kept, outside): ``outside`` maps each exposed tool the toolset
+    leaves out to the named toolsets that carry it, for the refusal message.
+    Raises ``UnknownToolset`` for a name that is not a toolset.
+    """
+    members = toolset_members(policy)
+    if members is None:
+        homeless = [mcp_tool.name for _base, mcp_tool in exposed if not toolsets_with(mcp_tool.name)]
+        if homeless:
+            logger.info("MCP: in no named toolset, served only by '%s': %s", ALL_TOOLSET, ", ".join(homeless))
+        return exposed, {}
+    kept = [pair for pair in exposed if pair[1].name in members]
+    outside = {mcp_tool.name: toolsets_with(mcp_tool.name)
+               for _base, mcp_tool in exposed if mcp_tool.name not in members}
+    logger.info("MCP: toolset '%s' serves %d of %d exposed tools", policy.toolset, len(kept), len(exposed))
+    return kept, outside
+
+
+def _outside_toolset_message(name: str, active: str, homes: list[str]) -> str:
+    if homes:
+        where = " or ".join(f"'{home}'" for home in homes)
+        switch = homes[0]
+        return (
+            f"Tool '{name}' is not in this server's toolset '{active}'. It is in the {where} "
+            f"toolset and in '{ALL_TOOLSET}': start the server with --toolset {switch} "
+            f"(or GUAARDVARK_MCP_TOOLSET={switch}) to use it."
+        )
+    return (
+        f"Tool '{name}' is not in this server's toolset '{active}'. Only the '{ALL_TOOLSET}' "
+        f"toolset carries it: start the server with --toolset {ALL_TOOLSET} to use it."
+    )
+
+
 def _image_blocks(tool_result: Any) -> list[mcp_types.ContentBlock]:
     """A picture the tool put in its metadata (a screenshot), as MCP image content,
     so the calling agent can look at it rather than read about it."""
@@ -243,10 +284,10 @@ def _timeout_message(name: str, timeout: float, read_only: bool = False, key: st
     )
     if read_only:
         return head + (
-            " It changes nothing, so a retry is safe, but the first run keeps going: a retry "
-            "starts a second one behind it (model-backed tools such as analyze_code can run "
-            "for minutes). Give it time before retrying; for longer work raise "
-            f"{SERVER_TIMEOUT_ENV} or data/config/mcp.json server.timeout_seconds."
+            " It changes nothing. Calling it again with the same arguments waits for this run "
+            "instead of starting a second one (model-backed tools such as analyze_code can run "
+            f"for minutes). For longer work raise {SERVER_TIMEOUT_ENV} or data/config/mcp.json "
+            "server.timeout_seconds."
         )
     if key:
         return head + (
@@ -256,10 +297,12 @@ def _timeout_message(name: str, timeout: float, read_only: bool = False, key: st
     # A call that timed out never handed back a batch or job id, so there is
     # nothing to poll; say where the result will turn up instead.
     return head + (
-        " Calling it again would start a second run. This call returned no job id, so there "
-        "is nothing to poll with get_generation_status; anything it writes lands in Studio "
-        "and data/outputs when it completes (resources/list shows generated files). Send an "
-        f"{IDEMPOTENCY_KEY} next time so a retry waits for the first run."
+        " Calling it again with the same arguments waits for this run while it is going, but "
+        "once it has finished the same call starts a second run. This call returned no job id, "
+        "so there is nothing to poll with get_generation_status; anything it writes lands in "
+        "Studio and data/outputs when it completes (resources/list shows generated files). "
+        f"Send an {IDEMPOTENCY_KEY} next time so a retry returns the first run even after it "
+        "has finished."
     )
 
 
@@ -307,7 +350,7 @@ class _KeyedCall:
 
 
 class _SessionState:
-    """The guard and keyed calls of one client session."""
+    """The guard, keyed calls and running calls of one client connection."""
 
     def __init__(self) -> None:
         self.guard = ToolExecutionGuard(
@@ -318,6 +361,15 @@ class _SessionState:
             history_limit=GUARD_HISTORY,
         )
         self.keyed: OrderedDict[str, _KeyedCall] = OrderedDict()
+        # Runs still going, by tool and arguments. An identical call that arrives
+        # meanwhile is a retry and waits for the run; once it ends, a repeat runs anew.
+        self.running: dict[str, asyncio.Future] = {}
+
+    def track(self, args_hash: str, task: asyncio.Future) -> None:
+        self.running[args_hash] = task
+        task.add_done_callback(
+            lambda done: self.running.pop(args_hash, None) if self.running.get(args_hash) is done else None
+        )
 
     def remember(self, key: str, call: _KeyedCall) -> None:
         self.keyed[key] = call
@@ -394,7 +446,7 @@ def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
     Build the ``on_list_tools`` / ``on_call_tool`` handlers for the mcp 2.x
     ``Server`` constructor. Returns (on_list_tools, on_call_tool, tool_count).
     """
-    exposed = collect_exposed_tools(config)
+    exposed, outside = narrow_to_toolset(collect_exposed_tools(config), config.tools)
     by_name = {mcp_tool.name: (base_tool, mcp_tool) for base_tool, mcp_tool in exposed}
     validators: dict[str, Draft202012Validator | None] = {}
     for name, (_base, mcp_tool) in by_name.items():
@@ -404,23 +456,20 @@ def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
             logger.warning("MCP: no argument validation for %s: %s", name, exc)
             validators[name] = None
 
-    # State belongs to a client session and goes away with its object. The guard
-    # follows the SDK's session object, which mcp 2.x builds per request, so its
-    # duplicate and failure counts cover one call. Keyed calls follow the
-    # connection that session wraps (one stdio client, or one HTTP session), so a
-    # retry with the same idempotency_key finds the first run.
+    # State belongs to a client connection (one stdio client, or one HTTP
+    # session) and goes away with it. mcp 2.x builds a session object per
+    # request, so state is keyed on the connection that session wraps.
     sessions: weakref.WeakKeyDictionary[Any, _SessionState] = weakref.WeakKeyDictionary()
     sessionless = _SessionState()
     # An MCP call is one-shot: there is no ReACT loop to number it, so the guard's
     # iteration field carries call order instead.
     call_seq = count(1)
 
-    def _state_for(ctx: Any, per_connection: bool = False) -> _SessionState:
+    def _state_for(ctx: Any) -> _SessionState:
         session = getattr(ctx, "session", None)
         if session is None:
             return sessionless
-        if per_connection:
-            session = getattr(session, "_connection", None) or session
+        session = getattr(session, "_connection", None) or session
         try:
             state = sessions.get(session)
             if state is None:
@@ -449,6 +498,10 @@ def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
             rec["bytes_in"] = len(json.dumps(arguments, default=str))
 
             pair = by_name.get(name)
+            if pair is None and name in outside:
+                rec["outcome"] = "error"
+                rec["error_code"] = "tool_not_in_toolset"
+                return _error_result(_outside_toolset_message(name, config.tools.toolset, outside[name]))
             if pair is None:
                 rec["outcome"] = "error"
                 rec["error_code"] = "tool_not_exposed"
@@ -472,12 +525,11 @@ def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
                 return _error_result(f"Invalid arguments for '{name}': {problem}")
 
             state = _state_for(ctx)
-            keyed_state = _state_for(ctx, per_connection=True)
             timeout = _call_timeout(config, arguments, base_tool)
             args_hash = ToolExecutionGuard._hash_call(name, arguments)
 
             if key is not None:
-                earlier = keyed_state.keyed.get(key)
+                earlier = state.keyed.get(key)
                 if earlier is not None:
                     if (earlier.tool, earlier.args_hash) != (name, args_hash):
                         rec["outcome"] = "error"
@@ -487,11 +539,15 @@ def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
                         )
                     return await _await_result(earlier.task, name, timeout, read_only, key, rec)
 
-            # A status poll repeats on purpose, so idempotent tools skip duplicate
-            # detection; the circuit breaker still applies to them.
-            ok, guard_reason = state.guard.check_call(
-                name, arguments, dedupe=not getattr(base_tool, "idempotent", False),
-            )
+            # A status poll repeats on purpose, so idempotent tools always run; the
+            # circuit breaker still applies to them. A new idempotency_key marks a
+            # separate run even when the arguments match one still going.
+            if key is None and not getattr(base_tool, "idempotent", False):
+                running = state.running.get(args_hash)
+                if running is not None and not running.done():
+                    logger.info("MCP: '%s' repeats a call still running; waiting for that run", name)
+                    return await _await_result(running, name, timeout, read_only, None, rec)
+            ok, guard_reason = state.guard.check_call(name, arguments, dedupe=False)
             if not ok:
                 rec["outcome"] = "error"
                 rec["error_code"] = "guard_blocked"
@@ -506,8 +562,9 @@ def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
             base_tool.set_context({"transport": "mcp"})
             task = asyncio.ensure_future(asyncio.to_thread(base_tool.execute, **arguments))
             task.add_done_callback(partial(_record_outcome, state.guard, name, dict(arguments), call_seq))
+            state.track(args_hash, task)
             if key is not None:
-                keyed_state.remember(key, _KeyedCall(name, args_hash, task))
+                state.remember(key, _KeyedCall(name, args_hash, task))
             return await _await_result(task, name, timeout, read_only, key, rec)
 
     return on_list_tools, on_call_tool, len(by_name)
