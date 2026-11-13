@@ -526,21 +526,12 @@ const SettingsPage = () => {
             voice: defaultVoice,
           }));
         }
-      } else {
-        // If no voices are available, reset to empty string to avoid MUI warnings
-        setVoiceSettings((prev) => ({
-          ...prev,
-          voice: "",
-        }));
       }
+      // An empty or failed voice list keeps the saved voice: the setting is
+      // written to the browser on every change, and chat narration reads it.
     } catch (error) {
       console.error("Failed to load voice configuration:", error);
       setVoiceError(t("settings.voice.loadFailed"));
-      // Reset voice to empty string on error to avoid MUI warnings
-      setVoiceSettings((prev) => ({
-        ...prev,
-        voice: "",
-      }));
     } finally {
       setIsVoiceLoading(false);
     }
