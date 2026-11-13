@@ -338,8 +338,10 @@ class SwarmOrchestrator:
             if backend:
                 backend.kill(process)
             self._release_gpu_hold(task_id)
+            # _processes keeps finished agents too; only a task still running
+            # was cancelled.
             task = self._find_task(task_id)
-            if task:
+            if task and task.status == SwarmStatus.RUNNING:
                 task.status = SwarmStatus.CANCELLED
 
         self._emit_event("swarm_cancelled", "swarm", {"swarm_id": self.swarm_id})
