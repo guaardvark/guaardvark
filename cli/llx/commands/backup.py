@@ -78,7 +78,7 @@ def list_backups(
             table = make_table(title="Backups")
             table.add_column("Filename")
             for b in backups:
-                table.add_row(b)
+                table.add_row(str(b.get("name", "")) if isinstance(b, dict) else str(b))
             console.print(table)
 
     except LlxConnectionError as e:
