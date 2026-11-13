@@ -1646,6 +1646,28 @@ class OfflineImageGenerator:
             if "/" not in f and f.endswith((".safetensors", ".ckpt", ".pt", ".bin"))
         ]
 
+    def snapshot_download_bytes(self, model_id: str) -> int:
+        """Bytes ``_snapshot_with_retry`` fetches for a repo, from the Hub's file listing.
+
+        Applies the same filters as the download (ignore patterns, redundant root
+        checkpoints). Returns 0 when the listing cannot be read.
+        """
+        try:
+            from huggingface_hub import HfApi
+            from huggingface_hub.utils import filter_repo_objects
+            info = HfApi().model_info(model_id, files_metadata=True, token=self._hf_token())
+            sizes = {s.rfilename: int(s.size or 0) for s in (info.siblings or [])}
+        except Exception as e:
+            logger.debug(f"Could not read file sizes for {model_id}: {e}")
+            return 0
+        ignore = list(self._SNAPSHOT_IGNORE_PATTERNS)
+        if "model_index.json" in sizes:
+            ignore.extend(
+                f for f in sizes
+                if "/" not in f and f.endswith((".safetensors", ".ckpt", ".pt", ".bin"))
+            )
+        return sum(sizes[f] for f in filter_repo_objects(sizes, ignore_patterns=ignore))
+
     def _snapshot_with_retry(self, model_id: str, model_path: Path) -> tuple[bool, str | None]:
         """snapshot_download with weight-only filtering and resume-on-failure.
 
@@ -4272,7 +4294,7 @@ Negative Prompt: {negative_prompt}""",
                     else "17GB+Comfy" if "qwen-image-21" in model_key
                     else "13GB+Comfy" if "moss-image" in model_key
                     else "18GB+Comfy" if "flux3" in model_key
-                    else "16GB" if "z-image" in model_id.lower() or "zimage" in model_key
+                    else "31GB" if "z-image" in model_id.lower() or "zimage" in model_key
                     else "Comfy backend" if model_key == "comfyui"
                     else "12-15GB" if "xl" in model_id.lower()
                     else "4-7GB"
