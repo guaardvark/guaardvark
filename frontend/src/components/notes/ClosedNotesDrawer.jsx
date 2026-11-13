@@ -15,7 +15,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import StickyNote2OutlinedIcon from "@mui/icons-material/StickyNote2Outlined";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { useUiTranslation, translate, uiLocale } from "../../i18n";

@@ -34,7 +34,7 @@ import {
   Close as CloseIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
-  DeleteOutline as DeleteIcon,
+  DeleteOutlineOutlined as DeleteIcon,
 } from "@mui/icons-material";
 import {
   listJobs,

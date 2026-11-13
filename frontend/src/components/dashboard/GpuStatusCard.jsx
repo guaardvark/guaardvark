@@ -15,7 +15,7 @@ import {
   Stack,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import MemoryIcon from "@mui/icons-material/Memory";
 import { io } from "socket.io-client";
 import { SOCKET_URL } from "../../api/apiClient";

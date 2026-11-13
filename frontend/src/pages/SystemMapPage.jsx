@@ -38,7 +38,7 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import SendIcon from "@mui/icons-material/Send";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import ManageSearchIcon from "@mui/icons-material/ManageSearch";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
 import { io } from "socket.io-client";
 
 import PageLayout from "../components/layout/PageLayout";

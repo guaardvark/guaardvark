@@ -23,13 +23,13 @@ import { alpha } from "@mui/material/styles";
 
 import ApiIcon from "@mui/icons-material/Api";
 import ChatIcon from "@mui/icons-material/Chat";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import CheckCircleOutlineIcon from "../common/CheckCircleOutlineIcon";
 import SystemIcon from "@mui/icons-material/Computer";
 import DnsIcon from "@mui/icons-material/Dns";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import FolderIcon from "@mui/icons-material/Folder";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutlineOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import SecurityIcon from "@mui/icons-material/Security";
 import SpeedIcon from "@mui/icons-material/Speed";

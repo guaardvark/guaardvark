@@ -7,8 +7,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Box, Button, CircularProgress, Collapse, Typography, Tooltip } from '@mui/material';
 import MuiAlert from '@mui/material/Alert';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import CheckCircleOutlineIcon from '../common/CheckCircleOutlineIcon';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';

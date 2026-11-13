@@ -19,8 +19,8 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { listChatSessions, deleteChatSession } from "../../api/chatService";

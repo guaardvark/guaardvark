@@ -40,7 +40,7 @@ import {
   ExpandLess as ExpandLessIcon,
   CheckCircle as HealthyIcon,
   Error as ErrorIcon,
-  HelpOutline as UnknownIcon,
+  HelpOutlineOutlined as UnknownIcon,
   Memory as GpuIcon,
   Extension as PluginIcon,
   Terminal as LogIcon,

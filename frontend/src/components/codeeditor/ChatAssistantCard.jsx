@@ -47,7 +47,7 @@ import {
   Add as AddIcon,
   Description as DocumentIcon,
   LightbulbOutlined as SuggestionIcon,
-  ErrorOutline as ErrorIcon,
+  ErrorOutlineOutlined as ErrorIcon,
   WarningAmber as WarningIcon,
   CheckCircle as SuccessIcon,
   ExpandMore as ExpandMoreIcon,
