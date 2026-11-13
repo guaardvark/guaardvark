@@ -10,6 +10,8 @@
 #
 # Rule: exclude ONLY the top-level weights directory: --exclude '/models/'
 #
+# Without rsync (the container image) the merge uses cp -a, to the same result.
+#
 # Usage:
 #   bash plugins/comfyui/scripts/restore_app.sh
 #   bash plugins/comfyui/scripts/restore_app.sh --dry-run
@@ -40,9 +42,9 @@ if ! command -v git >/dev/null 2>&1; then
   err "git is required"
   exit 1
 fi
-if ! command -v rsync >/dev/null 2>&1; then
-  err "rsync is required"
-  exit 1
+HAVE_RSYNC=0
+if command -v rsync >/dev/null 2>&1; then
+  HAVE_RSYNC=1
 fi
 
 TMP_DIR="$(mktemp -d -t comfyui-restore-XXXXXX)"
@@ -58,13 +60,58 @@ mkdir -p "$COMFYUI_DIR"
 # Preserve top-level weights, custom nodes, and per-machine user state.
 # Nested package paths like comfy/ldm/models MUST still update from the fresh clone.
 # NEVER delete custom_nodes/ — Wan depends on KJNodes/GGUF/VHS/CogVideoXWrapper.
-RSYNC_OPTS=(-a --delete --exclude '/models/' --exclude '/custom_nodes/' --exclude '/user/' --exclude '/input/' --exclude '/output/' --exclude '/temp/')
+PRESERVED_DIRS=(models custom_nodes user input output temp)
+RSYNC_OPTS=(-a --delete)
+for dir in "${PRESERVED_DIRS[@]}"; do
+  RSYNC_OPTS+=(--exclude "/$dir/")
+done
 if [ "$DRY_RUN" -eq 1 ]; then
   RSYNC_OPTS+=(--dry-run -v)
-  info "Dry-run rsync (no files written):"
+  info "Dry run (no files written):"
 else
   info "Merging app into $COMFYUI_DIR (preserving models/, custom_nodes/, user/)..."
 fi
+
+# True when top-level entry $1 (at path $2) is one of PRESERVED_DIRS. Like
+# rsync's "/name/" pattern it only matches a directory (a symlink to one counts).
+preserved() {
+  local keep
+  [ -d "$2" ] || return 1
+  for keep in "${PRESERVED_DIRS[@]}"; do
+    if [ "$1" = "$keep" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# The rsync merge with cp -a: every top-level entry of the live tree outside
+# PRESERVED_DIRS goes, then the clone's entries outside them are copied in.
+merge_with_cp() {
+  local src="$1" dest="$2" entry name
+  while IFS= read -r -d '' entry; do
+    name="${entry##*/}"
+    if preserved "$name" "$entry"; then
+      continue
+    fi
+    if [ "$DRY_RUN" -eq 1 ]; then
+      info "  would replace: $name"
+    else
+      rm -rf -- "$entry"
+    fi
+  done < <(find "$dest/" -mindepth 1 -maxdepth 1 -print0)
+  while IFS= read -r -d '' entry; do
+    name="${entry##*/}"
+    if preserved "$name" "$entry"; then
+      continue
+    fi
+    if [ "$DRY_RUN" -eq 1 ]; then
+      info "  would copy: $name"
+    else
+      cp -a -- "$entry" "$dest/"
+    fi
+  done < <(find "$src/" -mindepth 1 -maxdepth 1 -print0)
+}
 
 # Pin to the release the plugin's Update action targets ("target" in
 # plugins/comfyui/releases.json), so a restored tree and an updated one are the
@@ -84,7 +131,12 @@ if [ -n "$COMFYUI_REF" ]; then
   git -C "$TMP_DIR/ComfyUI" checkout -q "$COMFYUI_REF"
 fi
 
-rsync "${RSYNC_OPTS[@]}" "$TMP_DIR/ComfyUI/" "$COMFYUI_DIR/"
+if [ "$HAVE_RSYNC" -eq 1 ]; then
+  rsync "${RSYNC_OPTS[@]}" "$TMP_DIR/ComfyUI/" "$COMFYUI_DIR/"
+else
+  info "rsync not found; merging with cp -a."
+  merge_with_cp "$TMP_DIR/ComfyUI" "$COMFYUI_DIR"
+fi
 
 if [ ! -f "$COMFYUI_DIR/main.py" ]; then
   err "Restore failed: $COMFYUI_DIR/main.py still missing"
