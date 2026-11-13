@@ -119,8 +119,13 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
+# Health check. Before the API listens the container syncs plugin sources, runs
+# the migrations and imports the app again beside three Celery processes; on a
+# first start or a busy disk that outlasts a short grace, and the container
+# then reads "unhealthy" while it is still coming up. A miss inside the start
+# period is not counted and the first answer ends it, so a long one costs a
+# healthy container nothing.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=5 \
     CMD curl -f http://localhost:5000/api/health || exit 1
 
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
