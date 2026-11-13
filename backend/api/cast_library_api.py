@@ -45,6 +45,10 @@ def _resolve_ref_path(p: str) -> str | None:
     '../../etc/passwd' reaching send_file."""
     if not p:
         return None
+    # A reference is an image. Without this the roots below made every file
+    # of the install servable, the .env that holds the API key included.
+    if os.path.splitext(str(p))[1].lower() not in _ALLOWED_REF_EXTS:
+        return None
     roots = [_PROJECT_ROOT]
     try:
         storage = current_app.config.get("STORAGE_DIR")  # registered key (NOT "DATA_DIR")
