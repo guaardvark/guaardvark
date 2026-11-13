@@ -2826,10 +2826,13 @@ const ChatPage = () => {
           localStorage.setItem(storageKey, selectedSessionId);
           // A turn still running belongs to the chat being left; its reply is saved
           // there. Without this the chat being opened shows Stop and a spinner.
-          setIsSending(false);
-          setIsStreamingMessage(false);
-          setAgentWorking(false);
-          streamingServiceRef.current = null;
+          // Picking the chat already open leaves its running turn on screen.
+          if (selectedSessionId !== sessionId) {
+            setIsSending(false);
+            setIsStreamingMessage(false);
+            setAgentWorking(false);
+            streamingServiceRef.current = null;
+          }
           setMessages([]);
           historyLoadedRef.current = false;
           historyLoadingRef.current = false;
