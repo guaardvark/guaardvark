@@ -126,6 +126,18 @@ const UpscalingPage = ({ embedded = false }) => {
   const imageResultRef = useRef(null);
 
   const [previewFile, setPreviewFile] = useState(null);
+  // One object URL per chosen file. Made during render it changed on every
+  // render, so the video restarted on each job poll and each URL leaked.
+  const [previewFileUrl, setPreviewFileUrl] = useState(null);
+  useEffect(() => {
+    if (!previewFile) {
+      setPreviewFileUrl(null);
+      return undefined;
+    }
+    const url = URL.createObjectURL(previewFile);
+    setPreviewFileUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [previewFile]);
   const [previewOriginalUrl, setPreviewOriginalUrl] = useState(null);
   const [previewUpscaledUrl, setPreviewUpscaledUrl] = useState(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -1183,7 +1195,7 @@ const UpscalingPage = ({ embedded = false }) => {
                     >
                       <video
                         ref={videoRef}
-                        src={URL.createObjectURL(previewFile)}
+                        src={previewFileUrl || undefined}
                         controls
                         style={{ maxWidth: "100%", maxHeight: "40vh", borderRadius: "8px" }}
                       />
