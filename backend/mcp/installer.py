@@ -133,7 +133,13 @@ def _merge_json_config(
     """
     data: dict[str, Any] = {}
     if path.is_file() and path.stat().st_size > 0:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except ValueError as exc:
+            raise ValueError(
+                f"{path} has comments or is not plain JSON ({exc}); left untouched. "
+                "Print the entry to paste with: python -m backend.mcp config --client <client>"
+            ) from None
         if not isinstance(data, dict):
             raise ValueError(f"{path} is not a JSON object")
 
