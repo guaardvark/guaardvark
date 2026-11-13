@@ -18,6 +18,7 @@ from pathlib import Path
 from flask import Blueprint, request
 
 from backend.services.output_registration import register_file, registrable_path
+from backend.utils import auth_guard
 from backend.utils.response_utils import error_response, success_response
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,20 @@ def register_output():
 
     Returns the created/existing Document row as JSON.
     """
+    # The callers are sidecars on this machine. A registered row can be
+    # downloaded by its id, and the path it names is the caller's choice
+    # anywhere under the data folder, so another host needs the key.
+    if not (
+        auth_guard.request_is_from_this_machine()
+        or auth_guard.request_carries_valid_key()
+        or auth_guard.request_has_valid_session()
+    ):
+        return error_response(
+            "Outputs are registered from the Guaardvark machine itself or with its API key",
+            status_code=403,
+            error_code="LOCAL_ONLY",
+        )
+
     payload = request.get_json(silent=True) or {}
 
     physical_path = payload.get("physical_path")
