@@ -94,6 +94,30 @@ export const setOllamaLifecycle = async (body) => {
   return data;
 };
 
+/**
+ * The ComfyUI card's "I run ComfyUI myself" switch, as recorded in .env.
+ * @returns {Promise<{external: boolean, env_writable: boolean}>}
+ */
+export const getComfyUILifecycle = async () => {
+  const response = await fetch(`${BASE_URL}/settings/comfyui_lifecycle`);
+  return await handleResponse(response);
+};
+
+/**
+ * Persist the switch. The backend applies it at once; start.sh and stop.sh on their next run.
+ * @param {{external: boolean}} body
+ */
+export const setComfyUILifecycle = async (body) => {
+  const response = await fetch(`${BASE_URL}/settings/comfyui_lifecycle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await handleResponse(response);
+  if (typeof data === "object" && data !== null && data.error) throw new Error(data.error);
+  return data;
+};
+
 export const getGenerationHistoryCounts = async () => {
   const endpoint = `${BASE_URL}/meta/generation-history`;
   try {

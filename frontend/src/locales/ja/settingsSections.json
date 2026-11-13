@@ -46,6 +46,14 @@
     "note": "どちらも次回の停止または起動時に適用されます。現在は何も再起動されません。デフォルトでは、stop.shはstart.shによって起動されたOllamaのみを停止します。これらは .env に GUAARDVARK_OLLAMA_KEEP_RUNNING / GUAARDVARK_OLLAMA_EXTERNAL を書き込みます。",
     "envNotWritable": "(.env をサーバーから書き込むことができません。手動で設定してください。)"
   },
+  "comfyui": {
+    "saved": ".envに保存しました。すぐに適用されます",
+    "saveFailed": "保存に失敗しました: {{error}}",
+    "external": "ComfyUIは自身で実行しています。起動も停止も行いません",
+    "note": "Guaardvark は GUAARDVARK_COMFYUI_URL（またはプラグインのサービス URL）の ComfyUI を使い、ComfyUI の起動、停止、インストール、更新を一切行いません。この設定は .env に GUAARDVARK_COMFYUI_EXTERNAL を書き込みます。",
+    "models": "インストールは引き続きモデルを GUAARDVARK_COMFYUI_DIR/models に書き込みます。ご自身の ComfyUI がこのフォルダーを読み込む必要があります（共有モデルボリュームなど）。",
+    "envNotWritable": "(.env をサーバーから書き込むことができません。手動で設定してください。)"
+  },
   "profile": {
     "setTo": "プロファイルが {{profile}} に設定されました。適用するには再起動してください。",
     "setFailed": "プロファイルのセットに失敗しました: {{error}}",

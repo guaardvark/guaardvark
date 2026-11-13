@@ -47,6 +47,14 @@
     "note": "Entrambe si applicano alla prossima arresto o avvio — nulla si riavvia ora. Di default, stop.sh ferma solo l'Ollama avviato da start.sh. Queste scrivono GUAARDVARK_OLLAMA_KEEP_RUNNING / GUAARDVARK_OLLAMA_EXTERNAL in .env.",
     "envNotWritable": "(.env non è scrivibile dal server; impostali manualmente.)"
   },
+  "comfyui": {
+    "saved": "Salvato in .env; si applica subito",
+    "saveFailed": "Impossibile salvare: {{error}}",
+    "external": "Eseguo ComfyUI io stesso: non avviarlo o fermarlo mai",
+    "note": "Guaardvark usa allora il ComfyUI all'indirizzo GUAARDVARK_COMFYUI_URL (o l'URL del servizio del plugin) e non ne avvia, ferma, installa o aggiorna mai uno. Questa opzione scrive GUAARDVARK_COMFYUI_EXTERNAL in .env.",
+    "models": "Installa continua a scrivere i modelli in GUAARDVARK_COMFYUI_DIR/models. Il tuo ComfyUI deve caricare quella cartella, ad esempio come volume di modelli condiviso.",
+    "envNotWritable": "(.env non è scrivibile dal server; impostalo manualmente.)"
+  },
   "profile": {
     "setTo": "Profilo impostato su {{profile}}. Riavvia per applicare.",
     "setFailed": "Impossibile impostare il profilo: {{error}}",

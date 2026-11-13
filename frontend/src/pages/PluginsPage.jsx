@@ -71,6 +71,7 @@ import {
 } from '../api/pluginsService';
 import { getGpuStatus } from '../api/gpuService';
 import OllamaLifecycleSection from '../components/settings/OllamaLifecycleSection';
+import ComfyUILifecycleSection from '../components/settings/ComfyUILifecycleSection';
 import { ComfyUpdateSection, useComfyUpdate } from '../components/plugins/ComfyUpdate';
 import { translate, useUiTranslation } from '../i18n';
 
@@ -559,14 +560,22 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
         </Box>
       </CardActions>
 
-      {/* Ollama alone owns start/stop behaviour in .env; the switches live on its
-          card rather than behind the settings modal so the choice sits next to the
-          service it governs. */}
+      {/* Ollama and ComfyUI keep their start/stop behaviour in .env; the switches
+          live on their cards rather than behind the settings modal so the choice
+          sits next to the service it governs. */}
       {plugin.id === 'ollama' && (
         <>
           <Divider />
           <Box sx={{ px: 2, pb: 2, pt: 0.5 }}>
             <OllamaLifecycleSection title={t('plugins.card.lifecycle')} />
+          </Box>
+        </>
+      )}
+      {plugin.id === 'comfyui' && (
+        <>
+          <Divider />
+          <Box sx={{ px: 2, pb: 2, pt: 0.5 }}>
+            <ComfyUILifecycleSection title={t('plugins.card.lifecycle')} onChange={comfy.refresh} />
           </Box>
         </>
       )}

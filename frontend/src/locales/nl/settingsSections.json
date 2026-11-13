@@ -47,6 +47,14 @@
     "note": "Beide zijn van toepassing bij de volgende stop of start — niets wordt nu herstart. Standaard stopt stop.sh alleen de Ollama die door start.sh is gestart. Deze schrijven GUAARDVARK_OLLAMA_KEEP_RUNNING / GUAARDVARK_OLLAMA_EXTERNAL naar .env.",
     "envNotWritable": "(.env is niet schrijfbaar door de server; stel ze handmatig in.)"
   },
+  "comfyui": {
+    "saved": "Opgeslagen in .env; direct van toepassing",
+    "saveFailed": "Kon niet opslaan: {{error}}",
+    "external": "Ik draai ComfyUI zelf: nooit starten of stoppen",
+    "note": "Guaardvark gebruikt dan de ComfyUI op GUAARDVARK_COMFYUI_URL (of de service-URL van de plugin) en start, stopt, installeert of werkt er nooit een bij. Dit schrijft GUAARDVARK_COMFYUI_EXTERNAL naar .env.",
+    "models": "Installeren schrijft modellen nog steeds naar GUAARDVARK_COMFYUI_DIR/models. Uw ComfyUI moet die map laden, bijvoorbeeld als gedeeld modelvolume.",
+    "envNotWritable": "(.env is niet schrijfbaar door de server; stel het handmatig in.)"
+  },
   "profile": {
     "setTo": "Profiel ingesteld op {{profile}}. Herstart om toe te passen.",
     "setFailed": "Fout bij instellen profiel: {{error}}",

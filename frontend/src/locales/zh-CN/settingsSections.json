@@ -46,6 +46,14 @@
     "note": "两者均在下次停止或启动时生效——当前不会立即重启。默认情况下，stop.sh 仅停止由 start.sh 启动的 Ollama。这些设置将写入 .env 中的 GUAARDVARK_OLLAMA_KEEP_RUNNING / GUAARDVARK_OLLAMA_EXTERNAL。",
     "envNotWritable": "(.env 文件不可由服务器写入；请手动设置。)"
   },
+  "comfyui": {
+    "saved": "已保存至 .env；立即生效",
+    "saveFailed": "保存失败：{{error}}",
+    "external": "我自行运行 ComfyUI：永不启动或停止它",
+    "note": "此后 Guaardvark 使用 GUAARDVARK_COMFYUI_URL（或插件服务地址）处的 ComfyUI，绝不启动、停止、安装或更新 ComfyUI。此设置会将 GUAARDVARK_COMFYUI_EXTERNAL 写入 .env。",
+    "models": "安装功能仍会将模型写入 GUAARDVARK_COMFYUI_DIR/models。您自己的 ComfyUI 需要加载该文件夹，例如作为共享的模型卷。",
+    "envNotWritable": "(.env 文件不可由服务器写入；请手动设置。)"
+  },
   "profile": {
     "setTo": "配置文件已设为 {{profile}}。重启以生效。",
     "setFailed": "设置配置文件失败：{{error}}",

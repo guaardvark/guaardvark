@@ -29,6 +29,7 @@ vi.mock("../../api/pluginsService", () => ({
   repairComfyUpdate: (...args) => api.repair(...args),
 }));
 vi.mock("../../components/settings/OllamaLifecycleSection", () => ({ default: () => null }));
+vi.mock("../../components/settings/ComfyUILifecycleSection", () => ({ default: () => null }));
 vi.mock("../../components/layout/PageLayout", () => ({ default: ({ children }) => <div>{children}</div> }));
 
 import { PluginCard } from "../PluginsPage";
