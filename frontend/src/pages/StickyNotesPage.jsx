@@ -520,10 +520,13 @@ const StickyNotesPage = () => {
 
   // Debounced save for content/title typing
   const debouncedSave = useCallback(
-    (newNotes) => {
+    () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      // Save the board as it is when the timer fires: a note added, duplicated
+      // or undone since the keystroke is already saved and must not be undone.
       saveTimeoutRef.current = setTimeout(() => {
-        saveState(null, null, null, undefined, newNotes);
+        saveTimeoutRef.current = null;
+        saveState(null, null, null, undefined, notesRef.current);
       }, 500);
     },
     [saveState],
@@ -620,11 +623,16 @@ const StickyNotesPage = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleUndo]);
 
+  // Leaving the page with a save still pending sends it now.
   useEffect(() => {
     return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+        saveState(null, null, null, undefined, notesRef.current);
+      }
     };
-  }, []);
+  }, [saveState]);
 
   // ── Search filter ─────────────────────────────────────────────────────────
 
