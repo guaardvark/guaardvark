@@ -2121,7 +2121,9 @@ const SettingsPage = () => {
     try {
       const fd = new FormData();
       fd.append("system_name", trimmedName);
-      await updateBranding(fd);
+      // updateBranding reports a failure as { error }, it does not throw.
+      const saved = await updateBranding(fd);
+      if (saved?.error) throw new Error(saved.error);
       const refreshed = await fetchBranding();
       const latestName =
         refreshed?.system_name ?? trimmedName ?? persistedSystemName ?? "";
@@ -2730,7 +2732,8 @@ const SettingsPage = () => {
                 fd.append("logo", file);
                 if (brandingName.trim())
                   fd.append("system_name", brandingName.trim());
-                await updateBranding(fd);
+                const saved = await updateBranding(fd);
+                if (saved?.error) throw new Error(saved.error);
                 setBrandingFile(null);
                 e.target.value = "";
                 const refreshed = await fetchBranding();
