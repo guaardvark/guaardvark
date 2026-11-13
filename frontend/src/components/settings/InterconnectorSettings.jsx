@@ -1417,8 +1417,10 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     setConfig({ ...config, sync_interval_seconds: clamped });
                   }}
                   disabled={!config.auto_sync_enabled}
-                  inputProps={{ min: 60, max: 3600 }}
                   helperText={t("settingsInterconnector.ui.syncIntervalHelp")}
+                  slotProps={{
+                    htmlInput: { min: 60, max: 3600 }
+                  }}
                 />
               </Grid>
 

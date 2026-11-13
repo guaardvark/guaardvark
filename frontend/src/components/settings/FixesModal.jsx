@@ -328,7 +328,9 @@ export default function FixesModal({ open, onClose, showMessage }) {
                             </Typography>
                           </Stack>
                         }
-                        secondaryTypographyProps={{ component: "div" }}
+                        slotProps={{
+                          secondary: { component: "div" }
+                        }}
                       />
                     </ListItemButton>
                     <Divider />

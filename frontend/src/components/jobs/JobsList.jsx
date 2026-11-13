@@ -319,14 +319,16 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
               placeholder={t("jobs.list.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
               sx={{ minWidth: 280 }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }
+              }}
             />
             <IconButton
               size="small"

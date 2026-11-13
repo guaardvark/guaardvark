@@ -43,7 +43,6 @@ const ProductionList = ({ productions, selectedId, onSelect }) => {
             >
               <ListItemText
                 primary={p.name}
-                secondaryTypographyProps={{ component: 'div' }}
                 secondary={
                   <Box component="div" sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
                     <Chip
@@ -57,6 +56,9 @@ const ProductionList = ({ productions, selectedId, onSelect }) => {
                     </Typography>
                   </Box>
                 }
+                slotProps={{
+                  secondary: { component: 'div' }
+                }}
               />
             </ListItemButton>
           </ListItem>

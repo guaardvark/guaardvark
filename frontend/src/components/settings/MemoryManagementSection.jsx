@@ -450,7 +450,9 @@ const MemoryManagementSection = ({ title = translate("settingsMemory.title"), ic
 
   return (
     <SettingsSection title={title} icon={icon}>
-      <Typography variant="body2" color="text.secondary" paragraph>
+      <Typography variant="body2" color="text.secondary" sx={{
+        marginBottom: "16px"
+      }}>
         {t("settingsMemory.intro")}
       </Typography>
 
@@ -462,8 +464,10 @@ const MemoryManagementSection = ({ title = translate("settingsMemory.title"), ic
             placeholder={t("settingsMemory.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />,
+            slotProps={{
+              input: {
+                startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />,
+              }
             }}
           />
           <Button type="submit" variant="outlined">{t("settingsMemory.search")}</Button>
@@ -478,7 +482,17 @@ const MemoryManagementSection = ({ title = translate("settingsMemory.title"), ic
       </Box>
 
       <Box sx={{ display: "flex", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
-        <TextField select size="small" label={t("settingsMemory.filters.type")} value={filterType} onChange={(e) => setFilterType(e.target.value)} SelectProps={{ native: true }} InputLabelProps={{ shrink: true }} sx={{ minWidth: 130 }}>
+        <TextField
+          select
+          size="small"
+          label={t("settingsMemory.filters.type")}
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          sx={{ minWidth: 130 }}
+          slotProps={{
+            select: { native: true },
+            inputLabel: { shrink: true }
+          }}>
           <option value="">{t("settingsMemory.filters.allTypes")}</option>
           <option value="fact">{t("settingsMemory.filters.fact")}</option>
           <option value="preference">{t("settingsMemory.filters.preference")}</option>
@@ -487,7 +501,17 @@ const MemoryManagementSection = ({ title = translate("settingsMemory.title"), ic
           <option value="belief_update">{t("settingsMemory.filters.beliefUpdate")}</option>
           <option value="snippet">{t("settingsMemory.filters.snippet")}</option>
         </TextField>
-        <TextField select size="small" label={t("settingsMemory.filters.source")} value={filterSource} onChange={(e) => setFilterSource(e.target.value)} SelectProps={{ native: true }} InputLabelProps={{ shrink: true }} sx={{ minWidth: 150 }}>
+        <TextField
+          select
+          size="small"
+          label={t("settingsMemory.filters.source")}
+          value={filterSource}
+          onChange={(e) => setFilterSource(e.target.value)}
+          sx={{ minWidth: 150 }}
+          slotProps={{
+            select: { native: true },
+            inputLabel: { shrink: true }
+          }}>
           <option value="">{t("settingsMemory.filters.allSources")}</option>
           <option value="manual">{t("settingsMemory.filters.manual")}</option>
           <option value="chat">{t("settingsMemory.filters.chat")}</option>
@@ -497,13 +521,17 @@ const MemoryManagementSection = ({ title = translate("settingsMemory.title"), ic
           <option value="learned_from_feedback">{t("settingsMemory.filters.feedback")}</option>
           <option value="candidate_recipe">{t("settingsMemory.filters.candidateRecipe")}</option>
         </TextField>
-        <TextField select size="small" label={t("settingsMemory.filters.status")} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} SelectProps={{ native: true }} sx={{ minWidth: 130 }}>
+        <TextField select size="small" label={t("settingsMemory.filters.status")} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} sx={{ minWidth: 130 }} slotProps={{
+          select: { native: true }
+        }}>
           <option value="all">{t("settingsMemory.filters.allStatus")}</option>
           <option value="active">{t("settingsMemory.filters.active")}</option>
           <option value="archived">{t("settingsMemory.filters.archived")}</option>
           <option value="wrong">{t("settingsMemory.filters.wrong")}</option>
         </TextField>
-        <TextField select size="small" label={t("settingsMemory.filters.sort")} value={sortMode} onChange={(e) => setSortMode(e.target.value)} SelectProps={{ native: true }} sx={{ minWidth: 130 }}>
+        <TextField select size="small" label={t("settingsMemory.filters.sort")} value={sortMode} onChange={(e) => setSortMode(e.target.value)} sx={{ minWidth: 130 }} slotProps={{
+          select: { native: true }
+        }}>
           <option value="rank">{t("settingsMemory.filters.rank")}</option>
           <option value="">{t("settingsMemory.filters.newest")}</option>
         </TextField>
@@ -759,8 +787,10 @@ const MemoryManagementSection = ({ title = translate("settingsMemory.title"), ic
               label={t("settingsMemory.add.type")}
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
-              SelectProps={{ native: true }}
               sx={{ minWidth: 120 }}
+              slotProps={{
+                select: { native: true }
+              }}
             >
               <option value="fact">{t("settingsMemory.filters.fact")}</option>
               <option value="preference">{t("settingsMemory.filters.preference")}</option>

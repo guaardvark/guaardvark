@@ -330,7 +330,9 @@ const ConnectionsPage = () => {
                             size="small"
                             checked={conn.public_opt_in?.on === true}
                             onChange={(e) => handleAllowPublic(conn, optIn, e.target.checked)}
-                            inputProps={{ "aria-label": optIn.label }}
+                            slotProps={{
+                              input: { "aria-label": optIn.label }
+                            }}
                           />
                           <Typography variant="body2">{optIn.label}</Typography>
                         </Stack>

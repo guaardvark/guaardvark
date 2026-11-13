@@ -505,9 +505,10 @@ const ApprovalsPage = () => {
                       : connectionName(record)
                   }
                   secondary={record.title || record.body || t("approvals.noText")}
-                  primaryTypographyProps={{ variant: "body2" }}
-                  secondaryTypographyProps={{ variant: "caption", noWrap: true }}
-                />
+                  slotProps={{
+                    primary: { variant: "body2" },
+                    secondary: { variant: "caption", noWrap: true }
+                  }} />
               </ListItemButton>
             ))}
           </List>

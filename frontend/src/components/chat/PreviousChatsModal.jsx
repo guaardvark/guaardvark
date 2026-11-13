@@ -147,9 +147,11 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
                   <ListItemText
                     primary={session.preview || t("chat.sessions.newChat")}
                     secondary={formatDate(session.created_at)}
-                    primaryTypographyProps={{
-                      noWrap: true,
-                      sx: { maxWidth: "85%", fontSize: "0.9rem" },
+                    slotProps={{
+                      primary: {
+                        noWrap: true,
+                        sx: { maxWidth: "85%", fontSize: "0.9rem" },
+                      }
                     }}
                   />
                   <Chip

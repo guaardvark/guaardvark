@@ -261,8 +261,10 @@ const PostFields = ({
               value={scheduledAt}
               onChange={(e) => onChange({ scheduledAt: e.target.value })}
               size="small"
-              InputLabelProps={{ shrink: true }}
               helperText={scheduleHelp}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
             {scheduleNotes.map((entry) => (
               <Typography key={entry.label} variant="caption" color="text.secondary">

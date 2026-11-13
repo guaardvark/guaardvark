@@ -126,7 +126,7 @@ const ProgressTestPage = () => {
       <Typography variant="h4" component="h1" gutterBottom>
         Progress Tracking Debug
       </Typography>
-      
+
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         Test progress tracking for all system processes. Check the ProgressFooterBar at the bottom of the screen.
       </Typography>
@@ -235,16 +235,24 @@ const ProgressTestPage = () => {
           <Typography variant="h6" gutterBottom>
             How to Test
           </Typography>
-          <Typography variant="body2" paragraph>
+          <Typography variant="body2" sx={{
+            marginBottom: "16px"
+          }}>
             1. Click any "Start Test" button above
           </Typography>
-          <Typography variant="body2" paragraph>
+          <Typography variant="body2" sx={{
+            marginBottom: "16px"
+          }}>
             2. Watch the ProgressFooterBar at the bottom of the screen
           </Typography>
-          <Typography variant="body2" paragraph>
+          <Typography variant="body2" sx={{
+            marginBottom: "16px"
+          }}>
             3. The progress should show the process type, percentage, and status message
           </Typography>
-          <Typography variant="body2" paragraph>
+          <Typography variant="body2" sx={{
+            marginBottom: "16px"
+          }}>
             4. You can run multiple tests simultaneously to see how the system handles concurrent processes
           </Typography>
           <Divider sx={{ my: 2 }} />

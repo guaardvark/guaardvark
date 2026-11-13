@@ -956,7 +956,9 @@ const OutreachPage = () => {
               onChange={(e) => setPassTopics(e.target.value)}
               helperText={t("outreach.queue.passTopicsHelp")}
               sx={{ mb: 1, "& .MuiFormHelperText-root": { fontSize: "0.65rem", mx: 0 } }}
-              inputProps={{ "aria-label": t("outreach.queue.passTopicsLabel") }}
+              slotProps={{
+                htmlInput: { "aria-label": t("outreach.queue.passTopicsLabel") }
+              }}
             />
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1, fontSize: "0.65rem" }}>
               {t("outreach.queue.youtubePassNote")}
@@ -990,7 +992,9 @@ const OutreachPage = () => {
                             ? new Date(r.created_at).toLocaleString(uiLocale())
                             : undefined
                         }
-                        secondaryTypographyProps={{ variant: "caption", fontSize: "0.6rem" }}
+                        slotProps={{
+                          secondary: { variant: "caption", fontSize: "0.6rem" }
+                        }}
                       />
                     </ListItemButton>
                   ))}
@@ -1649,7 +1653,9 @@ const OutreachPage = () => {
                 value={profileForm.name}
                 onChange={(e) => setProfileField("name", e.target.value)}
                 fullWidth
-                inputProps={{ maxLength: 80 }}
+                slotProps={{
+                  htmlInput: { maxLength: 80 }
+                }}
               />
               <TextField
                 size="small"
@@ -1658,7 +1664,9 @@ const OutreachPage = () => {
                 value={profileForm.account_handle}
                 onChange={(e) => setProfileField("account_handle", e.target.value)}
                 fullWidth
-                inputProps={{ maxLength: 80 }}
+                slotProps={{
+                  htmlInput: { maxLength: 80 }
+                }}
               />
             </Stack>
             <TextField
@@ -1671,7 +1679,9 @@ const OutreachPage = () => {
               minRows={2}
               maxRows={6}
               fullWidth
-              inputProps={{ maxLength: 2000 }}
+              slotProps={{
+                htmlInput: { maxLength: 2000 }
+              }}
             />
             <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
               <TextField
@@ -1720,7 +1730,9 @@ const OutreachPage = () => {
                   value={v.label}
                   onChange={(e) => setProfileRow("videos", i, "label", e.target.value)}
                   sx={{ width: { xs: "40%", md: 220 } }}
-                  inputProps={{ maxLength: 80 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 80 }
+                  }}
                 />
                 <TextField
                   size="small"
@@ -1763,7 +1775,9 @@ const OutreachPage = () => {
                   value={f.key}
                   onChange={(e) => setProfileRow("features", i, "key", e.target.value)}
                   sx={{ width: { xs: "30%", md: 160 } }}
-                  inputProps={{ maxLength: 40 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 40 }
+                  }}
                 />
                 <TextField
                   size="small"
@@ -1771,7 +1785,9 @@ const OutreachPage = () => {
                   value={f.blurb}
                   onChange={(e) => setProfileRow("features", i, "blurb", e.target.value)}
                   fullWidth
-                  inputProps={{ maxLength: 300 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 300 }
+                  }}
                 />
                 <TextField
                   size="small"

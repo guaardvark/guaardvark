@@ -727,7 +727,9 @@ function WordPressPagesPage() {
               });
             }}
             helperText={t("wordpress.pages.maxPagesHelp")}
-            inputProps={{ min: 1 }}
+            slotProps={{
+              htmlInput: { min: 1 }
+            }}
             />
             {isPulling && <LinearProgress />}
           </Stack>

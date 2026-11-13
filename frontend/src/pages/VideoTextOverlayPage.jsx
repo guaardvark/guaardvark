@@ -194,9 +194,11 @@ const VideoTextOverlayPage = () => {
                   placeholder={t("videoTextOverlay.textPlaceholder")}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  inputProps={{ maxLength: 500 }}
                   helperText={`${text.length} / 500`}
                   sx={{ "& .MuiFilledInput-root": { borderRadius: 2 } }}
+                  slotProps={{
+                    htmlInput: { maxLength: 500 }
+                  }}
                 />
 
                 <Typography variant="h6" fontWeight="bold">{t("videoTextOverlay.style")}</Typography>

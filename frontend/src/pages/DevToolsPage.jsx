@@ -966,7 +966,9 @@ const DevToolsPage = () => {
               </Accordion>
 
               {/* Self-improvement log */}
-              <Accordion TransitionProps={{ unmountOnExit: true }}>
+              <Accordion slotProps={{
+                transition: { unmountOnExit: true }
+              }}>
                 <AccordionSummary expandIcon={<ExpandMore />}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <FixIcon sx={{ color: "success.main" }} />

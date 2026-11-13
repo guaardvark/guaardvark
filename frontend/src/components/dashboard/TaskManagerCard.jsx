@@ -309,9 +309,11 @@ const TaskManagerCard = React.forwardRef(
                             </Typography>
                           </Box>
                         }
-                        secondaryTypographyProps={{
-                          component: "div",
-                          sx: { mt: 0.5 }
+                        slotProps={{
+                          secondary: {
+                            component: "div",
+                            sx: { mt: 0.5 }
+                          }
                         }}
                       />
                     </ListItem>

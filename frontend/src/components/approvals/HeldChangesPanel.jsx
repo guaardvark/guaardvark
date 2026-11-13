@@ -176,7 +176,9 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
                   </Typography>
                 </Stack>
               }
-              secondaryTypographyProps={{ component: "div" }}
+              slotProps={{
+                secondary: { component: "div" }
+              }}
             />
           </ListItemButton>
         ))}

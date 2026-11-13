@@ -666,19 +666,21 @@ const ConfigDialog = ({ open, plugin, onClose, onSave }) => {
               autoComplete="off"
               placeholder={tokenStatus?.configured ? '••••••••••••••••' : ''}
               helperText={tokenHelper}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label={showToken ? t('plugins.config.hideToken') : t('plugins.config.showToken')}
-                      onClick={() => setShowToken((v) => !v)}
-                      edge="end"
-                      size="small"
-                    >
-                      {showToken ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label={showToken ? t('plugins.config.hideToken') : t('plugins.config.showToken')}
+                        onClick={() => setShowToken((v) => !v)}
+                        edge="end"
+                        size="small"
+                      >
+                        {showToken ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }
               }}
             />
           )}

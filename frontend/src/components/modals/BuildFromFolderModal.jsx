@@ -284,7 +284,9 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
               onChange={(e) => setTarget(e.target.value)}
               disabled={Boolean(busy)}
               sx={{ minWidth: 260 }}
-              SelectProps={{ renderValue: (value) => targetLabel(value, estimate) }}
+              slotProps={{
+                select: { renderValue: (value) => targetLabel(value, estimate) }
+              }}
             >
               {TARGETS.map((value) => {
                 const choice = estimate?.choices?.[String(value)];

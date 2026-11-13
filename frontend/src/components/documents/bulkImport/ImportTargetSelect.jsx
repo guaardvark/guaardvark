@@ -43,14 +43,16 @@ const ImportTargetSelect = ({ folders, value, onChange, onNewFolder, disabled = 
       onChange={handleChange}
       disabled={disabled}
       sx={{ minWidth: 220 }}
-      SelectProps={{
-        renderValue: () => {
-          const name = (value?.path || value?.name || "").split("/").filter(Boolean).join(" › ");
-          return value?.isNew ? t("upload.bulk.into.newFolder", { name }) : name;
-        },
-      }}
-      inputProps={{ "data-testid": "import-into" }}
-    >
+      slotProps={{
+        htmlInput: { "data-testid": "import-into" },
+
+        select: {
+          renderValue: () => {
+            const name = (value?.path || value?.name || "").split("/").filter(Boolean).join(" › ");
+            return value?.isNew ? t("upload.bulk.into.newFolder", { name }) : name;
+          },
+        }
+      }}>
       <ListSubheader>{t("upload.bulk.into.foldersInFiles")}</ListSubheader>
       {options.map((o) => {
         const name = (o.path || o.name).split("/").filter(Boolean).join(" › ");

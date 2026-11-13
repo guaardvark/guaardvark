@@ -1000,8 +1000,10 @@ const CastMemberPage = () => {
                 fullWidth
                 value={trainingSettings.base_model_id || 'zimage-turbo'}
                 onChange={(e) => editTraining('base_model_id', e.target.value)}
-                SelectProps={{ native: true }}
                 helperText={t('cast.trainingData.trainBaseHelp')}
+                slotProps={{
+                  select: { native: true }
+                }}
               >
                 <option value="zimage-turbo">{t('cast.trainingData.baseZimage')}</option>
                 <option value="flux-dev">{t('cast.trainingData.baseFlux')}</option>
@@ -1030,7 +1032,9 @@ const CastMemberPage = () => {
               <TextField label={t('cast.fields.learningRate')} type="number" size="small" fullWidth
                 value={trainingSettings.learning_rate}
                 onChange={(e) => editTraining('learning_rate', e.target.value)}
-                inputProps={{ step: '0.00001' }} />
+                slotProps={{
+                  htmlInput: { step: '0.00001' }
+                }} />
             </Grid>
             <Grid size={{ xs: 6, sm: 4 }}>
               <TextField label={t('cast.trainingData.stepsOptional')} type="number" size="small" fullWidth
@@ -1520,7 +1524,9 @@ const CastMemberPage = () => {
           Indices are into sheetSamples (non-promoted Generate Character set). */}
       {lightboxIdx !== null && sheetSamples[lightboxIdx] && (
         <Dialog open onClose={() => setLightboxIdx(null)} maxWidth="lg" fullWidth
-                PaperProps={{ sx: { bgcolor: 'grey.900' } }}>
+                slotProps={{
+                  paper: { sx: { bgcolor: 'grey.900' } }
+                }}>
           <DialogContent sx={{ position: 'relative', p: 0, display: 'flex', alignItems: 'center',
                                 justifyContent: 'center', minHeight: '70vh', bgcolor: 'black' }}>
             {sheetSamples[lightboxIdx].image_url ? (

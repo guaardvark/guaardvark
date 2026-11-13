@@ -2242,7 +2242,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   maxRows={previewCounts.total > 1 ? 16 : undefined}
                   fullWidth
                   size="small"
-                  InputProps={{ readOnly: true }}
+                  slotProps={{
+                    input: { readOnly: true }
+                  }}
                 />
               )}
             </SettingsPanel>
@@ -2285,7 +2287,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                     onChange={(e) => setStoryboardShots(Math.max(1, Math.min(50, parseInt(e.target.value, 10) || 1)))}
                     size="small"
                     sx={{ width: 96 }}
-                    inputProps={{ min: 1, max: 50 }}
+                    slotProps={{
+                      htmlInput: { min: 1, max: 50 }
+                    }}
                   />
                 )}
               </Line>
@@ -2580,10 +2584,12 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   size="small"
                   label={t("videoGenerator.finish.fetaWeight")}
                   type="number"
-                  inputProps={{ step: 0.1, min: 0.1, max: 3.0 }}
                   value={fetaWeight}
                   onChange={(e) => setFetaWeight(Number(e.target.value))}
                   sx={{ width: 140 }}
+                  slotProps={{
+                    htmlInput: { step: 0.1, min: 0.1, max: 3.0 }
+                  }}
                 />
               )}
               {MODEL_OPTIONS[model]?.samplerProfiles && (
@@ -2673,11 +2679,13 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                     size="small"
                     label={t("videoGenerator.finish.guidance")}
                     type="number"
-                    inputProps={{ step: 0.5, min: 1, max: 20 }}
                     value={advancedParams.guidance_scale}
                     disabled={modelCaps?.cfg === false || isMinimaxModel(model, modelMeta[model])}
                     onChange={(e) => setAdvancedParams({ ...advancedParams, guidance_scale: Number(e.target.value) })}
                     sx={{ width: 120 }}
+                    slotProps={{
+                      htmlInput: { step: 0.5, min: 1, max: 20 }
+                    }}
                   />
                   <FormControl size="small" sx={{ minWidth: 180 }} disabled={!promptControls.style.active}>
                     <InputLabel>{t("videoGenerator.finish.promptStyle")}</InputLabel>
@@ -2694,24 +2702,28 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                     label={t("videoGenerator.finish.seed")}
                     placeholder={t("videoGenerator.finish.seedRandom")}
                     value={advancedParams.seed ?? ""}
-                    inputProps={{ inputMode: "numeric" }}
                     onChange={(e) => {
                       const digits = e.target.value.replace(/\D/g, "").slice(0, String(MAX_SEED).length);
                       setAdvancedParams((prev) => ({ ...prev, seed: digits }));
                     }}
                     sx={{ width: 150 }}
+                    slotProps={{
+                      htmlInput: { inputMode: "numeric" }
+                    }}
                   />
                   <TextField
                     label={t("videoGenerator.finish.framesPerBatch")}
                     type="number"
                     size="small"
-                    inputProps={{ min: 1, max: 8 }}
                     value={advancedParams.frames_per_batch}
                     onChange={(e) => {
                       const v = Math.max(1, parseInt(e.target.value || "1", 10));
                       setAdvancedParams((prev) => ({ ...prev, frames_per_batch: v }));
                     }}
                     sx={{ width: 140 }}
+                    slotProps={{
+                      htmlInput: { min: 1, max: 8 }
+                    }}
                   />
                 </Line>
                 {!promptControls.style.active && <Hint>{promptControls.style.note}.</Hint>}
@@ -3252,7 +3264,6 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         </Grid>
       </Grid>
 
-
       {/* Gallery Selection Dialog */}
       <Dialog
         open={galleryOpen}
@@ -3441,7 +3452,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         onClose={() => setVideoPlayer(null)}
         maxWidth="md"
         fullWidth
-        PaperProps={{ sx: { bgcolor: "grey.900", borderRadius: 2 } }}
+        slotProps={{
+          paper: { sx: { bgcolor: "grey.900", borderRadius: 2 } }
+        }}
       >
         {videoPlayer && (() => {
           const { results, currentIndex } = videoPlayer;

@@ -967,9 +967,11 @@ const ImageEditPage = () => {
                           type="number"
                           label={t(`imageEdit.settings.${side}`)}
                           value={pad[side]}
-                          inputProps={{ min: 0, max: caps?.modes?.expand?.max_px || 1024, step: 8 }}
                           onChange={(e) => setPad((cur) => ({ ...cur, [side]: Math.max(0, Number(e.target.value) || 0) }))}
                           sx={{ width: 110 }}
+                          slotProps={{
+                            htmlInput: { min: 0, max: caps?.modes?.expand?.max_px || 1024, step: 8 }
+                          }}
                         />
                       ))}
                     </Stack>

@@ -1591,9 +1591,10 @@ const CodeEditorPage = () => {
                 <ListItemText
                   primary={f.filename}
                   secondary={f.path}
-                  primaryTypographyProps={{ variant: 'caption' }}
-                  secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
-                />
+                  slotProps={{
+                    primary: { variant: 'caption' },
+                    secondary: { variant: 'caption', noWrap: true }
+                  }} />
               </ListItemButton>
             ))}
           </List>

@@ -151,7 +151,7 @@ const OutputCard = React.forwardRef(
                   )}
                 </Box>
               }
-              sx={{ '& .MuiTab-iconWrapper': { mr: 0.5 } }}
+              sx={{ "& .MuiTab-icon": { mr: 0.5 } }}
             />
           </Tabs>
 

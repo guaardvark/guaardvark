@@ -109,14 +109,16 @@ const SearchCard = React.forwardRef(
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              InputProps={{
-                endAdornment: (
-                  <IconButton size="small" onClick={handleSearch}>
-                    <Search fontSize="small" />
-                  </IconButton>
-                )
-              }}
               sx={{ mb: 1 }}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <IconButton size="small" onClick={handleSearch}>
+                      <Search fontSize="small" />
+                    </IconButton>
+                  )
+                }
+              }}
             />
             <TextField
               fullWidth
@@ -125,16 +127,18 @@ const SearchCard = React.forwardRef(
               value={replaceTerm}
               onChange={(e) => setReplaceTerm(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleReplaceAll()}
-              InputProps={{
-                endAdornment: (
-                  <Tooltip title={searchTerm.trim() ? t("codeEditor.search.replaceAll") : t("codeEditor.search.needTerm")}>
-                    <span>
-                      <IconButton size="small" onClick={handleReplaceAll} disabled={!searchTerm.trim()} aria-label={t("codeEditor.search.replaceAll")}>
-                        <FindReplace fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                )
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <Tooltip title={searchTerm.trim() ? t("codeEditor.search.replaceAll") : t("codeEditor.search.needTerm")}>
+                      <span>
+                        <IconButton size="small" onClick={handleReplaceAll} disabled={!searchTerm.trim()} aria-label={t("codeEditor.search.replaceAll")}>
+                          <FindReplace fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  )
+                }
               }}
             />
             {replaceNote && (

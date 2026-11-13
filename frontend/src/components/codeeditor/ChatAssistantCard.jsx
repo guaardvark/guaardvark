@@ -1344,7 +1344,9 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                         size="small"
                         checked={realTimeAnalysis.enabled}
                         onChange={(e) => setRealTimeAnalysis(prev => ({ ...prev, enabled: e.target.checked }))}
-                        inputProps={{ 'aria-label': t('codeAssistant.status.toggleRealTime') }}
+                        slotProps={{
+                          input: { 'aria-label': t('codeAssistant.status.toggleRealTime') }
+                        }}
                       />
                     }
                     label=""
@@ -1572,7 +1574,9 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             </ListItemIcon>
                             <ListItemText
                               primary={error.message || error}
-                              primaryTypographyProps={{ fontSize: '0.7rem' }}
+                              slotProps={{
+                                primary: { fontSize: '0.7rem' }
+                              }}
                             />
                           </ListItem>
                         ))}
@@ -1583,7 +1587,9 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             </ListItemIcon>
                             <ListItemText
                               primary={warning.message || warning}
-                              primaryTypographyProps={{ fontSize: '0.7rem' }}
+                              slotProps={{
+                                primary: { fontSize: '0.7rem' }
+                              }}
                             />
                           </ListItem>
                         ))}
@@ -1594,7 +1600,9 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             </ListItemIcon>
                             <ListItemText
                               primary={suggestion.message || suggestion}
-                              primaryTypographyProps={{ fontSize: '0.7rem' }}
+                              slotProps={{
+                                primary: { fontSize: '0.7rem' }
+                              }}
                             />
                           </ListItem>
                         ))}
@@ -1605,7 +1613,9 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             </ListItemIcon>
                             <ListItemText
                               primary={t("codeAssistant.context.noIssues")}
-                              primaryTypographyProps={{ fontSize: '0.7rem', color: 'success.main' }}
+                              slotProps={{
+                                primary: { fontSize: '0.7rem', color: 'success.main' }
+                              }}
                             />
                           </ListItem>
                         )}

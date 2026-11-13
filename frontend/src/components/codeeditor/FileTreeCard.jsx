@@ -805,9 +805,9 @@ const FileTreeCard = React.forwardRef(
         <Dialog
           open={createDialog.open}
           onClose={() => setCreateDialog({ open: false, type: null })}
-          // autoFocus alone can lose focus to whatever had it before the
-          // dialog opened; focus the field once the dialog is in.
-          TransitionProps={{ onEntered: () => createInputRef.current?.focus() }}
+          slotProps={{
+            transition: { onEntered: () => createInputRef.current?.focus() }
+          }}
         >
           <DialogTitle>
             {createDialog.type === 'file' ? t("codeEditor.fileTree.createFileTitle") : t("codeEditor.fileTree.createFolderTitle")}

@@ -106,17 +106,19 @@ const DesktopToolbar = ({ view, onViewChange, onSort, kinds, itemCount, onSearch
         onChange={(e) => setText(e.target.value)}
         placeholder={t("documents.page.search")}
         sx={{ minWidth: 200, flex: "0 1 280px", "& input": { py: 0.6, fontSize: "0.85rem" } }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
-          ),
-          endAdornment: text ? (
-            <InputAdornment position="end">
-              <IconButton size="small" onClick={() => setText("")} aria-label={t("documents.page.clearSearch")}>
-                <ClearIcon fontSize="small" />
-              </IconButton>
-            </InputAdornment>
-          ) : null,
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
+            ),
+            endAdornment: text ? (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setText("")} aria-label={t("documents.page.clearSearch")}>
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            ) : null,
+          }
         }}
       />
 

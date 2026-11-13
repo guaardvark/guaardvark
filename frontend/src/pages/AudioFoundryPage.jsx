@@ -1100,8 +1100,10 @@ const AudioFoundryPage = () => {
           type="number"
           value={values.bpm ?? ""}
           onChange={(e) => update({ bpm: e.target.value === "" ? null : Number(e.target.value) })}
-          inputProps={{ min: 30, max: 300 }}
           sx={{ width: 100 }}
+          slotProps={{
+            htmlInput: { min: 30, max: 300 }
+          }}
         />
         <TextField
           label={t("audio.music.key")}
@@ -1117,12 +1119,13 @@ const AudioFoundryPage = () => {
           select
           label={t("audio.music.meter")}
           size="small"
-          InputLabelProps={{ shrink: true }}
           value={values.timesignature || ""}
           onChange={(e) => update({ timesignature: e.target.value })}
           sx={{ flex: 1 }}
-          SelectProps={{ native: true }}
-        >
+          slotProps={{
+            select: { native: true },
+            inputLabel: { shrink: true }
+          }}>
           <option value="">{t("audio.languages.auto")}</option>
           {METERS.map((m) => (
             <option key={m.value} value={m.value}>{m.label}</option>
@@ -1132,12 +1135,13 @@ const AudioFoundryPage = () => {
           select
           label={t("audio.music.language")}
           size="small"
-          InputLabelProps={{ shrink: true }}
           value={values.vocal_language && values.vocal_language !== "unknown" ? values.vocal_language : ""}
           onChange={(e) => update({ vocal_language: e.target.value })}
           sx={{ flex: 1 }}
-          SelectProps={{ native: true }}
-        >
+          slotProps={{
+            select: { native: true },
+            inputLabel: { shrink: true }
+          }}>
           {vocalLanguages().map(([code, label]) => (
             <option key={code || "auto"} value={code}>{label}</option>
           ))}
@@ -1420,7 +1424,9 @@ const AudioFoundryPage = () => {
                         clearPolish();
                       }}
                       fullWidth
-                      SelectProps={{ native: true }}
+                      slotProps={{
+                        select: { native: true }
+                      }}
                     >
                       <option value="ace-step">ACE-Step v1 (Audio Foundry)</option>
                       <option value="ace-step-1.5" disabled={ace15Ready === false}>
@@ -1570,8 +1576,10 @@ const AudioFoundryPage = () => {
                                   value={directFields.seed}
                                   onChange={(e) => updateDirect({ seed: e.target.value.replace(/\D/g, "") })}
                                   helperText={t("audio.music.seedHelp")}
-                                  inputProps={{ inputMode: "numeric" }}
                                   fullWidth
+                                  slotProps={{
+                                    htmlInput: { inputMode: "numeric" }
+                                  }}
                                 />
                                 {!instrumental && (
                                   <Box>

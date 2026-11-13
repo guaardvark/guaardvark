@@ -124,19 +124,20 @@ const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
               type="number"
               size="small"
               className="grow"
-              inputProps={{ min: 1, max: 50, step: 1 }}
               value={draft.top_k}
               onChange={(e) =>
                 setDraft((d) => ({ ...d, top_k: e.target.value }))
               }
               helperText={t("settingsSections.indexProfileEdit.topKHelp")}
+              slotProps={{
+                htmlInput: { min: 1, max: 50, step: 1 }
+              }}
             />
             <TextField
               label={t("settingsSections.indexProfileEdit.contextWindow")}
               type="number"
               size="small"
               className="grow"
-              inputProps={{ min: 0, max: 20, step: 1 }}
               value={draft.context_window_chunks}
               onChange={(e) =>
                 setDraft((d) => ({
@@ -145,6 +146,9 @@ const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
                 }))
               }
               helperText={t("settingsSections.indexProfileEdit.contextWindowHelp")}
+              slotProps={{
+                htmlInput: { min: 0, max: 20, step: 1 }
+              }}
             />
           </Line>
           <Line>

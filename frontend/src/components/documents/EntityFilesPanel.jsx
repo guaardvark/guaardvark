@@ -125,9 +125,10 @@ const EntityFilesPanel = ({ kind, id, onOpenFile, onClose }) => {
                 <ListItemText
                   primary={doc.filename}
                   secondary={doc.folder?.path || t("documents.entityFiles.filesRoot")}
-                  primaryTypographyProps={{ noWrap: true }}
-                  secondaryTypographyProps={{ noWrap: true }}
-                />
+                  slotProps={{
+                    primary: { noWrap: true },
+                    secondary: { noWrap: true }
+                  }} />
               </ListItemButton>
             ))}
           </List>

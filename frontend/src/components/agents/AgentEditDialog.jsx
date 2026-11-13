@@ -211,11 +211,12 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
                       size="small"
                       label={t("agents.edit.model")}
                       value={form.model}
-                      SelectProps={{ displayEmpty: true }}
-                      InputLabelProps={{ shrink: true }}
                       onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
                       sx={{ minWidth: 260 }}
-                    >
+                      slotProps={{
+                        select: { displayEmpty: true },
+                        inputLabel: { shrink: true }
+                      }}>
                       <MenuItem value="">{t("agents.edit.activeChatModel")}</MenuItem>
                       {modelOptions.map((name) => (
                         <MenuItem key={name} value={name}>
@@ -234,8 +235,10 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
                       onChange={(e) => setForm((f) => ({ ...f, max_iterations: e.target.value }))}
                       error={iterationsError}
                       helperText={iterationsError ? t("agents.edit.iterationsRange", { max: MAX_ITERATIONS }) : undefined}
-                      inputProps={{ min: 1, max: MAX_ITERATIONS, step: 1 }}
                       sx={{ width: 150 }}
+                      slotProps={{
+                        htmlInput: { min: 1, max: MAX_ITERATIONS, step: 1 }
+                      }}
                     />
                   )}
                 </Line>
@@ -252,7 +255,9 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
                     onChange={(e) => setForm((f) => ({ ...f, system_prompt: e.target.value }))}
                     error={promptError}
                     helperText={promptError ? t("agents.edit.instructionsEmpty") : undefined}
-                    inputProps={{ "aria-label": t("agents.edit.instructions") }}
+                    slotProps={{
+                      htmlInput: { "aria-label": t("agents.edit.instructions") }
+                    }}
                   />
                 ) : (
                   <>
@@ -262,9 +267,10 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
                         multiline
                         minRows={4}
                         value={detail.system_prompt}
-                        InputProps={{ readOnly: true }}
-                        inputProps={{ "aria-label": t("agents.edit.instructions") }}
-                      />
+                        slotProps={{
+                          input: { readOnly: true },
+                          htmlInput: { "aria-label": t("agents.edit.instructions") }
+                        }} />
                     )}
                     <Hint>{t("agents.edit.plannerPrompt")}</Hint>
                   </>

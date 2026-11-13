@@ -136,17 +136,21 @@ const AddressAutocomplete = ({
           required={required}
           error={error}
           helperText={helperText ?? (attribution || " ")}
-          inputProps={{ ...params.inputProps, ...inputProps }}
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <>
-                {loading ? <CircularProgress size={18} /> : null}
-                {params.InputProps.endAdornment}
-              </>
-            ),
-          }}
-        />
+          slotProps={{
+            ...params.slotProps,
+
+            input: {
+              ...params.slotProps.input,
+              endAdornment: (
+                <>
+                  {loading ? <CircularProgress size={18} /> : null}
+                  {params.slotProps.input.endAdornment}
+                </>
+              ),
+            },
+
+            htmlInput: { ...params.slotProps.htmlInput, ...inputProps }
+          }} />
       )}
     />
   );

@@ -458,9 +458,9 @@ const RuleActionModal = ({
                 option === ALL_MODELS_VALUE ? t("dialogs.ruleAction.allModels") : option
               }
               isOptionEqualToValue={(option, value) => option === value}
-              renderTags={(value, getTagProps) =>
+              renderValue={(value, getItemProps) =>
                 value.map((option, index) => {
-                  const { key, ...otherTagProps } = getTagProps({ index });
+                  const { key, ...otherTagProps } = getItemProps({ index });
                   return (
                     <Chip
                       key={key || option}
@@ -479,16 +479,20 @@ const RuleActionModal = ({
                   label={t("dialogs.ruleAction.targetModels")}
                   placeholder={t("dialogs.ruleAction.targetPlaceholder")}
                   helperText={t("dialogs.ruleAction.targetHelp")}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <React.Fragment>
-                        {isLoadingModels && (
-                          <CircularProgress color="inherit" size={20} />
-                        )}
-                        {params.InputProps.endAdornment}
-                      </React.Fragment>
-                    ),
+                  slotProps={{
+                    ...params.slotProps,
+
+                    input: {
+                      ...params.slotProps.input,
+                      endAdornment: (
+                        <React.Fragment>
+                          {isLoadingModels && (
+                            <CircularProgress color="inherit" size={20} />
+                          )}
+                          {params.slotProps.input.endAdornment}
+                        </React.Fragment>
+                      ),
+                    }
                   }}
                 />
               )}

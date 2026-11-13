@@ -60,7 +60,9 @@ const ComfyUILifecycleSection = ({ title = "ComfyUI", onChange }) => {
             checked={external}
             disabled={saving || state.env_writable === false}
             onChange={(e) => update(e.target.checked)}
-            inputProps={{ "data-testid": "comfyui-external" }}
+            slotProps={{
+              input: { "data-testid": "comfyui-external" }
+            }}
           />
         }
         label={<Typography variant="body2">{t("settingsSections.comfyui.external")}</Typography>}

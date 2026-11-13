@@ -436,21 +436,23 @@ const DirectoryPicker = ({
             fullWidth
             size="small"
             helperText={!typedPathOpen ? t("layoutCommon.directoryPicker.openPathFirst") : " "}
-            InputProps={{
-              startAdornment: parentPath && (
-                <InputAdornment position="start">
-                  <IconButton size="small" aria-label={t("layoutCommon.directoryPicker.parentFolder")} onClick={() => handleNavigate(parentPath)}>
-                    <ArrowBackIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <Button size="small" onClick={handleGoToPath} disabled={typedPathOpen}>
-                    {t("layoutCommon.directoryPicker.go")}
-                  </Button>
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: parentPath && (
+                  <InputAdornment position="start">
+                    <IconButton size="small" aria-label={t("layoutCommon.directoryPicker.parentFolder")} onClick={() => handleNavigate(parentPath)}>
+                      <ArrowBackIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button size="small" onClick={handleGoToPath} disabled={typedPathOpen}>
+                      {t("layoutCommon.directoryPicker.go")}
+                    </Button>
+                  </InputAdornment>
+                ),
+              }
             }}
           />
 
@@ -461,19 +463,21 @@ const DirectoryPicker = ({
               onChange={(e) => setSearchQuery(e.target.value)}
               size="small"
               sx={{ flex: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: searchQuery && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setSearchQuery("")}>
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: searchQuery && (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setSearchQuery("")}>
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }
               }}
             />
             {!pickFiles && (
@@ -560,9 +564,10 @@ const DirectoryPicker = ({
                   <ListItemText
                     primary={dir.name}
                     secondary={dir.item_count >= 0 ? t("layoutCommon.directoryPicker.itemCount", { count: dir.item_count }) : null}
-                    primaryTypographyProps={{ variant: 'body2' }}
-                    secondaryTypographyProps={{ variant: 'caption' }}
-                  />
+                    slotProps={{
+                      primary: { variant: 'body2' },
+                      secondary: { variant: 'caption' }
+                    }} />
                 </ListItemButton>
               ))}
 
@@ -586,9 +591,10 @@ const DirectoryPicker = ({
                         <ListItemText
                           primary={file.name}
                           secondary={formatFileSize(file.size)}
-                          primaryTypographyProps={{ variant: 'body2' }}
-                          secondaryTypographyProps={{ variant: 'caption' }}
-                        />
+                          slotProps={{
+                            primary: { variant: 'body2' },
+                            secondary: { variant: 'caption' }
+                          }} />
                       </ListItemButton>
                     );
                   })}

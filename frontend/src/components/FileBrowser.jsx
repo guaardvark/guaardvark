@@ -328,11 +328,13 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
             multiline
             rows={20}
             value={fileContent}
-            InputProps={{
-              readOnly: true,
-              style: { fontFamily: 'monospace', fontSize: '0.875rem' }
-            }}
             variant="outlined"
+            slotProps={{
+              input: {
+                readOnly: true,
+                style: { fontFamily: 'monospace', fontSize: '0.875rem' }
+              }
+            }}
           />
         </DialogContent>
         <DialogActions>

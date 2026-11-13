@@ -878,14 +878,18 @@ const TaskActionModal = ({
                   label={t("dialogs.taskAction.project")}
                   margin="dense"
                   helperText={t("dialogs.taskAction.projectCreates")}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {isLoadingProjects ? <CircularProgress size={20} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
+                  slotProps={{
+                    ...params.slotProps,
+
+                    input: {
+                      ...params.slotProps.input,
+                      endAdornment: (
+                        <>
+                          {isLoadingProjects ? <CircularProgress size={20} /> : null}
+                          {params.slotProps.input.endAdornment}
+                        </>
+                      ),
+                    }
                   }}
                 />
               )}
@@ -903,14 +907,18 @@ const TaskActionModal = ({
                   label={t("dialogs.taskAction.promptRule")}
                   margin="dense"
                   helperText={t("dialogs.taskAction.promptRuleHelp")}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {isLoadingRules ? <CircularProgress size={20} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
+                  slotProps={{
+                    ...params.slotProps,
+
+                    input: {
+                      ...params.slotProps.input,
+                      endAdornment: (
+                        <>
+                          {isLoadingRules ? <CircularProgress size={20} /> : null}
+                          {params.slotProps.input.endAdornment}
+                        </>
+                      ),
+                    }
                   }}
                 />
               )}
@@ -942,14 +950,18 @@ const TaskActionModal = ({
                     label={t("dialogs.taskAction.selectWebsite")}
                     margin="dense"
                     helperText={t("dialogs.taskAction.selectWebsiteHelp")}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {isLoadingWebsites ? <CircularProgress size={20} /> : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <>
+                            {isLoadingWebsites ? <CircularProgress size={20} /> : null}
+                            {params.slotProps.input.endAdornment}
+                          </>
+                        ),
+                      }
                     }}
                   />
                 )}
@@ -1002,7 +1014,9 @@ const TaskActionModal = ({
                   value={formData.page_count}
                   onChange={handleInputChange}
                   disabled={anyActionInProgress}
-                  inputProps={{ min: 1, max: 1000 }}
+                  slotProps={{
+                    htmlInput: { min: 1, max: 1000 }
+                  }}
                 />
                 <TextField
                   fullWidth
@@ -1108,8 +1122,10 @@ const TaskActionModal = ({
                     value={targetWordCount}
                     onChange={(e) => setTargetWordCount(parseInt(e.target.value, 10) || 1000)}
                     disabled={anyActionInProgress}
-                    inputProps={{ min: 100, max: 5000 }}
                     helperText={t("dialogs.taskAction.wordCountHelp")}
+                    slotProps={{
+                      htmlInput: { min: 100, max: 5000 }
+                    }}
                   />
                   <TextField
                     fullWidth
@@ -1131,8 +1147,10 @@ const TaskActionModal = ({
                     value={concurrentWorkers}
                     onChange={(e) => setConcurrentWorkers(parseInt(e.target.value, 10) || 3)}
                     disabled={anyActionInProgress}
-                    inputProps={{ min: 1, max: 10 }}
                     helperText={t("dialogs.taskAction.workersHelp")}
+                    slotProps={{
+                      htmlInput: { min: 1, max: 10 }
+                    }}
                   />
                   <TextField
                     fullWidth
@@ -1142,8 +1160,10 @@ const TaskActionModal = ({
                     value={batchSize}
                     onChange={(e) => setBatchSize(parseInt(e.target.value, 10) || 10)}
                     disabled={anyActionInProgress}
-                    inputProps={{ min: 1, max: 50 }}
                     helperText={t("dialogs.taskAction.batchSizeHelp")}
+                    slotProps={{
+                      htmlInput: { min: 1, max: 50 }
+                    }}
                   />
                 </Cluster>
               )}

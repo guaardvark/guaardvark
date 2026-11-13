@@ -555,8 +555,10 @@ const AutoresearchPage = () => {
             size="small"
             value={budgetHours}
             onChange={(e) => setBudgetHours(e.target.value)}
-            inputProps={{ min: 1, max: 12, step: 1 }}
             sx={{ width: 130 }}
+            slotProps={{
+              htmlInput: { min: 1, max: 12, step: 1 }
+            }}
           />
           <Button
             variant="contained"
@@ -702,7 +704,6 @@ const AutoresearchPage = () => {
             <Switch
               size="small"
               id={AUTO_START_ID}
-              inputProps={{ "aria-label": t("autoresearch.settings.autoStart") }}
               checked={settings.rag_autoresearch_auto_enabled === "true"}
               disabled={resettingConfig}
               onChange={(e) =>
@@ -712,6 +713,9 @@ const AutoresearchPage = () => {
                   t("autoresearch.settings.autoStartName"),
                 )
               }
+              slotProps={{
+                input: { "aria-label": t("autoresearch.settings.autoStart") }
+              }}
             />
             {savedKeys.rag_autoresearch_auto_enabled && (
               <Box
@@ -748,16 +752,18 @@ const AutoresearchPage = () => {
                   }
                 }}
                 helperText={savedKeys[f.key] ? t("autoresearch.settings.saved") : warning || " "}
-                FormHelperTextProps={{
-                  sx: {
-                    color: savedKeys[f.key]
-                      ? "success.main"
-                      : warning
-                        ? "warning.main"
-                        : "inherit",
-                  },
-                }}
                 sx={{ width: warning ? 320 : f.width }}
+                slotProps={{
+                  formHelperText: {
+                    sx: {
+                      color: savedKeys[f.key]
+                        ? "success.main"
+                        : warning
+                          ? "warning.main"
+                          : "inherit",
+                    },
+                  }
+                }}
               />
             );
           })}

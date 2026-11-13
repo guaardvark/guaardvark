@@ -206,12 +206,14 @@ const WebsiteDataCard = React.forwardRef(
                       project: site.project?.name || t("layout.notAvailable"),
                       docs: site.document_count ?? t("layout.notAvailable"),
                     })}
-                    secondaryTypographyProps={{
-                      style: {
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      },
+                    slotProps={{
+                      secondary: {
+                        style: {
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        },
+                      }
                     }}
                   />
                 </ListItem>

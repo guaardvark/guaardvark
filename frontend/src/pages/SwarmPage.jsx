@@ -778,7 +778,9 @@ const SwarmPage = () => {
               }
               fullWidth
               size="small"
-              inputProps={{ min: 1, max: 20 }}
+              slotProps={{
+                htmlInput: { min: 1, max: 20 }
+              }}
             />
 
             <Stack direction="row" spacing={2}>

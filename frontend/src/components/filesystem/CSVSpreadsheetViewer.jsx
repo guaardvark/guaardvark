@@ -247,8 +247,10 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
       onClose={onClose}
       maxWidth="xl"
       fullWidth
-      PaperProps={{
-        sx: { height: '90vh' }
+      slotProps={{
+        paper: {
+          sx: { height: '90vh' }
+        }
       }}
     >
       <DialogTitle>

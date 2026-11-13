@@ -221,12 +221,14 @@ const ThemeSelectorModal = ({ open, onClose }) => {
       onClose={handleCancel}
       fullWidth
       maxWidth="md"
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
-          maxHeight: "90vh",
-          bgcolor: "background.paper",
-        },
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 2,
+            maxHeight: "90vh",
+            bgcolor: "background.paper",
+          },
+        }
       }}
     >
       <DialogTitle sx={{ pb: 1, bgcolor: "background.paper" }}>

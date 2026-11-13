@@ -580,7 +580,6 @@ const TrainingLibrariesModal = ({
                         <Chip label={model.license} size="small" variant="outlined" />
                       </Box>
                     }
-                    secondaryTypographyProps={{ component: "div" }}
                     secondary={
                       <>
                         {model.description}
@@ -607,6 +606,9 @@ const TrainingLibrariesModal = ({
                         )}
                       </>
                     }
+                    slotProps={{
+                      secondary: { component: "div" }
+                    }}
                   />
                   <Box sx={{ ml: 2, minWidth: 130, textAlign: "right" }}>
                     {model.installed ? (
@@ -694,7 +696,6 @@ const TrainingLibrariesModal = ({
                       <Chip label={converter.license} size="small" variant="outlined" />
                     </Box>
                   }
-                  secondaryTypographyProps={{ component: "div" }}
                   secondary={
                     <>
                       {converter.role}
@@ -720,6 +721,9 @@ const TrainingLibrariesModal = ({
                       )}
                     </>
                   }
+                  slotProps={{
+                    secondary: { component: "div" }
+                  }}
                 />
                 <Box sx={{ ml: 2, minWidth: 130, textAlign: "right" }}>
                   {converter.state === "installed" ? (

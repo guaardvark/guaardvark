@@ -109,21 +109,23 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
                 value={formData.input_path}
                 onChange={handleInputChange}
                 disabled={saving}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setDirectoryPickerOpen(true)}
-                        edge="end"
-                        disabled={saving}
-                        title={t("dialogs.parseJob.browse")}
-                      >
-                        <FolderOpenIcon />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
                 helperText={t("dialogs.parseJob.pathHelp")}
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setDirectoryPickerOpen(true)}
+                          edge="end"
+                          disabled={saving}
+                          title={t("dialogs.parseJob.browse")}
+                        >
+                          <FolderOpenIcon />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }
+                }}
               />
             </Grid>
 

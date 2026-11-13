@@ -222,8 +222,10 @@ const DeviceProfileModal = ({
                 onChange={handleInputChange}
                 disabled={isSaving}
                 required
-                inputProps={{ min: 0 }}
                 helperText={`${formData.gpu_vram_mb ? (formData.gpu_vram_mb / 1024).toFixed(1) : 0} GB`}
+                slotProps={{
+                  htmlInput: { min: 0 }
+                }}
               />
             </Grid>
           )}
@@ -239,8 +241,10 @@ const DeviceProfileModal = ({
               onChange={handleInputChange}
               disabled={isSaving}
               required
-              inputProps={{ min: 0 }}
               helperText={`${formData.system_ram_mb ? (formData.system_ram_mb / 1024).toFixed(1) : 0} GB`}
+              slotProps={{
+                htmlInput: { min: 0 }
+              }}
             />
           </Grid>
 
@@ -255,8 +259,10 @@ const DeviceProfileModal = ({
               onChange={handleInputChange}
               disabled={isSaving}
               required
-              inputProps={{ min: 1 }}
               helperText={t("dialogs.deviceProfile.batchHelp")}
+              slotProps={{
+                htmlInput: { min: 1 }
+              }}
             />
           </Grid>
 
@@ -271,8 +277,10 @@ const DeviceProfileModal = ({
               onChange={handleInputChange}
               disabled={isSaving}
               required
-              inputProps={{ min: 128 }}
               helperText={t("dialogs.deviceProfile.seqHelp")}
+              slotProps={{
+                htmlInput: { min: 128 }
+              }}
             />
           </Grid>
 

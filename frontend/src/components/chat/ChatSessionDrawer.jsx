@@ -392,18 +392,20 @@ const ChatSessionDrawer = ({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           fullWidth
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: 18, color: "text.disabled" }} />
-              </InputAdornment>
-            ),
-          }}
           sx={{
             "& .MuiOutlinedInput-root": {
               borderRadius: 2,
               fontSize: "0.85rem",
             },
+          }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 18, color: "text.disabled" }} />
+                </InputAdornment>
+              ),
+            }
           }}
         />
       </Box>

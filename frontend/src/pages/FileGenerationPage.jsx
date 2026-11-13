@@ -700,16 +700,19 @@ const FileGenerationPage = () => {
                     label={t("fileGeneration.page.promptRule")}
                     variant="outlined"
                     helperText={t("fileGeneration.page.promptRuleHelp")}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <React.Fragment>
-                          {isLoadingRules ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </React.Fragment>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <React.Fragment>
+                            {isLoadingRules ? (
+                              <CircularProgress color="inherit" size={20} />
+                            ) : null}
+                            {params.slotProps.input.endAdornment}
+                          </React.Fragment>
+                        ),
+                      },
                     }}
                   />
                 )}
@@ -741,16 +744,19 @@ const FileGenerationPage = () => {
                     {...params}
                     label={t("fileGeneration.page.project")}
                     variant="outlined"
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <React.Fragment>
-                          {isLoadingProjects ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </React.Fragment>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <React.Fragment>
+                            {isLoadingProjects ? (
+                              <CircularProgress color="inherit" size={20} />
+                            ) : null}
+                            {params.slotProps.input.endAdornment}
+                          </React.Fragment>
+                        ),
+                      },
                     }}
                   />
                 )}
@@ -778,14 +784,17 @@ const FileGenerationPage = () => {
                     label={t("fileGeneration.page.clientWebsite")}
                     variant="outlined"
                     helperText={t("fileGeneration.page.clientWebsiteHelp")}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <React.Fragment>
-                          {isLoadingWebsites ? <CircularProgress size={20} /> : null}
-                          {params.InputProps.endAdornment}
-                        </React.Fragment>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <React.Fragment>
+                            {isLoadingWebsites ? <CircularProgress size={20} /> : null}
+                            {params.slotProps.input.endAdornment}
+                          </React.Fragment>
+                        ),
+                      },
                     }}
                   />
                 )}
@@ -867,7 +876,7 @@ const FileGenerationPage = () => {
                 variant="outlined"
                 helperText={t("fileGeneration.page.pageCountHelp")}
                 disabled={isGeneratingBatch}
-                inputProps={{ min: 1, max: 1000 }}
+                slotProps={{ htmlInput: { min: 1, max: 1000 } }}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
@@ -901,16 +910,19 @@ const FileGenerationPage = () => {
                     label={t("fileGeneration.page.client")}
                     variant="outlined"
                     helperText={t("fileGeneration.page.clientHelp")}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <React.Fragment>
-                          {isLoadingClients ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </React.Fragment>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <React.Fragment>
+                            {isLoadingClients ? (
+                              <CircularProgress color="inherit" size={20} />
+                            ) : null}
+                            {params.slotProps.input.endAdornment}
+                          </React.Fragment>
+                        ),
+                      },
                     }}
                   />
                 )}
@@ -1134,16 +1146,19 @@ const FileGenerationPage = () => {
                     label={t("fileGeneration.page.codeRule")}
                     variant="outlined"
                     helperText={t("fileGeneration.page.codeRuleHelp")}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <React.Fragment>
-                          {isLoadingRules ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </React.Fragment>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <React.Fragment>
+                            {isLoadingRules ? (
+                              <CircularProgress color="inherit" size={20} />
+                            ) : null}
+                            {params.slotProps.input.endAdornment}
+                          </React.Fragment>
+                        ),
+                      },
                     }}
                   />
                 )}

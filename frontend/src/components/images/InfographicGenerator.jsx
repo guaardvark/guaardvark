@@ -508,7 +508,9 @@ const InfographicGenerator = () => {
                 onChange={(e) => setTitle(e.target.value)}
                 size="small"
                 fullWidth
-                inputProps={{ maxLength: 90 }}
+                slotProps={{
+                  htmlInput: { maxLength: 90 }
+                }}
               />
               <TextField
                 label={t('images.infographic.sceneLabel')}
@@ -538,7 +540,9 @@ const InfographicGenerator = () => {
                 onChange={(e) => setFooter(e.target.value)}
                 size="small"
                 fullWidth
-                inputProps={{ maxLength: 140 }}
+                slotProps={{
+                  htmlInput: { maxLength: 140 }
+                }}
               />
               <TextField
                 label={t('images.infographic.hashtagsLabel')}
@@ -611,9 +615,11 @@ const InfographicGenerator = () => {
               type="number"
               value={quantity}
               onChange={(e) => setQuantity(clampQuantity(e.target.value))}
-              inputProps={{ min: 1, max: 100 }}
               size="small"
               sx={{ width: 120 }}
+              slotProps={{
+                htmlInput: { min: 1, max: 100 }
+              }}
             />
             <Box sx={{ flex: 1 }}>
               <TextField
@@ -621,9 +627,11 @@ const InfographicGenerator = () => {
                 label={t('imagesBatch.seed.label')}
                 placeholder={t('imagesBatch.seed.placeholder')}
                 value={seedText}
-                inputProps={{ inputMode: 'numeric' }}
                 onChange={(e) => setSeedText(e.target.value.replace(/\D/g, '').slice(0, String(IMAGE_MAX_SEED).length))}
                 sx={{ width: 180 }}
+                slotProps={{
+                  htmlInput: { inputMode: 'numeric' }
+                }}
               />
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                 {typedSeed != null

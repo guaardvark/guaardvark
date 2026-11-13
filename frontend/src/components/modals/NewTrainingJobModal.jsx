@@ -495,11 +495,12 @@ const NewTrainingJobModal = ({
               value={formData.config.steps}
               onChange={handleInputChange}
               disabled={isSaving}
-              inputProps={{ min: 1 }}
               placeholder={t("dialogs.newTrainingJob.stepsAuto")}
-              InputLabelProps={{ shrink: true }}
               helperText={t("dialogs.newTrainingJob.stepsHelp")}
-            />
+              slotProps={{
+                htmlInput: { min: 1 },
+                inputLabel: { shrink: true }
+              }} />
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -512,8 +513,10 @@ const NewTrainingJobModal = ({
               value={formData.config.lr}
               onChange={handleInputChange}
               disabled={isSaving}
-              inputProps={{ min: 0, step: 0.0001 }}
               helperText={t("dialogs.newTrainingJob.learningRateHelp")}
+              slotProps={{
+                htmlInput: { min: 0, step: 0.0001 }
+              }}
             />
           </Grid>
 
@@ -527,8 +530,10 @@ const NewTrainingJobModal = ({
               value={formData.config.batch_size}
               onChange={handleInputChange}
               disabled={isSaving}
-              inputProps={{ min: 1, max: selectedModel?.max_batch_size }}
               helperText={selectedModel ? t("dialogs.newTrainingJob.max", { max: selectedModel.max_batch_size }) : selectedProfile && t("dialogs.newTrainingJob.max", { max: selectedProfile.max_batch_size })}
+              slotProps={{
+                htmlInput: { min: 1, max: selectedModel?.max_batch_size }
+              }}
             />
           </Grid>
 
@@ -542,8 +547,10 @@ const NewTrainingJobModal = ({
               value={formData.config.rank}
               onChange={handleInputChange}
               disabled={isSaving}
-              inputProps={{ min: 1 }}
               helperText={t("dialogs.newTrainingJob.loraRankHelp")}
+              slotProps={{
+                htmlInput: { min: 1 }
+              }}
             />
           </Grid>
 
@@ -557,8 +564,10 @@ const NewTrainingJobModal = ({
               value={formData.config.seq_length}
               onChange={handleInputChange}
               disabled={isSaving}
-              inputProps={{ min: 128, max: selectedModel?.max_seq_length }}
               helperText={selectedModel ? t("dialogs.newTrainingJob.max", { max: selectedModel.max_seq_length }) : selectedProfile && t("dialogs.newTrainingJob.max", { max: selectedProfile.max_seq_length })}
+              slotProps={{
+                htmlInput: { min: 128, max: selectedModel?.max_seq_length }
+              }}
             />
           </Grid>
 

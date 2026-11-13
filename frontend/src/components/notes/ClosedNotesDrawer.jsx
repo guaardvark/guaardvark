@@ -192,12 +192,14 @@ const ClosedNotesDrawer = ({ open, onClose, closedNotes, onReopen, onDeleteReque
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           fullWidth
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: 18, color: "text.disabled" }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 18, color: "text.disabled" }} />
+                </InputAdornment>
+              ),
+            }
           }}
         />
       </Box>

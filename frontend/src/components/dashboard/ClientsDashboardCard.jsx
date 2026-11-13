@@ -127,21 +127,23 @@ const ClientsDashboardCard = React.forwardRef(
                 <ListItemText
                   primary={client.name || t("dashboard.clients.unnamed")}
                   secondary={t("dashboard.clients.projectCount", { count: client.project_count ?? 0 })}
-                  primaryTypographyProps={{
-                    style: {
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                  slotProps={{
+                    primary: {
+                      style: {
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      },
                     },
-                  }}
-                  secondaryTypographyProps={{
-                    style: {
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    },
-                  }}
-                />
+
+                    secondary: {
+                      style: {
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      },
+                    }
+                  }} />
               </ListItem>
             ))}
           </List>

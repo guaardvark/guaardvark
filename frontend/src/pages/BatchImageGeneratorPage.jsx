@@ -2192,7 +2192,9 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                             type="number"
                             value={quantity}
                             onChange={(e) => setQuantity(clampQuantity(e.target.value))}
-                            inputProps={{ min: 1, max: MAX_QUANTITY }}
+                            slotProps={{
+                              htmlInput: { min: 1, max: MAX_QUANTITY }
+                            }}
                           />
                           {/* /batch-image/expand-concept: the chat model turns the idea above
                               into one prompt per shot and fills the prompt box with them. */}
@@ -2348,9 +2350,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                             label={t('imagesBatch.seed.label')}
                             placeholder={t('imagesBatch.seed.placeholder')}
                             value={seedText}
-                            inputProps={{ inputMode: 'numeric' }}
                             onChange={(e) => setSeedText(e.target.value.replace(/\D/g, '').slice(0, String(IMAGE_MAX_SEED).length))}
                             sx={{ width: 180 }}
+                            slotProps={{
+                              htmlInput: { inputMode: 'numeric' }
+                            }}
                           />
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                             {parseImageSeed(seedText) != null

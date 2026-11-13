@@ -295,8 +295,10 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
                   <TextField
                     value={oauth.authorize_url}
                     size="small"
-                    InputProps={{ readOnly: true }}
                     onFocus={(e) => e.target.select()}
+                    slotProps={{
+                      input: { readOnly: true }
+                    }}
                   />
                   <TextField
                     label={t("dialogs.connection.addressOrCode")}

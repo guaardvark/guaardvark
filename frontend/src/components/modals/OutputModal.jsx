@@ -260,11 +260,13 @@ const OutputModal = ({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: {
-          maxHeight: "90vh",
-          borderRadius: 2,
-        },
+      slotProps={{
+        paper: {
+          sx: {
+            maxHeight: "90vh",
+            borderRadius: 2,
+          },
+        }
       }}
     >
       <DialogTitle

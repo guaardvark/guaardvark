@@ -502,20 +502,22 @@ const ClientActionModal = ({
                         }}
                         disabled={isSaving}
                         placeholder={t("dialogs.clientAction.industryPlaceholder")}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={handleAddIndustry}
-                                disabled={!industryInput.trim() || isSaving}
-                                edge="end"
-                              >
-                                <AddIcon />
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
                         helperText={t("dialogs.clientAction.industryHelp")}
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={handleAddIndustry}
+                                  disabled={!industryInput.trim() || isSaving}
+                                  edge="end"
+                                >
+                                  <AddIcon />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }
+                        }}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.industry.map((item, index) => (
@@ -547,20 +549,22 @@ const ClientActionModal = ({
                         }}
                         disabled={isSaving}
                         placeholder={t("dialogs.clientAction.geoPlaceholder")}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={handleAddGeographic}
-                                disabled={!geographicInput.trim() || isSaving}
-                                edge="end"
-                              >
-                                <AddIcon />
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
                         helperText={t("dialogs.clientAction.geoHelp")}
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={handleAddGeographic}
+                                  disabled={!geographicInput.trim() || isSaving}
+                                  edge="end"
+                                >
+                                  <AddIcon />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }
+                        }}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.geographic_coverage.map((item, index) => (
@@ -585,9 +589,9 @@ const ClientActionModal = ({
                           setFormData((prev) => ({ ...prev, target_audience: newValue }));
                         }}
                         disabled={isSaving}
-                        renderTags={(value, getTagProps) =>
+                        renderValue={(value, getItemProps) =>
                           value.map((option, index) => {
-                            const { key, ...otherProps } = getTagProps({ index });
+                            const { key, ...otherProps } = getItemProps({ index });
                             return (
                               <Chip
                                 key={key}
@@ -621,9 +625,9 @@ const ClientActionModal = ({
                           setFormData((prev) => ({ ...prev, unique_selling_points: newValue }));
                         }}
                         disabled={isSaving}
-                        renderTags={(value, getTagProps) =>
+                        renderValue={(value, getItemProps) =>
                           value.map((option, index) => {
-                            const { key, ...otherProps } = getTagProps({ index });
+                            const { key, ...otherProps } = getItemProps({ index });
                             return (
                               <Chip
                                 key={key}
@@ -657,9 +661,9 @@ const ClientActionModal = ({
                           setFormData((prev) => ({ ...prev, content_goals: newValue }));
                         }}
                         disabled={isSaving}
-                        renderTags={(value, getTagProps) =>
+                        renderValue={(value, getItemProps) =>
                           value.map((option, index) => {
-                            const { key, ...otherProps } = getTagProps({ index });
+                            const { key, ...otherProps } = getItemProps({ index });
                             return (
                               <Chip
                                 key={key}
@@ -731,20 +735,22 @@ const ClientActionModal = ({
                         }}
                         disabled={isSaving}
                         placeholder={t("dialogs.clientAction.keywordPlaceholder")}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={handleAddKeyword}
-                                disabled={!keywordInput.trim() || isSaving}
-                                edge="end"
-                              >
-                                <AddIcon />
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
                         helperText={t("dialogs.clientAction.keywordHelp")}
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={handleAddKeyword}
+                                  disabled={!keywordInput.trim() || isSaving}
+                                  edge="end"
+                                >
+                                  <AddIcon />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }
+                        }}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.keywords.map((keyword, index) => (
@@ -776,20 +782,22 @@ const ClientActionModal = ({
                         }}
                         disabled={isSaving}
                         placeholder={t("dialogs.clientAction.competitorPlaceholder")}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={handleAddCompetitorUrl}
-                                disabled={!competitorUrlInput.trim() || isSaving}
-                                edge="end"
-                              >
-                                <AddIcon />
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
                         helperText={t("dialogs.clientAction.competitorHelp")}
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={handleAddCompetitorUrl}
+                                  disabled={!competitorUrlInput.trim() || isSaving}
+                                  edge="end"
+                                >
+                                  <AddIcon />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }
+                        }}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.competitor_urls.map((url, index) => (

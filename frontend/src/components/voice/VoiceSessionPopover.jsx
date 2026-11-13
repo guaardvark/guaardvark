@@ -237,7 +237,9 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
               : undefined
           }
           sx={{ mt: 1 }}
-          SelectProps={{ MenuProps: { sx: { zIndex: 1600 } } }}
+          slotProps={{
+            select: { MenuProps: { sx: { zIndex: 1600 } } }
+          }}
         >
           {installedVoices.map((v) => (
             <MenuItem key={v.id} value={v.id}>

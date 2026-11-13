@@ -312,12 +312,14 @@ const LinkingModal = ({
               value={searchTerm}
               onChange={handleSearchChange}
               sx={{ mb: 1, flexShrink: 0 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }
               }}
             />
 
@@ -371,8 +373,10 @@ const LinkingModal = ({
                           checked={checkedItemIds.has(item.id)}
                           tabIndex={-1}
                           disableRipple
-                          inputProps={{
-                            "aria-labelledby": `checkbox-list-label-${item.id}`,
+                          slotProps={{
+                            input: {
+                              "aria-labelledby": `checkbox-list-label-${item.id}`,
+                            }
                           }}
                         />
                       </ListItemIcon>
@@ -391,12 +395,14 @@ const LinkingModal = ({
                           item.email ||
                           t("dialogs.linking.idFallback", { id: item.id })
                         }
-                        primaryTypographyProps={{ noWrap: true }}
-                        secondaryTypographyProps={{
-                          noWrap: true,
-                          fontSize: "0.75rem",
-                        }}
-                      />
+                        slotProps={{
+                          primary: { noWrap: true },
+
+                          secondary: {
+                            noWrap: true,
+                            fontSize: "0.75rem",
+                          }
+                        }} />
                     </ListItemButton>
                   ))}
                 </List>

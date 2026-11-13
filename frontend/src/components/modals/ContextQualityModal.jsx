@@ -379,7 +379,9 @@ const ContextQualityModal = ({ open, onClose }) => {
                         </ListItemIcon>
                         <ListItemText
                           primary={recommendation}
-                          primaryTypographyProps={{ variant: 'body2' }}
+                          slotProps={{
+                            primary: { variant: 'body2' }
+                          }}
                         />
                       </ListItem>
                       {index < results.recommendations.length - 1 && <Divider />}

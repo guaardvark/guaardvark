@@ -107,7 +107,9 @@ function AutoBackupSettings({ settings, onSave }) {
             size="small"
             checked={draft.backup_daily_enabled}
             onChange={(e) => setDraft({ ...draft, backup_daily_enabled: e.target.checked })}
-            inputProps={{ "aria-label": t("backups.manageBackups.dailySwitch") }}
+            slotProps={{
+              input: { "aria-label": t("backups.manageBackups.dailySwitch") }
+            }}
           />
         }
         label={t("backups.manageBackups.dailySwitch")}
@@ -118,11 +120,13 @@ function AutoBackupSettings({ settings, onSave }) {
             key={key}
             size="small"
             type="number"
-            inputProps={{ min: 0, step: 1, "aria-label": t(`backups.manageBackups.${labelKey}`) }}
             label={t(`backups.manageBackups.${labelKey}`)}
             helperText={t(`backups.manageBackups.${unitKey}`)}
             value={draft[key]}
             onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+            slotProps={{
+              htmlInput: { min: 0, step: 1, "aria-label": t(`backups.manageBackups.${labelKey}`) }
+            }}
           />
         ))}
       </Box>

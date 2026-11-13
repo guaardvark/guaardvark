@@ -269,22 +269,24 @@ const TrainingDatasetModal = ({
               value={formData.path}
               onChange={handleInputChange}
               disabled={isSaving}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setDirectoryPickerOpen(true)}
-                      edge="end"
-                      disabled={isSaving}
-                      title={t("dialogs.trainingDataset.browse")}
-                      aria-label={t("dialogs.trainingDataset.browse")}
-                    >
-                      <FolderOpenIcon />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
               helperText={t("dialogs.trainingDataset.pathHelp")}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setDirectoryPickerOpen(true)}
+                        edge="end"
+                        disabled={isSaving}
+                        title={t("dialogs.trainingDataset.browse")}
+                        aria-label={t("dialogs.trainingDataset.browse")}
+                      >
+                        <FolderOpenIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }
+              }}
             />
             <InspectPanel report={report} inspecting={inspecting} />
           </Grid>

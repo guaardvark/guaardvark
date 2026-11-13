@@ -641,10 +641,11 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                             if (raw !== "" && !Number.isInteger(next)) return;
                             if (next !== row.seed) onEditCut(row.index, { seed: next });
                           }}
-                          inputProps={{ min: 0, step: 1, style: { width: 82, padding: "2px 6px" } }}
-                          InputLabelProps={{ shrink: true }}
                           sx={{ "& .MuiInputBase-root": { fontSize: "0.75rem" } }}
-                        />
+                          slotProps={{
+                            htmlInput: { min: 0, step: 1, style: { width: 82, padding: "2px 6px" } },
+                            inputLabel: { shrink: true }
+                          }} />
                         <Tooltip title={row.locked
                           ? t("musicVideo.plan.lockedTooltip")
                           : t("musicVideo.plan.lockTooltip")}
@@ -1709,8 +1710,10 @@ const MusicVideoPage = () => {
                   <TextField
                     type="number" size="small" fullWidth label={t("musicVideo.create.stretch")}
                     value={maxStretch} onChange={(e) => setMaxStretch(e.target.value)}
-                    inputProps={{ min: 1, max: 4, step: 0.5 }}
                     helperText={t("musicVideo.create.stretchHelp")}
+                    slotProps={{
+                      htmlInput: { min: 1, max: 4, step: 0.5 }
+                    }}
                   />
                   <TextField
                     select size="small" fullWidth label={t("musicVideo.create.interp")}
@@ -1724,9 +1727,11 @@ const MusicVideoPage = () => {
                   <TextField
                     type="number" size="small" fullWidth label={t("musicVideo.create.steps")}
                     value={i2vSteps} onChange={(e) => setI2vSteps(e.target.value)}
-                    inputProps={{ min: 8, max: 60, step: 1 }}
                     placeholder={t("musicVideo.create.stepsPlaceholder")}
                     helperText={t("musicVideo.create.stepsHelp")}
+                    slotProps={{
+                      htmlInput: { min: 8, max: 60, step: 1 }
+                    }}
                   />
 
                   {/* Director / storyboarding controls */}
@@ -1799,14 +1804,6 @@ const MusicVideoPage = () => {
                         const v = e.target.value;
                         setSelectedSubjectIds(typeof v === "string" ? v.split(",").map(Number) : v);
                       }}
-                      SelectProps={{
-                        multiple: true,
-                        renderValue: (sel) =>
-                          castSubjects
-                            .filter((s) => sel.includes(s.id))
-                            .map((s) => s.name)
-                            .join(", ") || t("musicVideo.create.selectCast"),
-                      }}
                       error={Boolean(castError)}
                       helperText={
                         castError ? (
@@ -1822,6 +1819,16 @@ const MusicVideoPage = () => {
                           : t("musicVideo.create.castHelp")
                       }
                       sx={{ mt: 1 }}
+                      slotProps={{
+                        select: {
+                          multiple: true,
+                          renderValue: (sel) =>
+                            castSubjects
+                              .filter((s) => sel.includes(s.id))
+                              .map((s) => s.name)
+                              .join(", ") || t("musicVideo.create.selectCast"),
+                        }
+                      }}
                     >
                       {castSubjects.map((s) => (
                         <MenuItem key={s.id} value={s.id}>
@@ -2002,7 +2009,9 @@ const MusicVideoPage = () => {
                         setRenaming(null);
                       }
                     }}
-                    inputProps={{ "aria-label": t("musicVideo.detail.nameAria") }}
+                    slotProps={{
+                      htmlInput: { "aria-label": t("musicVideo.detail.nameAria") }
+                    }}
                   />
                 ) : (
                   <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>

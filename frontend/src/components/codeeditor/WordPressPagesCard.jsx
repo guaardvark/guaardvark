@@ -956,7 +956,9 @@ const WordPressPagesCard = React.forwardRef(
                     });
                   }}
                   helperText={t("codeWordPress.pullDialog.maxPagesHelper")}
-                  inputProps={{ min: 1 }}
+                  slotProps={{
+                    htmlInput: { min: 1 }
+                  }}
                 />
                 {isPulling && <LinearProgress />}
               </Stack>

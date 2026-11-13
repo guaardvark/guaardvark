@@ -662,27 +662,29 @@ export default function SystemMapPage() {
               value={search}
               inputRef={searchRef}
               onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: P.ink(0.5), fontSize: 18 }} />
-                  </InputAdornment>
-                ),
-                endAdornment: search && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setSearch("")}>
-                      <CloseIcon sx={{ color: P.ink(0.5), fontSize: 16 }} />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-                sx: {
-                  bgcolor: P.fieldBg,
-                  color: P.ink(0.85),
-                  "& fieldset": { borderColor: P.ink(0.2) },
-                  "&:hover fieldset": { borderColor: P.ink(0.4) },
-                  fontFamily: "monospace",
-                  fontSize: "0.8rem",
-                },
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: P.ink(0.5), fontSize: 18 }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: search && (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setSearch("")}>
+                        <CloseIcon sx={{ color: P.ink(0.5), fontSize: 16 }} />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    bgcolor: P.fieldBg,
+                    color: P.ink(0.85),
+                    "& fieldset": { borderColor: P.ink(0.2) },
+                    "&:hover fieldset": { borderColor: P.ink(0.4) },
+                    fontFamily: "monospace",
+                    fontSize: "0.8rem",
+                  },
+                }
               }}
             />
           </Box>

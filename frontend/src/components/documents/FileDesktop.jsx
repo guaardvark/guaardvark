@@ -3119,10 +3119,12 @@ const FileDesktop = forwardRef(({
       <Dialog
         open={newFolderOpen}
         onClose={() => setNewFolderOpen(false)}
-        TransitionProps={{
-          onEntered: () => {
-            // Focus the input field after the dialog transition completes
-            newFolderInputRef.current?.focus();
+        slotProps={{
+          transition: {
+            onEntered: () => {
+              // Focus the input field after the dialog transition completes
+              newFolderInputRef.current?.focus();
+            }
           }
         }}
       >
@@ -3148,22 +3150,24 @@ const FileDesktop = forwardRef(({
       <Dialog
         open={renameDialogOpen}
         onClose={() => setRenameDialogOpen(false)}
-        TransitionProps={{
-          onEntered: () => {
-            const input = renameInputRef.current;
-            if (input) {
-              input.focus();
-              // Pre-select filename stem (everything before last dot) for files
-              if (renameItem?.type !== 'folder') {
-                const name = renameName;
-                const lastDot = name.lastIndexOf('.');
-                if (lastDot > 0) {
-                  input.setSelectionRange(0, lastDot);
+        slotProps={{
+          transition: {
+            onEntered: () => {
+              const input = renameInputRef.current;
+              if (input) {
+                input.focus();
+                // Pre-select filename stem (everything before last dot) for files
+                if (renameItem?.type !== 'folder') {
+                  const name = renameName;
+                  const lastDot = name.lastIndexOf('.');
+                  if (lastDot > 0) {
+                    input.setSelectionRange(0, lastDot);
+                  } else {
+                    input.select();
+                  }
                 } else {
                   input.select();
                 }
-              } else {
-                input.select();
               }
             }
           }

@@ -208,11 +208,13 @@ const TaskQueueIndicator = ({ compact = true }) => {
                         vertical: 'bottom',
                         horizontal: 'center',
                     }}
-                    PaperProps={{
-                        sx: {
-                            width: 320,
-                            maxHeight: 400,
-                            overflow: 'hidden'
+                    slotProps={{
+                        paper: {
+                            sx: {
+                                width: 320,
+                                maxHeight: 400,
+                                overflow: 'hidden'
+                            }
                         }
                     }}
                 >

@@ -355,7 +355,9 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                 <ListItemText
                   primary={model.name || model.id}
                   secondary={model.reason}
-                  secondaryTypographyProps={{ variant: "body2" }}
+                  slotProps={{
+                    secondary: { variant: "body2" }
+                  }}
                 />
               </ListItem>
             ))}

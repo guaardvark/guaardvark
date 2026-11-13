@@ -146,8 +146,10 @@ const TestRetrievalModal = ({ open, onClose }) => {
                 type="number"
                 value={topK}
                 onChange={(e) => setTopK(Math.max(1, Math.min(20, parseInt(e.target.value) || 5)))}
-                inputProps={{ min: 1, max: 20 }}
                 fullWidth
+                slotProps={{
+                  htmlInput: { min: 1, max: 20 }
+                }}
               />
             </Grid>
           </Grid>
