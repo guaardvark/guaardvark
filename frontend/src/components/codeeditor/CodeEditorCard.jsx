@@ -826,7 +826,10 @@ ${currentTab.content}
         }
         
         const oldPath = tab.filePath;
-        const newPath = trimmedName;
+        // The dialog edits the file name only, so the folder stays. Without it
+        // a file opened from a subfolder was saved to the root on the next Save.
+        const slash = oldPath ? String(oldPath).lastIndexOf('/') : -1;
+        const newPath = slash >= 0 ? `${String(oldPath).slice(0, slash + 1)}${trimmedName}` : trimmedName;
 
         // Update localStorage if it's a saved file
         if (oldPath && !tab.isNew) {
