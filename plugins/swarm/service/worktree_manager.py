@@ -203,7 +203,13 @@ class WorktreeManager:
         """How much disk space are we using? People worry about this."""
         if not self.swarm_dir.exists():
             return 0.0
-        total = sum(f.stat().st_size for f in self.swarm_dir.rglob("*") if f.is_file())
+        total = 0
+        for f in self.swarm_dir.rglob("*"):
+            try:
+                if f.is_file():
+                    total += f.stat().st_size
+            except OSError:
+                continue  # agents delete files while this walks
         return total / (1024 * 1024)
 
     # -------------------------------------------------------------------
