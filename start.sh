@@ -1951,8 +1951,8 @@ _ffmpeg_libs_missing() {
     [ -x "$ldc" ] && ! "$ldc" -p 2>/dev/null | grep -q 'libavcodec\.so\.'
 }
 if ! command_exists ffmpeg || _ffmpeg_libs_missing; then
-    vader_warn "FFmpeg or its shared libraries not found. Voice features and audio file I/O require them."
     if command_exists apt-get && [ "$FAST_START" -ne 1 ]; then
+        vader_info "Installing FFmpeg (voice features and audio file I/O need it)"
         _vader_sudo_v "install ffmpeg" || true
         if _vader_run "$SETUP_LOG" -- sudo apt-get update && _vader_run "$SETUP_LOG" -- sudo apt-get install -y ffmpeg; then
             vader_success "FFmpeg installed successfully"
@@ -1961,7 +1961,7 @@ if ! command_exists ffmpeg || _ffmpeg_libs_missing; then
             VOICE_AVAILABLE=0
         fi
     else
-        vader_warn "FFmpeg not available. Voice features will be unavailable. Install FFmpeg to enable voice."
+        vader_warn "FFmpeg or its shared libraries not found. Voice features and audio file I/O will be unavailable until FFmpeg is installed."
         VOICE_AVAILABLE=0
     fi
 fi
