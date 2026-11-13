@@ -942,7 +942,42 @@ def decide_num_ctx(model_name: str) -> NumCtxDecision:
             model_name, max(num_ctx, kept), entry.get("context_length"), num_ctx, own_ram_mb, with_own,
         )
         num_ctx = max(num_ctx, kept)
+    on_gpu = _gpu_loaded_window(entry, model_info)
+    if on_gpu > num_ctx:
+        logger.info(
+            "Adaptive context for '%s': num_ctx=%d, the window it is loaded with on the GPU "
+            "(%d sized against the memory left beside it)",
+            model_name, on_gpu, num_ctx,
+        )
+        num_ctx = on_gpu
     return NumCtxDecision(num_ctx, resolved=True)
+
+
+def _gpu_loaded_window(entry: Optional[dict], model_info: dict) -> int:
+    """The window a model loaded entirely on the GPU runs at, capped at
+    MAX_NUM_CTX and its native window; 0 when it is not loaded that way.
+
+    Free GPU memory read while the model is loaded counts its own share as
+    used, so the same model sized before and after its load got two windows
+    (gemma4:12b on a 16 GB card: 32,768 on the empty card, 8,192 once loaded),
+    and the request with the second one reloaded it. That it is loaded on the
+    GPU at this window is the proof it fits. Its share cannot be added back
+    from /api/ps instead: Ollama 0.40's llamacpp runner reports 1.4 GB for a
+    gemma4:12b that holds 7.8 GiB.
+    """
+    if not entry:
+        return 0
+    try:
+        size = int(entry.get("size") or 0)
+        size_vram = int(entry.get("size_vram") or 0)
+        loaded_ctx = int(entry.get("context_length") or 0)
+    except (TypeError, ValueError):
+        return 0
+    if size <= 0 or size_vram < size or loaded_ctx <= 0:
+        return 0
+    native_ctx = model_info.get("native_context", 0)
+    ceiling = min(native_ctx, MAX_NUM_CTX) if native_ctx > 0 else MAX_NUM_CTX
+    return min(loaded_ctx, ceiling)
 
 
 def _own_ram_mb(entry: Optional[dict]) -> float:
@@ -1137,7 +1172,13 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
     if not model_info:
         return True, "Model info unavailable — proceeding with defaults", override or _fallback_num_ctx(model_name)
 
-    resources = _sizing_resources(model_name, _own_ram_mb(loaded_entry(model_name)))
+    entry = loaded_entry(model_name)
+    if _gpu_loaded_window(entry, model_info):
+        # Already on the GPU: the memory checks below would count it against itself.
+        recommended_ctx = compute_optimal_num_ctx(model_name)
+        return True, f"OK — loaded on the GPU, recommended num_ctx={recommended_ctx}", recommended_ctx
+
+    resources = _sizing_resources(model_name, _own_ram_mb(entry))
     total_available_mb = (
         max(0, resources["gpu_free_mb"] - GPU_RESERVE_MB) +
         max(0, resources["ram_free_mb"] - ram_reserve_mb(resources.get("ram_total_mb", 0.0)))
