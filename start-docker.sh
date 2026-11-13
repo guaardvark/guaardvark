@@ -123,10 +123,14 @@ if [ "$GPU_PROFILE" -eq 1 ]; then
         fi
     fi
     export GUAARDVARK_TORCH_CHANNEL="${GUAARDVARK_TORCH_CHANNEL:-}"
-    # The published backend image carries one PyTorch build (cu128, RTX 20 series
-    # and newer). An older card gets a build made for it here instead.
-    if [ "$USE_PUBLISHED" -eq 1 ] && [ -n "${COMPUTE_MAJOR:-}" ] && [ "$COMPUTE_MAJOR" -lt 7 ]; then
-        echo "This GPU needs a PyTorch build the published image does not carry; building here instead."
+    # The published backend image carries one PyTorch build: cu132, for GTX 16
+    # and RTX 20 series cards and newer on driver 580 or later. Any other card
+    # or driver gets a build made for it here instead.
+    if [ "$USE_PUBLISHED" -eq 1 ] && [ -n "${COMPUTE_MAJOR:-}" ] && [ "$GUAARDVARK_TORCH_CHANNEL" != cu132 ]; then
+        echo "This GPU and driver need the ${GUAARDVARK_TORCH_CHANNEL} PyTorch build, which the published image does not carry; building here instead."
+        if [ $((COMPUTE_MAJOR * 10 + ${COMPUTE_MINOR:-0})) -ge 75 ] && [ -n "${DRIVER_MAJOR:-}" ] && [ "$DRIVER_MAJOR" -lt 580 ]; then
+            echo "  An NVIDIA driver 580 or newer lets this card use the published image."
+        fi
         USE_PUBLISHED=0
     fi
 fi

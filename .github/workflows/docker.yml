@@ -33,9 +33,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # The CUDA build of PyTorch baked into the backend image. cu128 covers
-  # RTX 20 through RTX 50 cards.
-  TORCH_CHANNEL: cu128
+  # The CUDA build of PyTorch baked into the backend image: cu132 (PyTorch
+  # 2.14.1) covers GTX 16 and RTX 20 through RTX 50 cards on an NVIDIA driver
+  # 580 or newer. start-docker.sh --pull builds locally for anything else.
+  TORCH_CHANNEL: cu132
 
 jobs:
   publish:

@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.5.2 — PyTorch 2.14.1 on NVIDIA cards, in native installs and the Docker image
+
+- **PyTorch 2.14.1.** The backend now picks its PyTorch build from your card and your driver, and on a current
+  driver every NVIDIA card from the GTX 10 series up lands on 2.14.1: RTX 30 and 40 cards move up from 2.6.0, GTX 10,
+  GTX 16 and RTX 20 cards from 2.7.1, RTX 50 cards from 2.11.0. On a 16 GB RTX 40 series card, Z-Image LoRA
+  training, upscaling and Z-Image pictures came out the same as on 2.6.0, with the same memory. RTX 30 and 40 cards now meet the PyTorch 2.7 floor
+  FLUX 3 Image Klein needs in the ComfyUI that shares the backend's environment.
+- **The Docker image carries it too.** `guaardvark/guaardvark` is built on PyTorch 2.14.1 for CUDA 13.2.
+  `./start-docker.sh --gpu --pull` uses it on GTX 16 and RTX 20 series cards and newer with an NVIDIA driver 580 or
+  later, and builds a matching image on the machine for any other card or driver.
+- **Audio files through TorchCodec.** torchaudio 2.11 reads and writes WAV, FLAC and MP3 through TorchCodec, and
+  `start.sh` installs FFmpeg's shared libraries when they are missing.
+- **Before you update:** the next `./start.sh` downloads the new PyTorch once, about 3 GB. A driver older than 525
+  gets 2.7.1, and an RTX 50 card on a driver older than 580 stays on 2.11.0. CPU and Apple Silicon installs use
+  2.14.1 as well, the newest release the training libraries accept.
+
 ## 3.5.1 — Windows 11 through WSL2 and Docker Desktop, and images on Docker Hub
 
 - **Windows 11 through WSL2.** The one-line installer runs inside WSL2 Ubuntu, and the studio opens in your Windows
