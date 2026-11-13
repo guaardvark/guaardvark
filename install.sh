@@ -35,7 +35,7 @@ ensure_git() {
         # sudo may prompt for a password; read it from the terminal, not the
         # curl pipe. Without a controlling terminal (headless), require
         # passwordless sudo.
-        if [ -e /dev/tty ]; then
+        if ( : < /dev/tty ) 2>/dev/null; then
             sudo apt-get update -qq && sudo apt-get install -y git < /dev/tty \
                 || fail "Could not install git. Install it manually (sudo apt-get install -y git) and re-run."
         else
@@ -90,7 +90,7 @@ main() {
     # Under `curl | bash`, stdin is the script pipe. start.sh (and sudo/apt
     # inside it) must talk to the real terminal, so reattach stdin to /dev/tty
     # when one exists; headless runs proceed with stdin at /dev/null.
-    if [ -e /dev/tty ]; then
+    if ( : < /dev/tty ) 2>/dev/null; then
         exec ./start.sh < /dev/tty
     else
         warn "No controlling terminal — running start.sh non-interactively."
