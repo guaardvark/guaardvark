@@ -48,6 +48,16 @@ def _error(message: str, code: str, status: int):
     return _no_store(jsonify({"error": message, "code": code}), status)
 
 
+def _may_change_key() -> bool:
+    """The guard's answer for the key routes, asked from another route: network
+    access opens them to this machine only (auth_guard.KEY_PREFIXES)."""
+    if auth_guard.network_access_open() and auth_guard.request_is_from_this_machine():
+        return True
+    if auth_guard.configured_api_key():
+        return auth_guard.request_carries_valid_key() or auth_guard.request_has_valid_session()
+    return auth_guard.request_is_from_this_machine()
+
+
 @auth_bp.route("/status", methods=["GET"])
 def auth_status():
     state = keys.key_state()
@@ -63,7 +73,7 @@ def auth_status():
         # A sign-in cookie was sent and is not accepted (the key changed).
         "session_rejected": session == api_session.REJECTED,
         "can_run_protected": may_run,
-        "can_manage_key": may_run and state.manageable,
+        "can_manage_key": _may_change_key() and state.manageable,
         "manage_note": state.manage_note,
         "restart_needed": state.restart_needed,
         "docker": state.docker,
