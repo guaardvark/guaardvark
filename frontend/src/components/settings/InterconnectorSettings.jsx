@@ -1107,7 +1107,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
 
         <Grid container spacing={3}>
           {/* Node Mode Selection */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <FormControl fullWidth>
               <InputLabel>{t("settingsInterconnector.ui.nodeMode")}</InputLabel>
               <Select
@@ -1127,7 +1127,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
           </Grid>
 
           {/* Node Name */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
               label={t("settingsInterconnector.ui.nodeName")}
@@ -1142,13 +1142,13 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
               {/* Master Mode Configuration */}
               {config.node_mode === "master" && (
                 <>
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Divider sx={{ my: 1 }}>
                       <Chip label={t("settingsInterconnector.ui.masterSettings")} size="small" />
                     </Divider>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Box>
                       <Typography variant="subtitle2" gutterBottom>
                         {t("settingsInterconnector.ui.apiKeyAuth")}
@@ -1179,7 +1179,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     </Box>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Box>
                       <Typography variant="subtitle2" gutterBottom>
                         {t("settingsInterconnector.ui.apiKeyForClients")}
@@ -1315,13 +1315,13 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
               {/* Client Mode Configuration */}
               {config.node_mode === "client" && (
                 <>
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Divider sx={{ my: 1 }}>
                       <Chip label={t("settingsInterconnector.ui.masterConnection")} size="small" />
                     </Divider>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <TextField
                       fullWidth
                       label={t("settingsInterconnector.ui.masterAddress")}
@@ -1332,7 +1332,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     />
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <TextField
                       fullWidth
                       label={t("settingsInterconnector.ui.masterApiKey")}
@@ -1344,7 +1344,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     />
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
                       <Button
                         variant="outlined"
@@ -1366,20 +1366,20 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     </Box>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <FleetMembership identity={localIdentity} />
                   </Grid>
                 </>
               )}
 
               {/* Sync Settings */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Divider sx={{ my: 1 }}>
                   <Chip label={t("settingsInterconnector.ui.syncSettings")} size="small" />
                 </Divider>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="body2" gutterBottom>
                   {t("settingsInterconnector.ui.syncOptions")}
                 </Typography>
@@ -1402,7 +1402,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                 </Typography>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
                   type="number"
@@ -1422,7 +1422,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="subtitle2" gutterBottom>
                   {t("settingsInterconnector.ui.entitiesToSync")}
                 </Typography>
@@ -1449,7 +1449,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
               </Grid>
 
           {/* Save / Cancel Buttons */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
                 variant="contained"
@@ -1484,7 +1484,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                   {t("settingsInterconnector.ui.currentStatus")}
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6} md={3}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
                         {t("settingsInterconnector.ui.mode")}
@@ -1497,7 +1497,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                       />
                     </Box>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
                         {t("settingsInterconnector.ui.nodeName")}
@@ -1505,7 +1505,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                       <Typography variant="body2">{status.node_name || t("settingsInterconnector.ui.notSet")}</Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
                         {t("settingsInterconnector.ui.autoSync")}
@@ -1517,7 +1517,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                       />
                     </Box>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
                         {t("settingsInterconnector.ui.lastSync")}

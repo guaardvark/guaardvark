@@ -248,32 +248,32 @@ const FolderPropertiesModal = ({
             {t('dialogs.folderProperties.folderInformation')}
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="body2">
                 <Trans i18nKey="dialogs.folderProperties.name" values={{ name: folderData.name }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="body2">
                 <Trans i18nKey="dialogs.folderProperties.path" values={{ path: folderData.path || t('dialogs.fileProperties.notAvailable') }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="body2">
                 <Trans i18nKey="dialogs.folderProperties.created" values={{ date: formatDate(folderData.created_at) }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="body2">
                 <Trans i18nKey="dialogs.folderProperties.subfolders" values={{ count: folderData.subfolder_count || 0 }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="body2">
                 <Trans i18nKey="dialogs.folderProperties.files" values={{ count: folderData.document_count || 0 }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <FormControlLabel
                 control={
                   <Switch
@@ -350,7 +350,7 @@ const FolderPropertiesModal = ({
             </Box>
           ) : (
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Autocomplete
                   options={clients}
                   getOptionLabel={(option) => option.name || ''}
@@ -365,7 +365,7 @@ const FolderPropertiesModal = ({
                   )}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Autocomplete
                   options={projects}
                   getOptionLabel={(option) => option.name || ''}
@@ -380,7 +380,7 @@ const FolderPropertiesModal = ({
                   )}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Autocomplete
                   options={websites}
                   getOptionLabel={(option) => option.name || option.url || ''}
@@ -407,7 +407,7 @@ const FolderPropertiesModal = ({
             {t('dialogs.fileProperties.metadata')}
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label={parentProps?.tags && formData.tags && parentProps.tags === formData.tags ? t('dialogs.folderProperties.tagsInherited') : t('dialogs.fileProperties.tags')}
@@ -417,7 +417,7 @@ const FolderPropertiesModal = ({
                 placeholder={t('dialogs.fileProperties.tagsPlaceholder')}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label={parentProps?.notes && formData.notes && parentProps.notes === formData.notes ? t('dialogs.folderProperties.notesInherited') : t('dialogs.fileProperties.notes')}

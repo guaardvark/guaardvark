@@ -183,7 +183,7 @@ const FolderView = ({
           ) : (
             <Grid container spacing={2}>
               {items.map((item) => (
-                <Grid item xs={6} sm={4} md={3} lg={2} key={item.id || item.path}>
+                <Grid key={item.id || item.path} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
                   <Paper
                     elevation={0}
                     sx={{

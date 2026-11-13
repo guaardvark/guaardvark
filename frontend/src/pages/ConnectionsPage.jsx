@@ -274,7 +274,7 @@ const ConnectionsPage = () => {
             const spec = specByProvider[conn.provider];
             const optIn = spec?.capabilities?.public_opt_in;
             return (
-              <Grid item xs={12} sm={6} md={4} key={conn.id}>
+              <Grid key={conn.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <Card variant="outlined" sx={{ height: "100%" }}>
                   <CardContent>
                     <Stack
@@ -378,7 +378,7 @@ const ConnectionsPage = () => {
             );
           })}
           {!connections.length && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Alert severity="info">
                 {t("connections.page.empty")}
               </Alert>

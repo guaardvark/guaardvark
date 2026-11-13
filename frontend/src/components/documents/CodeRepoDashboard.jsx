@@ -132,7 +132,7 @@ const CodeRepoDashboard = ({ folder }) => {
           )}
 
           <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 {t('documents.codeRepo.languagesFrameworks')}
               </Typography>
@@ -148,7 +148,7 @@ const CodeRepoDashboard = ({ folder }) => {
                 )}
               </Box>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 {t('documents.codeRepo.statistics')}
               </Typography>

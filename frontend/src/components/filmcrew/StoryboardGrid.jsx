@@ -122,7 +122,7 @@ const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApp
       </Box>
       <Grid container spacing={2}>
         {shots.map((shot) => (
-          <Grid item xs={12} sm={6} md={4} key={shot.id}>
+          <Grid key={shot.id} size={{ xs: 12, sm: 6, md: 4 }}>
             <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ position: 'relative' }}>
                 <CardMedia

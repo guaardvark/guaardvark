@@ -692,7 +692,7 @@ const UpscalingPage = ({ embedded = false }) => {
 
       <Grid container spacing={3}>
         {/* Left: Upload & Settings */}
-        <Grid item xs={12} lg={5}>
+        <Grid size={{ xs: 12, lg: 5 }}>
           <Card sx={{ boxShadow: 2, borderRadius: 2, mb: 3 }}>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
@@ -1057,7 +1057,7 @@ const UpscalingPage = ({ embedded = false }) => {
         </Grid>
 
         {/* Right: Preview & Job History */}
-        <Grid item xs={12} lg={7}>
+        <Grid size={{ xs: 12, lg: 7 }}>
           {imageResult && (
             <Card sx={{ boxShadow: 2, borderRadius: 2, mb: 3 }}>
               <CardContent sx={{ p: 3 }}>
@@ -1070,7 +1070,7 @@ const UpscalingPage = ({ embedded = false }) => {
                   </IconButton>
                 </Stack>
                 <Grid container spacing={2}>
-                  <Grid item xs={6}>
+                  <Grid size={6}>
                     <Typography variant="subtitle2" align="center" gutterBottom>
                       {t("upscaling.result.original")}
                     </Typography>
@@ -1080,7 +1080,7 @@ const UpscalingPage = ({ embedded = false }) => {
                       style={{ width: "100%", height: "auto", display: "block", borderRadius: "8px" }}
                     />
                   </Grid>
-                  <Grid item xs={6}>
+                  <Grid size={6}>
                     <Typography variant="subtitle2" align="center" gutterBottom>
                       {t("upscaling.result.upscaled")}
                     </Typography>
@@ -1160,7 +1160,7 @@ const UpscalingPage = ({ embedded = false }) => {
                 ) : (
                   <Box>
                     <Grid container spacing={2}>
-                      <Grid item xs={6}>
+                      <Grid size={6}>
                         <Typography variant="subtitle2" align="center" gutterBottom>
                           {t("upscaling.preview.originalFrame")}
                         </Typography>
@@ -1170,7 +1170,7 @@ const UpscalingPage = ({ embedded = false }) => {
                           style={{ width: "100%", height: "auto", display: "block", borderRadius: "8px" }}
                         />
                       </Grid>
-                      <Grid item xs={6}>
+                      <Grid size={6}>
                         <Typography variant="subtitle2" align="center" gutterBottom>
                           {t("upscaling.preview.upscaledFrame")}
                         </Typography>

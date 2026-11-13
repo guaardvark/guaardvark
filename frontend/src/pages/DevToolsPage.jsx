@@ -552,7 +552,7 @@ const DevToolsPage = () => {
       </Card>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
@@ -596,7 +596,7 @@ const DevToolsPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -643,7 +643,7 @@ const DevToolsPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -691,7 +691,7 @@ const DevToolsPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -724,7 +724,7 @@ const DevToolsPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -742,7 +742,7 @@ const DevToolsPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -783,7 +783,7 @@ const DevToolsPage = () => {
           </Card>
         </Grid>
         {/* NEW: Progress Jobs Management Section */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
@@ -1072,7 +1072,7 @@ const DevToolsPage = () => {
           </Card>
         </Grid>
         {/* Log Viewer Section */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
@@ -1105,7 +1105,7 @@ const DevToolsPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -1128,7 +1128,7 @@ const DevToolsPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -1140,7 +1140,7 @@ const DevToolsPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -1160,7 +1160,7 @@ const DevToolsPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -1170,7 +1170,7 @@ const DevToolsPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>

@@ -460,7 +460,7 @@ const ClientPage = () => {
         {!isLoading && sortedClients.length > 0 && viewMode === "card" && (
           <Grid container spacing={2}>
             {sortedClients.map((client) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={client.id}>
+              <Grid key={client.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <Card
                   onContextMenu={(e) => handleContextMenu(e, client)}
                   sx={{
@@ -485,7 +485,7 @@ const ClientPage = () => {
                   >
                     <CardContent sx={{ flexGrow: 1, p: 0 }}>
                       <Grid container spacing={1} alignItems="flex-start">
-                        <Grid item xs={9}>
+                        <Grid size={9}>
                           <Typography
                             variant="h6"
                             component="div"
@@ -541,7 +541,7 @@ const ClientPage = () => {
                             })}
                           </Typography>
                         </Grid>
-                        <Grid item xs={3} sx={{ textAlign: "right" }}>
+                        <Grid sx={{ textAlign: "right" }} size={3}>
                           {client.logo_path && (
                             <img
                               src={getLogoUrl(client.logo_path)}

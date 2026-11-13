@@ -356,7 +356,7 @@ const ClientActionModal = ({
           {" "}
           {/* Wrap in form for Enter key */}
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 autoFocus={!isEditMode} // Autofocus only for new clients
                 required
@@ -376,7 +376,7 @@ const ClientActionModal = ({
                 disabled={isSaving}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -390,7 +390,7 @@ const ClientActionModal = ({
                 helperText={t("dialogs.clientAction.emailHelp")}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -403,7 +403,7 @@ const ClientActionModal = ({
                 helperText={t("dialogs.clientAction.phoneHelp")}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -417,7 +417,7 @@ const ClientActionModal = ({
                 helperText={t("dialogs.clientAction.locationHelp")}
               />
             </Grid>
-            <Grid item xs={12} sx={{ textAlign: "center" }}>
+            <Grid sx={{ textAlign: "center" }} size={12}>
               <Box
                 sx={{
                   width: 120,
@@ -459,7 +459,7 @@ const ClientActionModal = ({
                 disabled={isSaving}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -476,7 +476,7 @@ const ClientActionModal = ({
             </Grid>
 
             {/* RAG Enhancement Section */}
-            <Grid item xs={12} sx={{ mt: 2 }}>
+            <Grid sx={{ mt: 2 }} size={12}>
               <Accordion>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Typography variant="subtitle1" fontWeight="bold">
@@ -486,7 +486,7 @@ const ClientActionModal = ({
                 <AccordionDetails>
                   <Grid container spacing={2}>
                     {/* Industry - Multi-select chip interface */}
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
                         fullWidth
                         margin="dense"
@@ -531,7 +531,7 @@ const ClientActionModal = ({
                     </Grid>
 
                     {/* Geographic Coverage - Multi-select chip interface */}
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
                         fullWidth
                         margin="dense"
@@ -575,7 +575,7 @@ const ClientActionModal = ({
                       </Box>
                     </Grid>
                     {/* Target Audience - Autocomplete with common options */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Autocomplete
                         multiple
                         freeSolo
@@ -611,7 +611,7 @@ const ClientActionModal = ({
                     </Grid>
 
                     {/* Unique Selling Points - Autocomplete with common options */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Autocomplete
                         multiple
                         freeSolo
@@ -647,7 +647,7 @@ const ClientActionModal = ({
                     </Grid>
 
                     {/* Content Goals - Autocomplete with common options */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Autocomplete
                         multiple
                         freeSolo
@@ -681,7 +681,7 @@ const ClientActionModal = ({
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <TextField
                         fullWidth
                         margin="dense"
@@ -697,7 +697,7 @@ const ClientActionModal = ({
                         helperText={t("dialogs.clientAction.brandVoiceHelp")}
                       />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <TextField
                         fullWidth
                         margin="dense"
@@ -715,7 +715,7 @@ const ClientActionModal = ({
                     </Grid>
 
                     {/* Target Keywords */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <TextField
                         fullWidth
                         margin="dense"
@@ -760,7 +760,7 @@ const ClientActionModal = ({
                     </Grid>
 
                     {/* Competitor URLs */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <TextField
                         fullWidth
                         margin="dense"

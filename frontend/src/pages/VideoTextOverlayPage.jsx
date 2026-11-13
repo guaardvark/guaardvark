@@ -148,7 +148,7 @@ const VideoTextOverlayPage = () => {
       <Box sx={{ maxWidth: 1200, mx: "auto", mt: 2, px: 2 }}>
         <Grid container spacing={3}>
           {/* Left: controls */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper elevation={4} sx={{ p: 3, borderRadius: 3 }}>
               <Stack spacing={2.5}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -268,7 +268,7 @@ const VideoTextOverlayPage = () => {
           </Grid>
 
           {/* Right: preview */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper elevation={4} sx={{ p: 3, borderRadius: 3, minHeight: 360 }}>
               <Typography variant="h6" fontWeight="bold" mb={2}>
                 {result ? t("videoTextOverlay.result") : selectedVideo ? t("videoTextOverlay.source") : t("videoTextOverlay.preview")}

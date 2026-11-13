@@ -858,10 +858,10 @@ const CastMemberPage = () => {
       {/* ── Overview ───────────────────────────────────────────────────────── */}
       {tab === 0 && (
         <Grid container spacing={3}>
-          <Grid item xs={12} sm={4} md={3}>
+          <Grid size={{ xs: 12, sm: 4, md: 3 }}>
             <Box sx={{ borderRadius: 1, overflow: 'hidden' }}><SubjectThumb subject={subject} /></Box>
           </Grid>
-          <Grid item xs={12} sm={8} md={9}>
+          <Grid size={{ xs: 12, sm: 8, md: 9 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 560 }}>
               <ChangedElsewhereNotice
                 conflicts={overview.conflicts}
@@ -992,7 +992,7 @@ const CastMemberPage = () => {
             />
           </Box>
           <Grid container spacing={2} sx={{ mb: 2, maxWidth: 720 }}>
-            <Grid item xs={12} sm={8}>
+            <Grid size={{ xs: 12, sm: 8 }}>
               <TextField
                 select
                 label={t('cast.fields.trainBase')}
@@ -1008,37 +1008,37 @@ const CastMemberPage = () => {
                 <option value="sdxl-legacy">{t('cast.trainingData.baseSdxl')}</option>
               </TextField>
             </Grid>
-            <Grid item xs={6} sm={4}>
+            <Grid size={{ xs: 6, sm: 4 }}>
               <TextField label={t('cast.fields.resolution')} type="number" size="small" fullWidth
                 value={trainingSettings.resolution}
                 onChange={(e) => editTraining('resolution', e.target.value)}
                 helperText={t('cast.trainingData.resolutionHelp')} />
             </Grid>
-            <Grid item xs={6} sm={4}>
+            <Grid size={{ xs: 6, sm: 4 }}>
               <TextField label={t('cast.fields.rank')} type="number" size="small" fullWidth
                 value={trainingSettings.rank}
                 onChange={(e) => editTraining('rank', e.target.value)}
                 helperText="4–64" />
             </Grid>
-            <Grid item xs={6} sm={4}>
+            <Grid size={{ xs: 6, sm: 4 }}>
               <TextField label={t('cast.fields.alpha')} type="number" size="small" fullWidth
                 value={trainingSettings.alpha}
                 onChange={(e) => editTraining('alpha', e.target.value)}
                 helperText={t('cast.trainingData.alphaHelp')} />
             </Grid>
-            <Grid item xs={6} sm={4}>
+            <Grid size={{ xs: 6, sm: 4 }}>
               <TextField label={t('cast.fields.learningRate')} type="number" size="small" fullWidth
                 value={trainingSettings.learning_rate}
                 onChange={(e) => editTraining('learning_rate', e.target.value)}
                 inputProps={{ step: '0.00001' }} />
             </Grid>
-            <Grid item xs={6} sm={4}>
+            <Grid size={{ xs: 6, sm: 4 }}>
               <TextField label={t('cast.trainingData.stepsOptional')} type="number" size="small" fullWidth
                 value={trainingSettings.steps}
                 onChange={(e) => editTraining('steps', e.target.value)}
                 helperText={t('cast.trainingData.stepsHelp')} />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Button variant="outlined" size="small" onClick={handleSaveTrainingSettings}
                 disabled={savingTrainingSettings || training || !trainingForm.isDirty}>
                 {savingTrainingSettings ? t('cast.common.saving') : t('cast.trainingData.saveSettings')}
@@ -1273,7 +1273,7 @@ const CastMemberPage = () => {
               {sheetSamples.map((s, idx) => {
                 const trainSt = sampleTrainStatus(s, subject);
                 return (
-                <Grid item xs={6} sm={4} md={3} lg={2} key={s.id}>
+                <Grid key={s.id} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
                   <Card variant="outlined" onContextMenu={(e) => sampleMenu.open(e, { sample: s, idx })}>
                     {s.image_url ? (
                       <Box sx={{ position: 'relative' }}>

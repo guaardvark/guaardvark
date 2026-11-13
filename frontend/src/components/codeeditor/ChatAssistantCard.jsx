@@ -1785,7 +1785,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
               {Object.entries(AI_COMMANDS).map(([key, command]) => {
                 const IconComponent = command.icon;
                 return (
-                  <Grid item xs={6} key={key}>
+                  <Grid key={key} size={6}>
                     <MenuItem
                       onClick={() => handleGridMenuAction(key)}
                       disabled={isLoading || !currentTab?.content?.trim()}

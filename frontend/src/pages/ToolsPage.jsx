@@ -648,12 +648,12 @@ const ToolsPage = () => {
           ) : viewMode === "card" ? (
             <Grid container spacing={3}>
               {sortedFilteredTools.map((tool) => (
-                <Grid item xs={12} sm={6} md={4} key={tool.name}>
+                <Grid key={tool.name} size={{ xs: 12, sm: 6, md: 4 }}>
                   {renderToolCard(tool)}
                 </Grid>
               ))}
               {sortedFilteredTools.length === 0 && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography
                     color="text.secondary"
                     textAlign="center"
@@ -713,7 +713,7 @@ const ToolsPage = () => {
       {activeTab === 2 && (
         <Grid container spacing={3}>
           {Object.entries(categories).map(([category, toolList]) => (
-            <Grid item xs={12} md={6} key={category}>
+            <Grid key={category} size={{ xs: 12, md: 6 }}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>

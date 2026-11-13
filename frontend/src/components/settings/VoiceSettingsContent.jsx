@@ -235,7 +235,7 @@ const VoiceSettingsContent = ({
           {/* Voice, Quality, and Audio in Grid */}
           <Grid container spacing={1.5} sx={{ mb: 3 }}>
             {/* Voice Selection */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>{t("common.voice")}</Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
                 {availableVoices.map((voice) => {
@@ -272,7 +272,7 @@ const VoiceSettingsContent = ({
             </Grid>
 
             {/* Quality and Audio in same row */}
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>{t("settingsSections.voice.quality")}</Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                 <Chip
@@ -314,7 +314,7 @@ const VoiceSettingsContent = ({
               </Box>
             </Grid>
 
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>{t("settingsSections.voice.audio")}</Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                 <Chip

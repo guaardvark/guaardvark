@@ -307,7 +307,7 @@ const OutputModal = ({
                 {t("dialogs.output.summary")}
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Box sx={{ textAlign: "center" }}>
                     <Typography variant="h4" sx={{ fontWeight: "bold", color: "success.main" }}>
                       {output.active_rows}
@@ -317,7 +317,7 @@ const OutputModal = ({
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Box sx={{ textAlign: "center" }}>
                     <Typography variant="h4" sx={{ fontWeight: "bold", color: "warning.main" }}>
                       {output.replaced_rows}
@@ -327,7 +327,7 @@ const OutputModal = ({
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Box sx={{ textAlign: "center" }}>
                     <Typography variant="h4" sx={{ fontWeight: "bold", color: "error.main" }}>
                       {output.failed_rows}
@@ -337,7 +337,7 @@ const OutputModal = ({
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Box sx={{ textAlign: "center" }}>
                     <Typography variant="h4" sx={{ fontWeight: "bold", color: "primary.main" }}>
                       {output.success_rate.toFixed(0)}%
@@ -358,7 +358,7 @@ const OutputModal = ({
                 {t("dialogs.output.generationDetails")}
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="body2" color="text.secondary">
                     {t("dialogs.output.generated")}
                   </Typography>
@@ -366,7 +366,7 @@ const OutputModal = ({
                     {formatTimestamp(output.export_timestamp)}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="body2" color="text.secondary">
                     {t("dialogs.output.llmModel")}
                   </Typography>
@@ -374,7 +374,7 @@ const OutputModal = ({
                     {output.model_name || t("dialogs.output.unknown")}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="body2" color="text.secondary">
                     {t("dialogs.output.targetRows")}
                   </Typography>
@@ -382,7 +382,7 @@ const OutputModal = ({
                     {output.target_row_count}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="body2" color="text.secondary">
                     {t("dialogs.output.fileSize")}
                   </Typography>
@@ -390,7 +390,7 @@ const OutputModal = ({
                     {(output.file_size / 1024).toFixed(1)} KB
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="body2" color="text.secondary">
                     {t("dialogs.output.totalRows")}
                   </Typography>
@@ -399,7 +399,7 @@ const OutputModal = ({
                   </Typography>
                 </Grid>
                 {output.client && (
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Typography variant="body2" color="text.secondary">
                       {t("dialogs.output.client")}
                     </Typography>
@@ -409,7 +409,7 @@ const OutputModal = ({
                   </Grid>
                 )}
                 {output.project && (
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Typography variant="body2" color="text.secondary">
                       {t("dialogs.output.project")}
                     </Typography>

@@ -320,9 +320,9 @@ const RuleActionModal = ({
         )}
         <Grid container spacing={3}>
           {/* Basic Information */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={8}>
+              <Grid size={{ xs: 12, sm: 8 }}>
                 <TextField
                   label={t("dialogs.ruleAction.name")}
                   name="name"
@@ -340,14 +340,12 @@ const RuleActionModal = ({
                 />
               </Grid>
               <Grid
-                item
-                xs={12}
-                sm={4}
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
+                size={{ xs: 12, sm: 4 }}
               >
                 <FormControlLabel
                   control={
@@ -364,9 +362,9 @@ const RuleActionModal = ({
           </Grid>
 
           {/* Type Display & Command */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Typography variant="body2" color="text.secondary">
                     {t("dialogs.ruleAction.type")}:
@@ -391,7 +389,7 @@ const RuleActionModal = ({
                   </Typography>
                 </Box>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label={t("dialogs.ruleAction.command")}
                   name="command_label"
@@ -417,7 +415,7 @@ const RuleActionModal = ({
           </Grid>
 
           {/* Content */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               label={contentField.label}
               name="rule_text"
@@ -433,7 +431,7 @@ const RuleActionModal = ({
           </Grid>
 
           {/* Description & Models */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               label={t("dialogs.ruleAction.description")}
               name="description"
@@ -447,7 +445,7 @@ const RuleActionModal = ({
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Autocomplete
               multiple
               options={modelOptions}

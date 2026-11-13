@@ -33,7 +33,7 @@ function BatchLibraryGrid({ batches, onOpen, onOpenMenu, onDelete, statusLabel }
         // full prompt. Cap defensively so a long name can't push the card down.
         const label = rawName.length > 42 ? rawName.slice(0, 41).trimEnd() + '…' : rawName;
         return (
-        <Grid item xs={6} sm={4} md={3} key={b.batch_id}>
+        <Grid key={b.batch_id} size={{ xs: 6, sm: 4, md: 3 }}>
           <Box
             onClick={() => onOpen(b)}
             onContextMenu={(e) => onOpenMenu(e, b)}

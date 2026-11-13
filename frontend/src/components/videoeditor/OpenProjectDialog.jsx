@@ -173,7 +173,7 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
               const isDeleting = deletingId === project.id;
               const poster = posterUrl(project.posterDocumentId);
               return (
-                <Grid item xs={12} sm={6} md={4} key={project.id}>
+                <Grid key={project.id} size={{ xs: 12, sm: 6, md: 4 }}>
                   <Card
                     elevation={0}
                     sx={{

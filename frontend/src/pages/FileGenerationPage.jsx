@@ -668,7 +668,7 @@ const FileGenerationPage = () => {
             {" "}{t("fileGeneration.page.requiresRule")}
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label={t("fileGeneration.page.outputFilename", { format: fileFormat.toUpperCase() })}
@@ -679,7 +679,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingBatch}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 id="batch-prompt-rule-select"
                 options={availableRules}
@@ -716,7 +716,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingBatch}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 id="batch-project-select"
                 options={availableProjects}
@@ -757,7 +757,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingBatch}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 options={availableWebsites}
                 loading={isLoadingWebsites}
@@ -808,7 +808,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingBatch || isLoadingWebsites}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <Typography variant="body2" sx={{ flexGrow: 1 }}>
                   {t("fileGeneration.page.competitorWebsite")}
@@ -857,7 +857,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingBatch || (useClientCompetitors && (!batchClient || !batchClient.competitor_urls || batchClient.competitor_urls.length === 0))}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 type="number"
@@ -870,7 +870,7 @@ const FileGenerationPage = () => {
                 inputProps={{ min: 1, max: 1000 }}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <FormControlLabel
                 control={
                   <Switch
@@ -883,7 +883,7 @@ const FileGenerationPage = () => {
                 label={t("fileGeneration.page.enhancedContext")}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <Autocomplete
                 options={availableClients}
                 loading={isLoadingClients}
@@ -917,7 +917,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingBatch || isLoadingClients}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <FormControl fullWidth variant="outlined">
                 <InputLabel>{t("fileGeneration.page.model")}</InputLabel>
                 <Select
@@ -941,7 +941,7 @@ const FileGenerationPage = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography
                 variant="caption"
                 display="block"
@@ -969,7 +969,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingBatch}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography
                 variant="h6"
                 component="div"
@@ -1022,7 +1022,7 @@ const FileGenerationPage = () => {
                 />
               )}
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
                 <Button
                   variant="outlined"
@@ -1094,7 +1094,7 @@ const FileGenerationPage = () => {
             {t("fileGeneration.page.singleDescription")}
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label={t("fileGeneration.page.singleFilename")}
@@ -1104,7 +1104,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingSingle}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Autocomplete
                 id="code-gen-rule-select"
                 options={availableRules.filter(rule => 
@@ -1151,7 +1151,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingSingle}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 multiline
@@ -1164,7 +1164,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingSingle}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Button
                 variant="contained"
                 color="secondary"

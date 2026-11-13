@@ -325,7 +325,7 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
             const isSelected = selectedImages.has(image.id);
 
             return (
-              <Grid item xs={6} sm={4} md={3} key={image.id}>
+              <Grid key={image.id} size={{ xs: 6, sm: 4, md: 3 }}>
                 <Card
                   sx={{
                     cursor: imageSelectMode ? 'default' : 'pointer',

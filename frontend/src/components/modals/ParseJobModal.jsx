@@ -85,7 +85,7 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
             </Alert>
           )}
           <Grid container spacing={2} sx={{ mt: 0 }}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 autoFocus
                 fullWidth
@@ -99,7 +99,7 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 required
                 fullWidth
@@ -127,7 +127,7 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <FormControlLabel
                 control={
                   <Checkbox

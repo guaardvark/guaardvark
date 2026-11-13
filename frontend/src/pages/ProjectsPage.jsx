@@ -429,7 +429,7 @@ function ProjectsPage() {
         {!isLoading && sortedProjects.length > 0 && viewMode === "card" && (
           <Grid container spacing={2}>
             {sortedProjects.map((project) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={project.id}>
+              <Grid key={project.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <Card
                   onContextMenu={(e) => handleContextMenu(e, project)}
                   sx={{
@@ -454,7 +454,7 @@ function ProjectsPage() {
                   >
                     <CardContent sx={{ flexGrow: 1, p: 0 }}>
                       <Grid container spacing={1} alignItems="flex-start">
-                        <Grid item xs={9}>
+                        <Grid size={9}>
                           <Typography
                             variant="h6"
                             component="div"
@@ -527,7 +527,7 @@ function ProjectsPage() {
                             )}
                           </Box>
                         </Grid>
-                        <Grid item xs={3} sx={{ textAlign: "right" }}>
+                        <Grid sx={{ textAlign: "right" }} size={3}>
                           {project.client?.logo_path && (
                             <img
                               src={getLogoUrl(project.client.logo_path)}

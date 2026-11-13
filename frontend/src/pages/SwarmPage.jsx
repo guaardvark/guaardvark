@@ -608,7 +608,7 @@ const SwarmPage = () => {
           </Typography>
           <Grid container spacing={2}>
             {templates.map((tmpl) => (
-              <Grid item xs={12} sm={6} md={3} key={tmpl.filename}>
+              <Grid key={tmpl.filename} size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card
                   sx={{
                     cursor: "pointer",
@@ -1214,7 +1214,7 @@ const SwarmCard = ({
           {/* Task grid */}
           <Grid container spacing={1.5}>
             {tasks.map((task) => (
-              <Grid item xs={12} sm={6} md={4} key={task.id}>
+              <Grid key={task.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <TaskCard
                   task={task}
                   swarmId={swarm.swarm_id}

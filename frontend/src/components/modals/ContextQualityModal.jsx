@@ -206,7 +206,7 @@ const ContextQualityModal = ({ open, onClose }) => {
               </Typography>
               
               <Grid container spacing={3} alignItems="center">
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Box sx={{ mb: 2 }}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
                       <Typography variant="body2">{t("dialogs.contextQuality.qualityScore")}</Typography>
@@ -222,7 +222,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                     />
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Chip
                     label={getQualityLabel(results.quality_assessment).label}
                     color={getQualityLabel(results.quality_assessment).color}
@@ -235,7 +235,7 @@ const ContextQualityModal = ({ open, onClose }) => {
 
             {/* Detailed Metrics */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1}>
@@ -251,7 +251,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1}>
@@ -267,7 +267,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1}>
@@ -283,7 +283,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1}>
@@ -306,7 +306,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                 <Typography variant="h6">{t("dialogs.contextQuality.qualityMetrics")}</Typography>
               </Box>
               <Grid container sx={{ p: 2 }}>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Box sx={{ p: 1 }}>
                     <Typography variant="body2" color="text.secondary">
                       {t("dialogs.contextQuality.redundancy")}
@@ -319,7 +319,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Box sx={{ p: 1 }}>
                     <Typography variant="body2" color="text.secondary">
                       {t("dialogs.contextQuality.relevance")}
@@ -332,7 +332,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Box sx={{ p: 1 }}>
                     <Typography variant="body2" color="text.secondary">
                       {t("dialogs.contextQuality.freshness")}
@@ -345,7 +345,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Box sx={{ p: 1 }}>
                     <Typography variant="body2" color="text.secondary">
                       {t("dialogs.contextQuality.sessionId")}

@@ -1484,7 +1484,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
       <Grid container spacing={3}>
         {/* Input Section */}
-        <Grid item xs={12} lg={6}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <Card sx={{
             height: 'fit-content',
             boxShadow: 2,
@@ -2001,7 +2001,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     </AccordionSummary>
                     <AccordionDetails sx={{ pt: 2 }}>
                       <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6} md={4}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                           <FormControl fullWidth>
                             <InputLabel>{t('imagesBatch.advanced.model')}</InputLabel>
                             <Select
@@ -2109,7 +2109,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           )}
                         </Grid>
 
-                        <Grid item xs={12} sm={6} md={4}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                           <FormControl fullWidth>
                             <InputLabel>{t('imagesBatch.advanced.qualityPreset')}</InputLabel>
                             <Select
@@ -2136,7 +2136,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           </FormControl>
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                           {/* auto_enhance picks the prompt-enhancement rung at render time
                               (stills_policy.resolve_enhance_mode): a chat-model prose rewrite
                               for a natural-language model, tag stuffing for a tag-style one.
@@ -2169,7 +2169,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           />
                         </Grid>
 
-                        <Grid item xs={12} sm={6} md={4}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                           <FormControl fullWidth>
                             <InputLabel>{t('imagesBatch.advanced.style')}</InputLabel>
                             <Select
@@ -2185,7 +2185,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           </FormControl>
                         </Grid>
 
-                        <Grid item xs={12} sm={6} md={4}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                           <TextField
                             fullWidth
                             label={t('imagesBatch.advanced.quantity')}
@@ -2224,7 +2224,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           </Tooltip>
                         </Grid>
 
-                        <Grid item xs={12} sm={6} md={4}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                           <FormControl fullWidth>
                             <InputLabel>{t('imagesBatch.dimensions.title')}</InputLabel>
                             <Select
@@ -2262,7 +2262,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           </FormControl>
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                           <Typography gutterBottom>
                             {castLocked
                               ? t('imagesBatch.steps.cast')
@@ -2287,7 +2287,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           />
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                           <Typography gutterBottom>
                             {castLocked
                               ? t('imagesBatch.guidance.cast')
@@ -2342,7 +2342,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           )}
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                           <TextField
                             size="small"
                             label={t('imagesBatch.seed.label')}
@@ -2361,7 +2361,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           </Typography>
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                           <Typography gutterBottom>
                             {t('imagesBatch.workers.max', { count: effectiveWorkers })}
                           </Typography>
@@ -2381,7 +2381,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           )}
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                           <FormControlLabel
                             control={
                               <Switch
@@ -2457,7 +2457,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         </Grid >
 
         {/* Progress and Results Section */}
-        < Grid item xs={12} lg={6} >
+        <Grid size={{ xs: 12, lg: 6 }}>
           {/* Batch Queue panel — live view of stacked jobs (mirrors Video Gen) */}
           <BatchQueuePanel
             queue={queue}
@@ -2678,7 +2678,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
               <Box sx={{ maxHeight: 520, overflowY: 'auto', pr: 0.5 }}>
                 <Grid container spacing={2}>
                   {liveBatchHistory.slice(0, historyShown).map((batch) => (
-                    <Grid item xs={6} sm={4} md={3} key={batch.batch_id}>
+                    <Grid key={batch.batch_id} size={{ xs: 6, sm: 4, md: 3 }}>
                       <BatchHistoryCard
                         batch={batch}
                         dateStr={formatImageDate(batch.created_at || batch.start_time || batch.end_time)}

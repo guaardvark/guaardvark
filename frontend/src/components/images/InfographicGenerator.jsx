@@ -675,7 +675,7 @@ const InfographicGenerator = () => {
           </Typography>
           <Grid container spacing={2}>
             {history.map((batch) => (
-              <Grid item xs={6} sm={4} md={3} lg={2} key={batch.batch_id}>
+              <Grid key={batch.batch_id} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
                 <BatchHistoryCard
                   batch={batch}
                   dateStr={formatDate(batch.start_time)}

@@ -1072,7 +1072,7 @@ const PluginsPage = () => {
       ) : (
         <Grid container spacing={3}>
           {plugins.map((plugin) => (
-            <Grid item xs={12} sm={6} md={4} key={plugin.id}>
+            <Grid key={plugin.id} size={{ xs: 12, sm: 6, md: 4 }}>
               <PluginCard
                 plugin={plugin}
                 onAction={handlePluginAction}

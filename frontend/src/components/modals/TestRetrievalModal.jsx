@@ -131,7 +131,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
           />
 
           <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <TextField
                 label={t("dialogs.testRetrieval.projectId")}
                 placeholder={t("dialogs.testRetrieval.projectPlaceholder")}
@@ -140,7 +140,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                 fullWidth
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <TextField
                 label={t("dialogs.testRetrieval.topK")}
                 type="number"
@@ -177,7 +177,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                 {t("dialogs.testRetrieval.queryAnalysis")}
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <Chip
                     icon={<AccessTimeIcon />}
                     label={`${formatTime(results.metrics?.retrieval_time)}`}
@@ -185,7 +185,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <Chip
                     icon={<ArticleIcon />}
                     label={t("dialogs.testRetrieval.nodes", { count: results.metrics?.retrieved_nodes || 0 })}
@@ -193,7 +193,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <Chip
                     label={t("dialogs.testRetrieval.complexity", { complexity: results.query_analysis?.query_complexity || t("dialogs.testRetrieval.unknown") })}
                     variant="outlined"

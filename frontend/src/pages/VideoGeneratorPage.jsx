@@ -1940,7 +1940,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
 
       <Grid container spacing={3} sx={{ mt: 0.5 }}>
         {/* Compose */}
-        <Grid item xs={12} lg={6}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, opacity: controlsDisabled ? 0.5 : 1, pointerEvents: controlsDisabled ? "none" : "auto" }}>
             <SettingsPanel
               id="videogen-mode"
@@ -2747,7 +2747,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         </Grid>
 
         {/* Status Section - Right Side */}
-        <Grid item xs={12} lg={6}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           {/* Batch Queue panel — live view of what's running and what's stacked behind it */}
           {queue.length > 0 && (
             <Card sx={{ mb: 3, boxShadow: 2, borderRadius: 2 }}>
@@ -3012,7 +3012,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                       ? getPreviewUrl(activeStep.job_id)
                       : null;
                     return (
-                    <Grid item xs={12} sm={6} key={res.item_id}>
+                    <Grid key={res.item_id} size={{ xs: 12, sm: 6 }}>
                       <Card
                         variant="outlined"
                         onContextMenu={(e) => resultMenu.open(e, { res, idx, videoUrl })}
@@ -3293,7 +3293,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             ) : (
               <Grid container spacing={1}>
                 {batchImages.map((img) => (
-                  <Grid item xs={6} sm={4} md={3} key={img.id}>
+                  <Grid key={img.id} size={{ xs: 6, sm: 4, md: 3 }}>
                     <Box
                       onClick={() => toggleGalleryImageSelection(img.id)}
                       sx={{
@@ -3354,7 +3354,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             ) : (
               <Grid container spacing={2}>
                 {galleryBatches.map((batch) => (
-                  <Grid item xs={12} sm={6} md={4} key={batch.batch_id}>
+                  <Grid key={batch.batch_id} size={{ xs: 12, sm: 6, md: 4 }}>
                     <Card
                       variant="outlined"
                       sx={{

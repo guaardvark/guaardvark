@@ -341,7 +341,7 @@ const DocumentActionModal = ({
         <Box component="form" noValidate autoComplete="off" sx={{ mt: 1 }}>
           <Grid container spacing={2}>
             {isEditMode ? (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   fullWidth
                   margin="dense"
@@ -354,7 +354,7 @@ const DocumentActionModal = ({
                 />
               </Grid>
             ) : (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Button
                   fullWidth
                   variant="outlined"
@@ -378,7 +378,7 @@ const DocumentActionModal = ({
                 )}
               </Grid>
             )}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Autocomplete
                 id="project-select-for-document-modal"
                 options={projects}
@@ -420,7 +420,7 @@ const DocumentActionModal = ({
                 disabled={anyActionInProgress || isLoadingProjects}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -433,7 +433,7 @@ const DocumentActionModal = ({
                 helperText={t("dialogs.documentAction.tagsHelp")}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 margin="dense"

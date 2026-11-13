@@ -92,7 +92,7 @@ const SystemStatusCard = React.forwardRef(
         )}
 
         <Grid container spacing={2}>
-          <Grid item>
+          <Grid>
             <Button
               onClick={() => triggerAction("selftest")}
               variant="contained"
@@ -101,7 +101,7 @@ const SystemStatusCard = React.forwardRef(
               {t("dashboard.systemStatus.runSelfTest")}
             </Button>
           </Grid>
-          <Grid item>
+          <Grid>
             <Button
               onClick={() => triggerAction("rebuild-index")}
               variant="contained"
@@ -111,7 +111,7 @@ const SystemStatusCard = React.forwardRef(
               {t("dashboard.systemStatus.rebuildIndex")}
             </Button>
           </Grid>
-          <Grid item>
+          <Grid>
             <Button
               onClick={() => triggerAction("clear-cache")}
               variant="outlined"

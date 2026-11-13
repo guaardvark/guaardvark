@@ -106,7 +106,7 @@ const RulesImportExportSection = ({ isLoading }) => {
         {t("settingsSections.rulesImportExport.title")}
       </Typography>
       <Grid container spacing={2}>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Button
             variant="outlined"
             startIcon={<FileDownloadIcon />}
@@ -121,12 +121,12 @@ const RulesImportExportSection = ({ isLoading }) => {
             )}
           </Button>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Typography variant="subtitle2" gutterBottom>
             {t("settingsSections.rulesImportExport.importRules")}
           </Typography>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <input
                 accept=".json"
                 style={{ display: "none" }}
@@ -147,7 +147,7 @@ const RulesImportExportSection = ({ isLoading }) => {
                 </Button>
               </label>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Button
                 variant="contained"
                 onClick={handleImportRulesClick}
@@ -163,7 +163,7 @@ const RulesImportExportSection = ({ isLoading }) => {
             </Grid>
           </Grid>
           {selectedFileNameForImport && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography
                 variant="caption"
                 display="block"

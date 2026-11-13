@@ -434,7 +434,7 @@ const WebsitesPage = () => {
         {!isLoading && sortedWebsites.length > 0 && viewMode === "card" && (
           <Grid container spacing={2}>
             {sortedWebsites.map((site) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={site.id}>
+              <Grid key={site.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <Card
                   onContextMenu={(e) => handleContextMenu(e, site)}
                   sx={{
@@ -458,7 +458,7 @@ const WebsitesPage = () => {
                   >
                     <CardContent sx={{ flexGrow: 1, p: 1.5 }}>
                       <Grid container spacing={1} alignItems="flex-start">
-                        <Grid item xs={9}>
+                        <Grid size={9}>
                           <Tooltip title={site.url}>
                             <Typography
                               variant="h6"
@@ -531,7 +531,7 @@ const WebsitesPage = () => {
                             })}
                           </Typography>
                         </Grid>
-                        <Grid item xs={3} sx={{ textAlign: "right" }}>
+                        <Grid sx={{ textAlign: "right" }} size={3}>
                           {site.client?.logo_path && (
                             <img
                               src={getLogoUrl(site.client.logo_path)}

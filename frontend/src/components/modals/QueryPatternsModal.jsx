@@ -141,7 +141,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
           <Box>
             {/* Summary Cards */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1}>
@@ -157,7 +157,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1}>
@@ -173,7 +173,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1}>
@@ -193,7 +193,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Stack direction="row" alignItems="center" spacing={1}>
@@ -292,7 +292,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
               
               {patterns.pattern_stats && Object.keys(patterns.pattern_stats).length > 0 ? (
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Typography variant="subtitle2" color="primary" gutterBottom>
                       {t("dialogs.queryPatterns.fastest")}
                     </Typography>
@@ -312,7 +312,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                     }
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Typography variant="subtitle2" color="primary" gutterBottom>
                       {t("dialogs.queryPatterns.mostRelevant")}
                     </Typography>

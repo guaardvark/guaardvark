@@ -179,7 +179,7 @@ const ProgressTestPage = () => {
       {/* Test Buttons */}
       <Grid container spacing={2}>
         {testProcesses.map((test) => (
-          <Grid item xs={12} sm={6} md={4} key={test.id}>
+          <Grid key={test.id} size={{ xs: 12, sm: 6, md: 4 }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>

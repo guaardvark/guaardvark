@@ -1737,7 +1737,7 @@ const FileManager = () => {
             const key = getItemKey(item, item.itemType);
             const isSelected = selectedItems.has(key);
             return (
-              <Grid item xs={6} sm={4} md={3} lg={2} key={key}>
+              <Grid key={key} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
                 <Card
                   ref={(el) => {
                     if (el) itemRefs.current.set(key, el);
@@ -1814,7 +1814,7 @@ const FileManager = () => {
             );
           })}
           {folderItems.length === 0 && fileItems.length === 0 && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
                 {t('files.manager.empty')}
               </Typography>

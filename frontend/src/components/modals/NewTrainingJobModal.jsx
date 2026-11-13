@@ -320,7 +320,7 @@ const NewTrainingJobModal = ({
           </Alert>
         )}
         <Grid container spacing={2} sx={{ mt: 0 }}>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               autoFocus
               required
@@ -336,7 +336,7 @@ const NewTrainingJobModal = ({
           </Grid>
 
           {visionDeclared && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <FormControl component="fieldset">
                 <Typography variant="caption" color="textSecondary">{t("dialogs.newTrainingJob.taskType")}</Typography>
                 <RadioGroup
@@ -352,7 +352,7 @@ const NewTrainingJobModal = ({
             </Grid>
           )}
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <FormControl fullWidth margin="dense" required>
               <InputLabel id="base-model-label">{t("dialogs.newTrainingJob.baseModel")}</InputLabel>
               <Select
@@ -395,7 +395,7 @@ const NewTrainingJobModal = ({
             )}
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               margin="dense"
@@ -408,7 +408,7 @@ const NewTrainingJobModal = ({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <FormControl fullWidth margin="dense" required>
               <InputLabel id="dataset-label">{t("dialogs.newTrainingJob.dataset")}</InputLabel>
               <Select
@@ -429,7 +429,7 @@ const NewTrainingJobModal = ({
           </Grid>
 
           {formData.task_type === "vision" && (
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
                <FormControl fullWidth margin="dense" required>
                 <InputLabel>{t("dialogs.newTrainingJob.imageFolder")}</InputLabel>
                 <Select
@@ -449,7 +449,7 @@ const NewTrainingJobModal = ({
             </Grid>
           )}
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <FormControl fullWidth margin="dense">
               <InputLabel>{t("dialogs.newTrainingJob.deviceProfile")}</InputLabel>
               <Select
@@ -478,14 +478,14 @@ const NewTrainingJobModal = ({
             )}
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Divider sx={{ my: 1 }} />
             <Typography variant="subtitle2" gutterBottom>
               {t("dialogs.newTrainingJob.trainingConfiguration")}
             </Typography>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               type="number"
@@ -502,7 +502,7 @@ const NewTrainingJobModal = ({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               type="number"
@@ -517,7 +517,7 @@ const NewTrainingJobModal = ({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               type="number"
@@ -532,7 +532,7 @@ const NewTrainingJobModal = ({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               type="number"
@@ -547,7 +547,7 @@ const NewTrainingJobModal = ({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               type="number"
@@ -562,7 +562,7 @@ const NewTrainingJobModal = ({
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <FormControlLabel
               control={
                 <Checkbox

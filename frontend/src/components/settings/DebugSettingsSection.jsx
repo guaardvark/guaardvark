@@ -49,7 +49,7 @@ const DebugSettingsSection = ({
         {t("settingsSections.debug.title")}
       </Typography>
       <Grid container spacing={2}>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <FormControlLabel
               control={

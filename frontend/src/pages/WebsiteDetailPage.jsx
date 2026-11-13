@@ -289,7 +289,7 @@ const WebsiteDetailPage = () => {
           <Box sx={{ flexGrow: 1, overflowY: "auto", p: 1.5, pt: 2 }}>
             {tabValue === 0 && (
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Paper variant="outlined" sx={{ p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
                       {t("websites.detail.details")}
@@ -311,7 +311,7 @@ const WebsiteDetailPage = () => {
                   </Paper>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Paper variant="outlined" sx={{ p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
                       {t("websites.detail.actions")}

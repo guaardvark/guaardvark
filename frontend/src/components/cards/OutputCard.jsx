@@ -202,7 +202,7 @@ const OutputCard = ({
 
           {/* Statistics Grid */}
           <Grid container spacing={1} sx={{ mb: 2 }}>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Box sx={{ textAlign: "center" }}>
                 <Typography variant="h6" sx={{ fontWeight: "bold", color: "success.main" }}>
                   {output.active_rows}
@@ -212,7 +212,7 @@ const OutputCard = ({
                 </Typography>
               </Box>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Box sx={{ textAlign: "center" }}>
                 <Typography variant="h6" sx={{ fontWeight: "bold", color: "warning.main" }}>
                   {output.replaced_rows}

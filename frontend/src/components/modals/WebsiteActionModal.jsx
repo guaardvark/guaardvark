@@ -686,7 +686,7 @@ const WebsiteActionModal = ({
             )}
             <Box component="form" noValidate autoComplete="off" sx={{ mt: 1 }}>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 autoFocus={!isEditMode}
                 required
@@ -708,7 +708,7 @@ const WebsiteActionModal = ({
                 disabled={isSaving}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -722,7 +722,7 @@ const WebsiteActionModal = ({
                 disabled={isSaving}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -737,7 +737,7 @@ const WebsiteActionModal = ({
                 helperText={t("dialogs.websiteAction.competitorHelp")}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -751,7 +751,7 @@ const WebsiteActionModal = ({
                 helperText={t("dialogs.websiteAction.localPathHelp")}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Autocomplete
                 id="project-select-for-website-modal"
                 options={projectsForDropdown}
@@ -805,7 +805,7 @@ const WebsiteActionModal = ({
                 disabled={isSaving || isLoadingProjects}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Autocomplete
                 id="client-select-for-website-modal"
                 value={formClientValue}
@@ -880,14 +880,14 @@ const WebsiteActionModal = ({
               </Box>
             ) : (
               <Grid container spacing={2}>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Alert severity="info">
                     {t("dialogs.websiteAction.wpIntro")}
                     <br />
                     <Trans i18nKey="dialogs.websiteAction.wpNote" components={{ bold: <strong /> }} />
                   </Alert>
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     label={t("dialogs.websiteAction.wpSiteUrl")}
@@ -899,7 +899,7 @@ const WebsiteActionModal = ({
                     disabled={isSavingWpSite || isTestingWpConnection}
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     label={t("dialogs.websiteAction.siteName")}
@@ -909,7 +909,7 @@ const WebsiteActionModal = ({
                     disabled={isSavingWpSite || isTestingWpConnection}
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     label={t("dialogs.websiteAction.apiKey")}
@@ -925,7 +925,7 @@ const WebsiteActionModal = ({
                     disabled={isSavingWpSite || isTestingWpConnection}
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <FormControl fullWidth>
                     <InputLabel>{t("dialogs.websiteAction.status")}</InputLabel>
                     <Select
@@ -940,7 +940,7 @@ const WebsiteActionModal = ({
                   </FormControl>
                 </Grid>
                 {wpSite && (
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Alert severity="success" icon={<CheckCircleIcon />}>
                       {t("dialogs.websiteAction.lastTested", {
                         date: wpSite.last_test_at ? new Date(wpSite.last_test_at).toLocaleString(uiLocale()) : t("dialogs.websiteAction.never"),
@@ -948,7 +948,7 @@ const WebsiteActionModal = ({
                     </Alert>
                   </Grid>
                 )}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Box sx={{ display: "flex", gap: 2 }}>
                     {wpSite && (
                       <Button

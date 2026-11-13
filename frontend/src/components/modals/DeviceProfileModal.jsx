@@ -179,7 +179,7 @@ const DeviceProfileModal = ({
           </Alert>
         )}
         <Grid container spacing={2} sx={{ mt: 0 }}>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               autoFocus
               required
@@ -194,7 +194,7 @@ const DeviceProfileModal = ({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <FormControl fullWidth margin="dense" required>
               <InputLabel>{t("dialogs.deviceProfile.deviceType")}</InputLabel>
               <Select
@@ -211,7 +211,7 @@ const DeviceProfileModal = ({
           </Grid>
 
           {formData.device_type === "gpu" && (
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 type="number"
@@ -228,7 +228,7 @@ const DeviceProfileModal = ({
             </Grid>
           )}
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               type="number"
@@ -244,7 +244,7 @@ const DeviceProfileModal = ({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               type="number"
@@ -260,7 +260,7 @@ const DeviceProfileModal = ({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               type="number"
@@ -276,7 +276,7 @@ const DeviceProfileModal = ({
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <FormControlLabel
               control={
                 <Checkbox
@@ -290,7 +290,7 @@ const DeviceProfileModal = ({
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <FormControlLabel
               control={
                 <Checkbox
@@ -304,7 +304,7 @@ const DeviceProfileModal = ({
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <FormControlLabel
               control={
                 <Checkbox

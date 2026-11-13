@@ -233,7 +233,7 @@ const TrainingDatasetModal = ({
           </Alert>
         )}
         <Grid container spacing={2} sx={{ mt: 0 }}>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               autoFocus
               required
@@ -246,7 +246,7 @@ const TrainingDatasetModal = ({
               disabled={isSaving}
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               fullWidth
               multiline
@@ -259,7 +259,7 @@ const TrainingDatasetModal = ({
               disabled={isSaving}
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               fullWidth
               required

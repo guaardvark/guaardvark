@@ -139,7 +139,7 @@ const ExportQuantizationModal = ({
         )}
 
         <Grid container spacing={2} sx={{ mt: 0 }}>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               required
               fullWidth
@@ -152,7 +152,7 @@ const ExportQuantizationModal = ({
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <FormControl fullWidth>
               <InputLabel>{t("dialogs.exportQuantization.levelLabel")}</InputLabel>
               <Select
@@ -179,7 +179,7 @@ const ExportQuantizationModal = ({
           </Grid>
 
           {selectedOption && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box
                 sx={{
                   p: 2,
@@ -213,7 +213,7 @@ const ExportQuantizationModal = ({
           )}
 
           {job?.base_model && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="caption" color="text.secondary">
                 {t("dialogs.exportQuantization.baseModel", { model: job.base_model })}
               </Typography>

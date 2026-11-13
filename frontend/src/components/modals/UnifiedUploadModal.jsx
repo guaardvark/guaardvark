@@ -314,7 +314,7 @@ const UnifiedUploadModal = ({
 
         <Grid container spacing={2}>
           {/* File Selection */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Box
               border={2}
               borderColor={selectedFile ? "primary.main" : "grey.300"}
@@ -350,7 +350,7 @@ const UnifiedUploadModal = ({
 
           {/* Upload Progress */}
           {isUploading && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ mb: 1 }}>
                 <Typography variant="body2" color="text.secondary">
                   {uploadProgress.percentage > 0 
@@ -373,7 +373,7 @@ const UnifiedUploadModal = ({
           )}
 
           {/* Project Selection */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Autocomplete
               value={formProjectValue}
               onChange={handleProjectChange}
@@ -398,7 +398,7 @@ const UnifiedUploadModal = ({
           </Grid>
 
           {/* Tags */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               name="tags"
               label={t("dialogs.unifiedUpload.tags")}

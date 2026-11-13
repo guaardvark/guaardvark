@@ -749,7 +749,7 @@ const ImageEditPage = () => {
       )}
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Stack spacing={2}>
             <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
               <Typography variant="subtitle2">
@@ -761,7 +761,7 @@ const ImageEditPage = () => {
               )}
               <Grid container spacing={1}>
                 {photoSlots().map((slot) => (
-                  <Grid item xs={12} sm={photos.length > 0 ? 6 : 12} key={slot.key}>{slot}</Grid>
+                  <Grid key={slot.key} size={{ xs: 12, sm: photos.length > 0 ? 6 : 12 }}>{slot}</Grid>
                 ))}
               </Grid>
               {mode === "edit" && maxExtras > 0 && primary && (
@@ -822,7 +822,7 @@ const ImageEditPage = () => {
                 <Typography variant="caption" color="text.secondary">{t("imageEdit.people.secondHelp")}</Typography>
                 <Grid container spacing={1}>
                   {person2.map((photo) => (
-                    <Grid item xs={12} sm={6} key={photo.url}>
+                    <Grid key={photo.url} size={{ xs: 12, sm: 6 }}>
                       <PhotoSlot
                         photo={photo}
                         label={t("imageEdit.people.second")}
@@ -837,7 +837,7 @@ const ImageEditPage = () => {
                     </Grid>
                   ))}
                   {person2.length < 2 && (
-                    <Grid item xs={12} sm={person2.length ? 6 : 12}>
+                    <Grid size={{ xs: 12, sm: person2.length ? 6 : 12 }}>
                       <PhotoSlot
                         photo={null}
                         label={person2.length ? t("imageEdit.photos.addAnother") : t("imageEdit.people.addSecond")}
@@ -998,7 +998,7 @@ const ImageEditPage = () => {
           </Stack>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5, minHeight: 320 }}>
             <Typography variant="subtitle2">{t("imageEdit.result.title")}</Typography>
             {running && (
@@ -1053,7 +1053,7 @@ const ImageEditPage = () => {
             {result && !scene && (
               <>
                 <Grid container spacing={1} alignItems="flex-start">
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <Typography variant="caption" color="text.secondary">
                       {resultSources.length > 1 ? t("imageEdit.result.beforeMany") : t("imageEdit.result.before")}
                     </Typography>
@@ -1064,7 +1064,7 @@ const ImageEditPage = () => {
                       ))}
                     </Stack>
                   </Grid>
-                  <Grid item xs={8}>
+                  <Grid size={8}>
                     <Typography variant="caption" color="text.secondary">{t("imageEdit.result.after")}</Typography>
                     <Box
                       component="img"
@@ -1123,7 +1123,7 @@ const ImageEditPage = () => {
               </Stack>
               <Grid container spacing={1}>
                 {history.map((entry) => (
-                  <Grid item xs={4} sm={3} key={entry.url}>
+                  <Grid key={entry.url} size={{ xs: 4, sm: 3 }}>
                     <Tooltip title={entry.prompt || t(`imageEdit.modes.${entry.mode}`)}>
                       <Box
                         component="img"

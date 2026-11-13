@@ -317,7 +317,7 @@ function WordPressSitesPage() {
       {viewMode === "card" && (
         <Grid container spacing={2}>
           {sortedSites.map((site) => (
-            <Grid item xs={12} sm={6} md={4} key={site.id}>
+            <Grid key={site.id} size={{ xs: 12, sm: 6, md: 4 }}>
               <Card
                 onContextMenu={(e) => siteMenu.open(e, site)}
                 sx={{

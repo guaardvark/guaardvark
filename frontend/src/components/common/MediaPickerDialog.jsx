@@ -156,7 +156,7 @@ const MediaPickerDialog = ({ open, kind = "image", max = 1, title, onPick, onClo
         ) : (
           <Grid container spacing={1}>
             {shown.map((doc) => (
-              <Grid item xs={6} sm={4} md={3} key={doc.id}>
+              <Grid key={doc.id} size={{ xs: 6, sm: 4, md: 3 }}>
                 <MediaTile item={doc} kind={kind} variant="grid" selected={pickedIds.has(doc.id)} onClick={() => toggle(doc)} />
               </Grid>
             ))}

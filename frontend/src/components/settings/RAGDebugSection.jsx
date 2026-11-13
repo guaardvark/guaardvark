@@ -121,7 +121,7 @@ const RAGDebugSection = () => {
       {systemHealth && (
         <Grid container spacing={2}>
           {/* System Health Overview */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
               <Typography variant="subtitle1" gutterBottom display="flex" alignItems="center" gap={1}>
                 <HealthAndSafetyIcon fontSize="small" />
@@ -155,7 +155,7 @@ const RAGDebugSection = () => {
           </Grid>
 
           {/* Index Statistics */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
               <Typography variant="subtitle1" gutterBottom display="flex" alignItems="center" gap={1}>
                 <StorageIcon fontSize="small" />
@@ -197,7 +197,7 @@ const RAGDebugSection = () => {
           </Grid>
 
           {/* Performance Metrics */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
               <Typography variant="subtitle1" gutterBottom display="flex" alignItems="center" gap={1}>
                 <SpeedIcon fontSize="small" />
@@ -234,7 +234,7 @@ const RAGDebugSection = () => {
           </Grid>
 
           {performanceMetrics && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Cluster
                 label={t("settingsSections.ragDebug.retrievalWindow")}
                 note={performanceMetrics.time_period || t("settingsSections.ragDebug.last24Hours")}
@@ -276,7 +276,7 @@ const RAGDebugSection = () => {
           )}
 
           {(
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Paper variant="outlined" sx={{ p: 2 }}>
                 <Typography variant="subtitle1" gutterBottom>
                   {t("settingsSections.ragDebug.debugActions")}

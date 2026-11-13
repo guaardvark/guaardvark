@@ -1234,7 +1234,7 @@ const AudioFoundryPage = () => {
 
         <Grid container spacing={3} sx={{ mt: 0.5 }}>
           {/* Left Panel: Controls */}
-          <Grid item xs={12} md={5}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <Paper elevation={4} sx={{ borderRadius: 3, overflow: "hidden", border: "1px solid rgba(255,255,255,0.05)" }}>
               <Tabs
                 value={activeTab}
@@ -1898,7 +1898,7 @@ const AudioFoundryPage = () => {
           </Grid>
 
           {/* Right Panel: Studio Preview */}
-          <Grid item xs={12} md={7}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Paper elevation={0} sx={{ 
               p: 4, 
               height: "100%", 
@@ -1966,16 +1966,16 @@ const AudioFoundryPage = () => {
                     <CardContent>
                       <Typography variant="overline" color="text.secondary" fontWeight="bold">{t("audio.monitor.specs")}</Typography>
                       <Grid container spacing={2} sx={{ mt: 1 }}>
-                        <Grid item xs={6}>
+                        <Grid size={6}>
                           <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.backend")}</Typography>
                           <Typography variant="body2" fontWeight="bold">{result.meta?.backend}</Typography>
                         </Grid>
-                        <Grid item xs={6}>
+                        <Grid size={6}>
                           <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.fidelity")}</Typography>
                           <Typography variant="body2" fontWeight="bold">{result.sample_rate} Hz</Typography>
                         </Grid>
                         {result.meta?.seed != null && result.meta.seed !== "" && (
-                          <Grid item xs={6}>
+                          <Grid size={6}>
                             <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.seed")}</Typography>
                             <Typography variant="body2" fontWeight="bold">{String(result.meta.seed)}</Typography>
                             {direct && result.meta.direct && (
@@ -1989,7 +1989,7 @@ const AudioFoundryPage = () => {
                             )}
                           </Grid>
                         )}
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                           {/* The file's name only: the server path carries the account name, and
                               the file is reached through the Audio library, not the path. */}
                           <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.file")}</Typography>
@@ -1998,7 +1998,7 @@ const AudioFoundryPage = () => {
                           </Typography>
                         </Grid>
                         {result.meta?.arrangement && (
-                          <Grid item xs={12}>
+                          <Grid size={12}>
                             <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.captionSent")}</Typography>
                             {result.meta.direct && (
                               <Typography variant="caption" display="block" color="text.secondary">
