@@ -76,9 +76,11 @@ const useMediaActions = ({ onEdited } = {}) => {
       }
       const output = data.output_file;
       showMessage?.(t("images.upscale.queued", { name: output }), "info");
+      let failures = 0;
       const poll = async () => {
         try {
           const job = (await getJob(data.job_id))?.data || {};
+          failures = 0;
           if (!UPSCALE_TERMINAL.has(job.status)) {
             setTimeout(poll, UPSCALE_POLL_MS);
           } else if (job.status === "completed") {
@@ -87,8 +89,14 @@ const useMediaActions = ({ onEdited } = {}) => {
           } else {
             showMessage?.(t("images.upscale.videoFailed", { name, error: job.error || job.message || job.status }), "error");
           }
-        } catch {
-          setTimeout(poll, UPSCALE_POLL_MS * 2);
+        } catch (e) {
+          // A job that is gone, or a service that stays down, ends the watch.
+          failures += 1;
+          if (e?.status === 404 || failures >= 10) {
+            showMessage?.(t("images.upscale.videoFailed", { name, error: e?.message || "" }), "error");
+          } else {
+            setTimeout(poll, UPSCALE_POLL_MS * 2);
+          }
         }
       };
       setTimeout(poll, UPSCALE_POLL_MS);
