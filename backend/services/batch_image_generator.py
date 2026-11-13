@@ -899,6 +899,15 @@ class BatchImageGenerator:
             except Exception:
                 pass
 
+    def refusal_before_start(self, prompts: List[BatchPrompt]) -> Optional[str]:
+        """The install hint when every one of these prompts needs a model that is
+        not installed, else None. Asked before a batch is queued and again before
+        its GPU session."""
+        if not prompts:
+            return None
+        refusals = [self._missing_offline_model(p) for p in prompts]
+        return refusals[0] if all(refusals) else None
+
     def _missing_offline_model(self, prompt: BatchPrompt) -> Optional[str]:
         """The install hint when this prompt would render offline with a model that
         is not installed, else None. Cast characters and ComfyUI routes have their
@@ -911,6 +920,10 @@ class BatchImageGenerator:
             return None
         gen = self.image_generator
         if gen is None or not hasattr(gen, "missing_model_message"):
+            return None
+        model = (prompt.model or "auto").strip().lower()
+        # An Auto infographic picks its own model (InfographicGenerator.render_still).
+        if model == "auto" and (prompt.metadata or {}).get("render") == "infographic":
             return None
         return gen.missing_model_message(prompt.model or "auto")
 
@@ -2048,12 +2061,12 @@ class BatchImageGenerator:
 
             # Every image would need a model that is not installed: end here,
             # before the GPU session evicts the chat model to make room for it.
-            if not request.allow_model_download and request.prompts:
-                refusals = [self._missing_offline_model(p) for p in request.prompts]
-                if all(refusals):
-                    logger.warning(f"Batch {batch_id} refused: {refusals[0]}")
+            if not request.allow_model_download:
+                refusal = self.refusal_before_start(request.prompts)
+                if refusal:
+                    logger.warning(f"Batch {batch_id} refused: {refusal}")
                     self._finish_refused_before_start(
-                        batch_id, batch_status, output_dir, request, refusals[0],
+                        batch_id, batch_status, output_dir, request, refusal,
                     )
                     return
 

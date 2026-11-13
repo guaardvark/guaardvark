@@ -1747,11 +1747,42 @@ def generate_from_csv():
         return error_response(str(e), 500)
 
 class BatchRequestError(ValueError):
-    """A prompts batch the caller has to change; ``status`` is the HTTP code."""
+    """A prompts batch the caller has to change; ``status`` is the HTTP code and
+    ``failure`` the describe_failure record when the refusal has a kind."""
 
-    def __init__(self, message: str, status: int = 400):
+    def __init__(self, message: str, status: int = 400, failure: Optional[dict] = None):
         super().__init__(message)
         self.status = status
+        self.failure = failure
+
+
+def _refuse_uninstalled_model(prompt: str, params: dict) -> None:
+    """Raise when the batch's model is not installed, so nothing is queued.
+
+    Every prompt of a prompts batch shares ``params``, so one probe answers for
+    all of them. A probe that cannot run leaves the decision to the batch
+    worker, which asks again before its GPU session.
+    """
+    if params.get("allow_model_download"):
+        return
+    try:
+        from backend.services.batch_image_generator import BatchPrompt
+        probe = BatchPrompt(
+            id="preflight", prompt=prompt, model=params.get("model") or "auto",
+            loras=list(params.get("loras") or []),
+            subject_ids=list(params.get("subject_ids") or []),
+            adapter_loras=list(params.get("adapter_loras") or []),
+        )
+        refusal = get_batch_image_generator().refusal_before_start([probe])
+    except Exception as e:  # noqa: BLE001
+        logger.debug("model preflight skipped: %s", e)
+        return
+    if refusal:
+        from backend.services.job_types import RenderErrorKind
+        raise BatchRequestError(
+            str(refusal), 409,
+            failure=describe_failure(RenderErrorKind.MODEL_NOT_INSTALLED, refusal, "image"),
+        )
 
 
 def queue_prompts_batch(data: dict) -> dict:
@@ -1832,6 +1863,7 @@ def queue_prompts_batch(data: dict) -> dict:
         else:
             params["text_encoders"] = chosen
 
+    _refuse_uninstalled_model(validated_prompts[0], params)
     batch_id = start_batch_from_prompts(validated_prompts, **params)
 
     response_data = {
@@ -1865,6 +1897,9 @@ def generate_from_prompts():
         return success_response(queue_prompts_batch(data), status_code=201)
 
     except BatchRequestError as e:
+        if e.failure:
+            return error_response(str(e), e.status, error_code="MODEL_NOT_INSTALLED",
+                                  data={"failure": e.failure})
         return error_response(str(e), e.status)
     except ValueError as e:
         logger.warning(f"Invalid batch image request: {e}")

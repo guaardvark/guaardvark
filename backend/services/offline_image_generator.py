@@ -942,13 +942,45 @@ class OfflineImageGenerator:
         GPU admission, which would evict the chat model for a request about to
         be refused.
         """
-        if not model_key or model_key == "auto" or self.is_comfy_only_model(model_key):
+        if not model_key or model_key == "auto":
+            return None if self._auto_has_model() else self._no_model_failure()
+        if self.is_comfy_only_model(model_key):
             return None
         model_id = self.available_models.get(model_key)
         if not model_id or self._is_model_downloaded(model_id):
             return None
         self._install_needed = model_id
         return self._load_failure_reason(model_key, model_id)
+
+    def _auto_has_model(self) -> bool:
+        """Whether Auto has anything to render with: an offline model on disk, or
+        a Stills default from Settings that can run here (ComfyUI ones included)."""
+        for key, model_id in self.available_models.items():
+            if key in self.comfy_only_models:
+                continue
+            if self._is_model_downloaded(model_id):
+                return True
+        return bool(self.configured_default_for_auto())
+
+    def _no_model_failure(self):
+        """The typed failure for an Auto request on a machine with no image model."""
+        from backend.services.job_types import RenderErrorKind, RenderFailure
+        if self._device not in ("cuda", "mps"):
+            # The recommended models refuse to run on the processor (see the
+            # family guard in _generate), so suggesting one here would waste
+            # the download.
+            message = (
+                "No image model is downloaded, and image generation has no GPU "
+                "to use on this machine (no working NVIDIA or Apple silicon "
+                "device). The recommended models, Z-Image Turbo and Krea 2, "
+                "do not run on the processor. See docs/HARDWARE.md."
+            )
+        else:
+            message = (
+                "No image model is downloaded yet. Open Settings → Image Models "
+                "and download one (Z-Image Turbo is the recommended default)."
+            )
+        return RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, message)
 
     def _resolve_model_ref(self, model_ref: str) -> str:
         """Catalog key (e.g. krea2-turbo) → HF repo id; pass through HF ids and auto."""
@@ -2809,21 +2841,7 @@ Negative Prompt: {negative_prompt}""",
             if request.model in (None, "", "auto"):
                 request.model = self._auto_select_model(request.prompt, request.style)
                 if not request.model:
-                    if self._device not in ("cuda", "mps"):
-                        # The recommended models refuse to run on the processor
-                        # (see the family guard in _generate), so suggesting a
-                        # download here would only waste it.
-                        result.error = (
-                            "No image model is downloaded, and image generation has no GPU "
-                            "to use on this machine (no working NVIDIA or Apple silicon "
-                            "device). The recommended models, Z-Image Turbo and Krea 2, "
-                            "do not run on the processor. See docs/HARDWARE.md."
-                        )
-                    else:
-                        result.error = (
-                            "No image model is downloaded yet. Open Settings → Image Models "
-                            "and download one (Z-Image Turbo is the recommended default)."
-                        )
+                    result.error = self._no_model_failure()
                     return result
             if (
                 self._has_text_intent(request.prompt)
