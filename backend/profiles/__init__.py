@@ -356,6 +356,10 @@ def set_env_value(key: str, value: Optional[str], root: Optional[Path] = None) -
     if value is not None and ("\n" in value or "\r" in value):
         raise ValueError("env value must be a single line")
     path = env_file(root)
+    if path.is_symlink():
+        # The Docker image links .env onto its state volume. Renaming over the
+        # link would leave a plain file beside it and the volume unwritten.
+        path = Path(os.path.realpath(path))
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True) if path.is_file() else []
     new_line = None if value is None else f"{key}={value}\n"
     out = []
