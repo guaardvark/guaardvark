@@ -3,6 +3,7 @@ import {
   ASPECT_RATIO_PRESETS,
   aspectRatiosFor,
   canvasDimensions,
+  defaultSizeFor,
   MAX_SEED,
   parseSeed,
   COGVIDEOX15_DURATION_PRESETS,
@@ -62,6 +63,17 @@ describe("parseSeed", () => {
     for (const blank of ["", "  ", null, undefined, "12a", "-5", "1.5"]) expect(parseSeed(blank)).toBeNull();
     expect(parseSeed(String(MAX_SEED))).toBe(MAX_SEED);
     expect(parseSeed(String(MAX_SEED + 1))).toBeNull();
+  });
+});
+
+describe("defaultSizeFor", () => {
+  it("starts Wan 2.2 5B text-to-video on HD and leaves every other case on Large", () => {
+    expect(defaultSizeFor("wan22-5b", "text")).toBe("hd");
+    expect(defaultSizeFor("wan22-5b", "image")).toBe("large");
+    for (const id of Object.keys(MODEL_OPTIONS).filter((m) => m !== "wan22-5b")) {
+      expect(defaultSizeFor(id, "text")).toBe("large");
+    }
+    expect(defaultSizeFor("not-a-model", "text")).toBe("large");
   });
 });
 

@@ -165,6 +165,16 @@ export const MODEL_OPTIONS = {
     // fine; what smeared was the sampler shift scaled by pixel area, and that is
     // fixed at its source.
     aspectRatios: ["16:9", "9:16", "1:1"],
+    // Text-to-video starts on the model's own frame. Wan's code lists 1280x704
+    // and 704x1280 as the only sizes for ti2v-5B and ComfyUI's
+    // video_wan2_2_5B_ti2v template renders 1280x704; the page's general
+    // default (Large, 736x416 at 16:9) is a third of that area. A 736x416
+    // text-to-video clip smeared and lost its subject where image-to-video at
+    // the same size held (one sample each, 2026-11-13, RTX 5060 Ti 16 GB), and
+    // 2026-10-21 clips of one prompt are soft at 736x416 and sharp at 1344x736.
+    // Not yet rendered as a same-seed pair; the smaller chips stay selectable
+    // until that is measured.
+    defaultSize: { text: "hd" },
     defaultSteps: 20,
     // Below this Wan is under-resolved: structure never settles at high noise,
     // which reads as smearing and colour bleed rather than as a faster render.
@@ -483,6 +493,14 @@ export const parseSeed = (text) => {
   if (!/^\d+$/.test(t)) return null;
   const n = Number(t);
   return n <= MAX_SEED ? n : null;
+};
+
+/** The Size chip a model starts on for an input mode ("text", "image",
+ *  "references") until the person picks one. */
+export const DEFAULT_VIDEO_SIZE = "large";
+export const defaultSizeFor = (model, inputMode) => {
+  const key = MODEL_OPTIONS[model]?.defaultSize?.[inputMode];
+  return VIDEO_SIZE_PRESETS[key] ? key : DEFAULT_VIDEO_SIZE;
 };
 
 /** The size on a model's declared canvas: the short side fixed, the long side
