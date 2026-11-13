@@ -1775,18 +1775,25 @@ const FileDesktop = forwardRef(({
             return { type: type === 'folder' ? 'folder' : 'document', id: parseInt(idStr, 10) };
           }),
         };
+        // An item already gone counts as deleted; anything else that failed
+        // is still on disk and must come back on screen.
+        let failed = 0;
         try {
-          await axios.post(`${API_BASE}/bulk-delete`, bulkPayload);
+          const res = await axios.post(`${API_BASE}/bulk-delete`, bulkPayload);
+          const body = res?.data?.data || res?.data || {};
+          failed = (body.errors || []).filter((e) => e?.error !== 'not found').length;
         } catch (bulkErr) {
           // Fallback to individuals (parallel) on bulk failure/unavailable
-          await Promise.allSettled(
+          const settled = await Promise.allSettled(
             keysToDelete.map((key) => {
               const [type, id] = key.split('-');
               const url = type === 'folder' ? `${API_BASE}/folder/${id}` : `${API_BASE}/document/${id}`;
               return axios.delete(url);
             })
           );
+          failed = settled.filter((r) => r.status === 'rejected' && r.reason?.response?.status !== 404).length;
         }
+        if (failed > 0) throw new Error(`${failed} item(s) not deleted`);
         showMessage?.(t('documents.delete.deleted', { count: keysToDelete.length }), 'success');
         // No full refresh needed on success path (optimistic + server done); cross-tab uses announce via interceptor
         // Optional: we can still announce to be sure
