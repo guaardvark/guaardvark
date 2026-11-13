@@ -841,7 +841,15 @@ def run_clip_generator(mv_id: int):
         return
     except Exception as e:  # noqa: BLE001
         err = str(e)
-        if "execution_interrupted" in err.lower() and not (mv.status or "").startswith("cancelled"):
+        from backend.services.job_types import RenderErrorKind
+        # An interrupt arrives as a CANCELLED render failure; older ComfyUI
+        # paths put the event name in the text.
+        if _render_kind(e) == RenderErrorKind.CANCELLED or "execution_interrupted" in err.lower():
+            # The cancel is committed by the web process while this clip renders.
+            db.session.refresh(mv)
+            if (mv.status or "").startswith("cancelled"):
+                log.info("music_video %s cancelled while clip %s rendered", mv_id, target.get("index"))
+                return
             log.warning("music_video %s clip %s interrupted; marking clip failed and continuing",
                         mv_id, target.get("index"))
             _update_clip(mv, target.get("index"), status="failed", error=err)
