@@ -222,6 +222,7 @@ const ChatPage = () => {
   const showBudget = useAppStore.getState().getSessionMode(sessionId) === "agent" && budgetTelemetry;
 
   const [isSending, setIsSending] = useState(false);
+  const handleTurnErrorRef = useRef(null);
   useEffect(() => {
     if (!isSending) setAgentWorking(false);
   }, [isSending]);
@@ -403,6 +404,7 @@ const ChatPage = () => {
     const handleChatError = (data) => {
       if (!data || (data.session_id && data.session_id !== sessionId)) return;
       setComposerError(chatErrorMessage(data));
+      handleTurnErrorRef.current?.();
     };
     socket.on("chat:error", handleChatError);
     return () => {
@@ -939,6 +941,35 @@ const ChatPage = () => {
       }]);
     });
   }, [resourceManager, processId, sessionId, isStreamingMessage, unifiedChatService]);
+
+  // The engine sends no chat:complete after a chat:error, so the error ends the
+  // turn in flight: what had streamed is kept and Stop goes back to Send.
+  const handleTurnError = useCallback(() => {
+    if (!isSending) return;
+    const partial = (isStreamingMessage && streamingMessageRef.current?.getPartialState()) || null;
+    if (partial && (partial.content || partial.toolCalls?.length || partial.agentThinkingSteps?.length
+      || partial.images?.length || partial.thinking)) {
+      setMessages((prev) => [...prev, {
+        id: `asst_unified_${Date.now()}_partial`,
+        role: "assistant",
+        content: partial.content || "",
+        toolCalls: partial.toolCalls || [],
+        agentThinkingSteps: partial.agentThinkingSteps || [],
+        thinkingText: partial.thinkingText || "",
+        thinking: partial.thinking || "",
+        truncated: partial.truncated === true,
+        isUnifiedChat: true,
+        timestamp: new Date().toISOString(),
+        generatedImages: partial.images || [],
+        status: "error",
+      }]);
+    }
+    setIsSending(false);
+    setIsStreamingMessage(false);
+    setAgentWorking(false);
+    streamingServiceRef.current = null;
+  }, [isSending, isStreamingMessage]);
+  handleTurnErrorRef.current = handleTurnError;
 
   // Plan mode. A plan card starts a run (approve, retry, skip); the run then
   // streams like a turn, one step at a time, until its own chat:complete.
