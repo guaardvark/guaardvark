@@ -1687,7 +1687,8 @@ class OfflineImageGenerator:
         try:
             from huggingface_hub import HfApi
             from huggingface_hub.utils import filter_repo_objects
-            info = HfApi().model_info(model_id, files_metadata=True, token=self._hf_token())
+            # The install thread waits on this before its stall monitor starts.
+            info = HfApi().model_info(model_id, files_metadata=True, timeout=15, token=self._hf_token())
             sizes = {s.rfilename: int(s.size or 0) for s in (info.siblings or [])}
         except Exception as e:
             logger.debug(f"Could not read file sizes for {model_id}: {e}")
