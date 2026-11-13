@@ -703,10 +703,14 @@ Please try a different image or check if the vision model is properly loaded.`;
       const maxLength = 100000; // 100k character limit for file analysis
 
       if (sanitizedInput.length > maxLength) {
-        onSendMessage(
-          `Message too long. Please limit to ${maxLength} characters. Current length: ${sanitizedInput.length}`,
-          null
-        );
+        // A notice in the thread, not a turn: sending it would have the model
+        // answer the error text. The typed text stays in the box.
+        const notice = `Message too long. Please limit to ${maxLength} characters. Current length: ${sanitizedInput.length}`;
+        if (onAddMessage) {
+          onAddMessage({ role: "system", content: notice, tempId: `too-long-${Date.now()}`, type: "command" });
+        } else {
+          onSendMessage(notice, null);
+        }
         return;
       }
 
