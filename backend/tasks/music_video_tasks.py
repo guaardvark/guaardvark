@@ -1440,6 +1440,7 @@ def run_storyboard_generator(mv_id: int, force: bool = False):
     _set_storyboard_progress(mv_id, 0, len(todo))
 
     error_msg = None
+    last_still_error = None
     try:
         with gpu_session(JobKind.VIDEO_RENDER, f"mv_storyboards_{mv_id}", evict_ollama=True,
                          free_comfyui=True, vram_estimate_mb=10000, require_fit=True):
@@ -1492,8 +1493,10 @@ def run_storyboard_generator(mv_id: int, force: bool = False):
                     c["storyboard_variation"] = None
                     done_indices.add(idx)
                 except RuntimeError as e:
+                    last_still_error = str(e)
                     log.error("run_storyboard_generator ComfyUI failure for mv %s cut %s: %s", mv_id, idx, e)
                 except Exception as e:
+                    last_still_error = str(e)
                     log.warning("storyboard still failed for mv %s cut %s: %s", mv_id, idx, e)
                 sb_done += 1
                 _set_storyboard_progress(mv_id, sb_done, len(todo))
@@ -1521,6 +1524,9 @@ def run_storyboard_generator(mv_id: int, force: bool = False):
                     c["storyboard_path"], c["storyboard_variation"] = made[c["index"]]
             mv.clips = fresh
             db.session.commit()
+        if todo and not done_indices and last_still_error:
+            # Every still failed: say why instead of ending with no pictures and no reason.
+            error_msg = f"No storyboard picture could be made: {last_still_error}"
 
     _set_storyboard_generating(mv_id, generating=False, error=error_msg)
 
