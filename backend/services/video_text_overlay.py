@@ -84,20 +84,25 @@ class VideoOverlayError(RuntimeError):
 def _ffmpeg_escape_text(text: str) -> str:
     """Escape user text for use inside drawtext's `text='...'` argument.
 
-    drawtext's text parser treats `:`, `'`, `\\`, and `,` specially when
-    they appear inside the value. Backslash-escape them, then wrap in
-    single quotes when we build the filter string. We strip control chars
-    while we're at it — the user can put a `\\n` in the field for newlines.
+    The caller wraps the result in single quotes. The value is then read
+    three times: by the filtergraph parser (quotes), by drawtext's option
+    parser (`:` and `\\`) and by drawtext's text expansion (`%` and `\\`).
+    Nothing can be escaped inside single quotes, so an apostrophe closes the
+    quote, is written escaped, and reopens it; left as `\\'` it ended the
+    quoted text, which dropped the apostrophe and let the rest of the text be
+    read as filter syntax. A backslash and a percent sign need one escape per
+    later reading, or the percent sign makes drawtext draw nothing. Control
+    characters are stripped; a real newline is kept.
     """
     if text is None:
         return ""
     cleaned = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", "", text)
     # Order matters: backslash first, otherwise we double-escape later ones.
-    cleaned = cleaned.replace("\\", "\\\\")
-    cleaned = cleaned.replace("'", r"\'")
+    cleaned = cleaned.replace("\\", "\\" * 4)
+    cleaned = cleaned.replace("'", "'" + "\\" * 3 + "''")
     cleaned = cleaned.replace(":", r"\:")
     cleaned = cleaned.replace(",", r"\,")
-    cleaned = cleaned.replace("%", r"\%")
+    cleaned = cleaned.replace("%", "\\" * 2 + "%")
     return cleaned
 
 
