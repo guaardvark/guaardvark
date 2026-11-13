@@ -355,6 +355,49 @@ class TestLoadedOnGpu:
         assert safe is True and num_ctx == 32768
 
 
+
+class TestLoadInFlight:
+    """Mid-load a model holds its memory but is not in /api/ps: sized then,
+    gemma4:12b on a 16 GB card got 8,192 while a warm-up loaded it at 32,768."""
+
+    MID_LOAD = dict(GPU16_RESOURCES, gpu_free_mb=6740.0)
+
+    def _decide(self, monkeypatch):
+        monkeypatch.setattr(orm, "resident_models", lambda ttl_s=orm.RESIDENT_TTL_S: [])
+        with patch.object(orm, "get_model_info", return_value=GEMMA4_12B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=self.MID_LOAD):
+            return orm.decide_num_ctx("gemma4:12b").num_ctx
+
+    def test_sizing_during_a_load_returns_the_window_being_loaded(self, monkeypatch):
+        with orm.load_in_flight("gemma4:12b", 32768):
+            assert self._decide(monkeypatch) == 32768
+
+    def test_after_the_load_sizing_measures_again(self, monkeypatch):
+        with orm.load_in_flight("gemma4:12b", 32768):
+            pass
+        assert self._decide(monkeypatch) == orm.DEFAULT_TEXT_NUM_CTX
+
+    def test_another_model_is_not_affected(self, monkeypatch):
+        with orm.load_in_flight("qwen3.5:9b", 32768):
+            assert self._decide(monkeypatch) == orm.DEFAULT_TEXT_NUM_CTX
+
+    def test_the_mark_is_cleared_when_the_request_fails(self, monkeypatch):
+        try:
+            with orm.load_in_flight("gemma4:12b", 32768):
+                raise RuntimeError("load failed")
+        except RuntimeError:
+            pass
+        assert orm._window_in_flight("gemma4:12b") == 0
+
+    def test_validation_recommends_the_window_being_loaded(self, monkeypatch):
+        monkeypatch.setattr(orm, "resident_models", lambda ttl_s=orm.RESIDENT_TTL_S: [])
+        with orm.load_in_flight("gemma4:12b", 32768), \
+             patch.object(orm, "get_model_info", return_value=GEMMA4_12B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=self.MID_LOAD):
+            safe, _, num_ctx = orm.validate_model_before_load("gemma4:12b")
+        assert safe is True and num_ctx == 32768
+
+
 class TestDecideNumCtx:
     def test_gemma4_12b_reaches_max_on_16gb_card(self):
         with patch.object(orm, "get_model_info", return_value=GEMMA4_12B_INFO), \
