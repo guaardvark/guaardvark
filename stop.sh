@@ -33,9 +33,14 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
     [ -n "$_keep_line" ] && export "$_keep_line"
     _ext_line=$(grep -E '^GUAARDVARK_OLLAMA_EXTERNAL=' "$SCRIPT_DIR/.env" | tail -1)
     [ -n "$_ext_line" ] && export "$_ext_line"
+    _comfy_ext_line=$(grep -E '^GUAARDVARK_COMFYUI_EXTERNAL=' "$SCRIPT_DIR/.env" | tail -1)
+    [ -n "$_comfy_ext_line" ] && export "$_comfy_ext_line"
 fi
 # An external Ollama is never ours to stop (1/true/yes/on, as the backend reads it).
 ollama_flag_on "${GUAARDVARK_OLLAMA_EXTERNAL:-}" && KEEP_OLLAMA=1
+# Nor is an external ComfyUI (the ComfyUI card's switch, same values).
+COMFYUI_EXTERNAL=0
+ollama_flag_on "${GUAARDVARK_COMFYUI_EXTERNAL:-}" && COMFYUI_EXTERNAL=1
 
 vader_stop_begin
 
@@ -169,7 +174,10 @@ comfyui_stopped=false
 
 COMFYUI_PORT=$(_plugin_port comfyui 8188)
 
-if [ "$comfyui_enabled" = "False" ] && [ "$comfyui_running" = false ]; then
+if [ "$COMFYUI_EXTERNAL" = 1 ]; then
+    vader_info "Leaving ComfyUI alone: you run it yourself (GUAARDVARK_COMFYUI_EXTERNAL=1)."
+    vader_quiet "left running"
+elif [ "$comfyui_enabled" = "False" ] && [ "$comfyui_running" = false ]; then
     vader_quiet "not running"
 else
 
@@ -213,7 +221,7 @@ fi  # end comfyui_enabled/running check
 #    direct-launch or a crashed plugin leaves no PID file. Only a process
 #    running from this install is ours: a ComfyUI the user runs separately on
 #    the same port is left alone, as is one whose working directory can't be read.
-if command -v lsof >/dev/null 2>&1; then
+if [ "$COMFYUI_EXTERNAL" != 1 ] && command -v lsof >/dev/null 2>&1; then
     port_pids=$(lsof -i TCP:"$COMFYUI_PORT" -sTCP:LISTEN -t 2>/dev/null)
     if [ -n "$port_pids" ]; then
         install_root=$(cd "$SCRIPT_DIR" && pwd -P)

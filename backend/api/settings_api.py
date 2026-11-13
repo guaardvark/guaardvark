@@ -815,6 +815,42 @@ def set_ollama_lifecycle():
     })
 
 
+@settings_bp.route("/comfyui_lifecycle", methods=["GET"])
+def get_comfyui_lifecycle():
+    """The ComfyUI card's "I run ComfyUI myself" switch, read the way the
+    plugin manager enforces it."""
+    from backend import profiles as P
+    from backend.plugins.plugin_manager import comfyui_is_external
+    return success_response({
+        "external": comfyui_is_external(),
+        "env_writable": P.env_file_writable(),
+    })
+
+
+@settings_bp.route("/comfyui_lifecycle", methods=["POST"])
+def set_comfyui_lifecycle():
+    """Persist the switch to .env. The backend reads it on every action and
+    stop.sh/start.sh on their next run, so no restart is needed."""
+    from backend import profiles as P
+    from backend.plugins.plugin_manager import COMFYUI_EXTERNAL_ENV, comfyui_is_external
+    payload = request.get_json(silent=True) or {}
+    try:
+        if "external" in payload:
+            P.set_env_value(COMFYUI_EXTERNAL_ENV, "1" if _env_flag(payload["external"]) else None)
+    except ValueError as e:
+        return error_response(str(e), 400)
+    except OSError as e:
+        return error_response(f"could not write .env: {e}", 500)
+    # The card's Running state depends on the switch (no instance check on
+    # the user's own server), so pages showing it get a fresh snapshot.
+    try:
+        from backend.services.plugin_status_emitter import emit_plugins_snapshot
+        emit_plugins_snapshot("comfyui:external")
+    except Exception:  # noqa: BLE001 - the switch is saved either way
+        pass
+    return success_response({"external": comfyui_is_external()})
+
+
 @settings_bp.route("/chat_keep_ready", methods=["GET"])
 def get_chat_keep_ready():
     """Keep ready: whether it is on and what it is doing now."""

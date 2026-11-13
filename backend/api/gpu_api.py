@@ -160,6 +160,10 @@ def start_comfyui():
         router = get_video_router()
         if router._check_comfyui():
             return success_response({"message": "ComfyUI is already running"})
+        from backend.plugins.plugin_manager import comfyui_is_external, external_down_message
+        if comfyui_is_external():
+            from backend.services.video_generation_router import COMFYUI_URL
+            return error_response(external_down_message("comfyui", COMFYUI_URL), 409)
         started = router._start_comfyui()
         if started:
             return success_response({"message": "ComfyUI started successfully"})
@@ -174,6 +178,9 @@ def start_comfyui():
 def stop_comfyui():
     """Manually stop ComfyUI server."""
     try:
+        from backend.plugins.plugin_manager import comfyui_is_external, external_refusal
+        if comfyui_is_external():
+            return error_response(external_refusal("comfyui", "stopped")["error"], 409)
         from backend.services.video_generation_router import get_video_router
         router = get_video_router()
         stopped = router.stop_comfyui()

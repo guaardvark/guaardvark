@@ -419,13 +419,12 @@ def _stop_blocked_reason(plugin_id: str) -> Optional[str]:
 
 
 def _is_external(plugin_id: str) -> bool:
-    """The Ollama card's "I run Ollama myself: never start or stop it" switch.
-    An external plugin is never claimed, started or stopped by the orchestrator."""
-    if plugin_id != "ollama":
-        return False
+    """The Ollama or ComfyUI card's "I run it myself: never start or stop it"
+    switch. An external plugin is never claimed, started or stopped by the
+    orchestrator."""
     try:
-        from backend.plugins.plugin_manager import ollama_is_external
-        return ollama_is_external()
+        from backend.plugins.plugin_manager import plugin_is_external
+        return plugin_is_external(plugin_id)
     except Exception:
         return False
 
@@ -539,8 +538,17 @@ def service_down_message(plugin_id: str, context: Optional[str] = None, why: str
     Names the plugin and how to start it. While automatic start is off for
     this kind of job (``context``, see _start_switches) it names the setting
     that turns it on; when automatic start is on and did not help, ``why``.
+    For a ComfyUI the user runs themselves (the card's switch) it names the
+    address and the switch instead, since nothing here may start it.
     Changes no default.
     """
+    if plugin_id == "comfyui" and _is_external(plugin_id):
+        from backend.plugins.plugin_manager import external_down_message
+        try:
+            from backend.config import COMFYUI_URL as url
+        except Exception:  # noqa: BLE001 - the sentence still names the switch
+            url = "ComfyUI's address"
+        return external_down_message(plugin_id, url)
     label = SERVICE_LABELS.get(plugin_id, plugin_id)
     text = (f"{label} is not running. Start the {label} plugin on the Plugins page "
             f"(or POST /api/plugins/{plugin_id}/start)")
