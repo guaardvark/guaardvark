@@ -3588,12 +3588,24 @@ else
     fi
 fi
 
+# Under WSL's default NAT networking that address is internal to Windows.
+WSL_UNREACHABLE_LAN=""
+if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && [ -n "$LAN_IPS_PRINTED" ] \
+    && declare -F wsl_lan_reachable >/dev/null && ! wsl_lan_reachable; then
+    WSL_UNREACHABLE_LAN="${LAN_IPS_PRINTED#http://}"
+    WSL_UNREACHABLE_LAN="${WSL_UNREACHABLE_LAN%:*}"
+    LAN_IPS_PRINTED=""
+fi
+
 vader_ready_card "$DURATION" \
     "http://localhost:$VITE_PORT" \
     "http://localhost:$FLASK_PORT" \
     "$LAN_IPS_PRINTED" \
     "$BACKEND_STARTUP_LOG_FILE"
 
+if [ -n "$WSL_UNREACHABLE_LAN" ]; then
+    wsl_network_note "$WSL_UNREACHABLE_LAN" "$VITE_PORT"
+fi
 if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && declare -F wsl_keep_alive_note >/dev/null; then
     wsl_keep_alive_note
 fi
