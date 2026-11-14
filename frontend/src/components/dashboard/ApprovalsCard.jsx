@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardCardWrapper from "./DashboardCardWrapper";
 import { usePendingApprovals } from "../../hooks/usePendingApprovals";
 import { approveDraft, rejectDraft } from "../../api/outreachService";
+import OutreachDraftImage from "../outreach/OutreachDraftImage";
 import { useSnackbar } from "../common/SnackbarProvider";
 import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
@@ -232,6 +233,7 @@ const ApprovalsCard = React.forwardRef(
                   >
                     {words || t("approvals.noText")}
                   </Typography>
+                  <OutreachDraftImage draft={draft} sx={{ mt: 0.5 }} />
                   {draft.target_url && (
                     <Link
                       href={draft.target_url}
