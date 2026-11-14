@@ -91,7 +91,8 @@
     "musicTab": "音楽",
     "fxTab": "FX Lab",
     "retryLoaded": "曲の設定を読み込みました。変更内容を反映させるには「生成」を押してください。",
-    "retryFailed": "その曲の設定を読み込めませんでした。"
+    "retryFailed": "その曲の設定を読み込めませんでした。",
+    "createCard": "作成"
   },
   "voice": {
     "title": "Neural Voiceover",

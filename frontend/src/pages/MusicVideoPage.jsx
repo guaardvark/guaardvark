@@ -78,6 +78,7 @@ import ChangedElsewhereNotice from "../components/common/ChangedElsewhereNotice"
 import useServerSyncedForm from "../hooks/useServerSyncedForm";
 import useUnsavedChangesGuard from "../hooks/useUnsavedChangesGuard";
 import { useUiTranslation, translate, uiLocale, Trans } from "../i18n";
+import { CardWorkspace } from "../components/board";
 
 const POLL_MS = 5000;
 const DEFAULT_KEYFRAME_MODEL = "flux-schnell";
@@ -1626,6 +1627,9 @@ const MusicVideoPage = () => {
       !((v.status || "").startsWith("cancelled") || v.current_stage === "cancelled")
   );
 
+  // The panels were outlined boxes on the old page; in a card frame they are plain sections.
+  const cardBodySx = { p: 0.5, "& > .MuiPaper-outlined": { border: "none", backgroundColor: "transparent", backgroundImage: "none" } };
+
   return (
     <Box sx={{ p: 3, height: "100%", overflow: "auto" }}>
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
@@ -1638,9 +1642,16 @@ const MusicVideoPage = () => {
         </Box>
       </Stack>
 
-      <Box sx={{ display: "flex", gap: 3, alignItems: "flex-start", flexWrap: "wrap" }}>
-        {/* Create + list */}
-        <Stack spacing={2} sx={{ flex: "1 1 360px", minWidth: 320 }}>
+      {/* Three cards on the shared board: start a video, the videos made, and the one that is open. */}
+      <CardWorkspace
+        boardKey="music-video"
+        cards={[
+          {
+            id: "create",
+            title: t("musicVideo.create.title"),
+            layout: { x: 0, y: 0, w: 60, h: 52 },
+            body: (
+              <Box sx={cardBodySx}>
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography variant="subtitle1" sx={{ mb: 1.5 }}>{t("musicVideo.create.title")}</Typography>
             {videoEditorDisabled && (
@@ -1893,6 +1904,15 @@ const MusicVideoPage = () => {
             </Stack>
           </Paper>
 
+              </Box>
+            ),
+          },
+          {
+            id: "list",
+            title: t("musicVideo.list.title"),
+            layout: { x: 0, y: 52, w: 60, h: 32 },
+            body: (
+              <Box sx={cardBodySx}>
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
               <Typography variant="subtitle1">{t("musicVideo.list.title")}</Typography>
@@ -1977,10 +1997,15 @@ const MusicVideoPage = () => {
               ))}
             </Stack>
           </Paper>
-        </Stack>
-
-        {/* Detail */}
-        <Box sx={{ flex: "2 1 460px", minWidth: 360 }}>
+              </Box>
+            ),
+          },
+          {
+            id: "detail",
+            title: detail?.name || t("musicVideo.page.title"),
+            layout: { x: 60, y: 0, w: 115, h: 84 },
+            body: (
+              <Box sx={cardBodySx}>
           {!detail ? (
             <Paper variant="outlined" sx={{ p: 3 }}>
               <Typography variant="body2" color="text.secondary">
@@ -2415,8 +2440,11 @@ const MusicVideoPage = () => {
               </Typography>
             </Paper>
           )}
-        </Box>
-      </Box>
+              </Box>
+            ),
+          },
+        ]}
+      />
       <Dialog open={duplicateAsk} onClose={() => setDuplicateAsk(false)} maxWidth="xs" fullWidth>
         <DialogTitle>{t("musicVideo.duplicate.title", { name: detail?.name })}</DialogTitle>
         <DialogContent>

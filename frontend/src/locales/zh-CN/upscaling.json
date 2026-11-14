@@ -93,7 +93,8 @@
     "generate": "生成预览",
     "originalFrame": "原始帧",
     "upscaledFrame": "超分辨率帧",
-    "backToVideo": "返回视频"
+    "backToVideo": "返回视频",
+    "empty": "暂无预览内容。"
   },
   "jobs": {
     "title": "超分辨率任务",

@@ -58,6 +58,7 @@ import {
   uploadPhoto,
 } from "../api/imageEditService";
 import { useUiTranslation } from "../i18n";
+import { CardWorkspace } from "../components/board";
 
 const ImageModelsModal = lazyWithReload(() => import("../components/modals/ImageModelsModal"));
 
@@ -714,6 +715,9 @@ const ImageEditPage = () => {
 
   const resultSources = result?.sources?.length ? result.sources : photos.map((p) => p.url);
 
+  // The panels were outlined boxes on the old two-column page; in a card frame they are plain sections.
+  const cardBodySx = { p: 1, "& > .MuiPaper-outlined": { border: "none", backgroundColor: "transparent", backgroundImage: "none", p: 0.5 } };
+
   return (
     <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
       {capsError && <Alert severity="error">{t("imageEdit.capabilitiesFailed", { message: capsError })}</Alert>}
@@ -748,9 +752,16 @@ const ImageEditPage = () => {
         </Alert>
       )}
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <Stack spacing={2}>
+      {/* Three cards on the shared board: the photos, how to edit them, and what came out. */}
+      <CardWorkspace
+        boardKey="image-edit"
+        cards={[
+          {
+            id: "photos",
+            title: t("imageEdit.photos.source"),
+            layout: { x: 0, y: 0, w: 55, h: 78 },
+            body: (
+              <Stack spacing={2} sx={cardBodySx}>
             <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
               <Typography variant="subtitle2">
                 {mode === "identity" ? t("imageEdit.photos.faces")
@@ -851,6 +862,15 @@ const ImageEditPage = () => {
               </Paper>
             )}
 
+              </Stack>
+            ),
+          },
+          {
+            id: "settings",
+            title: t("imageEdit.settings.title"),
+            layout: { x: 55, y: 0, w: 55, h: 78 },
+            body: (
+              <Stack spacing={2} sx={cardBodySx}>
             {mode !== "background" && (
               <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
                 <TextField
@@ -995,10 +1015,15 @@ const ImageEditPage = () => {
             {blocker && caps && modeCaps.available && (
               <Typography variant="caption" color="text.secondary">{blocker}</Typography>
             )}
-          </Stack>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
+              </Stack>
+            ),
+          },
+          {
+            id: "result",
+            title: t("imageEdit.result.title"),
+            layout: { x: 110, y: 0, w: 65, h: 78 },
+            body: (
+              <Box sx={cardBodySx}>
           <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5, minHeight: 320 }}>
             <Typography variant="subtitle2">{t("imageEdit.result.title")}</Typography>
             {running && (
@@ -1141,8 +1166,11 @@ const ImageEditPage = () => {
               </Grid>
             </Paper>
           )}
-        </Grid>
-      </Grid>
+              </Box>
+            ),
+          },
+        ]}
+      />
 
       {lightbox && (
         <ImageLightbox

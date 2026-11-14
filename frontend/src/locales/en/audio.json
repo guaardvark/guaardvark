@@ -91,7 +91,8 @@
     "musicTab": "Music",
     "fxTab": "FX Lab",
     "retryLoaded": "Loaded the song settings. Change anything, then Generate.",
-    "retryFailed": "Could not load the settings of that song."
+    "retryFailed": "Could not load the settings of that song.",
+    "createCard": "Create"
   },
   "voice": {
     "title": "Neural Voiceover",

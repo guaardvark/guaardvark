@@ -93,7 +93,8 @@
     "generate": "プレビューを生成",
     "originalFrame": "元のフレーム",
     "upscaledFrame": "アップスケーリング済みフレーム",
-    "backToVideo": "ビデオに戻る"
+    "backToVideo": "ビデオに戻る",
+    "empty": "まだプレビューはありません。"
   },
   "jobs": {
     "title": "アップスケーリングのジョブ",

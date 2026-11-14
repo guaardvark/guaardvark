@@ -1502,6 +1502,10 @@
       "en": "f0882e8f8dc3",
       "out": "2dd40cd39f7f"
     },
+    "page.createCard": {
+      "en": "6e157c5da441",
+      "out": "614f2eaaffaf"
+    },
     "voice.title": {
       "en": "247a05e1fb92",
       "out": "247a05e1fb92"
@@ -14638,6 +14642,10 @@
     "page.newProduction": {
       "en": "ac1c99b8d56e",
       "out": "48091a7353bd"
+    },
+    "page.productionCard": {
+      "en": "df70fc7991d3",
+      "out": "7d394484ec43"
     },
     "list.failedAt": {
       "en": "9418f9b0413b",
@@ -35565,6 +35573,10 @@
     "preview.backToVideo": {
       "en": "70a1a9865515",
       "out": "696ec63523eb"
+    },
+    "preview.empty": {
+      "en": "3b7f7df57c27",
+      "out": "cf2699b8feb6"
     },
     "jobs.title": {
       "en": "0d8cc2cbcbaf",

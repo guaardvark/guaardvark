@@ -93,7 +93,8 @@
     "generate": "미리보기 생성",
     "originalFrame": "원본 프레임",
     "upscaledFrame": "업스케일링된 프레임",
-    "backToVideo": "비디오로 돌아가기"
+    "backToVideo": "비디오로 돌아가기",
+    "empty": "아직 미리보기 내용이 없습니다."
   },
   "jobs": {
     "title": "업스케일링 작업",

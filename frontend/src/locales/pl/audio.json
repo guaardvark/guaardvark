@@ -91,7 +91,8 @@
     "musicTab": "Muzyka",
     "fxTab": "Laboratorium FX",
     "retryLoaded": "Załadowano ustawienia utworu. Zmień cokolwiek, a następnie kliknij Generuj.",
-    "retryFailed": "Nie udało się załadować ustawień tego utworu."
+    "retryFailed": "Nie udało się załadować ustawień tego utworu.",
+    "createCard": "Utwórz"
   },
   "voice": {
     "title": "Neuralny Głos",

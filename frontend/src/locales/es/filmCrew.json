@@ -11,7 +11,8 @@
     "title": "Film Crew",
     "productionsTab": "Producciones",
     "castLibraryTab": "Biblioteca de Reparto",
-    "newProduction": "Nueva Producción"
+    "newProduction": "Nueva Producción",
+    "productionCard": "Producción"
   },
   "list": {
     "failedAt": "falló en: {{stage}}",

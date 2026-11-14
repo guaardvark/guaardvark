@@ -91,7 +91,8 @@
     "musicTab": "Muziek",
     "fxTab": "FX Lab",
     "retryLoaded": "Liedinstellingen geladen. Pas iets aan en klik daarna op Genereer.",
-    "retryFailed": "Kon de instellingen van dat lied niet laden."
+    "retryFailed": "Kon de instellingen van dat lied niet laden.",
+    "createCard": "Aanmaken"
   },
   "voice": {
     "title": "Neurale Stemoverdracht",

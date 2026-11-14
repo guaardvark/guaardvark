@@ -30,6 +30,7 @@ import {
   retryProduction,
 } from '../api/productionService';
 import { useUiTranslation } from '../i18n';
+import { CardWorkspace } from '../components/board';
 
 const FilmCrewPage = () => {
   const { t } = useUiTranslation();
@@ -242,15 +243,31 @@ const FilmCrewPage = () => {
 
       <Box sx={{ flexGrow: 1, display: 'flex', overflow: 'hidden' }}>
         {tab === 0 ? (
-          <>
-            <Box sx={{ width: 300, flexShrink: 0 }}>
+          // Two cards on the shared board: the productions, and the one that is open.
+          <Box sx={{ flex: '1 1 0', minWidth: 0, overflowY: 'auto', p: 0.5 }}>
+            <CardWorkspace
+              boardKey="film-crew"
+              cards={[
+                {
+                  id: "productions",
+                  title: t('filmCrew.list.title'),
+                  layout: { x: 0, y: 0, w: 40, h: 84 },
+                  body: (
+                    <>
               <ProductionList 
                 productions={productions} 
                 selectedId={selectedProdId} 
                 onSelect={handleProductionSelect}
               />
-            </Box>
-            <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+                    </>
+                  ),
+                },
+                {
+                  id: "production",
+                  title: productionDetail?.name || t('filmCrew.page.productionCard'),
+                  layout: { x: 40, y: 0, w: 135, h: 84 },
+                  body: (
+                    <>
               <ProductionDetail
                 production={productionDetail}
                 loading={loadingDetail}
@@ -269,8 +286,12 @@ const FilmCrewPage = () => {
                 onRetry={handleRetry}
                 onDelete={handleDelete}
               />
-            </Box>
-          </>
+                    </>
+                  ),
+                },
+              ]}
+            />
+          </Box>
         ) : (
           <Container maxWidth="lg" sx={{ py: 3 }}>
             <CastLibraryView />

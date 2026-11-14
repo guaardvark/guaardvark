@@ -94,7 +94,8 @@
     "generate": "Generate Preview",
     "originalFrame": "Original Frame",
     "upscaledFrame": "Upscaled Frame",
-    "backToVideo": "Back to Video"
+    "backToVideo": "Back to Video",
+    "empty": "Nothing to preview yet."
   },
   "jobs": {
     "title": "Upscale Jobs",
