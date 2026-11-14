@@ -26,9 +26,6 @@ import {
   DialogActions,
   Button,
 } from "@mui/material";
-import ReactGridLayout from "react-grid-layout/legacy";
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
 
 import {
   ViewModule,
@@ -62,6 +59,19 @@ import PageLayout from "../components/layout/PageLayout";
 import ClosedNotesDrawer from "../components/notes/ClosedNotesDrawer";
 import TextInputDialog from "../components/common/TextInputDialog";
 import { pinnedToTop, pinnedFirst, isEditableTarget } from "../components/notes/notesBoard";
+import {
+  CardBoard,
+  DRAG_CANCEL,
+  barRows,
+  barsPreset,
+  compactPreset,
+  loadBoardState,
+  nextMode,
+  saveBoardState,
+  useBoardGestures,
+  useBoardWidth,
+  useCardStacking,
+} from "../components/board";
 import { useLayout, useDashboardWidth } from "../contexts/LayoutContext";
 import { ContextualLoader } from "../components/common/LoadingStates";
 import { opaqueMenuPaperSx } from "../components/common/opaqueMenuPaper";
@@ -82,19 +92,8 @@ const LAYOUT_MODE_ICONS = {
   collapsed: ViewList,
 };
 
-// The drag placeholder is the grid cell, so a minimized note has to occupy
-// the header bar. Row math matches react-grid-layout's pixel height:
-// rows * rowHeight + (rows - 1) * margin. 40px is the note header.
-function minimizedBarRows(rowHeight, margin) {
-  const target = 40;
-  let rows = 1;
-  while (rows < 12) {
-    const px = Math.round(rowHeight * rows + Math.max(0, rows - 1) * margin);
-    if (px >= target) return rows;
-    rows += 1;
-  }
-  return rows;
-}
+// Height given to each bar's slot in the Collapsed stack.
+const COLLAPSED_BAR_PX = 50;
 
 const NOTE_COLORS = [
   "rgba(0, 128, 128, 0.15)",   // teal glass (primary)
@@ -553,13 +552,11 @@ const StickyNotesPage = () => {
   const dashboardWidth = useDashboardWidth();
 
   const {
-    CONTAINER_PADDING_PX,
     CARD_MARGIN_PX,
     COLS_COUNT,
     ROW_HEIGHT_PX,
     cardMinGridW,
     cardGridW,
-    cardGridH,
   } = gridSettings;
 
   const [initialStateLoaded, setInitialStateLoaded] = useState(false);
@@ -567,8 +564,6 @@ const StickyNotesPage = () => {
   const [notes, setNotes] = useState({});
   const [noteColors, setNoteColors] = useState({});
   const [minimizedCards, setMinimizedCards] = useState({});
-  const [_cardZIndex, setCardZIndex] = useState({});
-  const [maxZIndex, setMaxZIndex] = useState(0);
   const [layoutMode, setLayoutMode] = useState("normal");
   const [pinnedNotes, setPinnedNotes] = useState({});
   const [closedNotes, setClosedNotes] = useState({});
@@ -579,14 +574,8 @@ const StickyNotesPage = () => {
   const [saveIndicator, setSaveIndicator] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { noteId, source }
   const [renameTarget, setRenameTarget] = useState(null); // { noteId, title }
-  const gridContainerRef = useRef(null);
-  const [gridWidth, setGridWidth] = useState(dashboardWidth);
-  const isTogglingRef = useRef(false);
-  // Minimized flags at drag start: the drag reports the bar height of a
-  // minimized note. Pre-flip bits from a toggle during the press are merged in
-  // so expand still stores the full height.
-  const dragMinRef = useRef(null);
-  const draggingRef = useRef(false);
+  const [gridContainerRef, gridWidth] = useBoardWidth(dashboardWidth);
+  const stacking = useCardStacking();
   const noteRefs = useRef({});
   const editRangeRef = useRef(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -613,25 +602,6 @@ const StickyNotesPage = () => {
   closedNotesRef.current = closedNotes;
   layoutModeRef.current = layoutMode;
 
-  // ── Grid width tracking ──────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (dashboardWidth > 0) setGridWidth(dashboardWidth);
-  }, [dashboardWidth]);
-
-  useEffect(() => {
-    const el = gridContainerRef.current;
-    if (!el) return;
-    const measure = () => {
-      const w = el.clientWidth;
-      if (w > 0) setGridWidth(w);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   // ── Layout helpers ───────────────────────────────────────────────────────
 
   // Default note size: square (width × width in grid units)
@@ -651,6 +621,10 @@ const StickyNotesPage = () => {
 
   const [layout, setLayout] = useState([]);
   useEffect(() => { layoutRef.current = layout; }, [layout]);
+  const gestures = useBoardGestures(
+    useCallback(() => layoutRef.current || [], []),
+    useCallback(() => minimizedCardsRef.current, []),
+  );
   const normalLayoutRef = useRef(null);
   // Last mode this effect applied. A title edit used to rebuild the packed
   // layouts and this effect then called setLayout, which parks every note
@@ -669,46 +643,15 @@ const StickyNotesPage = () => {
     return pinnedFirst(ids, pinned);
   }, [noteIdsKey, pinnedKey]);
 
-  // Compact layout (derived)
-  const compactLayout = useMemo(() => {
-    const noteIds = orderedNoteIds;
-    const compactW = Math.round(cardGridW * 0.71);
-    const compactH = Math.round(cardGridH * 0.71);
-    const colWidthPx = gridWidth / COLS_COUNT;
-    const cardPixelW = compactW * colWidthPx;
-    const cardsPerRow = Math.max(1, Math.floor(gridWidth / cardPixelW));
-
-    return noteIds.map((id, idx) => ({
-      i: id,
-      x: (idx % cardsPerRow) * compactW,
-      y: Math.floor(idx / cardsPerRow) * compactH,
-      w: compactW,
-      h: compactH,
-      minW: cardMinGridW,
-      isDraggable: true,
-      isResizable: false,
-    }));
-  }, [orderedNoteIds, cardGridW, cardGridH, gridWidth, COLS_COUNT, cardMinGridW]);
-
-  // Collapsed layout (derived)
-  const collapsedLayout = useMemo(() => {
-    const noteIds = orderedNoteIds;
-    const colWidthPx = gridWidth / COLS_COUNT;
-    const barW = Math.round(300 / colWidthPx);
-    const barH = Math.round(50 / ROW_HEIGHT_PX);
-    const barX = Math.max(0, COLS_COUNT - barW);
-
-    return noteIds.map((id, idx) => ({
-      i: id,
-      x: barX,
-      y: idx * barH,
-      w: barW,
-      h: barH,
-      minW: cardMinGridW,
-      isDraggable: true,
-      isResizable: false,
-    }));
-  }, [orderedNoteIds, gridWidth, COLS_COUNT, ROW_HEIGHT_PX, cardMinGridW]);
+  // Compact and Collapsed are derived from the note order; notes in them move but do not resize.
+  const compactLayout = useMemo(
+    () => compactPreset(orderedNoteIds, gridSettings, gridWidth, { isResizable: false }),
+    [orderedNoteIds, gridSettings, gridWidth],
+  );
+  const collapsedLayout = useMemo(
+    () => barsPreset(orderedNoteIds, gridSettings, gridWidth, COLLAPSED_BAR_PX, { isResizable: false }),
+    [orderedNoteIds, gridSettings, gridWidth],
+  );
 
   // ── Load saved state ─────────────────────────────────────────────────────
 
@@ -716,25 +659,19 @@ const StickyNotesPage = () => {
     const fetchState = async () => {
       setLayoutError(null);
       try {
-        const res = await fetch("/api/state/sticky-notes");
-        if (!res.ok) {
-          if (res.status === 404) {
-            // First visit — one default note
-            const id = `note-${Date.now()}`;
-            const defaultNotes = { [id]: { content: "", title: "" } };
-            const defaultColors = { [id]: NOTE_COLORS[0] };
-            const defaultLayout = [makeLayoutItem(id, 0)];
-            setNotes(defaultNotes);
-            setNoteColors(defaultColors);
-            normalLayoutRef.current = defaultLayout;
-            setLayout(defaultLayout);
-            setLayoutMode("normal");
-          } else {
-            throw new Error(`${res.statusText} (${res.status})`);
-          }
+        const saved = await loadBoardState("sticky-notes");
+        if (!saved) {
+          // First visit — one default note
+          const id = `note-${Date.now()}`;
+          const defaultNotes = { [id]: { content: "", title: "" } };
+          const defaultColors = { [id]: NOTE_COLORS[0] };
+          const defaultLayout = [makeLayoutItem(id, 0)];
+          setNotes(defaultNotes);
+          setNoteColors(defaultColors);
+          normalLayoutRef.current = defaultLayout;
+          setLayout(defaultLayout);
+          setLayoutMode("normal");
         } else {
-          const saved = await res.json();
-
           if (saved.layoutMode && LAYOUT_MODES.includes(saved.layoutMode)) {
             setLayoutMode(saved.layoutMode);
           }
@@ -803,12 +740,9 @@ const StickyNotesPage = () => {
       if (modeChanged) setLayout(normalLayoutRef.current || []);
       return;
     }
-    isTogglingRef.current = true;
+    gestures.suspendFrame();
     setLayout(layoutMode === "compact" ? compactLayout : collapsedLayout);
-    requestAnimationFrame(() => {
-      isTogglingRef.current = false;
-    });
-  }, [layoutMode, initialStateLoaded, compactLayout, collapsedLayout]);
+  }, [layoutMode, initialStateLoaded, compactLayout, collapsedLayout, gestures]);
 
   // ── Persistence ──────────────────────────────────────────────────────────
 
@@ -827,12 +761,7 @@ const StickyNotesPage = () => {
             newLayoutMode !== undefined ? newLayoutMode : layoutModeRef.current,
           lastSaved: new Date().toISOString(),
         };
-        const res = await fetch("/api/state/sticky-notes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error(`(${res.status})`);
+        await saveBoardState("sticky-notes", body);
         setLayoutError(null);
         setSaveIndicator("saved");
         setTimeout(() => setSaveIndicator(null), 2000);
@@ -974,25 +903,8 @@ const StickyNotesPage = () => {
 
   const commitGridLayout = useCallback(
     (newLayout, fromDrag) => {
-      draggingRef.current = false;
-      if (isTogglingRef.current) {
-        dragMinRef.current = null;
-        return;
-      }
-      const prevById = new Map((layoutRef.current || []).map((item) => [item.i, item]));
-      const minimizedAtStart = fromDrag
-        ? (dragMinRef.current || minimizedCardsRef.current)
-        : minimizedCardsRef.current;
-      dragMinRef.current = null;
-      // Minimized notes are handed to the grid at bar height. Keep the stored
-      // height so expand still opens the size the note had before.
-      const validLayout = newLayout.filter((item) => item && item.i).map((item) => {
-        const prev = prevById.get(item.i);
-        if (!prev) return item;
-        const next = { ...prev, x: item.x, y: item.y, w: item.w };
-        if (!minimizedAtStart[item.i]) next.h = item.h;
-        return next;
-      });
+      const validLayout = gestures.settle(newLayout, fromDrag);
+      if (!validLayout) return;
       if (layoutMode === "normal") normalLayoutRef.current = validLayout;
       setLayout(validLayout);
       // Flush any pending debounced save to prevent content loss
@@ -1003,7 +915,7 @@ const StickyNotesPage = () => {
       // Pass notes explicitly from ref to ensure latest content is saved
       saveState(validLayout, noteColorsRef.current, minimizedCardsRef.current, undefined, notesRef.current);
     },
-    [saveState, layoutMode],
+    [saveState, layoutMode, gestures],
   );
 
   const handleNoteColorChange = useCallback(
@@ -1027,12 +939,9 @@ const StickyNotesPage = () => {
       if (layoutModeRef.current !== "normal") return;
       cancelDebouncedSave();
       const liveNotes = flushNoteDom(noteId);
-      isTogglingRef.current = true;
+      gestures.beginToggle(noteId);
 
       const prevMin = minimizedCardsRef.current;
-      const snap = { ...(dragMinRef.current || {}) };
-      snap[noteId] = !!prevMin[noteId];
-      dragMinRef.current = snap;
       const newMin = { ...prevMin, [noteId]: !prevMin[noteId] };
       minimizedCardsRef.current = newMin;
       setMinimizedCards(newMin);
@@ -1040,29 +949,12 @@ const StickyNotesPage = () => {
       // Leave x/y/w/h alone. The grid renders a bar-height copy while the
       // flag is set, and the stored height is what expand opens.
       saveState(layoutRef.current, noteColorsRef.current, newMin, undefined, liveNotes);
-      requestAnimationFrame(() => {
-        isTogglingRef.current = false;
-        if (!draggingRef.current) dragMinRef.current = null;
-      });
     },
-    [saveState, cancelDebouncedSave, flushNoteDom],
-  );
-
-  const handleCardClick = useCallback(
-    (noteId) => {
-      const z = maxZIndex + 1;
-      setMaxZIndex(z);
-      setCardZIndex((prev) => ({ ...prev, [noteId]: z }));
-      const el = document.querySelector(`[data-card-id="${noteId}"]`);
-      const gridItem = el?.closest(".react-grid-item") || el;
-      if (gridItem) gridItem.style.zIndex = z;
-    },
-    [maxZIndex],
+    [saveState, cancelDebouncedSave, flushNoteDom, gestures],
   );
 
   const handleCycleLayoutMode = useCallback(() => {
-    const idx = LAYOUT_MODES.indexOf(layoutMode);
-    const next = LAYOUT_MODES[(idx + 1) % LAYOUT_MODES.length];
+    const next = nextMode(LAYOUT_MODES, layoutMode);
     if (layoutMode === "normal") normalLayoutRef.current = layout;
     setLayoutMode(next);
     saveState(normalLayoutRef.current || layout, noteColors, minimizedCards, next);
@@ -1276,9 +1168,9 @@ const StickyNotesPage = () => {
 
       let newLayout = normalLayoutRef.current || layoutRef.current || [];
       if (pinning) {
-        const barRows = minimizedBarRows(ROW_HEIGHT_PX, CARD_MARGIN_PX);
+        const rows = barRows(ROW_HEIGHT_PX, CARD_MARGIN_PX);
         newLayout = pinnedToTop(newLayout, newPinned, COLS_COUNT, (item) =>
-          minimizedCardsRef.current[item.i] ? barRows : item.h,
+          minimizedCardsRef.current[item.i] ? rows : item.h,
         );
         normalLayoutRef.current = newLayout;
         if (layoutModeRef.current === "normal") setLayout(newLayout);
@@ -1401,6 +1293,15 @@ const StickyNotesPage = () => {
   const LayoutModeIcon = LAYOUT_MODE_ICONS[layoutMode];
   const _isCompact = layoutMode === "compact";
   const isCollapsed = layoutMode === "collapsed";
+  const isSearching = filteredNoteIds !== null;
+  // The notes on the board, pinned ones first: a later note draws over an earlier one.
+  const shownLayout = layout.filter(
+    (item) => notes[item.i] && (filteredNoteIds === null || filteredNoteIds.has(item.i)),
+  );
+  const boardLayout = [
+    ...shownLayout.filter((item) => pinnedNotes[item.i]),
+    ...shownLayout.filter((item) => !pinnedNotes[item.i]),
+  ];
   const deleteSource = deleteConfirm?.source === "closed" ? closedNotes : notes;
   const deleteNoteTitle = (deleteConfirm && deleteSource[deleteConfirm.noteId]?.title) || t("notes.untitled");
   const layoutModeLabel = layoutModeLabels()[layoutMode];
@@ -1578,205 +1479,135 @@ const StickyNotesPage = () => {
           </MuiAlert>
         )}
 
-        <Box
-          ref={gridContainerRef}
-          sx={{
-            width: "100%",
-            "& .react-grid-item": {
-              transition: "transform 0.2s ease-out !important",
-              "&.react-draggable-dragging": {
-                transition: "none !important",
-                opacity: 0.9,
-                // Outline the note, not the grid cell, so a minimized bar
-                // does not drag an expanded-card frame.
-                "& > div": {
-                  outline: `2px solid ${theme.palette.primary.main}`,
-                  borderRadius: "4px",
-                },
-              },
+        <CardBoard
+          containerRef={gridContainerRef}
+          width={gridWidth}
+          grid={gridSettings}
+          layout={boardLayout}
+          minimized={minimizedCards}
+          stacking={stacking}
+          dragHandle=".note-header"
+          dragCancel={`${DRAG_CANCEL}, .note-content`}
+          // While a search filters the board, moves are not kept.
+          onDragStart={isSearching ? undefined : gestures.onDragStart}
+          onDragStop={isSearching ? undefined : (next) => commitGridLayout(next, true)}
+          onResizeStop={isSearching ? undefined : (next) => commitGridLayout(next, false)}
+          cardProps={(noteId) => ({
+            onContextMenu: (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const contentEl = e.target.closest?.(".note-content");
+              const inContent = Boolean(contentEl);
+              editRangeRef.current = null;
+              if (inContent) {
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0 && contentEl.contains(sel.anchorNode)) {
+                  editRangeRef.current = sel.getRangeAt(0).cloneRange();
+                }
+              }
+              setContextMenu({ noteId, x: e.clientX, y: e.clientY, inContent });
             },
-          }}
-        >
-          {(() => {
-            // Filter layout to match visible children — prevents RGL from dropping hidden note positions
-            const barRows = minimizedBarRows(ROW_HEIGHT_PX, CARD_MARGIN_PX);
-            const visibleLayout = layout
-              .filter(
-                (item) => notes[item.i] && (filteredNoteIds === null || filteredNoteIds.has(item.i)),
-              )
-              .map((item) =>
-                minimizedCards[item.i]
-                  ? { ...item, h: barRows, minH: barRows, maxH: barRows }
-                  : item,
-              );
-            const isSearching = filteredNoteIds !== null;
+          })}
+          renderCard={(layoutItem, isMinimized) => {
+            const noteId = layoutItem.i;
+            const note = notes[noteId];
+            const noteColor = noteColors[noteId] || NOTE_COLORS[0];
+            const textColor = getContrastColor(noteColor);
             return (
-            <ReactGridLayout
-              className="layout"
-              layout={visibleLayout}
-              style={{ transition: "all 0.2s ease-out" }}
-              cols={COLS_COUNT}
-              rowHeight={ROW_HEIGHT_PX}
-              width={gridWidth}
-              containerPadding={[CONTAINER_PADDING_PX, CONTAINER_PADDING_PX]}
-              margin={[CARD_MARGIN_PX, CARD_MARGIN_PX]}
-              isDraggable={true}
-              isResizable={true}
-              compactType={null}
-              preventCollision={false}
-              useCSSTransforms={false}
-              allowOverlap={true}
-              draggableHandle=".note-header"
-              draggableCancel="button, input, textarea, select, option, .non-draggable, .note-content"
-              onDragStart={isSearching ? undefined : () => {
-                draggingRef.current = true;
-                const live = { ...minimizedCardsRef.current };
-                // A toggle on this same press may already have stored the
-                // pre-flip flag. That bit wins over the live map.
-                dragMinRef.current = dragMinRef.current
-                  ? { ...live, ...dragMinRef.current }
-                  : live;
-              }}
-              onDragStop={isSearching ? undefined : (next) => commitGridLayout(next, true)}
-              onResizeStop={isSearching ? undefined : (next) => commitGridLayout(next, false)}
-              resizeHandles={["s", "w", "e", "n", "sw", "nw", "se", "ne"]}
-            >
-            {visibleLayout
-              .sort((a, b) => {
-                const aPin = pinnedNotes[a.i] ? 1 : 0;
-                const bPin = pinnedNotes[b.i] ? 1 : 0;
-                return bPin - aPin;
-              })
-              .map((layoutItem) => {
-                const noteId = layoutItem.i;
-                const note = notes[noteId];
-                const isMinimized = minimizedCards[noteId] || false;
-                const noteColor = noteColors[noteId] || NOTE_COLORS[0];
-                const textColor = getContrastColor(noteColor);
-
-                return (
-                  <div
-                    key={noteId}
-                    data-card-id={noteId}
-                    style={{
+              <>
+                {isCollapsed ? (
+                  <Paper
+                    elevation={1}
+                    className="note-header"
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      height: "100%",
+                      px: 2,
+                      cursor: "grab",
+                      userSelect: "none",
+                      borderRadius: "8px",
+                      backgroundColor: noteColor,
+                      backdropFilter: "blur(12px)",
+                      border: "1px solid rgba(255,255,255,0.06)",
                       transition:
-                        "transform 0.2s ease-out, box-shadow 0.2s ease-out",
-                      height: isMinimized ? "auto" : "100%",
-                      maxHeight: "100%",
-                      overflow: "hidden",
+                        "background-color 0.15s ease, box-shadow 0.15s ease",
+                      "&:hover": { boxShadow: theme.shadows[4], backgroundColor: "rgba(255,255,255,0.04)" },
+                      "&:active": { cursor: "grabbing" },
                     }}
-                    onMouseDown={() => handleCardClick(noteId)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const contentEl = e.target.closest?.(".note-content");
-                      const inContent = Boolean(contentEl);
-                      editRangeRef.current = null;
-                      if (inContent) {
-                        const sel = window.getSelection();
-                        if (sel && sel.rangeCount > 0 && contentEl.contains(sel.anchorNode)) {
-                          editRangeRef.current = sel.getRangeAt(0).cloneRange();
-                        }
-                      }
-                      setContextMenu({ noteId, x: e.clientX, y: e.clientY, inContent });
+                    onClick={() => {
+                      setLayoutMode("normal");
+                      saveState(normalLayoutRef.current || layout, noteColors, minimizedCards, "normal");
                     }}
                   >
-                    {isCollapsed ? (
-                      <Paper
-                        elevation={1}
-                        className="note-header"
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          height: "100%",
-                          px: 2,
-                          cursor: "grab",
-                          userSelect: "none",
-                          borderRadius: "8px",
-                          backgroundColor: noteColor,
-                          backdropFilter: "blur(12px)",
-                          border: "1px solid rgba(255,255,255,0.06)",
-                          transition:
-                            "background-color 0.15s ease, box-shadow 0.15s ease",
-                          "&:hover": { boxShadow: theme.shadows[4], backgroundColor: "rgba(255,255,255,0.04)" },
-                          "&:active": { cursor: "grabbing" },
-                        }}
-                        onClick={() => {
-                          setLayoutMode("normal");
-                          saveState(normalLayoutRef.current || layout, noteColors, minimizedCards, "normal");
-                        }}
-                      >
-                        {pinnedNotes[noteId] && (
-                          <PushPin sx={{ fontSize: 12, color: textColor, opacity: 0.5, mr: 0.5 }} />
-                        )}
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 500,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            color: textColor,
-                            pointerEvents: "none",
-                            flex: 1,
-                          }}
-                        >
-                          {note.title || (note.content
-                            ? note.content.replace(/<[^>]*>/g, "").substring(0, 40) || t("notes.emptyNote")
-                            : t("notes.emptyNote"))}
-                        </Typography>
-                        <IconButton
-                          aria-label={t("notes.note.closeNote")}
-                          size="small"
-                          className="non-draggable"
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCloseNote(noteId);
-                          }}
-                          sx={{ ml: 0.5, width: 20, height: 20, p: 0, color: textColor, opacity: 0.5 }}
-                        >
-                          <Close sx={{ fontSize: 16 }} />
-                        </IconButton>
-                      </Paper>
-                    ) : (
-                      <StickyNote
-                        noteId={noteId}
-                        title={note.title || ""}
-                        content={note.content}
-                        color={noteColor}
-                        textColor={textColor}
-                        isMinimized={isMinimized}
-                        isPinned={!!pinnedNotes[noteId]}
-                        onToggleMinimize={() =>
-                          handleToggleMinimize(noteId)
-                        }
-                        onClose={() => handleCloseNote(noteId)}
-                        onTitleChange={(nextTitle) =>
-                          handleNoteTitleChange(noteId, nextTitle)
-                        }
-                        onColorChange={(color) =>
-                          handleNoteColorChange(noteId, color)
-                        }
-                        onContentChange={(content) =>
-                          handleNoteContentChange(noteId, content)
-                        }
-                        onDeleteRequest={() => setDeleteConfirm({ noteId, source: "open" })}
-                        onFormat={handleFormat}
-                        onInsertLink={handleInsertLink}
-                        theme={theme}
-                        noteRef={(el) => {
-                          noteRefs.current[noteId] = el;
-                        }}
-                      />
+                    {pinnedNotes[noteId] && (
+                      <PushPin sx={{ fontSize: 12, color: textColor, opacity: 0.5, mr: 0.5 }} />
                     )}
-                  </div>
-                );
-              })}
-          </ReactGridLayout>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 500,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: textColor,
+                        pointerEvents: "none",
+                        flex: 1,
+                      }}
+                    >
+                      {note.title || (note.content
+                        ? note.content.replace(/<[^>]*>/g, "").substring(0, 40) || t("notes.emptyNote")
+                        : t("notes.emptyNote"))}
+                    </Typography>
+                    <IconButton
+                      aria-label={t("notes.note.closeNote")}
+                      size="small"
+                      className="non-draggable"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCloseNote(noteId);
+                      }}
+                      sx={{ ml: 0.5, width: 20, height: 20, p: 0, color: textColor, opacity: 0.5 }}
+                    >
+                      <Close sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Paper>
+                ) : (
+                  <StickyNote
+                    noteId={noteId}
+                    title={note.title || ""}
+                    content={note.content}
+                    color={noteColor}
+                    textColor={textColor}
+                    isMinimized={isMinimized}
+                    isPinned={!!pinnedNotes[noteId]}
+                    onToggleMinimize={() =>
+                      handleToggleMinimize(noteId)
+                    }
+                    onClose={() => handleCloseNote(noteId)}
+                    onTitleChange={(nextTitle) =>
+                      handleNoteTitleChange(noteId, nextTitle)
+                    }
+                    onColorChange={(color) =>
+                      handleNoteColorChange(noteId, color)
+                    }
+                    onContentChange={(content) =>
+                      handleNoteContentChange(noteId, content)
+                    }
+                    onDeleteRequest={() => setDeleteConfirm({ noteId, source: "open" })}
+                    onFormat={handleFormat}
+                    onInsertLink={handleInsertLink}
+                    theme={theme}
+                    noteRef={(el) => {
+                      noteRefs.current[noteId] = el;
+                    }}
+                  />
+                )}
+              </>
             );
-          })()}
-        </Box>
+          }}
+        />
       </Box>
 
       {/* ── Right-click context menu ───────────────────────────────── */}

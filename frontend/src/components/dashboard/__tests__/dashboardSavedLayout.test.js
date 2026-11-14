@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeSavedLayout } from "../dashboardSavedLayout";
+import { mergeSavedLayout, restoreMinimizedSizes } from "../dashboardSavedLayout";
 
 const defaults = [
   { i: "approvals", x: 0, y: 0, w: 35, h: 49, minW: 30 },
@@ -48,5 +48,20 @@ describe("mergeSavedLayout", () => {
     const saved = [...defaults.map(({ i, x, y, w, h }) => ({ i, x, y, w, h })), { i: "legacy", x: 5, y: 6, w: 7, h: 8 }];
     const merged = mergeSavedLayout(defaults, saved, { extraItemProps: { isDraggable: true } });
     expect(at(merged, "legacy")).toEqual({ isDraggable: true, i: "legacy", x: 5, y: 6, w: 7, h: 8 });
+  });
+});
+
+describe("restoreMinimizedSizes", () => {
+  it("gives a minimized card back the size an older save kept beside the layout", () => {
+    const layout = [
+      { i: "chat", x: 38, y: 3, w: 35, h: 18 },
+      { i: "tasks", x: 2, y: 3, w: 35, h: 50 },
+    ];
+    const restored = restoreMinimizedSizes(layout, { chat: true, tasks: false }, { chat: { w: 35, h: 49 }, tasks: { w: 1, h: 1 } });
+    expect(restored).toEqual([
+      { i: "chat", x: 38, y: 3, w: 35, h: 49 },
+      { i: "tasks", x: 2, y: 3, w: 35, h: 50 },
+    ]);
+    expect(restoreMinimizedSizes(layout, { chat: true }, undefined)).toBe(layout);
   });
 });
