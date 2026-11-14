@@ -167,6 +167,13 @@ podman build -f docker/Dockerfile.backend --build-arg TORCH_CHANNEL=rocm6.3 --bu
 Tested with `gemma4:e2b` as the vision model: the agent opened Firefox in the
 container. A 27B model was too slow for the agent's 45 s step timeout.
 
+## AMD (ROCm) builds
+
+With `--build-arg TORCH_CHANNEL=rocm6.3` (any `rocm*` channel) the image also installs
+`rocm-smi`. The backend reads the card's VRAM through it for the load gate, the hardware
+profile, the GPU coordinator and the video preflight; without it the container sees no
+AMD card. NVIDIA and CPU builds do not change.
+
 ## Limitations
 
 The image contains the plugin sources (`plugins/`) and a `/app/backend/venv` that

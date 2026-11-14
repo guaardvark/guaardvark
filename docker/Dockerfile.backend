@@ -52,6 +52,14 @@ RUN codec="" && case "$TORCH_CHANNEL" in \
     && if [ -n "$codec" ]; then pip install --no-cache-dir --no-deps --index-url https://download.pytorch.org/whl/cpu $codec; fi \
     && pip freeze | grep -E '^(torch|torchvision|torchaudio|torchcodec)==' > /tmp/torch-pins.txt
 
+# ROCm builds only: rocm-smi is what the VRAM probe reads (load gate, hardware profile,
+# GPU coordinator). Without it the container sees no AMD card. NVIDIA and CPU builds
+# are unchanged.
+RUN case "$TORCH_CHANNEL" in \
+        rocm*) apt-get update && apt-get install -y --no-install-recommends rocm-smi \
+               && rm -rf /var/lib/apt/lists/* ;; \
+    esac
+
 # Install Python dependencies (cached layer). The pins keep the channel build:
 # a requirement that needs a newer torch fails the build instead of replacing it.
 COPY backend/requirements.txt /app/backend/requirements.txt
