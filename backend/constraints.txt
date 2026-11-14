@@ -34,7 +34,7 @@ numpy<2.0,>=1.26.4
 # These constraints are inert during the torch pass: opencv is not in torch's
 # dependency graph, so the PyTorch index never has to serve it (see the
 # setuptools note below for why that matters).
-opencv-python==4.11.0.86
+opencv-python==5.0.0.93
 opencv-python-headless==4.11.0.86
 opencv-contrib-python==4.11.0.86
 
