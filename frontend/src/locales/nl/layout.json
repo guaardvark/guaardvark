@@ -92,5 +92,15 @@
     "exitKiosk": "Verlaat Kiosk-modus (F11)",
     "minimize": "Minimaliseer venster (Verberg inhoud)",
     "close": "Sluit applicatie (Ctrl+Q of Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Reset kaartindeling",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Instellingen",
+      "queue": "Wachtrij",
+      "results": "Resultaten"
+    },
+    "queueEmpty": "Er staat niets in de wachtrij of er wordt niets gerenderd."
   }
 }

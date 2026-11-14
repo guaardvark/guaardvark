@@ -92,5 +92,15 @@
     "exitKiosk": "Salir del modo kiosco (F11)",
     "minimize": "Minimizar ventana (Ocultar contenido)",
     "close": "Cerrar aplicación (Ctrl+Q o Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Restablecer diseño de tarjetas",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Ajustes",
+      "queue": "Cola",
+      "results": "Resultados"
+    },
+    "queueEmpty": "No hay nada en cola ni renderizando."
   }
 }

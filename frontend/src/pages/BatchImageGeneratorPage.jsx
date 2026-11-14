@@ -55,6 +55,7 @@ import {
 import { useImageProcesses } from '../contexts/UnifiedProgressContext';
 import { useSearchParams } from 'react-router-dom';
 import PageLayout from '../components/layout/PageLayout';
+import { CardWorkspace } from '../components/board';
 import CharacterPicker from '../components/filmcrew/CharacterPicker';
 import ImageLightbox from '../components/images/ImageLightbox';
 import BatchHistoryCard from '../components/images/BatchHistoryCard';
@@ -1449,6 +1450,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     document.body.removeChild(link);
   }, [lightboxImage, generatedImages, activeBatch?.batch_id, buildBatchImageUrl]);
 
+  // The status blocks were cards of their own on the old two-column page; in a
+  // card frame they are plain sections.
+  const statusSx = {
+    p: 0.5,
+    "& > .MuiCard-root": { boxShadow: "none", backgroundColor: "transparent", backgroundImage: "none", mt: 0, mb: 1 },
+  };
+
   return (
     <PageLayout
       title={embedded ? undefined : t('imagesBatch.page.title')}
@@ -1482,26 +1490,17 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         </Alert>
       )}
 
-      <Grid container spacing={3}>
-        {/* Input Section */}
-        <Grid item xs={12} lg={6}>
-          <Card sx={{
-            height: 'fit-content',
-            boxShadow: 2,
-            borderRadius: 2
-          }}>
-            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  mb: 3,
-                  color: 'text.primary'
-                }}
-              >
-                {t('imagesBatch.page.settingsTitle')}
-              </Typography>
-
+      {/* The page is four cards on the shared board: what to make, how to make
+          it, what is rendering, and what has been made. */}
+      <CardWorkspace
+        boardKey="image-gen"
+        cards={[
+          {
+            id: "prompt",
+            title: t("layout.board.cards.prompt"),
+            layout: { x: 0, y: 0, w: 60, h: 86 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
               {/* Content Preset Selector. Only tag-style models take it; a prose
                   model gets a one-line note instead of a control that does nothing. */}
               {prosePrompts ? (
@@ -1941,6 +1940,74 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                 </Box>
               )}
 
+              {/* Action Buttons — queue mode: never blocked by an in-flight batch */}
+              <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <GpuGateBanner gpuBusy={gpuBusy} blockReason={blockReason} blockDetail={blockDetail} queueMode />
+                {installNeed && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Hint>
+                      {installNeed.blocks
+                        ? t('imagesBatch.install.startOff', { model: installName })
+                        : t('imagesBatch.install.noModelShort')}
+                    </Hint>
+                    {installButton}
+                  </Box>
+                )}
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button
+                    variant="contained"
+                    onClick={startGeneration}
+                    disabled={loading || installBlocksStart}
+                    startIcon={<PlayArrow />}
+                    fullWidth
+                    size="large"
+                    sx={{
+                      textTransform: 'none',
+                      borderRadius: 1,
+                      py: 1.5,
+                      fontWeight: 600
+                    }}
+                  >
+                    {loading
+                      ? t('imagesBatch.actions.queuing')
+                      : (queue.some((q) => POLLABLE_STATUSES.has(q.status))
+                        ? t('imagesBatch.actions.addToQueue')
+                        : t('imagesBatch.actions.start'))}
+                  </Button>
+
+                  {activeBatch && POLLABLE_STATUSES.has(activeBatch.status) && (
+                    <Button
+                      variant="outlined"
+                      onClick={cancelGeneration}
+                      startIcon={<Cancel />}
+                      color="error"
+                      size="large"
+                      sx={{
+                        textTransform: 'none',
+                        borderRadius: 1,
+                        py: 1.5,
+                        fontWeight: 600
+                      }}
+                    >
+                      {t('imagesBatch.actions.cancel')}
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+              </Box>
+            ),
+          },
+          {
+            id: "settings",
+            title: t("layout.board.cards.settings"),
+            layout: { x: 60, y: 0, w: 55, h: 86 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
+                {inputMode === 'blueprint' && (
+                  <Typography variant="body2" color="text.secondary">
+                    {t("imagesBatch.cards.noSettings")}
+                  </Typography>
+                )}
               {inputMode !== 'blueprint' && (
                 <>
 
@@ -2398,66 +2465,20 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                 </>
               )}
 
-              {/* Action Buttons — queue mode: never blocked by an in-flight batch */}
-              <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <GpuGateBanner gpuBusy={gpuBusy} blockReason={blockReason} blockDetail={blockDetail} queueMode />
-                {installNeed && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                    <Hint>
-                      {installNeed.blocks
-                        ? t('imagesBatch.install.startOff', { model: installName })
-                        : t('imagesBatch.install.noModelShort')}
-                    </Hint>
-                    {installButton}
-                  </Box>
-                )}
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Button
-                    variant="contained"
-                    onClick={startGeneration}
-                    disabled={loading || installBlocksStart}
-                    startIcon={<PlayArrow />}
-                    fullWidth
-                    size="large"
-                    sx={{
-                      textTransform: 'none',
-                      borderRadius: 1,
-                      py: 1.5,
-                      fontWeight: 600
-                    }}
-                  >
-                    {loading
-                      ? t('imagesBatch.actions.queuing')
-                      : (queue.some((q) => POLLABLE_STATUSES.has(q.status))
-                        ? t('imagesBatch.actions.addToQueue')
-                        : t('imagesBatch.actions.start'))}
-                  </Button>
-
-                  {activeBatch && POLLABLE_STATUSES.has(activeBatch.status) && (
-                    <Button
-                      variant="outlined"
-                      onClick={cancelGeneration}
-                      startIcon={<Cancel />}
-                      color="error"
-                      size="large"
-                      sx={{
-                        textTransform: 'none',
-                        borderRadius: 1,
-                        py: 1.5,
-                        fontWeight: 600
-                      }}
-                    >
-                      {t('imagesBatch.actions.cancel')}
-                    </Button>
-                  )}
-                </Box>
               </Box>
-            </CardContent>
-          </Card>
-        </Grid >
-
-        {/* Progress and Results Section */}
-        < Grid item xs={12} lg={6} >
+            ),
+          },
+          {
+            id: "queue",
+            title: t("layout.board.cards.queue"),
+            layout: { x: 115, y: 0, w: 60, h: 36 },
+            body: (
+              <Box sx={statusSx}>
+                {queue.length === 0 && !activeBatch && (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>
+                    {t("layout.board.queueEmpty")}
+                  </Typography>
+                )}
           {/* Batch Queue panel — live view of stacked jobs (mirrors Video Gen) */}
           <BatchQueuePanel
             queue={queue}
@@ -2546,6 +2567,15 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
             )
           }
 
+              </Box>
+            ),
+          },
+          {
+            id: "results",
+            title: t("layout.board.cards.results"),
+            layout: { x: 115, y: 36, w: 60, h: 50 },
+            body: (
+              <Box sx={statusSx}>
           {/* Generated Images Gallery */}
           {
             (generatedImages.length > 0 || (activeBatch && activeBatch.results && activeBatch.results.some(r => r.success && r.image_path))) && (
@@ -2719,8 +2749,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
               </Box>
             </CardContent>
           </Card>
-        </Grid >
-      </Grid >
+              </Box>
+            ),
+          },
+        ]}
+      />
 
       {/* Full-screen batch image gallery (prev/next keyboard + arrows) */}
       {lightboxImage && (

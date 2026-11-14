@@ -92,5 +92,15 @@
     "exitKiosk": "Sair do Modo Quiosque (F11)",
     "minimize": "Minimizar Janela (Ocultar Conteúdo)",
     "close": "Fechar Aplicativo (Ctrl+Q ou Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Redefinir layout do cartão",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Configurações",
+      "queue": "Fila",
+      "results": "Resultados"
+    },
+    "queueEmpty": "Nada está na fila ou sendo renderizado."
   }
 }

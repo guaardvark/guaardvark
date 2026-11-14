@@ -272,7 +272,7 @@
     "retryBatch": "Reintentar lote",
     "noRetryData": "Los prompts y ajustes originales no se guardaron para este lote (creado antes del soporte de reintento), por lo que no se puede reintentar automáticamente. Créalo de nuevo con los ajustes de arriba.",
     "statusTitle": "Estado de generación",
-    "none": "Sin generación activa. Inicia una generación de video arriba para ver el progreso aquí."
+    "none": "Sin generación activa. Inicia una generación de video para ver el progreso aquí."
   },
   "results": {
     "thumbAlt": "miniatura",

@@ -3,6 +3,21 @@ import { describe, it, expect, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
+// The page lays its cards out on the shared board, which reads the grid from the layout context.
+vi.mock("../../contexts/LayoutContext", () => {
+  const layout = {
+    gridSettings: {
+      CONTAINER_PADDING_PX: 4,
+      CARD_MARGIN_PX: 8,
+      COLS_COUNT: 175,
+      ROW_HEIGHT_PX: 10,
+      cardGridW: 35,
+      cardGridH: 49,
+      cardMinGridW: 30,
+    },
+  };
+  return { useDashboardWidth: () => 1750, useLayout: () => layout };
+});
 vi.mock("../../contexts/UnifiedProgressContext", () => ({
   useUnifiedProgress: () => ({ activeProcesses: new Map(), unifiedJobs: new Map(), socketRef: { current: null } }),
   useImageProcesses: () => [],

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeSavedLayout } from "../dashboardSavedLayout";
+import { appendCards, mergeSavedLayout } from "../dashboardSavedLayout";
 import { restoreMinimizedSizes } from "../../board";
 
 const defaults = [
@@ -70,5 +70,31 @@ describe("restoreMinimizedSizes", () => {
     expect(restoreMinimizedSizes(pinned, { editor: true }, {}, () => ({ w: 105, h: 74 }))).toEqual([
       { i: "editor", x: 0, y: 0, w: 105, h: 74 },
     ]);
+  });
+});
+
+describe("appendCards", () => {
+  const grid = { cardGridW: 35, cardGridH: 49, COLS_COUNT: 175 };
+  const core = [
+    { i: "approvals", x: 0, y: 0, w: 35, h: 49 },
+    { i: "files", x: 105, y: 98, w: 70, h: 73.5 },
+  ];
+
+  it("places extension cards in rows under the lowest core card, wrapping at the board's width", () => {
+    const cards = [
+      { id: "acme-orders", w: 2, h: 1 },
+      { id: "acme-stock", w: 2, h: 1.5 },
+      { id: "acme-notes", w: 2, h: 1 },
+    ];
+    expect(appendCards(core, cards, grid).slice(2)).toEqual([
+      { i: "acme-orders", x: 0, y: 171.5, w: 70, h: 49 },
+      { i: "acme-stock", x: 70, y: 171.5, w: 70, h: 74 },
+      // 140 + 70 passes 175 columns: a new row, under the taller of the two above.
+      { i: "acme-notes", x: 0, y: 245.5, w: 70, h: 49 },
+    ]);
+  });
+
+  it("returns the layout itself when there is nothing to add", () => {
+    expect(appendCards(core, [], grid)).toBe(core);
   });
 });

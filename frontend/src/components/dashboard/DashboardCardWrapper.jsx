@@ -58,6 +58,9 @@ const getCardRoute = (cardId) => CARD_ROUTES[cardId] || "/";
  * `contextMenuArea="header"` limits it to the title bar, for cards whose body has
  * menus of its own.
  *
+ * `route` is the page the title opens, for a card core has no page listed for
+ * (an extension's).
+ *
  * A card the person names (a note) passes `onRename`: its title is then a name,
  * not a link to a page. Double-clicking the name of an open card edits it in
  * place (Enter or leaving the box keeps it, Escape does not); everywhere else
@@ -82,6 +85,7 @@ const DashboardCardWrapper = React.forwardRef(
       onHideCard,
       onRename,
       titlePlaceholder,
+      route: routeProp,
       onClose,
       closeLabel,
       showMinimizeButton = false,
@@ -137,6 +141,8 @@ const DashboardCardWrapper = React.forwardRef(
 
     const theme = useTheme();
     const cardId = restProps.id || i;
+    // The page the title opens: the card's own, or the built-in one for a core card.
+    const cardRoute = routeProp || getCardRoute(cardId);
     const colorInputRef = useRef(null);
 
     // A custom card colour: header text and the card body's theme follow it
@@ -245,12 +251,11 @@ const DashboardCardWrapper = React.forwardRef(
       // Don't navigate if this was a drag, or on CodeEditorPage
       if (dragDetectRef.current) return;
       if (window.location.pathname !== '/code-editor') {
-        const route = getCardRoute(cardId);
-        if (route && route !== "/") {
-          routerNavigate(route);
+        if (cardRoute && cardRoute !== "/") {
+          routerNavigate(cardRoute);
         }
       }
-    }, [cardId]);
+    }, [cardRoute]);
 
     const handleColorChange = (e) => {
       const value = e.target.value;
@@ -269,7 +274,7 @@ const DashboardCardWrapper = React.forwardRef(
     const handleContextMenu = menuEnabled ? (e) => menu.open(e) : undefined;
 
     const buildMenuActions = () => {
-      const route = getCardRoute(cardId);
+      const route = cardRoute;
       const own = contextMenuActions.filter(Boolean);
       return [
         route !== "/" && { label: t("dashboard.cardWrapper.openPage"), onClick: () => routerNavigate(route) },
@@ -613,6 +618,7 @@ DashboardCardWrapper.propTypes = {
   contextMenuActions: PropTypes.array,
   contextMenuArea: PropTypes.oneOf(["card", "header"]),
   onHideCard: PropTypes.func,
+  route: PropTypes.string,
   onRename: PropTypes.func,
   titlePlaceholder: PropTypes.string,
   onClose: PropTypes.func,

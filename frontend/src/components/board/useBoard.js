@@ -132,3 +132,24 @@ export function useBoardGestures(getLayout, getMinimized) {
     [onDragStart, settle, suspendFrame, beginToggle],
   );
 }
+
+/**
+ * The width of an element, followed whenever it is mounted and however it is
+ * resized. `fallback` is the width until the first measurement.
+ * @returns {[function, number]} a ref callback for the element, and its width in px
+ */
+export function useMeasuredWidth(fallback) {
+  const [node, setNode] = useState(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!node) return undefined;
+    const measure = () => {
+      if (node.clientWidth > 0) setWidth(node.clientWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node]);
+  return [setNode, width > 0 ? width : fallback];
+}
