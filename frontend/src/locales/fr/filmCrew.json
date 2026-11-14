@@ -11,7 +11,8 @@
     "title": "Film Crew",
     "productionsTab": "Productions",
     "castLibraryTab": "Bibliothèque de casting",
-    "newProduction": "Nouvelle production"
+    "newProduction": "Nouvelle production",
+    "productionCard": "Production"
   },
   "list": {
     "failedAt": "échec : {{stage}}",

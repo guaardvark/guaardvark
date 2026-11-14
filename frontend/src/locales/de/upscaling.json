@@ -94,7 +94,8 @@
     "generate": "Vorschau generieren",
     "originalFrame": "Originaler Frame",
     "upscaledFrame": "Hochskalierter Frame",
-    "backToVideo": "Zurück zum Video"
+    "backToVideo": "Zurück zum Video",
+    "empty": "Noch nichts zum Vorschauen."
   },
   "jobs": {
     "title": "Hochskalierungs-Aufträge",

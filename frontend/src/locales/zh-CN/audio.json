@@ -91,7 +91,8 @@
     "musicTab": "音乐",
     "fxTab": "FX 实验室",
     "retryLoaded": "已加载歌曲设置。修改后点击“生成”。",
-    "retryFailed": "无法加载该歌曲的设置。"
+    "retryFailed": "无法加载该歌曲的设置。",
+    "createCard": "创建"
   },
   "voice": {
     "title": "神经语音合成",

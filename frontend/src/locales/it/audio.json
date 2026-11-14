@@ -91,7 +91,8 @@
     "musicTab": "Musica",
     "fxTab": "FX Lab",
     "retryLoaded": "Impostazioni della canzone caricate. Modifica qualcosa, poi Genera.",
-    "retryFailed": "Impossibile caricare le impostazioni di quella canzone."
+    "retryFailed": "Impossibile caricare le impostazioni di quella canzone.",
+    "createCard": "Crea"
   },
   "voice": {
     "title": "Voce neurale",

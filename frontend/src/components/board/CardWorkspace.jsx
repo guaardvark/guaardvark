@@ -15,8 +15,11 @@ import useContextMenu from "../../hooks/useContextMenu";
 import { useLayout, useDashboardWidth } from "../../contexts/LayoutContext";
 import { useUiTranslation } from "../../i18n";
 
-// A workspace card holds forms and galleries; narrower than this they stop being usable.
-const MIN_CARD_PX = 420;
+// A workspace card holds forms and galleries. Once the narrowest card of the
+// arrangement would be under NARROW_CARD_PX the cards are stacked instead, in
+// columns at least STACKED_CARD_PX wide.
+const NARROW_CARD_PX = 360;
+const STACKED_CARD_PX = 420;
 
 /**
  * The arrangement to show for a saved one: saved cards keep their place and
@@ -108,7 +111,10 @@ const CardWorkspace = ({ boardKey, version = 1, cards }) => {
   // On a narrow page the cards are shown stacked at a readable width instead of
   // shrinking; that view is derived and nothing done in it is kept.
   const narrowest = Math.min(...defaults.map((item) => item.w));
-  const reflow = narrowReflow(gridSettings, width, narrowest, MIN_CARD_PX);
+  const reflow = {
+    isNarrow: narrowReflow(gridSettings, width, narrowest, NARROW_CARD_PX).isNarrow,
+    cardsPerRow: narrowReflow(gridSettings, width, narrowest, STACKED_CARD_PX).cardsPerRow,
+  };
   const shown = useMemo(() => {
     if (!reflow.isNarrow) return layout;
     const rows = barRows(ROW_HEIGHT_PX, CARD_MARGIN_PX * TILED.marginScale, TILED.barPx);

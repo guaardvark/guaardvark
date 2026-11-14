@@ -91,7 +91,8 @@
     "musicTab": "Música",
     "fxTab": "Laboratório de FX",
     "retryLoaded": "Configurações da música carregadas. Altere qualquer coisa e depois clique em Gerar.",
-    "retryFailed": "Não foi possível carregar as configurações dessa música."
+    "retryFailed": "Não foi possível carregar as configurações dessa música.",
+    "createCard": "Criar"
   },
   "voice": {
     "title": "Narração Neural",
