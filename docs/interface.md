@@ -151,7 +151,8 @@ wider.
 - **Code Editor**: the buttons at the top apply the balanced layout (20% / 60% / 20%)
   or reset the layout.
 - **Notes**: the layout button cycles Normal, Compact and Collapsed (bars down the
-  right; click one to go back to Normal). Double-click a note's title to rename it.
+  right; click one to go back to Normal). Double-click a note's title bar to minimize or
+  expand it; double-click the name of an open note to rename it.
   Closing a note moves it to the Closed notes list.
 - **Files**: folders and files sit on a desktop; drag the icons around and they settle
   on a grid. Double-click a folder to open it as a window. Each window switches between
