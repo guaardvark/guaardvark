@@ -307,6 +307,7 @@ const StickyNotesPage = () => {
   const [saveIndicator, setSaveIndicator] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { noteId, source }
   const [renameTarget, setRenameTarget] = useState(null); // { noteId, title }
+  const renameInputRef = useRef(null);
   const [gridContainerRef, gridWidth] = useBoardWidth(dashboardWidth);
   const stacking = useCardStacking();
   const noteRefs = useRef({});
@@ -1501,11 +1502,23 @@ const StickyNotesPage = () => {
         onClose={() => setRenameTarget(null)}
         maxWidth="xs"
         fullWidth
+        // The menu that opened this hands focus back to the note as it closes,
+        // which takes it from the field's autoFocus. Put the caret after the
+        // name once the dialog is up, so typing starts at once.
+        TransitionProps={{
+          onEntered: () => {
+            const input = renameInputRef.current;
+            if (!input) return;
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+          },
+        }}
       >
         <DialogTitle sx={{ fontSize: "0.9rem" }}>{t("notes.renameDialog.title")}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
+            inputRef={renameInputRef}
             fullWidth
             size="small"
             value={renameTarget?.title || ""}
