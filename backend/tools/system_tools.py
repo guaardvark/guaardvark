@@ -68,12 +68,13 @@ class SystemCommandTool(BaseTool):
     }
     
     # find(1) expressions that execute programs, delete or write files.
+    # -files0-from reads start paths from a file and prints its lines in errors.
     FIND_FORBIDDEN = {"-exec", "-execdir", "-ok", "-okdir", "-delete", "-fprint", "-fprint0",
-                      "-fprintf", "-fls"}
+                      "-fprintf", "-fls", "-files0-from"}
     # Options whose next argument is a value, not a path.
     VALUE_OPTIONS = {
         "grep": {"-m", "--max-count", "-A", "-B", "-C", "--after-context", "--before-context",
-                 "--context", "--label", "--color", "--colour", "-d", "-D"},
+                 "--context", "--label", "-d", "-D"},
         "head": {"-n", "-c", "--lines", "--bytes"},
         "tail": {"-n", "-c", "--lines", "--bytes"},
         "ls": {"-I", "--ignore", "--hide", "-w", "--width", "-T", "--tabsize", "--sort", "--time-style"},
@@ -92,29 +93,77 @@ class SystemCommandTool(BaseTool):
     def _path_args(self, base_cmd, args):
         """The args that name files or directories (checked for credential files
         and, when paths are confined, for containment)."""
+        return self._scan_args(base_cmd, args)[0]
+
+    def _scan_args(self, base_cmd, args):
+        """``(paths, options_end)``: the args that name files or directories,
+        and the index of the "--" that ends the options (``len(args)`` without one)."""
         paths, skip_next, pattern_seen = [], False, False
         value_opts = self.VALUE_OPTIONS.get(base_cmd, set())
         find_expr = False
+        options_end = len(args)
         for i, arg in enumerate(args):
             if skip_next:
                 skip_next = False
                 continue
+            if i > options_end:
+                # After "--" every argument is an operand, dash or not.
+                if base_cmd == "grep" and not pattern_seen:
+                    pattern_seen = True
+                    continue
+                paths.append(arg)
+                continue
             if base_cmd == "find":
+                if not find_expr:
+                    # Options that come before the start paths.
+                    if arg in ("-L", "-H", "-P", "--") or arg.startswith("-O"):
+                        continue
+                    if arg == "-D":
+                        skip_next = True
+                        continue
                 if find_expr or arg.startswith("-") or arg in ("(", ")", "!", ","):
                     find_expr = True  # everything after the first expression token is expression
                     continue
                 paths.append(arg)
                 continue
-            if base_cmd == "grep":
-                if arg in ("-e", "--regexp"):
-                    pattern_seen, skip_next = True, True
+            if arg == "--":
+                options_end = i
+                continue
+            if base_cmd == "grep" and arg.startswith("--"):
+                # --regexp=PAT and --file=FILE carry their value; getopt also
+                # accepts a unique prefix of --regexp.
+                name, eq, value = arg.partition("=")
+                if len(name) >= 5 and "--regexp".startswith(name):
+                    pattern_seen, skip_next = True, not eq
                     continue
-                if arg in ("-f", "--file"):
+                if name == "--file":
                     pattern_seen = True
-                    if i + 1 < len(args):
+                    if eq:
+                        paths.append(value)
+                    elif i + 1 < len(args):
                         paths.append(args[i + 1])
-                    skip_next = True
+                    skip_next = not eq
                     continue
+            elif base_cmd == "grep" and arg.startswith("-") and len(arg) > 1:
+                # A short cluster: -e and -f end it, with their value attached
+                # ("-e." / "-fpatterns.txt") or in the next argument.
+                handled = False
+                for pos, ch in enumerate(arg[1:], start=1):
+                    rest = arg[pos + 1:]
+                    if ch == "e":
+                        pattern_seen, skip_next, handled = True, not rest, True
+                    elif ch == "f":
+                        pattern_seen, handled = True, True
+                        if rest:
+                            paths.append(rest)
+                        elif i + 1 < len(args):
+                            paths.append(args[i + 1])
+                        skip_next = not rest
+                    elif ch in "ABCmdD":
+                        skip_next, handled = not rest, True
+                    if handled:
+                        break
+                continue
             if arg in value_opts:
                 skip_next = True
                 continue
@@ -124,7 +173,7 @@ class SystemCommandTool(BaseTool):
                 pattern_seen = True  # first positional is the pattern
                 continue
             paths.append(arg)
-        return paths
+        return paths, options_end
 
     def execute(self, **kwargs) -> ToolResult:
         """Execute the system command"""
@@ -176,6 +225,17 @@ class SystemCommandTool(BaseTool):
                     error="Redirects are not supported: there is no shell, and the output comes back to you directly. Drop the redirect and run the command again.",
                 )
 
+            # Options that read a list of names or dates from a file print that
+            # file's lines back in their error messages.
+            if base_cmd == "date" and any(
+                (a.startswith("--") and len(a.partition("=")[0]) >= 3 and "--file".startswith(a.partition("=")[0]))
+                or (a.startswith("-") and not a.startswith("--") and "f" in a)
+                for a in parts[1:]
+            ):
+                return ToolResult(success=False, error="date -f/--file is not allowed: it reads a file")
+            if base_cmd == "wc" and any(a.startswith("--f") for a in parts[1:]):
+                return ToolResult(success=False, error="wc --files0-from is not allowed: name the files directly")
+
             if base_cmd == "find":
                 bad = [a for a in parts[1:] if a in self.FIND_FORBIDDEN or a.startswith("-fprint")]
                 if bad:
@@ -223,7 +283,15 @@ class SystemCommandTool(BaseTool):
             # Recursive greps must not print secrets from credential files.
             from backend.utils.path_safety import SENSITIVE_PATTERNS
 
-            parts = parts[:1] + [f"--exclude={p}" for p in SENSITIVE_PATTERNS] + ["--exclude-dir=.git"] + parts[1:]
+            excludes = [f"--exclude={p}" for p in SENSITIVE_PATTERNS]
+            args = parts[1:]
+            end = self._scan_args("grep", args)[1]
+            # grep lets the last matching --include/--exclude win, so a caller's
+            # --include would re-admit a credential file: repeat ours after the
+            # caller's options. The first is doubled in case a trailing option
+            # that wants a value takes it.
+            again = excludes[:1] + excludes if any(a.startswith("--inc") for a in args[:end]) else []
+            parts = parts[:1] + excludes + ["--exclude-dir=.git"] + args[:end] + again + args[end:]
 
         try:
             # Execute

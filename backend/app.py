@@ -1259,7 +1259,9 @@ def _initialize_app_components(app):
     # otherwise starts with the first request that needs it.
     try:
         from backend.services.chat_keep_ready import keep_ready_on
-        if keep_ready_on() and os.environ.get("CELERY_WORKER_MODE", "false").lower() != "true":
+        from backend.utils.process_role import one_shot_command
+        if (keep_ready_on() and os.environ.get("CELERY_WORKER_MODE", "false").lower() != "true"
+                and not one_shot_command()):
             from backend.services.gpu_memory_orchestrator import get_orchestrator
             get_orchestrator()
     except Exception as e:
@@ -1757,18 +1759,24 @@ def initialize_llm_and_index_async():
             except Exception:
                 _ollama_enabled = True  # Fail-open — better to warm up than leave a real user without chat
 
+            from backend.utils.process_role import one_shot_command as _one_shot_command
             if os.environ.get("CELERY_WORKER_MODE", "false").lower() == "true":
                 # The worker builds the app inside its first task, often a GPU
                 # render that has just evicted Ollama; a warm-up here takes
                 # the card back mid-render. The web process warms chat.
                 app.logger.info("[LLM-Init] Step 5/6: Skipping model warmup in the Celery worker")
+            elif _one_shot_command():
+                # flask db upgrade, flask shell: gone before a load finishes.
+                app.logger.info("[LLM-Init] Step 5/6: Skipping model warmup in a one-shot command")
             elif _ollama_enabled:
                 app.logger.info("[LLM-Init] Step 5/6: Warming up model...")
                 try:
                     model_name = getattr(llm, "model", "unknown")
                     app.logger.info(f"[LLM-Init] Warming up model '{model_name}' (loading into GPU)...")
                     warmup_start = time.time()
-                    llm.complete("warmup")
+                    from backend.utils.ollama_resource_manager import load_in_flight
+                    with load_in_flight(model_name, getattr(llm, "context_window", None)):
+                        llm.complete("warmup")
                     warmup_duration = time.time() - warmup_start
                     app.logger.info(f"[LLM-Init] Model warmup completed in {warmup_duration:.1f}s — ready for chat")
                 except Exception as e:
