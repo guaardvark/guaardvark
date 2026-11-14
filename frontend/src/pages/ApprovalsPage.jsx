@@ -36,6 +36,7 @@ import {
   Edit as EditIcon,
   Refresh as RefreshIcon,
 } from "@mui/icons-material";
+import { useSearchParams } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
 import RejectPublishDialog from "../components/connections/RejectPublishDialog";
 import EditPublishDialog from "../components/connections/EditPublishDialog";
@@ -131,10 +132,14 @@ const editedLine = (record) => {
   return translate("approvals.publishes.edited", { when });
 };
 
+// Tabs a link may open the page on (?tab=outreach).
+const TABS = ["pending", "outreach", "code", "chat_tools", "history"];
+
 const ApprovalsPage = () => {
   const { t } = useUiTranslation();
   const { showMessage } = useSnackbar();
-  const [tab, setTab] = useState("pending");
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => (TABS.includes(searchParams.get("tab")) ? searchParams.get("tab") : "pending"));
   const [connections, setConnections] = useState([]);
   const [queued, setQueued] = useState([]);
   const [history, setHistory] = useState([]);

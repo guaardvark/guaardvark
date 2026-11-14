@@ -33,6 +33,8 @@ const CARD_ROUTES = {
   csvgen: "/file-generation",
   codegen: "/code-editor",
   imggen: "/batch-images",
+  videogen: "/video",
+  approvals: "/approvals",
   files: "/documents",
   family: "/settings",
   autoresearch: "/autoresearch",
