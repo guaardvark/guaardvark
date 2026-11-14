@@ -83,6 +83,34 @@
     "empty": "No image batches yet.",
     "viewAll": "View all batches"
   },
+  "videogen": {
+    "title": "Videos",
+    "newVideo": "New Video",
+    "library": "Media Library",
+    "empty": "No videos yet."
+  },
+  "approvals": {
+    "title": "Waiting for You",
+    "summary_one": "{{count}} item is waiting for your decision.",
+    "summary_other": "{{count}} items are waiting for your decision.",
+    "empty": "Nothing is waiting for you.",
+    "showAll": "Click to read the whole draft",
+    "more": "{{count}} more on the Approvals page",
+    "openOn": "Open on the Approvals page, {{tab}} tab",
+    "sections": {
+      "outreach": "Outreach drafts",
+      "ready": "Approved, ready to post",
+      "publishes": "Publishes",
+      "code": "Held code changes"
+    }
+  },
+  "media": {
+    "open": "Open {{name}}",
+    "loadFailed": {
+      "image": "Could not load the latest images: {{message}}",
+      "video": "Could not load the latest videos: {{message}}"
+    }
+  },
   "files": {
     "title": "File Manager"
   },

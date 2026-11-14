@@ -7320,6 +7320,78 @@
       "en": "cdd809b22e8b",
       "out": "babedec42526"
     },
+    "videogen.title": {
+      "en": "56b71e89fb10",
+      "out": "56b71e89fb10"
+    },
+    "videogen.newVideo": {
+      "en": "9a465bd914ef",
+      "out": "1f8f60264c79"
+    },
+    "videogen.library": {
+      "en": "490b38f739b0",
+      "out": "37730199d568"
+    },
+    "videogen.empty": {
+      "en": "9c8086023515",
+      "out": "4696ca532374"
+    },
+    "approvals.title": {
+      "en": "c63965a881e7",
+      "out": "bc27d589a95e"
+    },
+    "approvals.summary_one": {
+      "en": "988ac3b9eb00",
+      "out": "19552493d715"
+    },
+    "approvals.summary_other": {
+      "en": "3b6baa519fd0",
+      "out": "2703ad46d2b4"
+    },
+    "approvals.empty": {
+      "en": "cc5796a4fca9",
+      "out": "0ce60ebe1f03"
+    },
+    "approvals.showAll": {
+      "en": "641b54b77601",
+      "out": "fd7e1d48ed5f"
+    },
+    "approvals.more": {
+      "en": "3eef820223d9",
+      "out": "1417828510ea"
+    },
+    "approvals.openOn": {
+      "en": "c8325d512d79",
+      "out": "d90ae58fd34a"
+    },
+    "approvals.sections.outreach": {
+      "en": "126af9818a22",
+      "out": "ccb4e0c3b5db"
+    },
+    "approvals.sections.ready": {
+      "en": "dd15a3c619aa",
+      "out": "0e78c736ad93"
+    },
+    "approvals.sections.publishes": {
+      "en": "3941bab9e177",
+      "out": "62ab02fe56d3"
+    },
+    "approvals.sections.code": {
+      "en": "fdd1e17acbb7",
+      "out": "5eb443400722"
+    },
+    "media.open": {
+      "en": "49e4948d460c",
+      "out": "04d2b60f813d"
+    },
+    "media.loadFailed.image": {
+      "en": "115cb4a301b8",
+      "out": "69ea4e439535"
+    },
+    "media.loadFailed.video": {
+      "en": "68d99f0119fd",
+      "out": "09c8a17570a2"
+    },
     "files.title": {
       "en": "0f58d79af66b",
       "out": "3f38fe3df8d7"
