@@ -153,3 +153,22 @@ export function repackRows(layout, cols, cardsPerRow, fallbackH) {
 export function nextMode(modes, mode) {
   return modes[(modes.indexOf(mode) + 1) % modes.length];
 }
+
+/**
+ * Layouts saved before minimizing left a card's size alone hold a minimized
+ * card at its shrunk height (often pinned there with minH/maxH), with the size
+ * it opens to kept beside the layout in `originalDimensions`. Put those sizes
+ * back on the items and lift the pins.
+ * @param {(item: object) => object} [fallback]  size for a minimized card with no kept size
+ */
+export function restoreMinimizedSizes(layout, minimized, originalDimensions, fallback) {
+  const kept = originalDimensions && typeof originalDimensions === "object" ? originalDimensions : {};
+  return layout.map((item) => {
+    if (!minimized?.[item.i]) return item;
+    const size = kept[item.i] || fallback?.(item);
+    if (!size) return item;
+    const { minH: _minH, maxH: _maxH, ...rest } = item;
+    const pinned = item.maxH !== undefined && item.maxH === item.minH;
+    return { ...(pinned ? rest : item), w: size.w ?? item.w, h: size.h ?? item.h };
+  });
+}

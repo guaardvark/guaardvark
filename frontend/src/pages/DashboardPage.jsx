@@ -58,7 +58,7 @@ import {
   visibleLayout,
   withHiddenItems,
 } from "../components/dashboard/dashboardCardVisibility";
-import { mergeSavedLayout, restoreMinimizedSizes } from "../components/dashboard/dashboardSavedLayout";
+import { mergeSavedLayout } from "../components/dashboard/dashboardSavedLayout";
 import {
   CardBoard,
   barRows,
@@ -69,6 +69,7 @@ import {
   COMPACT_SCALE,
   nextMode,
   repackRows,
+  restoreMinimizedSizes,
   saveBoardState,
   useBoardGestures,
   useBoardWidth,
