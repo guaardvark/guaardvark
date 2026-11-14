@@ -1,7 +1,7 @@
 // Foreground colours for content on a user-chosen background (a dashboard
 // card's colour), so text, icons, dividers, inputs and chips stay readable
 // whatever the app theme is.
-import { darken, decomposeColor, getContrastRatio, lighten } from "@mui/material/styles";
+import { createTheme, darken, decomposeColor, getContrastRatio, lighten } from "@mui/material/styles";
 import { deepmerge } from "@mui/utils";
 
 const WHITE = [255, 255, 255];
@@ -48,6 +48,22 @@ export function foregroundFor(background) {
 }
 
 /**
+ * What a translucent `color` looks like over `backdrop`, as an opaque colour;
+ * `color` itself when it is opaque or cannot be parsed. Contrast has to be
+ * judged against this, not against the colour with its alpha dropped.
+ */
+export function flattenOver(color, backdrop) {
+  try {
+    const [r, g, b, a = 1] = decomposeColor(color).values;
+    if (a >= 1) return color;
+    const under = decomposeColor(backdrop).values;
+    return rgb([r, g, b].map((c, i) => c * a + under[i] * (1 - a)));
+  } catch {
+    return color;
+  }
+}
+
+/**
  * `color` if it reads as text on `background` (4.5:1), otherwise the nearest
  * lighter (toward white ink) or darker shade of it that does.
  */
@@ -89,10 +105,12 @@ function tonesOn(palette, fg) {
 export function themeOnColor(background) {
   const fg = background ? foregroundFor(background) : null;
   if (!fg) return null;
-  return (outer) =>
-    deepmerge(outer, {
+  return (outer) => {
+    // Nothing above provides a theme (a card rendered on its own): start from MUI's default.
+    const base = outer?.palette ? outer : createTheme();
+    return deepmerge(base, {
       palette: {
-        ...tonesOn(outer.palette, fg),
+        ...tonesOn(base.palette, fg),
         mode: fg.mode,
         text: fg.text,
         divider: fg.divider,
@@ -100,4 +118,5 @@ export function themeOnColor(background) {
         background: { default: background, paper: background },
       },
     });
+  };
 }

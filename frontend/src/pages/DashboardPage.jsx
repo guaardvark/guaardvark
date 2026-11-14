@@ -1,13 +1,11 @@
 // frontend/src/pages/DashboardPage.jsx
-// Version 5.0: 4 layout presets, one-shot placement, free movement, click-to-top z-index
-// - 4-way layout toggle: Normal → Compact → Compact Layered → Collapsed
-// - Each toggle is a ONE-SHOT placement action — positions cards then leaves them fully free
-// - All modes: draggable, resizable, overlappable, no snapping (compactType=null always)
-// - Compact Layered: real DashboardCardWrapper bars with card colors, indicators, expand-on-double-click
-// - Collapsed: simple text-only Paper bars
-// - Clicking any card brings it to the top z-layer
-// - Right-click: each card has its own menu (Hide card among them); the empty grid
-//   has one for layout mode, reset, hidden cards and Sticky Notes
+// The dashboard is a card board (components/board): the board owns dragging,
+// resizing, stacking and minimizing; this page owns which cards exist, the four
+// layout modes (Normal, Compact, Compact Layered, Mode-X), hidden cards, card
+// colours and where the arrangement is saved.
+// - Each mode change is a one-shot placement; the cards are then free to move.
+// - Right-click: each card has its own menu (Hide card among them); the empty
+//   board has one for layout mode, reset, hidden cards and Sticky Notes.
 // WARNING: Visual/UX changes to this file are forbidden without explicit written approval from the project maintainer.
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -17,14 +15,8 @@ import {
   Paper,
   Typography,
   Tooltip,
-  useTheme,
   IconButton,
 } from "@mui/material";
-import ReactGridLayout from "react-grid-layout/legacy";
-
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
-
 // MUI Icons
 import {
   ViewModule,
@@ -67,6 +59,22 @@ import {
   withHiddenItems,
 } from "../components/dashboard/dashboardCardVisibility";
 import { mergeSavedLayout } from "../components/dashboard/dashboardSavedLayout";
+import {
+  CardBoard,
+  barRows,
+  barsPreset,
+  compactPreset,
+  loadBoardState,
+  narrowReflow,
+  COMPACT_SCALE,
+  nextMode,
+  repackRows,
+  restoreMinimizedSizes,
+  saveBoardState,
+  useBoardGestures,
+  useBoardWidth,
+  useCardStacking,
+} from "../components/board";
 
 // In the order the Compact and bar layouts place them.
 const cardComponents = {
@@ -124,13 +132,11 @@ const LAYOUT_MODE_ICONS = {
 
 const DashboardPage = () => {
   const { t } = useUiTranslation();
-  const theme = useTheme();
   const navigate = useNavigate();
   const { gridSettings } = useLayout();
   const dashboardWidth = useDashboardWidth();
 
   const {
-    CONTAINER_PADDING_PX,
     CARD_MARGIN_PX,
     COLS_COUNT,
     ROW_HEIGHT_PX,
@@ -148,32 +154,10 @@ const DashboardPage = () => {
   const [hiddenCards, setHiddenCards] = useState({});
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const backgroundMenu = useContextMenu();
-  const [originalDimensions, setOriginalDimensions] = useState({});
-  const [cardZIndex, setCardZIndex] = useState({});
-  const [maxZIndex, setMaxZIndex] = useState(0);
   const [layoutMode, setLayoutMode] = useState("normal");
-  const [layoutKey, setLayoutKey] = useState(0); // Increments on every toggle to force RGL remount
-  const gridContainerRef = useRef(null);
-  const [gridWidth, setGridWidth] = useState(dashboardWidth);
-
-  // Keep gridWidth in sync with the responsive dashboardWidth
-  useEffect(() => {
-    if (dashboardWidth > 0) setGridWidth(dashboardWidth);
-  }, [dashboardWidth]);
-
-  // Also measure actual container width with ResizeObserver as a fallback
-  useEffect(() => {
-    const el = gridContainerRef.current;
-    if (!el) return;
-    const measure = () => {
-      const w = el.clientWidth;
-      if (w > 0) setGridWidth(w);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const [layoutKey, setLayoutKey] = useState(0); // Increments on every toggle to force the grid to remount
+  const [gridContainerRef, gridWidth] = useBoardWidth(dashboardWidth);
+  const stacking = useCardStacking();
 
   // Normal layout: full-size cards in grid
   const defaultFixedLayout = useMemo(() => {
@@ -209,88 +193,64 @@ const DashboardPage = () => {
     [hiddenCards],
   );
 
-  // Compact layout: smaller cards arranged in rows filling available width
-  const compactLayout = useMemo(() => {
-    const { cardGridW, cardGridH } = gridSettings;
-    const compactW = Math.round(cardGridW * 0.71);
-    const compactH = Math.round(cardGridH * 0.71);
-    const cardIds = visibleCardIds;
-    const colWidthPx = gridWidth / COLS_COUNT;
-    const cardPixelW = compactW * colWidthPx;
-    const cardsPerRow = Math.max(1, Math.floor(gridWidth / cardPixelW));
+  // Compact: smaller cards in rows filling the width.
+  const compactLayout = useMemo(
+    () => compactPreset(visibleCardIds, gridSettings, gridWidth),
+    [visibleCardIds, gridSettings, gridWidth],
+  );
 
-    return cardIds.map((id, idx) => ({
-      i: id,
-      x: (idx % cardsPerRow) * compactW,
-      y: Math.floor(idx / cardsPerRow) * compactH,
-      w: compactW,
-      h: compactH,
-      minW: cardMinGridW,
-      isDraggable: true,
-      isResizable: true,
-    }));
-  }, [gridSettings, gridWidth, COLS_COUNT, cardMinGridW, visibleCardIds]);
-
-  // Layered layout: stacked bars on right side (same geometry as collapsed,
-  // but renders real minimized DashboardCardWrapper components)
-  const layeredLayout = useMemo(() => {
-    const cardIds = visibleCardIds;
-    const colWidthPx = gridWidth / COLS_COUNT;
-    const barW = Math.round(300 / colWidthPx);
-    const barH = Math.round(50 / ROW_HEIGHT_PX);
-    const barX = Math.max(0, COLS_COUNT - barW);
-    return cardIds.map((id, idx) => ({
-      i: id,
-      x: barX,
-      y: idx * barH,
-      w: barW,
-      h: barH,
-      minW: cardMinGridW,
-      isDraggable: true,
-      isResizable: true,
-    }));
-  }, [gridWidth, COLS_COUNT, ROW_HEIGHT_PX, cardMinGridW, visibleCardIds]);
+  // Layered: every card minimized to its bar, stacked down the right edge.
+  // Mode-X: the same stack with slots tall enough to show each card's content.
+  const LAYERED_BAR_PX = 50;
+  const MODEX_BAR_PX = 150;
+  const barsLayout = useCallback(
+    (barPx) => barsPreset(visibleCardIds, gridSettings, gridWidth, barPx),
+    [visibleCardIds, gridSettings, gridWidth],
+  );
+  const allMinimized = useCallback(
+    () => Object.fromEntries(Object.keys(cardComponents).map((id) => [id, true])),
+    [],
+  );
 
   const [layout, setLayout] = useState(defaultFixedLayout);
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const minimizedRef = useRef(minimizedCards);
+  minimizedRef.current = minimizedCards;
+  const gestures = useBoardGestures(
+    useCallback(() => layoutRef.current, []),
+    useCallback(() => minimizedRef.current, []),
+  );
   // Store the user's normal-mode layout separately so switching modes doesn't lose it
   const normalLayoutRef = useRef(null);
   const { activeModel, isLoadingModel, modelError } = useStatus();
 
-  // Load saved dashboard state (layout, minimized states, colors, originalDimensions, layoutMode)
+  // Load the saved board: layout, minimized cards, colours, hidden cards, layout mode.
   useEffect(() => {
+    const applyDefaults = () => {
+      normalLayoutRef.current = defaultFixedLayout;
+      setLayout(defaultFixedLayout);
+      setCardColors({});
+      setMinimizedCards({});
+      setHiddenCards({});
+      setLayoutMode("normal");
+    };
+    const isMap = (value) => Boolean(value) && typeof value === "object";
+
     const fetchDashboardState = async () => {
       setLayoutError(null);
       try {
-        const res = await fetch("/api/state/dashboard");
-        if (!res.ok) {
-          if (res.status === 404) {
-            console.warn("Dashboard: No saved state found. Using defaults.");
-            setLayout(defaultFixedLayout);
-            normalLayoutRef.current = defaultFixedLayout;
-            setCardColors({});
-            setMinimizedCards({});
-            setOriginalDimensions({});
-            setHiddenCards({});
-            setLayoutMode("normal");
-          } else {
-            throw new Error(
-              t("dashboard.fetchStateFailed", { statusText: res.statusText, status: res.status }),
-            );
-          }
+        const savedState = await loadBoardState("dashboard");
+        if (!savedState) {
+          applyDefaults();
         } else {
-          const savedState = await res.json();
-
-          // Load layout mode
           if (savedState.layoutMode && LAYOUT_MODES.includes(savedState.layoutMode)) {
             setLayoutMode(savedState.layoutMode);
           }
+          const minimized = isMap(savedState.minimizedCards) ? savedState.minimizedCards : {};
 
-          // Load layout
           let layoutToApply = null;
-          if (
-            Array.isArray(savedState.layout) &&
-            savedState.layout.length > 0
-          ) {
+          if (Array.isArray(savedState.layout) && savedState.layout.length > 0) {
             layoutToApply = savedState.layout;
           } else if (Array.isArray(savedState) && savedState.length > 0) {
             layoutToApply = savedState;
@@ -299,10 +259,11 @@ const DashboardPage = () => {
           if (layoutToApply) {
             // Half a default card, so an arrangement made before a card existed
             // stays in view under the row the new card arrives in.
-            const validatedLayout = mergeSavedLayout(defaultFixedLayout, layoutToApply, {
+            const merged = mergeSavedLayout(defaultFixedLayout, layoutToApply, {
               addedRowH: Math.round(cardGridH / 2),
               extraItemProps: { minW: cardMinGridW, minH: cardMinGridH, isDraggable: true, isResizable: true },
             });
+            const validatedLayout = restoreMinimizedSizes(merged, minimized, savedState.originalDimensions);
             normalLayoutRef.current = validatedLayout;
             setLayout(validatedLayout);
           } else {
@@ -310,210 +271,87 @@ const DashboardPage = () => {
             setLayout(defaultFixedLayout);
           }
 
-          // Load card colors
-          if (
-            savedState.cardColors &&
-            typeof savedState.cardColors === "object"
-          ) {
-            setCardColors(savedState.cardColors);
-          }
-
-          // Load minimized states
-          if (
-            savedState.minimizedCards &&
-            typeof savedState.minimizedCards === "object"
-          ) {
-            setMinimizedCards(savedState.minimizedCards);
-          }
-
-          // Load original dimensions
-          if (
-            savedState.originalDimensions &&
-            typeof savedState.originalDimensions === "object"
-          ) {
-            setOriginalDimensions(savedState.originalDimensions);
-          }
-
-          if (savedState.hiddenCards && typeof savedState.hiddenCards === "object") {
-            setHiddenCards(savedState.hiddenCards);
-          }
+          if (isMap(savedState.cardColors)) setCardColors(savedState.cardColors);
+          setMinimizedCards(minimized);
+          if (isMap(savedState.hiddenCards)) setHiddenCards(savedState.hiddenCards);
         }
       } catch (e) {
         console.error("Dashboard: Error fetching or processing state:", e);
-        setLayoutError(
-          t("dashboard.loadStateFailed", { message: e.message }),
-        );
-        normalLayoutRef.current = defaultFixedLayout;
-        setLayout(defaultFixedLayout);
-        setCardColors({});
-        setMinimizedCards({});
-        setOriginalDimensions({});
-        setHiddenCards({});
-        setLayoutMode("normal");
+        const message = e.status
+          ? t("dashboard.fetchStateFailed", { statusText: e.statusText, status: e.status })
+          : e.message;
+        setLayoutError(t("dashboard.loadStateFailed", { message }));
+        applyDefaults();
       }
       setInitialStateLoaded(true);
     };
     fetchDashboardState();
   }, [defaultFixedLayout, cardMinGridW, cardMinGridH, cardGridH]);
 
-  // One-time effect: apply mode-specific layout after initial state is loaded
-  // Does NOT re-fire on layoutMode changes — handleCycleLayoutMode applies layout directly
+  // Once, after the saved state is in: place the cards for a saved preset mode.
+  // Later mode changes place them in handleCycleLayoutMode.
   useEffect(() => {
     if (!initialStateLoaded) return;
     if (layoutMode === "compact") {
       setLayout(compactLayout);
     } else if (layoutMode === "layered") {
-      setLayout(layeredLayout);
-      // Ensure all cards minimized in layered mode with standard expand sizes
-      const allMinimized = {};
-      const dims = {};
-      Object.keys(cardComponents).forEach((id) => {
-        allMinimized[id] = true;
-        const item = defaultFixedLayout.find((l) => l.i === id);
-        if (item) dims[id] = { w: item.w, h: item.h };
-      });
-      setMinimizedCards(allMinimized);
-      setOriginalDimensions(dims);
+      setLayout(barsLayout(LAYERED_BAR_PX));
+      setMinimizedCards(allMinimized());
     } else if (layoutMode === "modex") {
-      // Content-visible bars: taller than layered so content is readable
-      const mxCardIds = visibleCardIds;
-      const mxColWidthPx = gridWidth / COLS_COUNT;
-      const mxBarW = Math.round(300 / mxColWidthPx);
-      const mxBarH = Math.round(150 / ROW_HEIGHT_PX);
-      const mxBarX = Math.max(0, COLS_COUNT - mxBarW);
-      setLayout(mxCardIds.map((id, idx) => ({
-        i: id,
-        x: mxBarX,
-        y: idx * mxBarH,
-        w: mxBarW,
-        h: mxBarH,
-        minW: cardMinGridW,
-        isDraggable: true,
-        isResizable: true,
-      })));
+      setLayout(barsLayout(MODEX_BAR_PX));
       setMinimizedCards({});
-      setOriginalDimensions({});
     }
     // normal: already loaded from saved state
   }, [initialStateLoaded]);
 
-  // Apply z-indices to grid item elements after renders.
-  useEffect(() => {
-    Object.entries(cardZIndex).forEach(([cardId, zIdx]) => {
-      const el = document.querySelector(`[data-card-id="${cardId}"]`);
-      const gridItem = el?.closest(".react-grid-item") || el;
-      if (gridItem) gridItem.style.zIndex = zIdx;
-    });
-  }, [cardZIndex, layout, layoutKey]);
-
-  // Save dashboard state (layout, minimized states, colors, originalDimensions, layoutMode, hiddenCards)
+  // Save the board. The layout saved is always the Normal one: presets are derived.
   const saveDashboardState = useCallback(
-    async (newLayout, newCardColors, newMinimizedCards, newLayoutMode, newOriginalDimensions, newHiddenCards) => {
+    async (newLayout, newCardColors, newMinimizedCards, newLayoutMode, newHiddenCards) => {
       try {
-        const stateToSave = {
+        await saveBoardState("dashboard", {
           layout: normalLayoutRef.current || newLayout || layout,
           cardColors: newCardColors || cardColors,
           minimizedCards: newMinimizedCards || minimizedCards,
-          originalDimensions: newOriginalDimensions !== undefined ? newOriginalDimensions : originalDimensions,
           layoutMode: newLayoutMode !== undefined ? newLayoutMode : layoutMode,
           hiddenCards: newHiddenCards !== undefined ? newHiddenCards : hiddenCards,
           lastSaved: new Date().toISOString(),
-        };
-
-        const res = await fetch("/api/state/dashboard", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(stateToSave),
         });
-
-        if (!res.ok) {
-          throw new Error(`Failed to save dashboard state (${res.status})`);
-        }
         setLayoutError(null);
       } catch (err) {
         console.error("Failed to save dashboard state:", err);
         setLayoutError(t("dashboard.saveStateFailed"));
       }
     },
-    [layout, cardColors, minimizedCards, originalDimensions, layoutMode, hiddenCards],
+    [layout, cardColors, minimizedCards, layoutMode, hiddenCards],
   );
 
-  // Apply a single card's z-index to its react-grid-item wrapper.
-  const applyZIndexToDOM = useCallback((cardId, zIdx) => {
-    const el = document.querySelector(`[data-card-id="${cardId}"]`);
-    const gridItem = el?.closest(".react-grid-item") || el;
-    if (gridItem) gridItem.style.zIndex = zIdx;
-  }, []);
+  // On a narrow board the two card-grid modes are shown re-packed into columns
+  // of readable width instead of shrinking; the bar modes are narrow strips
+  // already and are left alone.
+  const reflow = narrowReflow(
+    gridSettings,
+    gridWidth,
+    layoutMode === "compact" ? Math.round(cardGridW * COMPACT_SCALE) : cardGridW,
+  );
+  const isNarrow = (layoutMode === "normal" || layoutMode === "compact") && reflow.isNarrow;
 
-  // Re-apply ALL z-indices (used after drag ends when RGL resets styles)
-  const applyAllZIndices = useCallback(() => {
-    Object.entries(cardZIndex).forEach(([id, z]) => applyZIndexToDOM(id, z));
-  }, [cardZIndex, applyZIndexToDOM]);
-
-  const handleCardClick = useCallback((cardId) => {
-    const newMaxZIndex = maxZIndex + 1;
-    setMaxZIndex(newMaxZIndex);
-    setCardZIndex(prev => ({
-      ...prev,
-      [cardId]: newMaxZIndex
-    }));
-    applyZIndexToDOM(cardId, newMaxZIndex);
-  }, [maxZIndex, applyZIndexToDOM]);
-
-  // ── Responsive reflow (scalars) ───────────────────────────────────────────
-  // The grid uses a fixed COLS_COUNT (175) with a responsive pixel width, so on a
-  // narrow viewport every card scales down proportionally — "two thin". Rather than
-  // shrink (or hide cards off the right edge), once a mode's target card would drop
-  // below MIN_CARD_PX we re-pack the cards into a grid whose columns are always
-  // >=300px, wrapping into more rows (see repackLayout below). Both card-grid modes
-  // reflow (normal AND compact); the bar modes (layered/modex) are intentional narrow
-  // strips and are left alone.
-  const MIN_CARD_PX = 300;
-  const reflowEligible = layoutMode === "normal" || layoutMode === "compact";
-  // RGL's real geometry: colWidth = (width - margin*(cols-1) - padding*2)/cols, and a
-  // card spanning `span` cols renders at colWidth*span + (span-1)*margin px. (colWidth
-  // can be "negative" with this many columns — it nets out positive once the in-card
-  // margins are added, which is exactly how RGL itself computes it.)
-  const colWidthPx =
-    COLS_COUNT > 0
-      ? (gridWidth - CARD_MARGIN_PX * (COLS_COUNT - 1) - CONTAINER_PADDING_PX * 2) / COLS_COUNT
-      : 0;
-  const cardPx = (span) => colWidthPx * span + Math.max(0, span - 1) * CARD_MARGIN_PX;
-  // A target card for the active mode (compact cards are ~0.71x normal). If a target
-  // card would render under MIN_CARD_PX at the current width, we re-pack.
-  const targetCols = layoutMode === "compact" ? Math.round(cardGridW * 0.71) : cardGridW;
-  const isNarrow = reflowEligible && gridWidth > 0 && cardPx(targetCols) < MIN_CARD_PX;
-  // Most cards per row whose column still renders >=300px (using RGL's real width).
-  let cardsPerRow = 1;
-  for (let n = 2; n <= 8; n++) {
-    if (cardPx(Math.floor(COLS_COUNT / n)) >= MIN_CARD_PX) cardsPerRow = n;
-    else break;
-  }
-
-  // Use onDragStop/onResizeStop instead of onLayoutChange.
-  // onLayoutChange fires on EVERY layout change including programmatic ones (toggle),
-  // which overwrites preset positions. onDragStop/onResizeStop only fire on USER actions.
+  // A drag or resize ended. The grid also reports programmatic changes through
+  // onLayoutChange, which would overwrite a preset; these two only fire for a person.
   const onUserLayoutChange = useCallback(
-    (newLayout) => {
-      // In the narrow re-packed view the layout is derived from the saved free
-      // layout — don't let drags/resizes here overwrite the user's wide layout.
+    (reported, fromDrag) => {
+      // The re-packed view is derived from the saved layout; nothing done in it is kept.
       if (isNarrow) return;
-      const validLayout = withHiddenItems(
-        newLayout.filter((item) => item !== undefined),
-        layout,
-        hiddenCards,
-      );
-      // Only persist to normalLayoutRef in normal mode — dragging in
-      // compact/layered modes must NOT pollute the normal layout.
+      const settled = gestures.settle(reported, fromDrag);
+      if (!settled) return;
+      const validLayout = withHiddenItems(settled, layout, hiddenCards);
+      // Dragging in a preset mode must not change the Normal layout.
       if (layoutMode === "normal") {
         normalLayoutRef.current = validLayout;
       }
       setLayout(validLayout);
       saveDashboardState(validLayout, cardColors, minimizedCards);
-      // Re-apply z-indices after RGL finishes — drag end resets inline styles
-      requestAnimationFrame(() => applyAllZIndices());
     },
-    [cardColors, minimizedCards, saveDashboardState, layoutMode, applyAllZIndices, isNarrow, layout, hiddenCards],
+    [cardColors, minimizedCards, saveDashboardState, layoutMode, gestures, isNarrow, layout, hiddenCards],
   );
 
   // A null colour resets the card to the theme's.
@@ -527,53 +365,25 @@ const DashboardPage = () => {
     [cardColors, layout, minimizedCards, saveDashboardState],
   );
 
+  // Minimizing leaves the card's place and size alone: the board shows its bar
+  // and the stored size is what it opens to again.
   const handleToggleMinimize = useCallback(
     (cardId) => {
-      // Allow minimize/expand in all modes (not just normal)
-      const newMinimizedCards = {
-        ...minimizedCards,
-        [cardId]: !minimizedCards[cardId],
-      };
+      const expanding = Boolean(minimizedCards[cardId]);
+      gestures.beginToggle(cardId);
+      const newMinimizedCards = { ...minimizedCards, [cardId]: !expanding };
       setMinimizedCards(newMinimizedCards);
 
-      // Store original dimensions when minimizing, restore when expanding
-      const newOriginalDimensions = { ...originalDimensions };
-      const adjustedLayout = layout.map((item) => {
-        if (item.i === cardId) {
-          if (newMinimizedCards[cardId]) {
-            // Minimizing: store original dimensions, keep x/y and w
-            newOriginalDimensions[cardId] = { w: item.w, h: item.h };
-            return {
-              ...item,
-              h: cardMinGridH, // Only shrink height
-            };
-          } else {
-            // Expanding: restore original height, keep current x/y position
-            const original = newOriginalDimensions[cardId];
-            if (original) {
-              delete newOriginalDimensions[cardId];
-              return {
-                ...item,
-                w: original.w,
-                h: original.h,
-              };
-            }
-            return item;
-          }
-        }
-        return item;
-      });
-
-      setOriginalDimensions(newOriginalDimensions);
-      setLayout(adjustedLayout);
-      // Only update normalLayoutRef in normal mode — dragging/minimizing in
-      // compact/layered/modex modes must NOT pollute the normal layout.
-      if (layoutMode === "normal") {
-        normalLayoutRef.current = adjustedLayout;
+      // A bar in the Layered stack has no size of its own; it opens at the card's default.
+      let nextLayout = layout;
+      const size = expanding && layoutMode === "layered" && defaultFixedLayout.find((item) => item.i === cardId);
+      if (size) {
+        nextLayout = layout.map((item) => (item.i === cardId ? { ...item, w: size.w, h: size.h } : item));
+        setLayout(nextLayout);
       }
-      saveDashboardState(adjustedLayout, cardColors, newMinimizedCards, undefined, newOriginalDimensions);
+      saveDashboardState(nextLayout, cardColors, newMinimizedCards);
     },
-    [minimizedCards, layout, cardColors, saveDashboardState, cardMinGridH, originalDimensions],
+    [minimizedCards, layout, layoutMode, defaultFixedLayout, cardColors, gestures, saveDashboardState],
   );
 
   const handleResetLayout = useCallback(() => {
@@ -582,19 +392,17 @@ const DashboardPage = () => {
     setLayoutKey((k) => k + 1);
     setCardColors({});
     setMinimizedCards({});
-    setOriginalDimensions({});
     setHiddenCards({});
-    setCardZIndex({});
-    setMaxZIndex(0);
+    stacking.reset();
     setLayoutMode("normal");
-    saveDashboardState(defaultFixedLayout, {}, {}, "normal", {}, {});
-  }, [defaultFixedLayout, saveDashboardState]);
+    saveDashboardState(defaultFixedLayout, {}, {}, "normal", {});
+  }, [defaultFixedLayout, saveDashboardState, stacking]);
 
   const handleHideCard = useCallback(
     (cardId) => {
       const next = { ...hiddenCards, [cardId]: true };
       setHiddenCards(next);
-      saveDashboardState(undefined, undefined, undefined, undefined, undefined, next);
+      saveDashboardState(undefined, undefined, undefined, undefined, next);
     },
     [hiddenCards, saveDashboardState],
   );
@@ -613,151 +421,56 @@ const DashboardPage = () => {
       }
       const next = showCard(hiddenCards, cardId);
       setHiddenCards(next);
-      saveDashboardState(nextLayout, undefined, undefined, undefined, undefined, next);
+      saveDashboardState(nextLayout, undefined, undefined, undefined, next);
     },
     [hiddenCards, layout, layoutMode, defaultFixedLayout, saveDashboardState],
   );
 
-  // 4-way layout mode toggle: one-shot placement actions
-  // Each toggle applies layout + minimize state directly — no useEffect dependency
+  // Each mode change is a one-shot placement: the cards are put where the mode
+  // has them and are then free to move.
   const handleCycleLayoutMode = useCallback(() => {
-    const currentIdx = LAYOUT_MODES.indexOf(layoutMode);
-    const nextMode = LAYOUT_MODES[(currentIdx + 1) % LAYOUT_MODES.length];
+    const mode = nextMode(LAYOUT_MODES, layoutMode);
 
-    // When leaving normal mode, save the current layout
     if (layoutMode === "normal") {
       normalLayoutRef.current = layout;
     }
 
     let newLayout;
-    let newMinimizedCards = minimizedCards;
-    let newOriginalDimensions = originalDimensions;
-
-    switch (nextMode) {
-      case "normal":
-        // Restore saved normal layout, clear minimized
-        newLayout = normalLayoutRef.current || defaultFixedLayout;
-        newMinimizedCards = {};
-        newOriginalDimensions = {};
-        break;
-      case "compact":
-        // Apply compact grid, clear minimized
-        newLayout = compactLayout;
-        newMinimizedCards = {};
-        newOriginalDimensions = {};
-        break;
-      case "layered": {
-        // Apply layered bars: all cards minimized, stacked on the right.
-        // Compute positions inline to guarantee fresh gridWidth values.
-        const cardIds = visibleCardIds;
-        const colWidthPx = gridWidth / COLS_COUNT;
-        const barW = Math.round(300 / colWidthPx);
-        const barH = Math.round(50 / ROW_HEIGHT_PX);
-        const barX = Math.max(0, COLS_COUNT - barW);
-        newLayout = cardIds.map((id, idx) => ({
-          i: id,
-          x: barX,
-          y: idx * barH,
-          w: barW,
-          h: barH,
-          minW: cardMinGridW,
-          isDraggable: true,
-          isResizable: true,
-        }));
-        const allMinimized = {};
-        const dims = {};
-        Object.keys(cardComponents).forEach((id) => {
-          allMinimized[id] = true;
-          const item = defaultFixedLayout.find((l) => l.i === id);
-          if (item) dims[id] = { w: item.w, h: item.h };
-        });
-        newMinimizedCards = allMinimized;
-        newOriginalDimensions = dims;
-        break;
-      }
-      case "modex": {
-        // Content-visible bars: taller than layered so card content is readable
-        const mxCardIds = visibleCardIds;
-        const mxColWidthPx = gridWidth / COLS_COUNT;
-        const mxBarW = Math.round(300 / mxColWidthPx);
-        const mxBarH = Math.round(150 / ROW_HEIGHT_PX);
-        const mxBarX = Math.max(0, COLS_COUNT - mxBarW);
-        newLayout = mxCardIds.map((id, idx) => ({
-          i: id,
-          x: mxBarX,
-          y: idx * mxBarH,
-          w: mxBarW,
-          h: mxBarH,
-          minW: cardMinGridW,
-          isDraggable: true,
-          isResizable: true,
-        }));
-        // All cards NOT minimized — content visible inside the taller bars
-        newMinimizedCards = {};
-        newOriginalDimensions = {};
-        break;
-      }
+    let newMinimizedCards = {};
+    if (mode === "compact") {
+      newLayout = compactLayout;
+    } else if (mode === "layered") {
+      newLayout = barsLayout(LAYERED_BAR_PX);
+      newMinimizedCards = allMinimized();
+    } else if (mode === "modex") {
+      newLayout = barsLayout(MODEX_BAR_PX);
+    } else {
+      newLayout = normalLayoutRef.current || defaultFixedLayout;
     }
 
-    setLayoutMode(nextMode);
-    setLayoutKey(k => k + 1); // Force ReactGridLayout remount to apply preset positions
+    setLayoutMode(mode);
+    setLayoutKey((k) => k + 1); // remount the grid so the preset's positions apply
     setLayout(newLayout);
     setMinimizedCards(newMinimizedCards);
-    setOriginalDimensions(newOriginalDimensions);
-    saveDashboardState(
-      normalLayoutRef.current || newLayout,
-      cardColors,
-      newMinimizedCards,
-      nextMode,
-      newOriginalDimensions,
-    );
+    saveDashboardState(normalLayoutRef.current || newLayout, cardColors, newMinimizedCards, mode);
+  }, [layoutMode, layout, cardColors, defaultFixedLayout, compactLayout, barsLayout, allMinimized, saveDashboardState]);
 
-  }, [layoutMode, layout, cardColors, minimizedCards, originalDimensions, defaultFixedLayout, compactLayout, layeredLayout, saveDashboardState, gridWidth, COLS_COUNT, ROW_HEIGHT_PX, cardMinGridW, visibleCardIds]);
-
-  // ── Responsive reflow (helpers) ───────────────────────────────────────────
-  // Scalar inputs (isNarrow/cardsPerRow) are computed earlier, above the layout
-  // callbacks, so onUserLayoutChange can read isNarrow. These build the packed view.
-  const repackLayout = useCallback(
-    (base) => {
-      const ordered = [...base].sort((a, b) => (a.y - b.y) || (a.x - b.x));
-      // floor() keeps cardsPerRow*span <= COLS_COUNT (no overflow); the cardsPerRow
-      // loop already guarantees span*colWidth >= 300px.
-      const span = Math.floor(COLS_COUNT / cardsPerRow);
-      const out = [];
-      let y = 0;
-      for (let i = 0; i < ordered.length; i += cardsPerRow) {
-        const row = ordered.slice(i, i + cardsPerRow);
-        const rowH = row.reduce((m, it) => Math.max(m, it.h || cardGridH), 0);
-        // Lock drag/resize in the packed view — per-item flags override the
-        // grid-level isDraggable, so they must be cleared here too. minW:1 keeps
-        // RGL from clamping the packed width back up to a saved minW.
-        row.forEach((it, c) =>
-          out.push({ ...it, x: c * span, y, w: span, h: it.h, minW: 1, isDraggable: false, isResizable: false }),
-        );
-        y += rowH;
-      }
-      return out;
-    },
-    [cardsPerRow, COLS_COUNT, cardGridH],
-  );
-
-  // What RGL actually renders: the packed view when narrow, the raw layout otherwise.
-  // Clamp minW/minH so they never exceed the item's w/h — the compact/layered/modex
-  // generators set minW=cardMinGridW (30) on bars/cards narrower than that, and RGL
-  // warns "minWidth larger than item width" whenever minW > w. This single chokepoint
-  // fixes every source (repackLayout already sets minW:1, so it's unaffected).
-  const renderedLayout = useMemo(() => {
+  // What the board shows: the visible cards, re-packed when the board is narrow.
+  // A minimized card counts as its bar when rows are packed.
+  const boardLayout = useMemo(() => {
     const shown = visibleLayout(layout, hiddenCards);
-    const base = isNarrow ? repackLayout(shown) : shown;
-    return base.map((it) => ({
-      ...it,
-      minW: Math.min(it.minW ?? 1, it.w),
-      minH: Math.min(it.minH ?? 1, it.h),
-    }));
-  }, [isNarrow, repackLayout, layout, hiddenCards]);
+    if (!isNarrow) return shown;
+    const rows = barRows(ROW_HEIGHT_PX, CARD_MARGIN_PX);
+    return repackRows(
+      shown.map((item) => (minimizedCards[item.i] ? { ...item, h: rows } : item)),
+      COLS_COUNT,
+      reflow.cardsPerRow,
+      cardGridH,
+    );
+  }, [isNarrow, reflow.cardsPerRow, layout, hiddenCards, minimizedCards, ROW_HEIGHT_PX, CARD_MARGIN_PX, COLS_COUNT, cardGridH]);
 
   const LayoutModeIcon = LAYOUT_MODE_ICONS[layoutMode];
-  const nextLayoutMode = LAYOUT_MODES[(LAYOUT_MODES.indexOf(layoutMode) + 1) % LAYOUT_MODES.length];
+  const nextLayoutMode = nextMode(LAYOUT_MODES, layoutMode);
 
   // Right-click on the grid's empty space; cards open their own menus.
   const handleBackgroundContextMenu = (e) => {
@@ -853,102 +566,52 @@ const DashboardPage = () => {
           </MuiAlert>
         )}
 
-        <Box
-          ref={gridContainerRef}
-          sx={{
-            width: "100%",
-            "& .react-grid-item": {
-              transition: "transform 0.2s ease-out !important",
-              "&.react-draggable-dragging": {
-                transition: "none !important",
-                opacity: 0.9,
-                // Outline the child div, not the grid item — so minimized
-                // cards show a bar-sized outline instead of the full grid cell
-                "& > div": {
-                  outline: `2px solid ${theme.palette.primary.main}`,
-                  borderRadius: "4px",
-                },
-              },
-            },
+        <CardBoard
+          containerRef={gridContainerRef}
+          gridKey={layoutKey}
+          width={gridWidth}
+          grid={gridSettings}
+          layout={boardLayout}
+          minimized={minimizedCards}
+          stacking={stacking}
+          locked={isNarrow}
+          dragHandle=".card-header-buttons"
+          onDragStart={(cardId) => {
+            stacking.raise(cardId);
+            gestures.onDragStart();
           }}
-        >
-          <ReactGridLayout
-            key={layoutKey}
-            className="layout"
-            layout={renderedLayout}
-            style={{
-              transition: "all 0.2s ease-out",
-            }}
-            cols={COLS_COUNT}
-            rowHeight={ROW_HEIGHT_PX}
-            width={gridWidth}
-            containerPadding={[CONTAINER_PADDING_PX, CONTAINER_PADDING_PX]}
-            margin={[CARD_MARGIN_PX, CARD_MARGIN_PX]}
-            isDraggable={!isNarrow}
-            isResizable={!isNarrow}
-            compactType={null}
-            preventCollision={false}
-            useCSSTransforms={false}
-            allowOverlap={true}
-            draggableHandle=".card-header-buttons"
-            draggableCancel="button, input, textarea, select, option, .non-draggable"
-            onDragStart={(layout, oldItem) => handleCardClick(oldItem.i)}
-            onDragStop={onUserLayoutChange}
-            onResizeStop={onUserLayoutChange}
-            resizeHandles={["s", "w", "e", "n", "sw", "nw", "se", "ne"]}
-          >
-            {renderedLayout.map((layoutItem) => {
-              const cardId = layoutItem.i;
-              const CardComponent = cardComponents[cardId];
-              const isMinimized = minimizedCards[cardId] || false;
-
-                return (
-                  <div
-                    key={cardId}
-                    data-card-id={cardId}
-                    style={{
-                      transition: "transform 0.2s ease-out, box-shadow 0.2s ease-out",
-                      height: isMinimized ? "auto" : "100%",
-                      maxHeight: "100%",
-                      overflow: "hidden",
-                    }}
-                    onMouseDown={() => handleCardClick(cardId)}
-                    onMouseUp={() => { applyZIndexToDOM(cardId, cardZIndex[cardId] || 0); applyAllZIndices(); }}
-                  >
-                  {CardComponent ? (
-                    <CardComponent
-                      id={cardId}
-                      cardColor={cardColors[cardId]}
-                      onCardColorChange={(color) =>
-                        handleCardColorChange(cardId, color)
-                      }
-                      isMinimized={isMinimized}
-                      onToggleMinimize={() => handleToggleMinimize(cardId)}
-                      contextMenuActions={NO_CARD_ACTIONS}
-                      onHideCard={() => handleHideCard(cardId)}
-                    />
-                  ) : (
-                    <Paper
-                      sx={{
-                        p: 1,
-                        height: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        bgcolor: "warning.dark",
-                        backgroundImage: 'none',
-                      }}
-                    >
-                      <Typography color="warning.contrastText">
-                        {t("dashboard.missingCard", { id: cardId })}
-                      </Typography>
-                    </Paper>
-                  )}
-                </div>
-              );
-            })}
-          </ReactGridLayout>
-        </Box>
+          onDragStop={(reported) => onUserLayoutChange(reported, true)}
+          onResizeStop={(reported) => onUserLayoutChange(reported, false)}
+          renderCard={(layoutItem, isMinimized) => {
+            const cardId = layoutItem.i;
+            const CardComponent = cardComponents[cardId];
+            return CardComponent ? (
+              <CardComponent
+                id={cardId}
+                cardColor={cardColors[cardId]}
+                onCardColorChange={(color) => handleCardColorChange(cardId, color)}
+                isMinimized={isMinimized}
+                onToggleMinimize={() => handleToggleMinimize(cardId)}
+                contextMenuActions={NO_CARD_ACTIONS}
+                onHideCard={() => handleHideCard(cardId)}
+              />
+            ) : (
+              <Paper
+                sx={{
+                  p: 1,
+                  height: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: "warning.dark",
+                  backgroundImage: "none",
+                }}
+              >
+                <Typography color="warning.contrastText">{t("dashboard.missingCard", { id: cardId })}</Typography>
+              </Paper>
+            );
+          }}
+        />
       </Box>
 
       <EntityContextMenu
