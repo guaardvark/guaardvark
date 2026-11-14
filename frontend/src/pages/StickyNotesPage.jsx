@@ -178,17 +178,23 @@ const StickyNote = React.memo(
       if (!editingTitle) setTitleDraft(title || "");
     }, [title, editingTitle]);
 
-    // A double-click anywhere on the bar names the note, except on its buttons.
-    const startRename = useCallback(
+    // A double-click on the bar minimizes or expands the note, as a dashboard
+    // card's title bar does. On an open note the name itself is the exception:
+    // double-clicking it renames. Buttons and the name box are left alone.
+    const handleBarDoubleClick = useCallback(
       (e) => {
         if (editingTitle || e.target.closest("button, input")) return;
         e.preventDefault();
+        if (isMinimized || !e.target.closest("[data-note-title]")) {
+          onToggleMinimize();
+          return;
+        }
         // An Escape that unmounted the last input may have left this set.
         titleCancelRef.current = false;
         setTitleDraft(title || "");
         setEditingTitle(true);
       },
-      [editingTitle, title],
+      [editingTitle, title, isMinimized, onToggleMinimize],
     );
 
     // Ignore a disconnected node, and ignore an unfocused editor that just
@@ -244,7 +250,7 @@ const StickyNote = React.memo(
         {/* ── Header — drag handle + title (always visible) ──────── */}
         <Box
           className="note-header"
-          onDoubleClick={startRename}
+          onDoubleClick={handleBarDoubleClick}
           sx={{
             display: "flex",
             alignItems: "center",
@@ -265,8 +271,7 @@ const StickyNote = React.memo(
             <PushPin sx={{ fontSize: 14, color: textColor, opacity: 0.5, mr: 0.5 }} />
           )}
 
-          {/* The title is part of the drag handle; the whole bar renames on
-              double-click. */}
+          {/* The title is part of the drag handle. */}
           <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
             {editingTitle ? (
               <InputBase
