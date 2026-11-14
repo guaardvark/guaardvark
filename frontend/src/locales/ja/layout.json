@@ -92,5 +92,15 @@
     "exitKiosk": "キオスクモードを終了 (F11)",
     "minimize": "ウィンドウを最小化（コンテンツを隠す）",
     "close": "アプリケーションを閉じる (Ctrl+Q または Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "カードレイアウトをリセット",
+    "cards": {
+      "prompt": "プロンプト",
+      "settings": "設定",
+      "queue": "キュー",
+      "results": "結果"
+    },
+    "queueEmpty": "キューは空、またはレンダリングされていません。"
   }
 }

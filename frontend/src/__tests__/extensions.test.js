@@ -23,6 +23,15 @@ describe("extensions", () => {
     expect(exts.map((e) => e.id)).toEqual(["acme", "zeta"]);
   });
 
+  it("prefixes a dashboard card's id with its extension and drops a card with no component", () => {
+    const Card = () => null;
+    const ext = normalizeExtension("acme", {
+      default: { cards: [{ id: "orders", title: "Orders", component: Card, w: 2 }, { id: "broken", title: "Broken" }] },
+    });
+    expect(ext.cards).toEqual([{ id: "acme-orders", title: "Orders", component: Card, w: 2, h: 1 }]);
+    expect(normalizeExtension("acme", { default: {} }).cards).toEqual([]);
+  });
+
   it("is empty when there are no extensions", () => {
     expect(loadExtensions({})).toEqual([]);
   });

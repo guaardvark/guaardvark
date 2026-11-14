@@ -1,6 +1,35 @@
 // Fitting a saved dashboard layout to the cards this version has.
 
 /**
+ * The default layout with extra cards (ones an extension adds) placed after it:
+ * in rows under the lowest card, left to right, wrapping at `cols`.
+ *
+ * @param {Array} layout  the core default layout
+ * @param {Array<{id: string, w: number, h: number}>} cards  sizes in default-card units
+ * @param {{cardGridW: number, cardGridH: number, COLS_COUNT: number}} grid
+ */
+export function appendCards(layout, cards, grid) {
+  if (!cards.length) return layout;
+  let y = layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+  let x = 0;
+  let rowH = 0;
+  const added = cards.map((card) => {
+    const w = Math.min(Math.round(card.w * grid.cardGridW), grid.COLS_COUNT);
+    const h = Math.round(card.h * grid.cardGridH);
+    if (x > 0 && x + w > grid.COLS_COUNT) {
+      y += rowH;
+      x = 0;
+      rowH = 0;
+    }
+    const item = { i: card.id, x, y, w, h };
+    x += w;
+    rowH = Math.max(rowH, h);
+    return item;
+  });
+  return [...layout, ...added];
+}
+
+/**
  * The layout to show for a saved one. A saved card keeps its place, its size
  * and its position in the list (later items draw over earlier ones, so the
  * order is how overlapping cards stack). A card the saved layout has never held

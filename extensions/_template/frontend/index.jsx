@@ -15,4 +15,5 @@ export default {
   // storeSlice: { state: (set) => ({ templateFlag: false, setTemplateFlag: (v) => set({ templateFlag: v }) }), partialize: ["templateFlag"] },
   // layout: { header: TemplateHeaderBar },
   // logo: TemplateLogo,
+  // cards: [{ id: "summary", title: "Template", component: TemplateSummaryCard, w: 1, h: 1 }],  // a Dashboard card
 };

@@ -58,7 +58,8 @@ import {
   visibleLayout,
   withHiddenItems,
 } from "../components/dashboard/dashboardCardVisibility";
-import { mergeSavedLayout } from "../components/dashboard/dashboardSavedLayout";
+import { appendCards, mergeSavedLayout } from "../components/dashboard/dashboardSavedLayout";
+import { extensionCards } from "../extensions";
 import {
   CardBoard,
   barRows,
@@ -76,6 +77,9 @@ import {
   useCardStacking,
 } from "../components/board";
 
+// Cards an extension adds to the dashboard (see extensions.js).
+const extraCards = extensionCards();
+
 // In the order the Compact and bar layouts place them.
 const cardComponents = {
   approvals: ApprovalsCard,
@@ -92,6 +96,7 @@ const cardComponents = {
   family: FamilySelfImprovementCard,
   autoresearch: RAGAutoresearchCard,
   gpu: GpuStatusCard,
+  ...Object.fromEntries(extraCards.map((card) => [card.id, card.component])),
 };
 
 // Names for the "Show <card>" items of the background menu; match each card's title.
@@ -110,6 +115,9 @@ const cardTitles = () => ({
   family: translate("dashboard.family.title"),
   autoresearch: translate("dashboard.autoresearch.title"),
   gpu: translate("dashboard.gpu.title"),
+  ...Object.fromEntries(
+    extraCards.map((card) => [card.id, typeof card.title === "function" ? card.title() : card.title || card.id]),
+  ),
 });
 
 // Turns on each card's right-click menu; a card adds its own items over this.
@@ -179,12 +187,13 @@ const DashboardPage = () => {
       { i: "family", x: 0, y: cardGridH * 3, w: cardGridW * 2, h: cardGridH },
       { i: "autoresearch", x: cardGridW * 2, y: cardGridH * 3, w: cardGridW, h: cardGridH },
     ];
-    items.forEach((it) => {
+    const all = appendCards(items, extraCards, gridSettings);
+    all.forEach((it) => {
       it.minW = cardMinGridW;
       it.isDraggable = true;
       it.isResizable = true;
     });
-    return items;
+    return all;
   }, [gridSettings]);
 
   // Layout presets place only the cards that are showing, so hidden ones leave no gaps.

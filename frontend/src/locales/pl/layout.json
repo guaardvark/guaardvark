@@ -92,5 +92,15 @@
     "exitKiosk": "Wyjdź z trybu kiosku (F11)",
     "minimize": "Zminimalizuj okno (ukryj zawartość)",
     "close": "Zamknij aplikację (Ctrl+Q lub Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Resetuj układ kart",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Ustawienia",
+      "queue": "Kolejka",
+      "results": "Wyniki"
+    },
+    "queueEmpty": "Nic nie jest w kolejce ani w trakcie renderowania."
   }
 }

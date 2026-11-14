@@ -263,6 +263,7 @@
     "scale": "引导比例：{{guidance}}",
     "zimageHelp": "Z-Image 运行在无 CFG 模式下——引导固定为 0。请使用步数来提升质量。",
     "qwenHelp": "Qwen-Image 2.1 在官方路径下运行于引导 1。仅在同时使用负面提示词时才调高此数值。",
+    "flux3KleinHelp": "FLUX 3 Klein 已经过蒸馏：在官方路径上 guidance 保持为 1，其提示词上采样器会写入完整的说明。",
     "mossHelp": "在官方模板中，MOSS-Image 在 guidance 2.5 时效果最佳。设置为最高 6 也能渲染出清晰的图像，但对比度会略高一些。",
     "autoHelp": "根据提示词自动路由。默认选择（Z-Image）是无 CFG 的——除非你预期走 SDXL 路由，否则请保持为 0。"
   },
@@ -314,5 +315,8 @@
     "title": "预览生成的提示词 ({{count}})",
     "intro": "这些是即将发送给图像生成器的最终提示词：",
     "close": "关闭"
+  },
+  "cards": {
+    "noSettings": "此输入模式在此处没有“设置”。"
   }
 }

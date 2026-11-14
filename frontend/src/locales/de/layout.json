@@ -92,5 +92,15 @@
     "exitKiosk": "Kiosk-Modus verlassen (F11)",
     "minimize": "Fenster minimieren (Inhalt ausblenden)",
     "close": "Anwendung schließen (Strg+Q oder Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Kartenlayout zurücksetzen",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Einstellungen",
+      "queue": "Warteschlange",
+      "results": "Ergebnisse"
+    },
+    "queueEmpty": "Nichts in der Warteschlange oder wird nicht gerendert."
   }
 }

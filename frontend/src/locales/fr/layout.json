@@ -92,5 +92,15 @@
     "exitKiosk": "Quitter le mode Kiosque (F11)",
     "minimize": "Réduire la fenêtre (Masquer le contenu)",
     "close": "Fermer l'application (Ctrl+Q ou Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Réinitialiser la disposition des cartes",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Paramètres",
+      "queue": "File d'attente",
+      "results": "Résultats"
+    },
+    "queueEmpty": "Rien n'est en file d'attente ou en cours de rendu."
   }
 }

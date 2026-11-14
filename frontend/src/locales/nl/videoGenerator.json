@@ -272,7 +272,7 @@
     "retryBatch": "Batch opnieuw proberen",
     "noRetryData": "Originele prompts & instellingen zijn niet opgeslagen voor deze batch (gemaakt voor de ondersteuning van opnieuw proberen), dus deze kan niet automatisch worden herproefd. Maak deze opnieuw aan met de instellingen hierboven.",
     "statusTitle": "Generatiestatus",
-    "none": "Geen actieve generatie. Start een videogeneratie hierboven om de voortgang hier te zien."
+    "none": "Geen actieve generatie. Start een videogeneratie om hier de voortgang te zien."
   },
   "results": {
     "thumbAlt": "thumbnail",

@@ -92,5 +92,15 @@
     "exitKiosk": "키오스크 모드 종료 (F11)",
     "minimize": "창 최소화 (콘텐츠 숨기기)",
     "close": "애플리케이션 닫기 (Ctrl+Q 또는 Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "카드 레이아웃 초기화",
+    "cards": {
+      "prompt": "프롬프트",
+      "settings": "설정",
+      "queue": "대기열",
+      "results": "결과"
+    },
+    "queueEmpty": "대기열이 비어 있거나 렌더링 중이 아닙니다."
   }
 }
