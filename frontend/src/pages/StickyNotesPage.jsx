@@ -57,6 +57,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
 import ClosedNotesDrawer from "../components/notes/ClosedNotesDrawer";
+import DashboardCardWrapper from "../components/dashboard/DashboardCardWrapper";
 import TextInputDialog from "../components/common/TextInputDialog";
 import { pinnedToTop, pinnedFirst, isEditableTarget } from "../components/notes/notesBoard";
 import {
@@ -75,7 +76,6 @@ import {
 import { useLayout, useDashboardWidth } from "../contexts/LayoutContext";
 import { ContextualLoader } from "../components/common/LoadingStates";
 import { opaqueMenuPaperSx } from "../components/common/opaqueMenuPaper";
-import { toHexColor } from "../utils/colorHex";
 import copyText from "../utils/copyText";
 import { guardHtmlMedia, unguardHtmlMedia } from "../utils/assetGuard";
 import { useUiTranslation, translate } from "../i18n";
@@ -129,15 +129,16 @@ const getContrastColor = (bgColor) => {
   return yiq > 186 ? "rgba(0, 0, 0, 0.87)" : "rgba(255, 255, 255, 0.95)";
 };
 
-// ─── Inline StickyNote component ────────────────────────────────────────────
+// ─── A note: the shared card frame around a small rich-text editor ───────────
+
+const toolbarButtonSx = { width: 22, height: 22, p: 0, color: "inherit", opacity: 0.5, "&:hover": { opacity: 1 } };
 
 const StickyNote = React.memo(
   ({
-    _noteId,
+    noteId,
     title,
     content,
     color,
-    textColor,
     isMinimized,
     isPinned,
     onToggleMinimize,
@@ -145,22 +146,16 @@ const StickyNote = React.memo(
     onTitleChange,
     onColorChange,
     onContentChange,
-    _onDeleteRequest,
     onFormat,
     onInsertLink,
-    theme,
     noteRef,
   }) => {
     const { t } = useUiTranslation();
-    const colorInputRef = useRef(null);
     const contentRef = useRef(null);
     const contentPropRef = useRef(content);
-    const titleCancelRef = useRef(false);
-    const [editingTitle, setEditingTitle] = useState(false);
-    const [titleDraft, setTitleDraft] = useState(title || "");
     contentPropRef.current = content;
 
-    // Keep the editor mounted across minimize. Write props into an empty node
+    // The editor stays mounted across minimize. Write props into an empty node
     // (first mount, or a remount after collapsed layout) and follow external
     // updates only while the caret is not in the note.
     useEffect(() => {
@@ -172,29 +167,6 @@ const StickyNote = React.memo(
       // change `content` from outside and must rewrite the editor.
       if (el.innerHTML !== next) el.innerHTML = next;
     }, [content]);
-
-    useEffect(() => {
-      if (!editingTitle) setTitleDraft(title || "");
-    }, [title, editingTitle]);
-
-    // A double-click on the bar minimizes or expands the note, as a dashboard
-    // card's title bar does. On an open note the name itself is the exception:
-    // double-clicking it renames. Buttons and the name box are left alone.
-    const handleBarDoubleClick = useCallback(
-      (e) => {
-        if (editingTitle || e.target.closest("button, input")) return;
-        e.preventDefault();
-        if (isMinimized || !e.target.closest("[data-note-title]")) {
-          onToggleMinimize();
-          return;
-        }
-        // An Escape that unmounted the last input may have left this set.
-        titleCancelRef.current = false;
-        setTitleDraft(title || "");
-        setEditingTitle(true);
-      },
-      [editingTitle, title, isMinimized, onToggleMinimize],
-    );
 
     // Ignore a disconnected node, and ignore an unfocused editor that just
     // became empty while state still holds text. That is the minimize wipe.
@@ -210,332 +182,93 @@ const StickyNote = React.memo(
       onContentChange(html);
     }, [onContentChange]);
 
-    const commitTitle = useCallback(() => {
-      setEditingTitle(false);
-      const next = titleDraft;
-      if (next !== (title || "")) onTitleChange(next);
-    }, [titleDraft, title, onTitleChange]);
-
-    const cancelTitle = useCallback(() => {
-      titleCancelRef.current = true;
-      setTitleDraft(title || "");
-      setEditingTitle(false);
-    }, [title]);
-
-
-    const dividerColor = "rgba(255,255,255,0.08)";
-    const placeholderColor = "rgba(255,255,255,0.2)";
-
     return (
-      <Paper
-        elevation={3}
-        className={`draggable-card ${isMinimized ? "minimized" : ""}`}
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          height: isMinimized ? "auto" : "100%",
-          minHeight: isMinimized ? 0 : "120px",
-          overflow: "hidden",
-          borderRadius: "8px",
-          backgroundColor: color,
-          backdropFilter: "blur(12px)",
-          border: `1px solid rgba(255,255,255,0.06)`,
-          color: textColor,
-          transition: theme.transitions.create(["height", "min-height"], {
-            duration: theme.transitions.duration.standard,
-          }),
-        }}
+      <DashboardCardWrapper
+        id={noteId}
+        title={title}
+        titlePlaceholder={t("notes.untitled")}
+        onRename={onTitleChange}
+        cardColor={color}
+        onCardColorChange={onColorChange}
+        isMinimized={isMinimized}
+        onToggleMinimize={onToggleMinimize}
+        showMinimizeButton
+        onClose={onClose}
+        closeLabel={t("notes.note.closeNote")}
+        keepMounted
+        titleBarActions={isPinned ? <PushPin sx={{ fontSize: 14, opacity: 0.5 }} /> : null}
+        // Note colours are translucent; the blur keeps overlapping notes readable.
+        sx={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", minHeight: isMinimized ? 0 : "120px" }}
       >
-        {/* ── Header — drag handle + title (always visible) ──────── */}
-        <Box
-          className="note-header"
-          onDoubleClick={handleBarDoubleClick}
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            pl: 1,
-            pr: 2,
-            minHeight: "40px",
-            cursor: "grab",
-            userSelect: "none",
-            "&:active": { cursor: "grabbing" },
-            "&:hover": {
-              backgroundColor: "rgba(255,255,255,0.04)",
-              borderRadius: "8px 8px 0 0",
-            },
-          }}
-        >
-          {/* Pin indicator */}
-          {isPinned && (
-            <PushPin sx={{ fontSize: 14, color: textColor, opacity: 0.5, mr: 0.5 }} />
-          )}
-
-          {/* The title is part of the drag handle. */}
-          <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
-            {editingTitle ? (
-              <InputBase
-                autoFocus
-                className="non-draggable"
-                value={titleDraft}
-                placeholder={t("notes.untitled")}
-                onMouseDown={(e) => e.stopPropagation()}
-                onChange={(e) => setTitleDraft(e.target.value)}
-                onBlur={() => {
-                  if (titleCancelRef.current) {
-                    titleCancelRef.current = false;
-                    return;
-                  }
-                  commitTitle();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    e.currentTarget.blur();
-                  } else if (e.key === "Escape") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    cancelTitle();
-                  }
-                }}
-                // The caret goes after the name. The drag handle clears the page
-                // selection one frame after the press ends, so place it after that frame.
-                onFocus={(e) => {
-                  const input = e.target;
-                  requestAnimationFrame(() => {
-                    const end = input.value.length;
-                    input.setSelectionRange(end, end);
-                  });
-                }}
-                sx={{
-                  flex: 1,
-                  fontSize: "0.77rem",
-                  fontWeight: 600,
-                  color: textColor,
-                  "& input": { p: 0, color: "inherit", userSelect: "text" },
-                }}
-              />
-            ) : (
-              <Typography
-                data-note-title=""
-                sx={{
-                  maxWidth: "100%",
-                  fontWeight: 600,
-                  fontSize: "0.77rem",
-                  color: textColor,
-                  overflow: "hidden",
-                  whiteSpace: "nowrap",
-                  textOverflow: "ellipsis",
-                  opacity: title ? 1 : 0.3,
-                  fontStyle: title ? "normal" : "italic",
-                }}
-              >
-                {title || t("notes.untitled")}
-              </Typography>
-            )}
-          </Box>
-
-          {/* Color picker dot — matches DashboardCardWrapper (8x8) */}
-          <Box sx={{ position: "relative", ml: 0.5 }}>
-            <Tooltip title={t("notes.note.changeColor")}>
+        {/* Formatting toolbar */}
+        <Box sx={{ display: "flex", gap: 0.25, px: 0.5, pb: 0.25, borderBottom: 1, borderColor: "divider" }}>
+          {[
+            { cmd: "bold", icon: <FormatBold sx={{ fontSize: 14 }} />, tip: t("notes.note.bold") },
+            { cmd: "italic", icon: <FormatItalic sx={{ fontSize: 14 }} />, tip: t("notes.note.italic") },
+            { cmd: "underline", icon: <FormatUnderlined sx={{ fontSize: 14 }} />, tip: t("notes.note.underline") },
+          ].map(({ cmd, icon, tip }) => (
+            <Tooltip key={cmd} title={tip}>
               <IconButton
-                onClick={() => colorInputRef.current?.click()}
-                className="non-draggable"
-                sx={{
-                  width: 8,
-                  height: 8,
-                  minWidth: 8,
-                  minHeight: 8,
-                  p: 0,
-                  borderRadius: "50%",
-                  backgroundColor: color,
-                  border: `1px solid ${textColor}`,
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    transform: "scale(1.3)",
-                    boxShadow: `0 0 3px ${color}`,
-                  },
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onFormat(cmd);
                 }}
+                className="non-draggable"
+                size="small"
+                sx={toolbarButtonSx}
               >
-                <Box
-                  sx={{
-                    width: 2,
-                    height: 2,
-                    borderRadius: "50%",
-                    backgroundColor: textColor,
-                  }}
-                />
+                {icon}
               </IconButton>
             </Tooltip>
-            <input
-              ref={colorInputRef}
-              type="color"
-              value={toHexColor(color)}
-              onChange={(e) => onColorChange(e.target.value)}
-              style={{
-                position: "absolute",
-                opacity: 0,
-                pointerEvents: "none",
-                width: 1,
-                height: 1,
-              }}
-            />
-          </Box>
-
-          <Tooltip title={isMinimized ? t("dashboard.cardWrapper.expand") : t("dashboard.cardWrapper.minimize")}>
+          ))}
+          <Tooltip title={t("notes.note.insertLink")}>
             <IconButton
-              aria-label={isMinimized ? t("dashboard.cardWrapper.expand") : t("dashboard.cardWrapper.minimize")}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleMinimize();
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onInsertLink();
               }}
               className="non-draggable"
               size="small"
-              sx={{
-                width: 20,
-                height: 20,
-                p: 0,
-                ml: 0.5,
-                color: textColor,
-                opacity: 0.4,
-                "&:hover": { opacity: 1 },
-              }}
+              sx={toolbarButtonSx}
             >
-              {isMinimized ? <UnfoldMore sx={{ fontSize: 16 }} /> : <UnfoldLess sx={{ fontSize: 16 }} />}
-            </IconButton>
-          </Tooltip>
-
-          {/* Close parks the note. The button sits clear of the corner resize handle. */}
-          <Tooltip title={t("notes.note.close")}>
-            <IconButton
-              aria-label={t("notes.note.closeNote")}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose();
-              }}
-              className="non-draggable"
-              size="small"
-              sx={{
-                width: 20,
-                height: 20,
-                p: 0,
-                ml: 0.5,
-                color: textColor,
-                opacity: 0.4,
-                "&:hover": { opacity: 1, backgroundColor: "rgba(255,0,0,0.1)" },
-              }}
-            >
-              <Close sx={{ fontSize: 16 }} />
+              <InsertLink sx={{ fontSize: 14 }} />
             </IconButton>
           </Tooltip>
         </Box>
 
-        {/* Body stays mounted while minimized so its HTML is not discarded. */}
+        {/* Editable content */}
         <Box
-          sx={{
-            display: isMinimized ? "none" : "flex",
-            flexDirection: "column",
-            flexGrow: 1,
-            minHeight: 0,
+          ref={(el) => {
+            contentRef.current = el;
+            if (noteRef) noteRef(el);
+            if (el && !el.innerHTML && contentPropRef.current) {
+              el.innerHTML = guardHtmlMedia(contentPropRef.current);
+            }
           }}
-        >
-            {/* Formatting toolbar */}
-            <Box
-              sx={{
-                display: "flex",
-                gap: 0.25,
-                px: 1,
-                py: 0.25,
-                borderTop: `1px solid ${dividerColor}`,
-                borderBottom: `1px solid ${dividerColor}`,
-              }}
-            >
-              {[
-                { cmd: "bold", icon: <FormatBold sx={{ fontSize: 14 }} />, tip: t("notes.note.bold") },
-                { cmd: "italic", icon: <FormatItalic sx={{ fontSize: 14 }} />, tip: t("notes.note.italic") },
-                { cmd: "underline", icon: <FormatUnderlined sx={{ fontSize: 14 }} />, tip: t("notes.note.underline") },
-              ].map(({ cmd, icon, tip }) => (
-                <Tooltip key={cmd} title={tip}>
-                  <IconButton
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      onFormat(cmd);
-                    }}
-                    className="non-draggable"
-                    size="small"
-                    sx={{
-                      width: 22,
-                      height: 22,
-                      p: 0,
-                      color: textColor,
-                      opacity: 0.5,
-                      "&:hover": { opacity: 1 },
-                    }}
-                  >
-                    {icon}
-                  </IconButton>
-                </Tooltip>
-              ))}
-              <Tooltip title={t("notes.note.insertLink")}>
-                <IconButton
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onInsertLink();
-                  }}
-                  className="non-draggable"
-                  size="small"
-                  sx={{
-                    width: 22,
-                    height: 22,
-                    p: 0,
-                    color: textColor,
-                    opacity: 0.5,
-                    "&:hover": { opacity: 1 },
-                  }}
-                >
-                  <InsertLink sx={{ fontSize: 14 }} />
-                </IconButton>
-              </Tooltip>
-            </Box>
-
-            {/* Editable content */}
-            <Box
-              ref={(el) => {
-                contentRef.current = el;
-                if (noteRef) noteRef(el);
-                if (el && !el.innerHTML && contentPropRef.current) {
-                  el.innerHTML = guardHtmlMedia(contentPropRef.current);
-                }
-              }}
-              className="note-content non-draggable"
-              contentEditable
-              suppressContentEditableWarning
-              onBlur={publishContent}
-              onInput={publishContent}
-              sx={{
-                flexGrow: 1,
-                p: 1,
-                overflow: "auto",
-                outline: "none",
-                fontSize: "0.85rem",
-                lineHeight: 1.5,
-                color: textColor,
-                cursor: "text",
-                minHeight: 60,
-                "& a": {
-                  color: theme.palette.primary.light,
-                  textDecoration: "underline",
-                },
-                "&:empty::before": {
-                  content: JSON.stringify(t("notes.note.bodyPlaceholder")),
-                  color: placeholderColor,
-                  fontStyle: "italic",
-                },
-              }}
-            />
-        </Box>
-      </Paper>
+          className="note-content non-draggable"
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={publishContent}
+          onInput={publishContent}
+          sx={{
+            flexGrow: 1,
+            p: 1,
+            overflow: "auto",
+            outline: "none",
+            fontSize: "0.85rem",
+            lineHeight: 1.5,
+            cursor: "text",
+            userSelect: "text",
+            minHeight: 60,
+            "& a": { color: "primary.light", textDecoration: "underline" },
+            "&:empty::before": {
+              content: JSON.stringify(t("notes.note.bodyPlaceholder")),
+              color: "text.disabled",
+              fontStyle: "italic",
+            },
+          }}
+        />
+      </DashboardCardWrapper>
     );
   },
 );
@@ -1486,7 +1219,7 @@ const StickyNotesPage = () => {
           layout={boardLayout}
           minimized={minimizedCards}
           stacking={stacking}
-          dragHandle=".note-header"
+          dragHandle=".card-header-buttons"
           dragCancel={`${DRAG_CANCEL}, .note-content`}
           // While a search filters the board, moves are not kept.
           onDragStart={isSearching ? undefined : gestures.onDragStart}
@@ -1518,7 +1251,7 @@ const StickyNotesPage = () => {
                 {isCollapsed ? (
                   <Paper
                     elevation={1}
-                    className="note-header"
+                    className="card-header-buttons"
                     sx={{
                       display: "flex",
                       alignItems: "center",
@@ -1579,7 +1312,6 @@ const StickyNotesPage = () => {
                     title={note.title || ""}
                     content={note.content}
                     color={noteColor}
-                    textColor={textColor}
                     isMinimized={isMinimized}
                     isPinned={!!pinnedNotes[noteId]}
                     onToggleMinimize={() =>
@@ -1598,7 +1330,6 @@ const StickyNotesPage = () => {
                     onDeleteRequest={() => setDeleteConfirm({ noteId, source: "open" })}
                     onFormat={handleFormat}
                     onInsertLink={handleInsertLink}
-                    theme={theme}
                     noteRef={(el) => {
                       noteRefs.current[noteId] = el;
                     }}
