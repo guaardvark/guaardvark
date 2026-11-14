@@ -1,6 +1,7 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 const { hook, messages } = vi.hoisted(() => ({
   hook: { rows: [], next: null },
@@ -113,7 +114,11 @@ const preflightEcho = (required = false) => (id, changes) =>
   });
 
 const openCard = async () => {
-  render(<ApprovalsPage />);
+  render(
+    <MemoryRouter>
+      <ApprovalsPage />
+    </MemoryRouter>,
+  );
   fireEvent.click(await screen.findByText("Team Discord"));
 };
 
