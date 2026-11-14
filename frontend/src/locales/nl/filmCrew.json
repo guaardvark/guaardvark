@@ -11,7 +11,8 @@
     "title": "Film Crew",
     "productionsTab": "Producties",
     "castLibraryTab": "Cast Bibliotheek",
-    "newProduction": "Nieuwe Productie"
+    "newProduction": "Nieuwe Productie",
+    "productionCard": "Productie"
   },
   "list": {
     "failedAt": "mislukt: {{stage}}",

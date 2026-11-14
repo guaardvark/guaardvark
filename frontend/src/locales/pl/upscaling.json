@@ -95,7 +95,8 @@
     "generate": "Wygeneruj podgląd",
     "originalFrame": "Oryginalna klatka",
     "upscaledFrame": "Powikszona klatka",
-    "backToVideo": "Powrót do wideo"
+    "backToVideo": "Powrót do wideo",
+    "empty": "Brak podglądu."
   },
   "jobs": {
     "title": "Zlecenia powiększania",

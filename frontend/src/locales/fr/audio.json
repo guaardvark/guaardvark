@@ -91,7 +91,8 @@
     "musicTab": "Musique",
     "fxTab": "Lab FX",
     "retryLoaded": "Paramètres de la chanson chargés. Modifiez quoi que ce soit, puis Générer.",
-    "retryFailed": "Impossible de charger les paramètres de cette chanson."
+    "retryFailed": "Impossible de charger les paramètres de cette chanson.",
+    "createCard": "Créer"
   },
   "voice": {
     "title": "Voix off neuronale",

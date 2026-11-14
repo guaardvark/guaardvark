@@ -10,7 +10,8 @@
     "title": "Film Crew",
     "productionsTab": "프로덕션",
     "castLibraryTab": "출연진 라이브러리",
-    "newProduction": "새 프로덕션"
+    "newProduction": "새 프로덕션",
+    "productionCard": "생산"
   },
   "list": {
     "failedAt": "실패: {{stage}}",

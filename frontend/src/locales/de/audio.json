@@ -91,7 +91,8 @@
     "musicTab": "Musik",
     "fxTab": "FX Lab",
     "retryLoaded": "Lied-Einstellungen geladen. Ändere etwas und klicke dann auf „Generieren“.",
-    "retryFailed": "Einstellungen für dieses Lied konnten nicht geladen werden."
+    "retryFailed": "Einstellungen für dieses Lied konnten nicht geladen werden.",
+    "createCard": "Erstellen"
   },
   "voice": {
     "title": "Neuronales Voiceover",

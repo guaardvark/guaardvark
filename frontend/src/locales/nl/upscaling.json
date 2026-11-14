@@ -94,7 +94,8 @@
     "generate": "Genereer preview",
     "originalFrame": "Origineel frame",
     "upscaledFrame": "Opgeschaald frame",
-    "backToVideo": "Terug naar video"
+    "backToVideo": "Terug naar video",
+    "empty": "Nog niets om te bekijken."
   },
   "jobs": {
     "title": "Opschalingstaken",

@@ -94,7 +94,8 @@
     "generate": "Générer l'aperçu",
     "originalFrame": "Image originale",
     "upscaledFrame": "Image améliorée",
-    "backToVideo": "Retour à la vidéo"
+    "backToVideo": "Retour à la vidéo",
+    "empty": "Rien à prévisualiser pour le moment."
   },
   "jobs": {
     "title": "Tâches d'amélioration",

@@ -94,7 +94,8 @@
     "generate": "Genera Anteprima",
     "originalFrame": "Fotogramma Originale",
     "upscaledFrame": "Fotogramma Upscaled",
-    "backToVideo": "Torna al Video"
+    "backToVideo": "Torna al Video",
+    "empty": "Niente da visualizzare per ora."
   },
   "jobs": {
     "title": "Lavori Upscale",

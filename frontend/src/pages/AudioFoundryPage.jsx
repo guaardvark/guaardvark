@@ -54,6 +54,7 @@ import { confirmVoiceClipConsent, voiceClipAudioUrl } from "../api/audioFoundryS
 import SettingsIcon from "@mui/icons-material/Settings";
 import lazyWithReload from "../utils/lazyWithReload";
 import { useUiTranslation, translate, Trans } from "../i18n";
+import { CardWorkspace } from "../components/board";
 
 const AudioFoundryModelsModal = lazyWithReload(() => import("../components/modals/AudioFoundryModelsModal"));
 
@@ -1166,6 +1167,12 @@ const AudioFoundryPage = () => {
     </Button>
   );
 
+  // The two panels were framed boxes on the old page; in a card frame they are plain sections.
+  const cardBodySx = {
+    p: 0.5,
+    "& > .MuiPaper-root": { boxShadow: "none", border: "none", backgroundColor: "transparent", backgroundImage: "none" },
+  };
+
   return (
     <PageLayout
       title={t("audio.page.title")}
@@ -1174,7 +1181,7 @@ const AudioFoundryPage = () => {
         <ActionButton onClick={() => openModels()}>{t("audio.page.manageModels")}</ActionButton>
       }
     >
-      <Box sx={{ maxWidth: 1200, mx: "auto", mt: 2, px: 2 }}>
+      <Box sx={{ mt: 2, px: 2 }}>
         <DashboardStrip>
           <DashboardTile
             label={t("audio.page.plugin")}
@@ -1232,9 +1239,17 @@ const AudioFoundryPage = () => {
           </Alert>
         )}
 
-        <Grid container spacing={3} sx={{ mt: 0.5 }}>
-          {/* Left Panel: Controls */}
-          <Grid item xs={12} md={5}>
+        {/* Two cards on the shared board: what to make, and what was made. */}
+        <Box sx={{ mt: 0.5 }}>
+          <CardWorkspace
+            boardKey="audio-studio"
+            cards={[
+              {
+                id: "create",
+                title: t("audio.page.createCard"),
+                layout: { x: 0, y: 0, w: 75, h: 86 },
+                body: (
+                  <Box sx={cardBodySx}>
             <Paper elevation={4} sx={{ borderRadius: 3, overflow: "hidden", border: "1px solid rgba(255,255,255,0.05)" }}>
               <Tabs
                 value={activeTab}
@@ -1895,10 +1910,15 @@ const AudioFoundryPage = () => {
                 )}
               </Box>
             </Paper>
-          </Grid>
-
-          {/* Right Panel: Studio Preview */}
-          <Grid item xs={12} md={7}>
+                  </Box>
+                ),
+              },
+              {
+                id: "monitor",
+                title: t("audio.monitor.title"),
+                layout: { x: 75, y: 0, w: 100, h: 86 },
+                body: (
+                  <Box sx={{ ...cardBodySx, height: "100%" }}>
             <Paper elevation={0} sx={{ 
               p: 4, 
               height: "100%", 
@@ -2042,8 +2062,12 @@ const AudioFoundryPage = () => {
                 </Stack>
               )}
             </Paper>
-          </Grid>
-        </Grid>
+                  </Box>
+                ),
+              },
+            ]}
+          />
+        </Box>
       </Box>
       <Suspense fallback={null}>
         <AudioFoundryModelsModal
