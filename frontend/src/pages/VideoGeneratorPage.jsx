@@ -30,6 +30,7 @@ import {
   Collapse,
 } from "@mui/material";
 import PageLayout from "../components/layout/PageLayout";
+import { CardWorkspace } from "../components/board";
 import GpuGateBanner from "../components/common/GpuGateBanner";
 import {
   SettingChip,
@@ -1856,6 +1857,22 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     ];
   };
 
+  // Inside a card: the compose panels dim and stop taking input while a batch is being queued.
+  const composeSx = {
+    display: "flex",
+    flexDirection: "column",
+    gap: 1.5,
+    p: 1,
+    opacity: controlsDisabled ? 0.5 : 1,
+    pointerEvents: controlsDisabled ? "none" : "auto",
+  };
+  // The status blocks were cards of their own on the old two-column page; in a
+  // card frame they are plain sections.
+  const statusSx = {
+    p: 0.5,
+    "& > .MuiCard-root": { boxShadow: "none", backgroundColor: "transparent", backgroundImage: "none", mb: 1 },
+  };
+
   return (
     <PageLayout title={embedded ? undefined : t("videoGenerator.page.title")} variant={embedded ? "fullscreen" : "standard"} noPadding={embedded}>
 
@@ -1938,10 +1955,18 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         />
       </DashboardStrip>
 
-      <Grid container spacing={3} sx={{ mt: 0.5 }}>
-        {/* Compose */}
-        <Grid item xs={12} lg={6}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, opacity: controlsDisabled ? 0.5 : 1, pointerEvents: controlsDisabled ? "none" : "auto" }}>
+      {/* The page is four cards on the shared board: what to make, how to make
+          it, what is rendering, and what has been made. */}
+      <Box sx={{ mt: 0.5 }}>
+        <CardWorkspace
+          boardKey="video-gen"
+          cards={[
+            {
+              id: "prompt",
+              title: t("layout.board.cards.prompt"),
+              layout: { x: 0, y: 0, w: 60, h: 86 },
+              body: (
+                <Box sx={composeSx}>
             <SettingsPanel
               id="videogen-mode"
               title={t("videoGenerator.mode.title")}
@@ -2247,6 +2272,15 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               )}
             </SettingsPanel>
 
+                </Box>
+              ),
+            },
+            {
+              id: "settings",
+              title: t("layout.board.cards.settings"),
+              layout: { x: 60, y: 0, w: 55, h: 86 },
+              body: (
+                <Box sx={composeSx}>
             {inputMode !== "references" && (
             <SettingsPanel
               id="videogen-pipeline"
@@ -2743,11 +2777,15 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                 {t("videoGenerator.mode.addToQueue")}
               </ActionButton>
             </SettingsPanel>
-          </Box>
-        </Grid>
-
-        {/* Status Section - Right Side */}
-        <Grid item xs={12} lg={6}>
+                </Box>
+              ),
+            },
+            {
+              id: "queue",
+              title: t("layout.board.cards.queue"),
+              layout: { x: 115, y: 0, w: 60, h: 46 },
+              body: (
+                <Box sx={statusSx}>
           {/* Batch Queue panel — live view of what's running and what's stacked behind it */}
           {queue.length > 0 && (
             <Card sx={{ mb: 3, boxShadow: 2, borderRadius: 2 }}>
@@ -3193,6 +3231,15 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             </Card>
           )}
 
+                </Box>
+              ),
+            },
+            {
+              id: "results",
+              title: t("layout.board.cards.results"),
+              layout: { x: 115, y: 46, w: 60, h: 40 },
+              body: (
+                <Box sx={statusSx}>
           {/* Batch History — Stacked Thumbnail Gallery */}
           <Card sx={{
             boxShadow: 2,
@@ -3254,8 +3301,12 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               </Button>
             </Box>
           ))}
-        </Grid>
-      </Grid>
+                </Box>
+              ),
+            },
+          ]}
+        />
+      </Box>
 
 
       {/* Gallery Selection Dialog */}

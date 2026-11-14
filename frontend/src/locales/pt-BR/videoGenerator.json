@@ -272,7 +272,7 @@
     "retryBatch": "Tentar lote novamente",
     "noRetryData": "Os prompts e configurações originais não foram salvos para este lote (criado antes do suporte a tentativas), então ele não pode ser retentado automaticamente. Recrie-o a partir das configurações acima.",
     "statusTitle": "Status da Geração",
-    "none": "Nenhuma geração ativa. Inicie uma geração de vídeo acima para ver o progresso aqui."
+    "none": "Nenhuma geração ativa. Inicie uma geração de vídeo para ver o progresso aqui."
   },
   "results": {
     "thumbAlt": "miniatura",

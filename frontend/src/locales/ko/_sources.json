@@ -17717,6 +17717,10 @@
       "en": "a8b1996478c4",
       "out": "7ec8986400e9"
     },
+    "guidance.flux3KleinHelp": {
+      "en": "6969d38db612",
+      "out": "12cf886e8fbf"
+    },
     "guidance.mossHelp": {
       "en": "8785c88847b5",
       "out": "181b92d13147"
@@ -17864,6 +17868,10 @@
     "preview.close": {
       "en": "bbfa773e5a63",
       "out": "94b7dba15907"
+    },
+    "cards.noSettings": {
+      "en": "52fda780d116",
+      "out": "31adf2fbecd7"
     }
   },
   "jobs": {
@@ -18468,6 +18476,30 @@
     "windowControls.close": {
       "en": "426d1087b409",
       "out": "deefffd5b7cf"
+    },
+    "board.resetLayout": {
+      "en": "cad63b585201",
+      "out": "08d3eec63354"
+    },
+    "board.cards.prompt": {
+      "en": "a817d7eb8e0f",
+      "out": "96d6b2839457"
+    },
+    "board.cards.settings": {
+      "en": "c7f73bb54d92",
+      "out": "c14a567ea996"
+    },
+    "board.cards.queue": {
+      "en": "d325fcd91938",
+      "out": "e1cef8bc35bf"
+    },
+    "board.cards.results": {
+      "en": "612e12d29278",
+      "out": "71d855acd9ec"
+    },
+    "board.queueEmpty": {
+      "en": "1fbb38d03f56",
+      "out": "b55378f8d33f"
     }
   },
   "layoutCards": {
@@ -37837,8 +37869,8 @@
       "out": "e0946da68474"
     },
     "progress.none": {
-      "en": "fb9a49120537",
-      "out": "9c1ac79005d6"
+      "en": "8202ee2e6aa6",
+      "out": "708f80d698ac"
     },
     "results.thumbAlt": {
       "en": "d28d2b77fa48",

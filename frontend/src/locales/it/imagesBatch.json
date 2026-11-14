@@ -264,6 +264,7 @@
     "scale": "Scala Guidance: {{guidance}}",
     "zimageHelp": "Z-Image gira senza CFG — la guidance è fissata a 0. Usa i Passaggi per la qualità.",
     "qwenHelp": "Qwen-Image 2.1 gira a guidance 1 sul percorso ufficiale. Aumentala solo insieme a un prompt negativo.",
+    "flux3KleinHelp": "FLUX 3 Klein è distillato: la guidance rimane a 1 sul percorso ufficiale, e il suo upsampler di prompt scrive la didascalia completa.",
     "mossHelp": "MOSS-Image gira a guidance 2.5 sul modello ufficiale. Anche fino a 6 produce risultati puliti, con un po' più di contrasto.",
     "autoHelp": "Instrada automaticamente per ogni prompt. La scelta abituale (Z-Image) è senza CFG — mantieni 0 a meno che non ti aspetti un percorso SDXL."
   },
@@ -315,5 +316,8 @@
     "title": "Anteprima prompt generati ({{count}})",
     "intro": "Questi sono gli ultimi prompt che verranno inviati al generatore di immagini:",
     "close": "Chiudi"
+  },
+  "cards": {
+    "noSettings": "Questa modalità di input non ha impostazioni qui."
   }
 }

@@ -316,5 +316,8 @@
     "title": "Preview Generated Prompts ({{count}})",
     "intro": "These are the final prompts that will be sent to the image generator:",
     "close": "Close"
+  },
+  "cards": {
+    "noSettings": "This input mode has no settings here."
   }
 }

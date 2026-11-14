@@ -264,6 +264,7 @@
     "scale": "Escala de guía: {{guidance}}",
     "zimageHelp": "Z-Image funciona sin CFG; la guía está fija en 0. Usa Pasos para la calidad.",
     "qwenHelp": "Qwen-Image 2.1 funciona con guía 1 en la ruta oficial. Auméntala solo junto con un prompt negativo.",
+    "flux3KleinHelp": "FLUX 3 Klein está destilado: la guía se mantiene en 1 en la ruta oficial, y su upsampler de prompts escribe el pie de foto completo.",
     "mossHelp": "MOSS-Image funciona con guidance 2.5 en la plantilla oficial. Hasta 6 también se renderiza limpio, con un poco más de contraste.",
     "autoHelp": "Rutas automáticas por prompt. La opción habitual (Z-Image) es sin CFG; mantén en 0 a menos que esperes una ruta SDXL."
   },
@@ -315,5 +316,8 @@
     "title": "Vista previa de prompts generados ({{count}})",
     "intro": "Estos son los prompts finales que se enviarán al generador de imágenes:",
     "close": "Cerrar"
+  },
+  "cards": {
+    "noSettings": "Este modo de entrada no tiene Ajustes aquí."
   }
 }

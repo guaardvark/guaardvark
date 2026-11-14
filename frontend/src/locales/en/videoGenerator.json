@@ -272,7 +272,7 @@
     "retryBatch": "Retry Batch",
     "noRetryData": "Original prompts & settings weren't saved for this batch (created before retry support), so it can't be auto-retried. Recreate it from the settings above.",
     "statusTitle": "Generation Status",
-    "none": "No active generation. Start a video generation above to see progress here."
+    "none": "No active generation. Start a video generation to see progress here."
   },
   "results": {
     "thumbAlt": "thumb",

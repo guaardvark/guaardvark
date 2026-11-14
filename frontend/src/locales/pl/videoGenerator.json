@@ -274,7 +274,7 @@
     "retryBatch": "Powtórz partię",
     "noRetryData": "Oryginalne prompty i ustawienia nie zostały zapisane dla tej partii (utworzonej przed wprowadzeniem obsługi powtórzeń), więc nie można jej automatycznie powtórzyć. Stwórz ją ponownie na podstawie ustawień powyżej.",
     "statusTitle": "Status generowania",
-    "none": "Brak aktywnego generowania. Rozpocznij generowanie wideo powyżej, aby zobaczyć postęp tutaj."
+    "none": "Brak aktywnej generacji. Rozpocznij generowanie wideo, aby zobaczyć postępy tutaj."
   },
   "results": {
     "thumbAlt": "miniatura",

@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import re
 
 from flask import Blueprint, current_app, jsonify, request
 
@@ -765,3 +766,57 @@ def save_sticky_notes_state():
             exc_info=True,
         )
         return jsonify({"error": "Failed to save sticky notes state.", "details": str(e)}), 500
+
+
+# One saved arrangement per card workspace (a page made of cards), named by the
+# page. The name becomes a file name, so it is held to a fixed alphabet.
+BOARD_STATE_DIR = os.path.join(STORAGE_DIR, "boards")
+_BOARD_KEY = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
+_BOARD_STATE_MAX_BYTES = 256 * 1024
+
+
+def _board_state_file(key):
+    return os.path.join(BOARD_STATE_DIR, f"{key}.json") if _BOARD_KEY.match(key or "") else None
+
+
+@state_bp.route("/board/<key>", methods=["GET"])
+def get_board_state(key):
+    """The saved card arrangement of one workspace: layout, colours, minimized cards."""
+    logger = current_app.logger if current_app else logging.getLogger(__name__)
+    path = _board_state_file(key)
+    if path is None:
+        return jsonify({"error": "Invalid board name."}), 400
+    try:
+        if not os.path.exists(path):
+            return jsonify({"error": "Board state not found."}), 404
+        with open(path, "r", encoding="utf-8") as f:
+            return jsonify(json.load(f)), 200
+    except json.JSONDecodeError as e:
+        logger.error(f"API Error (GET /board/{key}): invalid JSON: {e}", exc_info=True)
+        return jsonify({"error": "Failed to decode board state.", "details": str(e)}), 500
+    except Exception as e:
+        logger.error(f"API Error (GET /board/{key}): {e}", exc_info=True)
+        return jsonify({"error": "Failed to read board state.", "details": str(e)}), 500
+
+
+@state_bp.route("/board/<key>", methods=["POST"])
+def save_board_state(key):
+    logger = current_app.logger if current_app else logging.getLogger(__name__)
+    path = _board_state_file(key)
+    if path is None:
+        return jsonify({"error": "Invalid board name."}), 400
+    if not request.is_json:
+        return jsonify({"error": "Request must be JSON"}), 400
+    if (request.content_length or 0) > _BOARD_STATE_MAX_BYTES:
+        return jsonify({"error": "Board state is too large."}), 413
+    try:
+        state_data = request.get_json()
+        if not isinstance(state_data, dict):
+            return jsonify({"error": "Invalid state format. Request body must be a JSON object."}), 400
+        os.makedirs(BOARD_STATE_DIR, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(state_data, f, indent=2, ensure_ascii=False)
+        return jsonify({"message": "Board state saved."}), 200
+    except Exception as e:
+        logger.error(f"API Error (POST /board/{key}): {e}", exc_info=True)
+        return jsonify({"error": "Failed to save board state.", "details": str(e)}), 500

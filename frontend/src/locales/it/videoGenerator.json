@@ -272,7 +272,7 @@
     "retryBatch": "Riprova Batch",
     "noRetryData": "Prompt e impostazioni originali non sono stati salvati per questo batch (creato prima del supporto alla riproposizione), quindi non può essere riprovato automaticamente. Ricrealo dalle impostazioni sopra.",
     "statusTitle": "Stato generazione",
-    "none": "Nessuna generazione attiva. Avvia una generazione video sopra per vedere il progresso qui."
+    "none": "Nessuna generazione attiva. Avvia una generazione video per vedere i progressi qui."
   },
   "results": {
     "thumbAlt": "miniatura",

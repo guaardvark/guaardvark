@@ -92,5 +92,15 @@
     "exitKiosk": "Esci dalla modalità Kiosk (F11)",
     "minimize": "Minimizza finestra (Nascondi contenuto)",
     "close": "Chiudi applicazione (Ctrl+Q o Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Ripristina layout schede",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Impostazioni",
+      "queue": "Coda",
+      "results": "Risultati"
+    },
+    "queueEmpty": "Nessun elemento in coda o in fase di rendering."
   }
 }

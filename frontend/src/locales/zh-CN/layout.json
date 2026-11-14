@@ -92,5 +92,15 @@
     "exitKiosk": "退出全屏模式 (F11)",
     "minimize": "最小化窗口 (隐藏内容)",
     "close": "关闭应用程序 (Ctrl+Q 或 Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "重置卡片布局",
+    "cards": {
+      "prompt": "提示词",
+      "settings": "设置",
+      "queue": "队列",
+      "results": "结果"
+    },
+    "queueEmpty": "队列为空或正在渲染中。"
   }
 }

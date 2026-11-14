@@ -202,7 +202,7 @@ const CardBoard = ({
 };
 
 CardBoard.propTypes = {
-  containerRef: PropTypes.object,
+  containerRef: PropTypes.oneOfType([PropTypes.object, PropTypes.func]),
   width: PropTypes.number.isRequired,
   grid: PropTypes.object.isRequired,
   layout: PropTypes.array.isRequired,

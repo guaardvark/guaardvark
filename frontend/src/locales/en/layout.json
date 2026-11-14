@@ -92,5 +92,15 @@
     "exitKiosk": "Exit Kiosk Mode (F11)",
     "minimize": "Minimize Window (Hide Content)",
     "close": "Close Application (Ctrl+Q or Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Reset card layout",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Settings",
+      "queue": "Queue",
+      "results": "Results"
+    },
+    "queueEmpty": "Nothing is queued or rendering."
   }
 }
