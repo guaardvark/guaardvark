@@ -13,7 +13,8 @@ import re
 import threading
 import time
 import weakref
-from typing import Dict, NamedTuple, Optional, Tuple
+from contextlib import contextmanager
+from typing import Dict, Iterator, List, NamedTuple, Optional, Tuple
 
 import requests
 
@@ -63,6 +64,10 @@ _unreachable_ttl = 15  # seconds
 # instances from different threads.
 _provisional_llms: "weakref.WeakValueDictionary[int, object]" = weakref.WeakValueDictionary()
 _provisional_lock = threading.Lock()
+
+# Windows of model loads still under way in this process (full model name -> num_ctx list).
+_loads_in_flight: Dict[str, List[int]] = {}
+_loads_lock = threading.Lock()
 
 
 class OverheadProfile(NamedTuple):
@@ -892,6 +897,44 @@ def compute_optimal_num_ctx(model_name: str) -> int:
     return decide_num_ctx(model_name).num_ctx
 
 
+@contextmanager
+def load_in_flight(model_name: str, num_ctx: Optional[int]) -> Iterator[None]:
+    """Mark a request that may load ``model_name`` at ``num_ctx`` for as long as it runs.
+
+    Mid-load a model already holds most of its memory but is not yet in
+    /api/ps, so sizing it then counts that memory as someone else's: gemma4:12b
+    on a 16 GB card was sized 8,192 while a warm-up loaded it at 32,768. A
+    request with the other window makes Ollama reload the model, and a
+    keep_alive -1 pin on the loaded copy cancels that unload, so the request
+    waits until its client gives up (Ollama 0.40.16, Keep ready on: every chat
+    timed out; 2026-11-13). While a load is marked here, sizing that model
+    returns the window being loaded.
+    """
+    key = _full_model_name(model_name) if model_name else ""
+    if not key or not num_ctx or int(num_ctx) <= 0:
+        yield
+        return
+    with _loads_lock:
+        _loads_in_flight.setdefault(key, []).append(int(num_ctx))
+    try:
+        yield
+    finally:
+        with _loads_lock:
+            windows = _loads_in_flight.get(key, [])
+            if int(num_ctx) in windows:
+                windows.remove(int(num_ctx))
+            if not windows:
+                _loads_in_flight.pop(key, None)
+
+
+def _window_in_flight(model_name: str) -> int:
+    """The window of a load of ``model_name`` this process has under way, else 0."""
+    key = _full_model_name(model_name) if model_name else ""
+    with _loads_lock:
+        windows = _loads_in_flight.get(key)
+        return windows[0] if windows else 0
+
+
 def decide_num_ctx(model_name: str) -> NumCtxDecision:
     """
     Compute the optimal num_ctx for a model based on available system resources.
@@ -918,6 +961,11 @@ def decide_num_ctx(model_name: str) -> NumCtxDecision:
         logger.info("No model info for '%s', using default num_ctx=%d", model_name, default)
         return NumCtxDecision(default, resolved=False)
 
+    loading_at = _window_in_flight(model_name)
+    if loading_at:
+        logger.info("Adaptive context for '%s': num_ctx=%d, the window it is being loaded with", model_name, loading_at)
+        return NumCtxDecision(loading_at, resolved=True)
+
     entry = loaded_entry(model_name)
     own_ram_mb = _own_ram_mb(entry)
     resources = _sizing_resources(model_name)
@@ -942,7 +990,42 @@ def decide_num_ctx(model_name: str) -> NumCtxDecision:
             model_name, max(num_ctx, kept), entry.get("context_length"), num_ctx, own_ram_mb, with_own,
         )
         num_ctx = max(num_ctx, kept)
+    on_gpu = _gpu_loaded_window(entry, model_info)
+    if on_gpu > num_ctx:
+        logger.info(
+            "Adaptive context for '%s': num_ctx=%d, the window it is loaded with on the GPU "
+            "(%d sized against the memory left beside it)",
+            model_name, on_gpu, num_ctx,
+        )
+        num_ctx = on_gpu
     return NumCtxDecision(num_ctx, resolved=True)
+
+
+def _gpu_loaded_window(entry: Optional[dict], model_info: dict) -> int:
+    """The window a model loaded entirely on the GPU runs at, capped at
+    MAX_NUM_CTX and its native window; 0 when it is not loaded that way.
+
+    Free GPU memory read while the model is loaded counts its own share as
+    used, so the same model sized before and after its load got two windows
+    (gemma4:12b on a 16 GB card: 32,768 on the empty card, 8,192 once loaded),
+    and the request with the second one reloaded it. That it is loaded on the
+    GPU at this window is the proof it fits. Its share cannot be added back
+    from /api/ps instead: Ollama 0.40's llamacpp runner reports 1.4 GB for a
+    gemma4:12b that holds 7.8 GiB.
+    """
+    if not entry:
+        return 0
+    try:
+        size = int(entry.get("size") or 0)
+        size_vram = int(entry.get("size_vram") or 0)
+        loaded_ctx = int(entry.get("context_length") or 0)
+    except (TypeError, ValueError):
+        return 0
+    if size <= 0 or size_vram < size or loaded_ctx <= 0:
+        return 0
+    native_ctx = model_info.get("native_context", 0)
+    ceiling = min(native_ctx, MAX_NUM_CTX) if native_ctx > 0 else MAX_NUM_CTX
+    return min(loaded_ctx, ceiling)
 
 
 def _own_ram_mb(entry: Optional[dict]) -> float:
@@ -1137,7 +1220,17 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
     if not model_info:
         return True, "Model info unavailable — proceeding with defaults", override or _fallback_num_ctx(model_name)
 
-    resources = _sizing_resources(model_name, _own_ram_mb(loaded_entry(model_name)))
+    loading_at = _window_in_flight(model_name)
+    if loading_at:
+        return True, f"OK — being loaded, num_ctx={loading_at}", loading_at
+
+    entry = loaded_entry(model_name)
+    if _gpu_loaded_window(entry, model_info):
+        # Already on the GPU: the memory checks below would count it against itself.
+        recommended_ctx = compute_optimal_num_ctx(model_name)
+        return True, f"OK — loaded on the GPU, recommended num_ctx={recommended_ctx}", recommended_ctx
+
+    resources = _sizing_resources(model_name, _own_ram_mb(entry))
     total_available_mb = (
         max(0, resources["gpu_free_mb"] - GPU_RESERVE_MB) +
         max(0, resources["ram_free_mb"] - ram_reserve_mb(resources.get("ram_total_mb", 0.0)))

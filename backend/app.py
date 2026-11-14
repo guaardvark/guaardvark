@@ -1756,7 +1756,9 @@ def initialize_llm_and_index_async():
                     model_name = getattr(llm, "model", "unknown")
                     app.logger.info(f"[LLM-Init] Warming up model '{model_name}' (loading into GPU)...")
                     warmup_start = time.time()
-                    llm.complete("warmup")
+                    from backend.utils.ollama_resource_manager import load_in_flight
+                    with load_in_flight(model_name, getattr(llm, "context_window", None)):
+                        llm.complete("warmup")
                     warmup_duration = time.time() - warmup_start
                     app.logger.info(f"[LLM-Init] Model warmup completed in {warmup_duration:.1f}s — ready for chat")
                 except Exception as e:
