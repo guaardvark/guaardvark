@@ -1,4 +1,5 @@
 """Tests for per-architecture KV sizing and non-sticky num_ctx fallback."""
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -396,6 +397,72 @@ class TestLoadInFlight:
              patch.object(orm, "get_system_resources", return_value=self.MID_LOAD):
             safe, _, num_ctx = orm.validate_model_before_load("gemma4:12b")
         assert safe is True and num_ctx == 32768
+
+
+class TestFollowLoadedWindow:
+    """A long-lived instance sized while another process loads the model keeps
+    that size: the Celery worker's startup LLM got 8,192 beside a 32,768 load."""
+
+    def _llm(self, ctx=8192, model="gemma4:12b"):
+        return SimpleNamespace(model=model, context_window=ctx, additional_kwargs={"num_ctx": ctx})
+
+    def _loaded(self, monkeypatch, ctx, size=1454553168, size_vram=1454553168):
+        entry = {"name": "gemma4:12b", "model": "gemma4:12b", "context_length": ctx,
+                 "size": size, "size_vram": size_vram}
+        monkeypatch.setattr(orm, "resident_models", lambda ttl_s=orm.RESIDENT_TTL_S: [entry])
+
+    def _follow(self, llm):
+        with patch.object(orm, "get_model_info", return_value=GEMMA4_12B_INFO):
+            return orm.follow_loaded_window(llm)
+
+    def test_it_takes_the_window_the_model_is_loaded_with(self, monkeypatch):
+        self._loaded(monkeypatch, 32768)
+        llm = self._llm(8192)
+        assert self._follow(llm) == 32768
+        assert llm.context_window == 32768
+        assert llm.additional_kwargs["num_ctx"] == 32768
+
+    def test_it_shrinks_to_a_smaller_loaded_window(self, monkeypatch):
+        self._loaded(monkeypatch, 8192)
+        llm = self._llm(32768)
+        assert self._follow(llm) == 8192
+        assert llm.additional_kwargs["num_ctx"] == 8192
+
+    def test_a_model_that_is_not_loaded_keeps_its_window(self, monkeypatch):
+        monkeypatch.setattr(orm, "resident_models", lambda ttl_s=orm.RESIDENT_TTL_S: [])
+        llm = self._llm(8192)
+        assert self._follow(llm) == 8192
+        assert llm.additional_kwargs["num_ctx"] == 8192
+
+    def test_a_model_split_with_the_cpu_keeps_its_window(self, monkeypatch):
+        self._loaded(monkeypatch, 32768, size=9_000_000_000, size_vram=6_000_000_000)
+        assert self._follow(self._llm(8192)) == 8192
+
+    def test_an_oversized_load_is_capped(self, monkeypatch):
+        self._loaded(monkeypatch, 262144)
+        assert self._follow(self._llm(8192)) == orm.MAX_NUM_CTX
+
+    def test_a_size_set_in_the_environment_wins(self, monkeypatch):
+        self._loaded(monkeypatch, 32768)
+        monkeypatch.setenv(orm.NUM_CTX_ENV, "gemma4:12b=4096")
+        assert self._follow(self._llm(4096)) == 4096
+
+    def test_an_unreadable_ollama_leaves_the_window(self, monkeypatch):
+        def boom(ttl_s=orm.RESIDENT_TTL_S):
+            raise requests.ConnectionError("down")
+        monkeypatch.setattr(orm, "resident_models", boom)
+        assert self._follow(self._llm(8192)) == 8192
+
+    def test_it_stops_being_provisional(self, monkeypatch):
+        self._loaded(monkeypatch, 32768)
+        llm = _Weakrefable(model="gemma4:12b", context_window=8192, additional_kwargs={"num_ctx": 8192})
+        orm.mark_provisional(llm, resolved=False)
+        self._follow(llm)
+        assert orm.is_provisional(llm) is False
+
+
+class _Weakrefable(SimpleNamespace):
+    pass
 
 
 class TestDecideNumCtx:

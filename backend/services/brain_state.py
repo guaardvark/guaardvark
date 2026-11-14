@@ -695,6 +695,11 @@ class BrainState:
             logger.info("BrainState: skipping warm-up in the Celery worker")
             self.health.warm_up_status = WarmUpStatus.READY
             return
+        from backend.utils.process_role import one_shot_command
+        if one_shot_command():
+            logger.info("BrainState: skipping warm-up in a one-shot command")
+            self.health.warm_up_status = WarmUpStatus.READY
+            return
         self.health.warm_up_status = WarmUpStatus.WARMING
 
         def _ping():

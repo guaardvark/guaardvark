@@ -509,6 +509,30 @@ def get_default_llm() -> Ollama:
     return llm
 
 
+if Ollama is not None:
+    class LoadedWindowOllama(Ollama):
+        """An ``Ollama`` that asks for the window its model is loaded with.
+
+        The Celery worker's startup LLM lives as long as the worker and shares the
+        chat model with the web process, which loads and pins it. See
+        ``ollama_resource_manager.follow_loaded_window``.
+        """
+
+        @property
+        def metadata(self):
+            from backend.utils.ollama_resource_manager import follow_loaded_window
+            follow_loaded_window(self)
+            return super().metadata
+
+        @property
+        def _model_kwargs(self):
+            from backend.utils.ollama_resource_manager import follow_loaded_window
+            follow_loaded_window(self)
+            return super()._model_kwargs
+else:
+    LoadedWindowOllama = None  # type: ignore
+
+
 def get_llm_for_startup() -> Ollama:
     """Return an Ollama instance using the last active model if available.
 
@@ -603,7 +627,8 @@ def get_llm_for_startup() -> Ollama:
     start = time.time()
     timeout_value = min(LLM_REQUEST_TIMEOUT, 180.0)  # Cap at 3 minutes for startup
     temperature, sampling_kwargs = _default_chat_sampling()
-    llm = Ollama(
+    in_worker = os.environ.get("CELERY_WORKER_MODE", "false").lower() == "true"
+    llm = (LoadedWindowOllama if in_worker and LoadedWindowOllama else Ollama)(
         model=model_name,
         base_url=OLLAMA_BASE_URL,
         request_timeout=timeout_value,
