@@ -630,7 +630,7 @@ class GPUResourceCoordinator:
 
     def get_available_vram(self) -> Dict[str, Any]:
         """
-        Get available VRAM. Probes Apple MPS first on macOS, then NVIDIA.
+        Get available VRAM. Probes Apple MPS first on macOS, then NVIDIA, then AMD (rocm-smi).
 
         Returns dict with:
             - available_mb: Available VRAM in MB
@@ -709,6 +709,36 @@ class GPUResourceCoordinator:
                 GPUResourceCoordinator._no_gpu_detected = False
                 return mps_result
             return nv_result
+
+    def _get_vram_via_amd(self) -> Optional[Dict[str, Any]]:
+        """AMD/ROCm: the card with the most VRAM, read through rocm-smi.
+
+        Uses the probe the hardware profile uses (hardware_detector.probe_amd_vram_bytes),
+        not torch.cuda: it creates no GPU context, and CUDA_VISIBLE_DEVICES is set at
+        import time elsewhere (see has_gpu()), which affects ROCm builds of torch too.
+        Same shape as the NVIDIA branch.
+        """
+        try:
+            from backend.services.hardware_detector import probe_amd_vram_bytes
+            card = probe_amd_vram_bytes()
+        except Exception as e:
+            logger.debug(f"AMD VRAM probe failed: {e}")
+            return None
+        if not card:
+            return None
+        total_mb = card[0] // (1024 * 1024)
+        used_mb = card[1] // (1024 * 1024)
+        if total_mb <= 0:
+            return None
+        return {
+            "success": True,
+            "available_mb": max(0, total_mb - used_mb),
+            "total_mb": total_mb,
+            "used_mb": used_mb,
+            "gpu_name": "AMD GPU (rocm-smi)",
+            "utilization_percent": round((used_mb / total_mb) * 100, 1),
+            "accel": "rocm",
+        }
 
     def _get_vram_via_mps(self) -> Optional[Dict[str, Any]]:
         """Apple Silicon MPS fallback: report a share of unified memory as GPU budget.
@@ -792,6 +822,11 @@ class GPUResourceCoordinator:
             }
 
         except FileNotFoundError:
+            # No NVIDIA stack: ask the AMD probe before deciding there is no GPU, so the
+            # sticky flag below only means none of NVIDIA, AMD or MPS answered.
+            amd = self._get_vram_via_amd()
+            if amd:
+                return amd
             # No nvidia-smi binary AND pynvml failed earlier → no NVIDIA stack
             # present on this host. Flip the class-level flag so future calls
             # short-circuit without spamming ERROR lines.

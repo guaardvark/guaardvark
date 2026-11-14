@@ -2641,7 +2641,7 @@ def _video_setting(key: str) -> str:
         return ""
 
 
-NO_VIDEO_GPU_MESSAGE = "GPU required for video generation: no NVIDIA GPU detected on this host."
+NO_VIDEO_GPU_MESSAGE = "GPU required for video generation: no supported GPU (NVIDIA, AMD or Apple) detected on this host."
 
 
 def _probe_total_vram_mb():
