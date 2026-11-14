@@ -1,5 +1,5 @@
 // frontend/src/components/dashboard/ImageGenerationCard.jsx
-// Image Generation Dashboard Card - Quick access to image generation functionality
+// Image Generation Dashboard Card - the latest pictures, recent batches and quick actions
 
 import React from "react";
 import { Box, Button, IconButton, Tooltip } from "@mui/material";
@@ -7,12 +7,17 @@ import { Add, PlayArrow, Refresh } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import DashboardCardWrapper from "./DashboardCardWrapper";
 import RecentRunsList from "./RecentRunsList";
+import MediaThumbGrid from "./MediaThumbGrid";
 import { loadImageBatchRows, useRecentRuns } from "./recentRuns";
+import { useRecentMedia } from "./recentMedia";
 import { useUiTranslation } from "../../i18n";
 
 // The Image Gen tab; BatchImageGeneratorPage reads ?mode= to pick its input mode.
 export const IMAGE_GEN_PATH = "/batch-images";
 export const IMAGE_GEN_BATCH_PATH = "/batch-images?mode=bulk";
+
+// Latest pictures shown above the batch list.
+const THUMBNAILS = 9;
 
 const ImageGenerationCard = React.forwardRef(
   (
@@ -29,6 +34,11 @@ const ImageGenerationCard = React.forwardRef(
     const { t } = useUiTranslation();
     const navigate = useNavigate();
     const recent = useRecentRuns(loadImageBatchRows);
+    const latest = useRecentMedia("image");
+    const refresh = () => {
+      recent.refresh();
+      latest.refresh();
+    };
 
     return (
       <DashboardCardWrapper
@@ -80,13 +90,24 @@ const ImageGenerationCard = React.forwardRef(
           <Tooltip title={t("dashboard.refreshData")}>
             <IconButton
               size="small"
-              onClick={recent.refresh}
+              onClick={refresh}
               className="non-draggable"
             >
               <Refresh fontSize="small" />
             </IconButton>
           </Tooltip>
         </Box>
+
+        {/* No pictures yet is said once, by the batch list below. */}
+        {(latest.error || latest.items.length > 0) && (
+          <MediaThumbGrid
+            items={latest.items.slice(0, THUMBNAILS)}
+            loading={latest.loading}
+            error={latest.error}
+            emptyText=""
+            onChanged={refresh}
+          />
+        )}
 
         <RecentRunsList
           rows={recent.rows}
