@@ -3,7 +3,7 @@
 // minimize to their bar. The page owns which cards exist, what they show and
 // where the layout is saved; the board owns how they behave.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { Box, useTheme } from "@mui/material";
 import ReactGridLayout from "react-grid-layout/legacy";
@@ -12,6 +12,9 @@ import "react-resizable/css/styles.css";
 import { CARD_BAR_PX, barRows, gridLayout } from "./boardGeometry";
 
 const RESIZE_HANDLES = ["s", "w", "e", "n", "sw", "nw", "se", "ne"];
+
+// On the board while a card is being dragged or resized.
+const GESTURE_CLASS = "card-board-gesture";
 
 /** Never starts a drag, whatever the card puts in its bar. */
 export const DRAG_CANCEL = "button, input, textarea, select, option, .non-draggable";
@@ -85,6 +88,30 @@ const CardBoard = ({
   }, [fitWidth, node]);
   const boardWidth = fitWidth && measured > 0 ? measured : width;
 
+  // While a card is dragged or resized the pointer crosses other cards; without
+  // this the browser reads the press-and-move as selecting their text.
+  const boxRef = useRef(null);
+  const setBox = useCallback(
+    (el) => {
+      boxRef.current = el;
+      if (fitWidth) attach(el);
+      else if (typeof containerRef === "function") containerRef(el);
+      else if (containerRef) containerRef.current = el;
+    },
+    [fitWidth, attach, containerRef],
+  );
+  const endGesture = useCallback(() => {
+    boxRef.current?.classList.remove(GESTURE_CLASS);
+    window.removeEventListener("mouseup", endGesture);
+  }, []);
+  const beginGesture = useCallback(() => {
+    window.getSelection()?.removeAllRanges();
+    boxRef.current?.classList.add(GESTURE_CLASS);
+    // The grid's own stop callback is not reached if the press ends off the page's grid.
+    window.addEventListener("mouseup", endGesture);
+  }, [endGesture]);
+  useEffect(() => endGesture, [endGesture]);
+
   const rows = barRows(ROW_HEIGHT_PX, margin, spacing?.barPx ?? CARD_BAR_PX);
   const shown = useMemo(() => gridLayout(layout, minimized, rows), [layout, minimized, rows]);
 
@@ -95,9 +122,10 @@ const CardBoard = ({
 
   return (
     <Box
-      ref={fitWidth ? attach : containerRef}
+      ref={setBox}
       sx={{
         width: "100%",
+        [`&.${GESTURE_CLASS}, &.${GESTURE_CLASS} *`]: { userSelect: "none !important" },
         "& .react-grid-item": {
           transition: "transform 0.2s ease-out !important",
           "&.react-draggable-dragging": {
@@ -132,9 +160,19 @@ const CardBoard = ({
         allowOverlap={true}
         draggableHandle={dragHandle}
         draggableCancel={dragCancel}
-        onDragStart={onDragStart ? (_layout, item) => onDragStart(item.i) : undefined}
-        onDragStop={onDragStop}
-        onResizeStop={onResizeStop}
+        onDragStart={(_layout, item) => {
+          beginGesture();
+          onDragStart?.(item.i);
+        }}
+        onDragStop={(reported) => {
+          endGesture();
+          onDragStop?.(reported);
+        }}
+        onResizeStart={beginGesture}
+        onResizeStop={(reported) => {
+          endGesture();
+          onResizeStop?.(reported);
+        }}
         resizeHandles={RESIZE_HANDLES}
       >
         {shown.map((item) => {
