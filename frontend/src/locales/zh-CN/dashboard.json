@@ -83,6 +83,33 @@
     "empty": "暂无图像批次。",
     "viewAll": "查看所有批次"
   },
+  "videogen": {
+    "title": "视频",
+    "newVideo": "新视频",
+    "library": "媒体库",
+    "empty": "暂无视频。"
+  },
+  "approvals": {
+    "title": "等待处理",
+    "summary_other": "有 {{count}} 个项目等待您的决策。",
+    "empty": "没有待处理项目。",
+    "showAll": "点击阅读全文",
+    "more": "在审批页面还有 {{count}} 个",
+    "openOn": "在审批页面打开，{{tab}} 标签页",
+    "sections": {
+      "outreach": "外联草稿",
+      "ready": "已审批，准备发布",
+      "publishes": "已发布",
+      "code": "暂存的代码变更"
+    }
+  },
+  "media": {
+    "open": "打开 {{name}}",
+    "loadFailed": {
+      "image": "无法加载最新的图像：{{message}}",
+      "video": "无法加载最新的视频：{{message}}"
+    }
+  },
   "files": {
     "title": "文件管理器"
   },

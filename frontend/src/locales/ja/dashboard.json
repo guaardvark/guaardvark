@@ -83,6 +83,33 @@
     "empty": "バッチはまだありません。",
     "viewAll": "すべてのバッチを表示"
   },
+  "videogen": {
+    "title": "動画",
+    "newVideo": "新規動画",
+    "library": "メディアライブラリ",
+    "empty": "動画はまだありません。"
+  },
+  "approvals": {
+    "title": "承認待ち",
+    "summary_other": "{{count}} 件の項目が承認待ちです。",
+    "empty": "承認待ちの項目はありません。",
+    "showAll": "クリックして下書きをすべて読む",
+    "more": "承認ページにあと{{count}} 件あり",
+    "openOn": "承認ページ、{{tab}} タブで開く",
+    "sections": {
+      "outreach": "アウトリーチ下書き",
+      "ready": "承認済み、投稿準備完了",
+      "publishes": "公開済み",
+      "code": "保留中のコード変更"
+    }
+  },
+  "media": {
+    "open": "{{name}} を開く",
+    "loadFailed": {
+      "image": "最新の画像を読み込めませんでした: {{message}}",
+      "video": "最新の動画を読み込めませんでした: {{message}}"
+    }
+  },
   "files": {
     "title": "ファイルマネージャー"
   },

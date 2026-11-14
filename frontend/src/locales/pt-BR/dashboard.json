@@ -83,6 +83,34 @@
     "empty": "Nenhum lote de imagens ainda.",
     "viewAll": "Ver todos os lotes"
   },
+  "videogen": {
+    "title": "Vídeos",
+    "newVideo": "Novo Vídeo",
+    "library": "Biblioteca de Mídia",
+    "empty": "Nenhum vídeo ainda."
+  },
+  "approvals": {
+    "title": "Aguardando Você",
+    "summary_one": "{{count}} item está aguardando sua decisão.",
+    "summary_other": "{{count}} itens estão aguardando sua decisão.",
+    "empty": "Nada está aguardando você.",
+    "showAll": "Clique para ler o rascunho completo",
+    "more": "{{count}} a mais na página de Aprovações",
+    "openOn": "Abrir na página de Aprovações, aba {{tab}}",
+    "sections": {
+      "outreach": "Rascunhos de Alcance",
+      "ready": "Aprovados, prontos para postar",
+      "publishes": "Publicações",
+      "code": "Mudanças de Código retidas"
+    }
+  },
+  "media": {
+    "open": "Abrir {{name}}",
+    "loadFailed": {
+      "image": "Não foi possível carregar as imagens mais recentes: {{message}}",
+      "video": "Não foi possível carregar os vídeos mais recentes: {{message}}"
+    }
+  },
   "files": {
     "title": "Gerenciador de Arquivos"
   },

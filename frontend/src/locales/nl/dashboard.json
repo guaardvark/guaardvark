@@ -83,6 +83,34 @@
     "empty": "Nog geen afbeeldingbatches.",
     "viewAll": "Bekijk alle batches"
   },
+  "videogen": {
+    "title": "Video's",
+    "newVideo": "Nieuwe video",
+    "library": "Media Bibliotheek",
+    "empty": "Nog geen video's."
+  },
+  "approvals": {
+    "title": "Wachten op je",
+    "summary_one": "{{count}} item wacht op je beslissing.",
+    "summary_other": "{{count}} items wachten op je beslissing.",
+    "empty": "Er wacht niets op je.",
+    "showAll": "Klik om het hele concept te lezen",
+    "more": "{{count}} meer op de Goedkeuringen pagina",
+    "openOn": "Openen op de Goedkeuringen pagina, {{tab}} tab",
+    "sections": {
+      "outreach": "Outreach concepten",
+      "ready": "Goedgekeurd, klaar om te plaatsen",
+      "publishes": "Publicaties",
+      "code": "Gehouden code wijzigingen"
+    }
+  },
+  "media": {
+    "open": "Openen {{name}}",
+    "loadFailed": {
+      "image": "Kon de laatste afbeeldingen niet laden: {{message}}",
+      "video": "Kon de laatste video's niet laden: {{message}}"
+    }
+  },
   "files": {
     "title": "Bestandsbeheerder"
   },

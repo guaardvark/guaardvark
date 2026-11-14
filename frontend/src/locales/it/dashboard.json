@@ -83,6 +83,34 @@
     "empty": "Nessun batch di immagini ancora.",
     "viewAll": "Visualizza tutti i batch"
   },
+  "videogen": {
+    "title": "Video",
+    "newVideo": "Nuovo Video",
+    "library": "Libreria Media",
+    "empty": "Nessun video ancora."
+  },
+  "approvals": {
+    "title": "In attesa di te",
+    "summary_one": "1 elemento è in attesa della tua decisione.",
+    "summary_other": "{{count}} elementi sono in attesa della tua decisione.",
+    "empty": "Nulla è in attesa di te.",
+    "showAll": "Clicca per leggere la bozza completa",
+    "more": "{{count}} in più nella pagina Approvazioni",
+    "openOn": "Apri nella pagina Approvazioni, scheda {{tab}}",
+    "sections": {
+      "outreach": "Bozze di Outreach",
+      "ready": "Approvati, pronti per la pubblicazione",
+      "publishes": "Pubblicazioni",
+      "code": "Modifiche al Codice in sospeso"
+    }
+  },
+  "media": {
+    "open": "Apri {{name}}",
+    "loadFailed": {
+      "image": "Impossibile caricare le ultime immagini: {{message}}",
+      "video": "Impossibile caricare gli ultimi video: {{message}}"
+    }
+  },
   "files": {
     "title": "Gestore File"
   },

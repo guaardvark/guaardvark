@@ -83,6 +83,35 @@
     "empty": "Brak serii obrazów.",
     "viewAll": "Pokaż wszystkie serie"
   },
+  "videogen": {
+    "title": "Wideo",
+    "newVideo": "Nowe wideo",
+    "library": "Biblioteka mediów",
+    "empty": "Brak wideo."
+  },
+  "approvals": {
+    "title": "Oczekiwanie",
+    "summary_few": "{{count}} elementy oczekuje na Twoją decyzję.",
+    "summary_many": "{{count}} elementów oczekuje na Twoją decyzję.",
+    "summary_one": "1 element oczekuje na Twoją decyzję.",
+    "empty": "Nic nie oczekuje na Twoją decyzję.",
+    "showAll": "Kliknij, aby przeczytać cały szkic",
+    "more": "Jeszcze {{count}} na stronie Zatwierdzenia",
+    "openOn": "Otwórz na stronie Zatwierdzenia, karta {{tab}}",
+    "sections": {
+      "outreach": "Szkice outreach",
+      "ready": "Zatwierdzone, gotowe do publikacji",
+      "publishes": "Publikacje",
+      "code": "Wstrzymane zmiany w Kodzie"
+    }
+  },
+  "media": {
+    "open": "Otwórz {{name}}",
+    "loadFailed": {
+      "image": "Nie udało się załadować najnowszych obrazów: {{message}}",
+      "video": "Nie udało się załadować najnowszych wideo: {{message}}"
+    }
+  },
   "files": {
     "title": "Menedżer plików"
   },
