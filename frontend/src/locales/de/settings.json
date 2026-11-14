@@ -341,7 +341,7 @@
     "verbatim": "Unveränderte Prompts",
     "forcedByEnv": "durch Umgebung erzwungen",
     "verbatimForcedTooltip": "VERBATIM_PROMPTS ist in der Serverumgebung gesetzt. Entferne es und starte neu, um dies hier einzustellen.",
-    "verbatimTooltip": "Ein: keine KI-Umschreibung oder automatischen Stilzusätze. Modellgrenzen und Anweisungsverarbeitung gelten weiterhin. Aus: Promptverbesserung ist erlaubt.",
+    "verbatimTooltip": "Ein: keine KI-Umschreibung oder automatischen Stilzusätze für Bilder, Videos und Lieder. Das Audio Studio startet mit Polish und Arrange aus; dort kannst du beides trotzdem einschalten. Modellgrenzen und Anweisungsverarbeitung gelten weiterhin. Aus: Promptverbesserung ist erlaubt.",
     "stillsModels": "Bildmodelle",
     "stillsModelsHelp": "Standard-Bildmodelle von Guaardvark. Die Cast-LoRA-Basis dient zum Training neuer Charakter-LoRAs; eine LoRA funktioniert nur mit derselben Modellfamilie.",
     "stills": "Bilder",
