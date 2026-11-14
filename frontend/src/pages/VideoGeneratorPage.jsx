@@ -67,6 +67,7 @@ import {
   familyType,
   isCogVideoXModel,
   canvasDimensions,
+  defaultSizeFor,
   parseSeed,
   MAX_SEED,
   isWanModel,
@@ -174,7 +175,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   const [motionPreset, setMotionPreset] = useState("normal");
   const [model, setModel] = useState(DEFAULT_T2V_MODEL);
   const [aspectRatio, setAspectRatio] = useState("16:9");
-  const [videoSize, setVideoSize] = useState("large");
+  // null until the person picks a size: the model's default for the mode applies.
+  const [pickedVideoSize, setVideoSize] = useState(null);
   const [qualityTier, setQualityTier] = useState("standard");
   const [promptStyle, setPromptStyle] = useState("cinematic");
   const [enhancePrompt, setEnhancePrompt] = useState(true);
@@ -734,6 +736,10 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     if (key) setDurationPreset(key);
     if (preset.style) setPromptStyle(preset.style);
   };
+
+  // A text prompt rendered through a keyframe still is an image-to-video clip.
+  const videoSize = pickedVideoSize
+    ?? defaultSizeFor(model, inputMode === "text" && (cinematicKeyframe || selectedSubjectIds.length > 0) ? "image" : inputMode);
 
   const videoDimensions = useMemo(() => {
     // Resolve through the model: the snap effect settles a render later, and
