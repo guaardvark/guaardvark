@@ -64,8 +64,15 @@ services:
     image: ollama/ollama:latest
     ports:
       - "${GUAARDVARK_OLLAMA_PUBLISH_HOST:-127.0.0.1}:${GUAARDVARK_OLLAMA_PUBLISH_PORT:-11434}:11434"
+    # The CUDA driver compiles the runner's GPU kernels on first use and caches them in /root/.nv.
+    # Without a volume every container start compiled them again: gemma4:12b took 25 s to load
+    # and 48 s to answer (16 GB desktop card; ~110 s under Docker Desktop on WSL2), 2.5 s with the
+    # cache kept. One model's kernels take ~90 MB; the driver's default limit is smaller than a few.
+    environment:
+      CUDA_CACHE_MAXSIZE: "2147483648"
     volumes:
       - ollama_models:/root/.ollama
+      - ollama_cuda_cache:/root/.nv
 
   # ── Backend (Flask + Celery) ───────────────────────────────────────────
   backend:
@@ -181,6 +188,7 @@ services:
 volumes:
   pgdata:
   ollama_models:
+  ollama_cuda_cache:
   app_data:
   app_logs:
   app_config:
