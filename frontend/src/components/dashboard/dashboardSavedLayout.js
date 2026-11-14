@@ -43,16 +43,3 @@ export function mergeSavedLayout(defaults, saved, { addedRowH, extraItemProps = 
   });
   return [...kept, ...placed];
 }
-
-/**
- * Layouts saved before minimizing left a card's size alone hold a minimized
- * card at its shrunk height, with the size it opens to kept beside the layout
- * in `originalDimensions`. Put those sizes back on the items.
- */
-export function restoreMinimizedSizes(layout, minimized, originalDimensions) {
-  if (!originalDimensions || typeof originalDimensions !== "object") return layout;
-  return layout.map((item) => {
-    const size = minimized?.[item.i] && originalDimensions[item.i];
-    return size ? { ...item, w: size.w ?? item.w, h: size.h ?? item.h } : item;
-  });
-}

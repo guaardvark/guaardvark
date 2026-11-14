@@ -3,13 +3,13 @@
 // minimize to their bar. The page owns which cards exist, what they show and
 // where the layout is saved; the board owns how they behave.
 
-import React, { useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { Box, useTheme } from "@mui/material";
 import ReactGridLayout from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { barRows, gridLayout } from "./boardGeometry";
+import { CARD_BAR_PX, barRows, gridLayout } from "./boardGeometry";
 
 const RESIZE_HANDLES = ["s", "w", "e", "n", "sw", "nw", "se", "ne"];
 
@@ -17,8 +17,18 @@ const RESIZE_HANDLES = ["s", "w", "e", "n", "sw", "nw", "se", "ne"];
 export const DRAG_CANCEL = "button, input, textarea, select, option, .non-draggable";
 
 /**
- * @param {React.RefObject} containerRef  from useBoardWidth
- * @param {number} width  board width in px
+ * Spacing for a workspace whose cards tile edge to edge (Code Editor, Video
+ * Editor) instead of floating apart: near-zero gaps, and a bar slot that holds
+ * the whole card frame's title bar.
+ */
+export const TILED = { marginScale: 1 / 20, paddingScale: 1 / 10, barPx: 48 };
+
+/**
+ * @param {React.RefObject} containerRef  from useBoardWidth (not used with fitWidth)
+ * @param {number} width  board width in px; with fitWidth, the width until the board has measured itself
+ * @param {boolean} fitWidth  measure the board's own container and follow it
+ * @param {object} spacing  {marginScale, paddingScale, barPx} over the grid's defaults, e.g. TILED
+ * @param {number} maxRows  cards cannot be dragged or resized below this row
  * @param {object} grid   LayoutContext gridSettings
  * @param {Array} layout  stored layout of the cards to show, in stacking order (later draws over earlier)
  * @param {Record<string, boolean>} minimized  cards showing only their bar
@@ -49,11 +59,33 @@ const CardBoard = ({
   cardProps,
   renderCard,
   gridKey,
+  fitWidth = false,
+  spacing,
+  maxRows,
 }) => {
   const theme = useTheme();
   const { COLS_COUNT, ROW_HEIGHT_PX, CARD_MARGIN_PX, CONTAINER_PADDING_PX } = grid;
 
-  const rows = barRows(ROW_HEIGHT_PX, CARD_MARGIN_PX);
+  const margin = CARD_MARGIN_PX * (spacing?.marginScale ?? 1);
+  const padding = CONTAINER_PADDING_PX * (spacing?.paddingScale ?? 1);
+
+  // fitWidth: follow the container, whenever it is mounted and however it is resized.
+  const [node, setNode] = useState(null);
+  const [measured, setMeasured] = useState(0);
+  const attach = useCallback((el) => setNode(el), []);
+  useEffect(() => {
+    if (!fitWidth || !node) return undefined;
+    const measure = () => {
+      if (node.clientWidth > 0) setMeasured(node.clientWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [fitWidth, node]);
+  const boardWidth = fitWidth && measured > 0 ? measured : width;
+
+  const rows = barRows(ROW_HEIGHT_PX, margin, spacing?.barPx ?? CARD_BAR_PX);
   const shown = useMemo(() => gridLayout(layout, minimized, rows), [layout, minimized, rows]);
 
   // The grid resets its items' inline styles; put the stacking order back.
@@ -63,7 +95,7 @@ const CardBoard = ({
 
   return (
     <Box
-      ref={containerRef}
+      ref={fitWidth ? attach : containerRef}
       sx={{
         width: "100%",
         "& .react-grid-item": {
@@ -88,9 +120,10 @@ const CardBoard = ({
         style={{ transition: "all 0.2s ease-out" }}
         cols={COLS_COUNT}
         rowHeight={ROW_HEIGHT_PX}
-        width={width}
-        containerPadding={[CONTAINER_PADDING_PX, CONTAINER_PADDING_PX]}
-        margin={[CARD_MARGIN_PX, CARD_MARGIN_PX]}
+        width={boardWidth}
+        containerPadding={[padding, padding]}
+        margin={[margin, margin]}
+        maxRows={maxRows || undefined}
         isDraggable={!locked}
         isResizable={!locked}
         compactType={null}
@@ -146,6 +179,9 @@ CardBoard.propTypes = {
   cardProps: PropTypes.func,
   renderCard: PropTypes.func.isRequired,
   gridKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  fitWidth: PropTypes.bool,
+  spacing: PropTypes.object,
+  maxRows: PropTypes.number,
 };
 
 export default CardBoard;

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { mergeSavedLayout, restoreMinimizedSizes } from "../dashboardSavedLayout";
+import { mergeSavedLayout } from "../dashboardSavedLayout";
+import { restoreMinimizedSizes } from "../../board";
 
 const defaults = [
   { i: "approvals", x: 0, y: 0, w: 35, h: 49, minW: 30 },
@@ -62,6 +63,12 @@ describe("restoreMinimizedSizes", () => {
       { i: "chat", x: 38, y: 3, w: 35, h: 49 },
       { i: "tasks", x: 2, y: 3, w: 35, h: 50 },
     ]);
-    expect(restoreMinimizedSizes(layout, { chat: true }, undefined)).toBe(layout);
+    expect(restoreMinimizedSizes(layout, { chat: true }, undefined)).toEqual(layout);
+
+    // A card pinned at its bar height opens to the fallback size with the pin lifted.
+    const pinned = [{ i: "editor", x: 0, y: 0, w: 105, h: 5, minH: 5, maxH: 5 }];
+    expect(restoreMinimizedSizes(pinned, { editor: true }, {}, () => ({ w: 105, h: 74 }))).toEqual([
+      { i: "editor", x: 0, y: 0, w: 105, h: 74 },
+    ]);
   });
 });
