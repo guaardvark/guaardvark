@@ -83,6 +83,34 @@
     "empty": "Noch keine Bild-Batches.",
     "viewAll": "Alle Batches anzeigen"
   },
+  "videogen": {
+    "title": "Videos",
+    "newVideo": "Neues Video",
+    "library": "Medien-Bibliothek",
+    "empty": "Noch keine Videos."
+  },
+  "approvals": {
+    "title": "Warten auf dich",
+    "summary_one": "{{count}} Element wartet auf deine Entscheidung.",
+    "summary_other": "{{count}} Elemente warten auf deine Entscheidung.",
+    "empty": "Nichts wartet auf dich.",
+    "showAll": "Klicke, um den ganzen Entwurf zu lesen",
+    "more": "{{count}} weitere auf der Freigaben-Seite",
+    "openOn": "Auf der Freigaben-Seite öffnen, {{tab}}-Tab",
+    "sections": {
+      "outreach": "Kontaktaufnahme-Entwürfe",
+      "ready": "Freigegeben, bereit zum Posten",
+      "publishes": "Veröffentlichungen",
+      "code": "Zurückgehaltene Code-Änderungen"
+    }
+  },
+  "media": {
+    "open": "{{name}} öffnen",
+    "loadFailed": {
+      "image": "Die neuesten Bilder konnten nicht geladen werden: {{message}}",
+      "video": "Die neuesten Videos konnten nicht geladen werden: {{message}}"
+    }
+  },
   "files": {
     "title": "Dateimanager"
   },

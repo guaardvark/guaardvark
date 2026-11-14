@@ -47,6 +47,8 @@ import ClientsDashboardCard from "../components/dashboard/ClientsDashboardCard";
 import CSVGenerationCard from "../components/dashboard/CSVGenerationCard";
 import CodeGenerationCard from "../components/dashboard/CodeGenerationCard";
 import ImageGenerationCard from "../components/dashboard/ImageGenerationCard";
+import VideoGenerationCard from "../components/dashboard/VideoGenerationCard";
+import ApprovalsCard from "../components/dashboard/ApprovalsCard";
 import FileManagerCard from "../components/dashboard/FileManagerCard";
 import FamilySelfImprovementCard from "../components/dashboard/FamilySelfImprovementCard";
 import RAGAutoresearchCard from "../components/dashboard/RAGAutoresearchCard";
@@ -64,8 +66,13 @@ import {
   visibleLayout,
   withHiddenItems,
 } from "../components/dashboard/dashboardCardVisibility";
+import { mergeSavedLayout } from "../components/dashboard/dashboardSavedLayout";
 
+// In the order the Compact and bar layouts place them.
 const cardComponents = {
+  approvals: ApprovalsCard,
+  imggen: ImageGenerationCard,
+  videogen: VideoGenerationCard,
   project: ProjectManagerCard,
   website: WebsiteDataCard,
   tasks: TaskManagerCard,
@@ -73,7 +80,6 @@ const cardComponents = {
   clients: ClientsDashboardCard,
   csvgen: CSVGenerationCard,
   codegen: CodeGenerationCard,
-  imggen: ImageGenerationCard,
   files: FileManagerCard,
   family: FamilySelfImprovementCard,
   autoresearch: RAGAutoresearchCard,
@@ -90,6 +96,8 @@ const cardTitles = () => ({
   csvgen: translate("dashboard.csvgen.title"),
   codegen: translate("dashboard.codegen.title"),
   imggen: translate("dashboard.imggen.title"),
+  videogen: translate("dashboard.videogen.title"),
+  approvals: translate("dashboard.approvals.title"),
   files: translate("dashboard.files.title"),
   family: translate("dashboard.family.title"),
   autoresearch: translate("dashboard.autoresearch.title"),
@@ -170,19 +178,22 @@ const DashboardPage = () => {
   // Normal layout: full-size cards in grid
   const defaultFixedLayout = useMemo(() => {
     const { cardGridW, cardGridH, cardMinGridW } = gridSettings;
+    // Top row: what is waiting on the person, then the latest pictures and clips.
     const items = [
-      { i: "project", x: 0, y: 0, w: cardGridW, h: cardGridH },
-      { i: "website", x: cardGridW, y: 0, w: cardGridW, h: cardGridH },
-      { i: "tasks", x: cardGridW * 2, y: 0, w: cardGridW, h: cardGridH },
-      { i: "chat", x: cardGridW * 3, y: 0, w: cardGridW, h: cardGridH },
-      { i: "clients", x: cardGridW * 4, y: 0, w: cardGridW, h: cardGridH },
-      { i: "csvgen", x: 0, y: cardGridH, w: cardGridW, h: cardGridH },
-      { i: "codegen", x: cardGridW, y: cardGridH, w: cardGridW, h: cardGridH },
-      { i: "imggen", x: cardGridW * 2, y: cardGridH, w: cardGridW, h: cardGridH },
-      { i: "files", x: cardGridW * 3, y: cardGridH, w: cardGridW * 2, h: cardGridH * 1.5 },
-      { i: "family", x: 0, y: cardGridH * 2, w: cardGridW * 2, h: cardGridH },
-      { i: "autoresearch", x: cardGridW * 2, y: cardGridH * 2, w: cardGridW, h: cardGridH },
-      { i: "gpu", x: cardGridW * 3, y: cardGridH * 2, w: cardGridW, h: cardGridH },
+      { i: "approvals", x: 0, y: 0, w: cardGridW, h: cardGridH },
+      { i: "imggen", x: cardGridW, y: 0, w: cardGridW * 2, h: cardGridH },
+      { i: "videogen", x: cardGridW * 3, y: 0, w: cardGridW * 2, h: cardGridH },
+      { i: "project", x: 0, y: cardGridH, w: cardGridW, h: cardGridH },
+      { i: "website", x: cardGridW, y: cardGridH, w: cardGridW, h: cardGridH },
+      { i: "tasks", x: cardGridW * 2, y: cardGridH, w: cardGridW, h: cardGridH },
+      { i: "chat", x: cardGridW * 3, y: cardGridH, w: cardGridW, h: cardGridH },
+      { i: "clients", x: cardGridW * 4, y: cardGridH, w: cardGridW, h: cardGridH },
+      { i: "csvgen", x: 0, y: cardGridH * 2, w: cardGridW, h: cardGridH },
+      { i: "codegen", x: cardGridW, y: cardGridH * 2, w: cardGridW, h: cardGridH },
+      { i: "gpu", x: cardGridW * 2, y: cardGridH * 2, w: cardGridW, h: cardGridH },
+      { i: "files", x: cardGridW * 3, y: cardGridH * 2, w: cardGridW * 2, h: cardGridH * 1.5 },
+      { i: "family", x: 0, y: cardGridH * 3, w: cardGridW * 2, h: cardGridH },
+      { i: "autoresearch", x: cardGridW * 2, y: cardGridH * 3, w: cardGridW, h: cardGridH },
     ];
     items.forEach((it) => {
       it.minW = cardMinGridW;
@@ -286,47 +297,11 @@ const DashboardPage = () => {
           }
 
           if (layoutToApply) {
-            const validatedLayout = defaultFixedLayout.map((defaultItem) => {
-              const savedItem = layoutToApply.find(
-                (item) => item.i === defaultItem.i,
-              );
-              return {
-                ...defaultItem,
-                x:
-                  savedItem && savedItem.x !== undefined
-                    ? savedItem.x
-                    : defaultItem.x,
-                y:
-                  savedItem && savedItem.y !== undefined
-                    ? savedItem.y
-                    : defaultItem.y,
-                w:
-                  savedItem && savedItem.w !== undefined
-                    ? savedItem.w
-                    : defaultItem.w,
-                h:
-                  savedItem && savedItem.h !== undefined
-                    ? savedItem.h
-                    : defaultItem.h,
-                static:
-                  savedItem && savedItem.static !== undefined
-                    ? savedItem.static
-                    : defaultItem.static,
-              };
-            });
-            layoutToApply.forEach((savedItem) => {
-              if (!validatedLayout.some((item) => item.i === savedItem.i)) {
-                console.warn(
-                  `Saved layout item "${savedItem.i}" not in default config, adding.`,
-                );
-                validatedLayout.push({
-                  minW: cardMinGridW,
-                  minH: cardMinGridH,
-                  isDraggable: true,
-                  isResizable: true,
-                  ...savedItem,
-                });
-              }
+            // Half a default card, so an arrangement made before a card existed
+            // stays in view under the row the new card arrives in.
+            const validatedLayout = mergeSavedLayout(defaultFixedLayout, layoutToApply, {
+              addedRowH: Math.round(cardGridH / 2),
+              extraItemProps: { minW: cardMinGridW, minH: cardMinGridH, isDraggable: true, isResizable: true },
             });
             normalLayoutRef.current = validatedLayout;
             setLayout(validatedLayout);
@@ -379,7 +354,7 @@ const DashboardPage = () => {
       setInitialStateLoaded(true);
     };
     fetchDashboardState();
-  }, [defaultFixedLayout, cardMinGridW, cardMinGridH]);
+  }, [defaultFixedLayout, cardMinGridW, cardMinGridH, cardGridH]);
 
   // One-time effect: apply mode-specific layout after initial state is loaded
   // Does NOT re-fire on layoutMode changes — handleCycleLayoutMode applies layout directly

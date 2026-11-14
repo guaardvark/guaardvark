@@ -16,7 +16,7 @@ from flask import Blueprint, current_app, jsonify, request, send_file
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.utils import secure_filename
 
-from sqlalchemy import false as sa_false, func as sa_func, literal as sa_literal
+from sqlalchemy import false as sa_false, func as sa_func, literal as sa_literal, or_ as sa_or
 
 from backend.celery_dispatch import TaskNotStarted
 from backend.config import GUAARDVARK_PROJECT_NAME
@@ -2114,13 +2114,32 @@ def search_files():
         return error_response("Search failed", 500, "SEARCH_ERROR")
 
 
+# File extensions behind /recent?kind=...
+_RECENT_KINDS = {
+    "image": (".png", ".jpg", ".jpeg", ".webp", ".gif"),
+    "video": (".mp4", ".webm", ".mov", ".mkv", ".m4v"),
+}
+
+
 @files_bp.route("/recent", methods=["GET"])
 def get_recent_files():
-    """GET /api/files/recent?limit=20 - Get recently uploaded files"""
+    """GET /api/files/recent?limit=20&kind=image - Newest files first.
+
+    kind (optional): "image" or "video" keeps only files of that kind, so a
+    library full of documents still answers with its latest pictures or clips.
+    """
     logger.info("API: Get recent files request")
     try:
-        limit = request.args.get("limit", 20, type=int)
-        documents = DBDocument.query.order_by(DBDocument.uploaded_at.desc()).limit(limit).all()
+        limit = max(1, min(request.args.get("limit", 20, type=int), 500))
+        kind = request.args.get("kind", "").strip().lower()
+        query = DBDocument.query
+        if kind:
+            extensions = _RECENT_KINDS.get(kind)
+            if extensions is None:
+                return error_response("kind must be image or video", 400, "INVALID_KIND")
+            name = sa_func.lower(DBDocument.filename)
+            query = query.filter(sa_or(*[name.like(f"%{ext}") for ext in extensions]))
+        documents = query.order_by(DBDocument.uploaded_at.desc()).limit(limit).all()
         return success_response({"documents": [d.to_dict() for d in documents]})
     except Exception as e:
         logger.error(f"Error getting recent files: {e}", exc_info=True)
