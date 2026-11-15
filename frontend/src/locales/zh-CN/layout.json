@@ -99,8 +99,17 @@
       "prompt": "提示词",
       "settings": "设置",
       "queue": "队列",
-      "results": "结果"
+      "results": "结果",
+      "status": "状态"
     },
-    "queueEmpty": "队列为空或正在渲染中。"
+    "queueEmpty": "队列为空或正在渲染中。",
+    "useLayout": "布局：{{name}}",
+    "layouts": {
+      "columns": "列",
+      "library": "宽库",
+      "compose": "组合"
+    },
+    "fullScreen": "全屏",
+    "exitFullScreen": "退出全屏"
   }
 }

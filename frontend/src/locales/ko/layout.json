@@ -99,8 +99,17 @@
       "prompt": "프롬프트",
       "settings": "설정",
       "queue": "대기열",
-      "results": "결과"
+      "results": "결과",
+      "status": "상태"
     },
-    "queueEmpty": "대기열이 비어 있거나 렌더링 중이 아닙니다."
+    "queueEmpty": "대기열이 비어 있거나 렌더링 중이 아닙니다.",
+    "useLayout": "레이아웃: {{name}}",
+    "layouts": {
+      "columns": "열",
+      "library": "와이드 라이브러리",
+      "compose": "구성"
+    },
+    "fullScreen": "전체 화면",
+    "exitFullScreen": "전체 화면 종료"
   }
 }

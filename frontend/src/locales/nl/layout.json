@@ -99,8 +99,17 @@
       "prompt": "Prompt",
       "settings": "Instellingen",
       "queue": "Wachtrij",
-      "results": "Resultaten"
+      "results": "Resultaten",
+      "status": "Status"
     },
-    "queueEmpty": "Er staat niets in de wachtrij of er wordt niets gerenderd."
+    "queueEmpty": "Er staat niets in de wachtrij of er wordt niets gerenderd.",
+    "useLayout": "Layout: {{name}}",
+    "layouts": {
+      "columns": "Kolommen",
+      "library": "Brede Bibliotheek",
+      "compose": "Componeren"
+    },
+    "fullScreen": "Volledig scherm",
+    "exitFullScreen": "Volledig scherm afsluiten"
   }
 }

@@ -40,8 +40,10 @@ export function workspaceLayout(defaults, saved, version) {
  * @param {string} boardKey  names the saved arrangement (/api/state/board/<boardKey>): a-z, 0-9 and hyphens
  * @param {number} version   bump when the default layout changes shape, so everyone gets it once
  * @param {Array<{id: string, title: string, body: node, layout: {x, y, w, h, minW?, minH?}}>} cards
+ * @param {Array<{id: string, label: string, layout: Object<string, {x, y, w, h}>}>} [presets]
+ *   ready-made arrangements offered in the board's menus; `layout` maps a card id to its place
  */
-const CardWorkspace = ({ boardKey, version = 1, cards }) => {
+const CardWorkspace = ({ boardKey, version = 1, cards, presets }) => {
   const { t } = useUiTranslation();
   const { gridSettings } = useLayout();
   const { COLS_COUNT, ROW_HEIGHT_PX, CARD_MARGIN_PX } = gridSettings;
@@ -57,6 +59,7 @@ const CardWorkspace = ({ boardKey, version = 1, cards }) => {
   const [layout, setLayout] = useState(defaults);
   const [minimized, setMinimized] = useState({});
   const [colors, setColors] = useState({});
+  const [hidden, setHidden] = useState({});
   const loaded = useRef(false);
   const stacking = useCardStacking();
   const menu = useContextMenu();
@@ -67,6 +70,8 @@ const CardWorkspace = ({ boardKey, version = 1, cards }) => {
   minimizedRef.current = minimized;
   const colorsRef = useRef(colors);
   colorsRef.current = colors;
+  const hiddenRef = useRef(hidden);
+  hiddenRef.current = hidden;
   const gestures = useBoardGestures(
     useCallback(() => layoutRef.current, []),
     useCallback(() => minimizedRef.current, []),
@@ -81,6 +86,7 @@ const CardWorkspace = ({ boardKey, version = 1, cards }) => {
         if (saved?.version === version) {
           if (saved.cardColors) setColors(saved.cardColors);
           if (saved.minimizedCards) setMinimized(saved.minimizedCards);
+          if (saved.hiddenCards) setHidden(saved.hiddenCards);
         }
       })
       // An arrangement that cannot be read is not worth stopping the page for.
@@ -102,6 +108,7 @@ const CardWorkspace = ({ boardKey, version = 1, cards }) => {
         layout: next.layout ?? layoutRef.current,
         cardColors: next.colors ?? colorsRef.current,
         minimizedCards: next.minimized ?? minimizedRef.current,
+        hiddenCards: next.hidden ?? hiddenRef.current,
         lastSaved: new Date().toISOString(),
       }).catch((err) => console.warn(`${boardKey}: arrangement not saved:`, err));
     },
@@ -116,22 +123,26 @@ const CardWorkspace = ({ boardKey, version = 1, cards }) => {
     cardsPerRow: narrowReflow(gridSettings, width, narrowest, STACKED_CARD_PX).cardsPerRow,
   };
   const shown = useMemo(() => {
-    if (!reflow.isNarrow) return layout;
+    const visible = layout.filter((item) => !hidden[item.i]);
+    if (!reflow.isNarrow) return visible;
     const rows = barRows(ROW_HEIGHT_PX, CARD_MARGIN_PX * TILED.marginScale, TILED.barPx);
     return repackRows(
-      layout.map((item) => (minimized[item.i] ? { ...item, h: rows } : item)),
+      visible.map((item) => (minimized[item.i] ? { ...item, h: rows } : item)),
       COLS_COUNT,
       reflow.cardsPerRow,
       40,
     );
-  }, [reflow.isNarrow, reflow.cardsPerRow, layout, minimized, ROW_HEIGHT_PX, CARD_MARGIN_PX, COLS_COUNT]);
+  }, [reflow.isNarrow, reflow.cardsPerRow, layout, hidden, minimized, ROW_HEIGHT_PX, CARD_MARGIN_PX, COLS_COUNT]);
 
   const onUserLayoutChange = (reported, fromDrag) => {
     if (reflow.isNarrow) return;
     const settled = gestures.settle(reported, fromDrag);
     if (!settled) return;
-    setLayout(settled);
-    save({ layout: settled });
+    // The board only reports the cards it shows; hidden ones keep their place.
+    const reportedIds = new Set(settled.map((item) => item.i));
+    const next = [...settled, ...layoutRef.current.filter((item) => !reportedIds.has(item.i))];
+    setLayout(next);
+    save({ layout: next });
   };
 
   const toggleMinimize = (cardId) => {
@@ -152,11 +163,51 @@ const CardWorkspace = ({ boardKey, version = 1, cards }) => {
     setLayout(defaults);
     setMinimized({});
     setColors({});
+    setHidden({});
     stacking.reset();
-    save({ layout: defaults, minimized: {}, colors: {} });
+    save({ layout: defaults, minimized: {}, colors: {}, hidden: {} });
+  };
+
+  // A ready-made arrangement: every card shown and open, each in the preset's place.
+  const applyPreset = (preset) => {
+    const next = defaults.map((item) => ({ ...item, ...(preset.layout[item.i] || {}) }));
+    setLayout(next);
+    setMinimized({});
+    setHidden({});
+    stacking.reset();
+    save({ layout: next, minimized: {}, hidden: {} });
+  };
+
+  const hideCard = (cardId) => {
+    const next = { ...hiddenRef.current, [cardId]: true };
+    setHidden(next);
+    save({ hidden: next });
+  };
+
+  const showCards = (cardIds) => {
+    const next = { ...hiddenRef.current };
+    cardIds.forEach((id) => delete next[id]);
+    setHidden(next);
+    save({ hidden: next });
   };
 
   const byId = new Map(cards.map((card) => [card.id, card]));
+  const hiddenIds = cards.map((card) => card.id).filter((id) => hidden[id]);
+
+  // The same items on a card's bar and on the empty board: tiled cards can leave no board to right-click.
+  const boardActions = () => [
+    ...(presets || []).map((preset) => ({
+      label: t("layout.board.useLayout", { name: preset.label }),
+      onClick: () => applyPreset(preset),
+    })),
+    { label: t("layout.board.resetLayout"), onClick: resetLayout },
+    ...hiddenIds.map((id, idx) => ({
+      label: t("dashboard.menu.showCard", { card: byId.get(id).title }),
+      onClick: () => showCards([id]),
+      dividerBefore: idx === 0,
+    })),
+    hiddenIds.length > 1 && { label: t("dashboard.menu.showAllHidden"), onClick: () => showCards(hiddenIds) },
+  ].filter(Boolean);
 
   return (
     <div
@@ -189,9 +240,9 @@ const CardWorkspace = ({ boardKey, version = 1, cards }) => {
               isMinimized={isMinimized}
               onToggleMinimize={() => toggleMinimize(item.i)}
               keepMounted
-              // Tiled cards leave no empty board to right-click, so the bar's menu resets the layout too.
+              onHideCard={() => hideCard(item.i)}
               contextMenuArea="header"
-              contextMenuActions={[{ label: t("layout.board.resetLayout"), onClick: resetLayout }]}
+              contextMenuActions={boardActions()}
             >
               {card.body}
             </DashboardCardWrapper>
@@ -201,7 +252,7 @@ const CardWorkspace = ({ boardKey, version = 1, cards }) => {
       <EntityContextMenu
         anchorPosition={menu.anchorPosition}
         onClose={menu.close}
-        actions={menu.isOpen ? [{ label: t("layout.board.resetLayout"), onClick: resetLayout }] : []}
+        actions={menu.isOpen ? boardActions() : []}
       />
     </div>
   );
@@ -218,6 +269,13 @@ CardWorkspace.propTypes = {
       layout: PropTypes.object.isRequired,
     }),
   ).isRequired,
+  presets: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      layout: PropTypes.object.isRequired,
+    }),
+  ),
 };
 
 export default CardWorkspace;

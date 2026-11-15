@@ -13397,6 +13397,14 @@
       "en": "3e87fc989e11",
       "out": "17e0145fca28"
     },
+    "codeRepo.mapping": {
+      "en": "92850505314c",
+      "out": "21d263950a28"
+    },
+    "codeRepo.mappingFailed": {
+      "en": "7d3f3aad896b",
+      "out": "2307d7560f05"
+    },
     "desktop.loadFailed": {
       "en": "94e69fb0c32a",
       "out": "464bbf7ae6ea"
@@ -19017,9 +19025,37 @@
       "en": "612e12d29278",
       "out": "154741f5ccab"
     },
+    "board.cards.status": {
+      "en": "bae7d5be7082",
+      "out": "f7f293b5c58c"
+    },
     "board.queueEmpty": {
       "en": "1fbb38d03f56",
       "out": "6d432263c71b"
+    },
+    "board.useLayout": {
+      "en": "b44555d23589",
+      "out": "fbc6b305adbf"
+    },
+    "board.layouts.columns": {
+      "en": "cf723c59b62a",
+      "out": "e9516417cbf2"
+    },
+    "board.layouts.library": {
+      "en": "f8e24cca69bb",
+      "out": "41813e2a277b"
+    },
+    "board.layouts.compose": {
+      "en": "47da6f0838f0",
+      "out": "e3acdac9532f"
+    },
+    "board.fullScreen": {
+      "en": "d15f886d60b1",
+      "out": "fce0372d5994"
+    },
+    "board.exitFullScreen": {
+      "en": "3d9afdaad40f",
+      "out": "035c2cb895cc"
     }
   },
   "layoutCards": {
