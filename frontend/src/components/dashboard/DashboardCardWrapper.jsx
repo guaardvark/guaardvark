@@ -18,7 +18,6 @@ import {
 } from "@mui/material";
 import { ThemeProvider, useTheme } from "@mui/material/styles";
 import { flattenOver, foregroundFor, themeOnColor } from "../../theme/onColor";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import CloseIcon from "@mui/icons-material/Close";
 import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
@@ -233,30 +232,6 @@ const DashboardCardWrapper = React.forwardRef(
       };
     }, []);
 
-    // Handle single click on title to navigate — only if mouse didn't move >5px (not a drag)
-    const dragDetectRef = useRef(false);
-    const mouseStartRef = useRef(null);
-    const handleTitleMouseDown = useCallback((e) => {
-      dragDetectRef.current = false;
-      mouseStartRef.current = { x: e.clientX, y: e.clientY };
-    }, []);
-    const handleTitleMouseMove = useCallback((e) => {
-      if (!mouseStartRef.current) return;
-      const dx = e.clientX - mouseStartRef.current.x;
-      const dy = e.clientY - mouseStartRef.current.y;
-      if (Math.sqrt(dx * dx + dy * dy) > 5) dragDetectRef.current = true;
-    }, []);
-    const handleTitleClick = useCallback((e) => {
-      e.stopPropagation();
-      // Don't navigate if this was a drag, or on CodeEditorPage
-      if (dragDetectRef.current) return;
-      if (window.location.pathname !== '/code-editor') {
-        if (cardRoute && cardRoute !== "/") {
-          routerNavigate(cardRoute);
-        }
-      }
-    }, [cardRoute]);
-
     const handleColorChange = (e) => {
       const value = e.target.value;
       if (onCardColorChange) {
@@ -446,15 +421,11 @@ const DashboardCardWrapper = React.forwardRef(
               </Typography>
             )}
 
-            {/* Otherwise the title opens the card's page. */}
+            {/* Otherwise a plain title; the card's page is in its right-click menu. */}
             {!onRename && (
               <Typography
                 variant="h6"
                 component="span"
-                onMouseDown={handleTitleMouseDown}
-                onMouseMove={handleTitleMouseMove}
-                onClick={handleTitleClick}
-                className="non-draggable"
                 sx={{
                   whiteSpace: "nowrap",
                   overflow: "hidden",
@@ -463,16 +434,9 @@ const DashboardCardWrapper = React.forwardRef(
                   userSelect: "none",
                   fontSize: "0.62rem",
                   fontWeight: "medium",
-                  cursor: "pointer",
                   px: 0.4,
                   py: 0.15,
                   lineHeight: 1.2,
-                  borderRadius: "3px",
-                  border: "1px solid transparent",
-                  transition: "border-color 0.15s ease",
-                  "&:hover": {
-                    borderColor: `color-mix(in srgb, ${getOppositeColor} 75%, transparent)`,
-                  },
                 }}
               >
                 {title}
@@ -486,45 +450,11 @@ const DashboardCardWrapper = React.forwardRef(
               </Box>
             )}
 
-            {/* Drag grip — visible affordance for the draggable area */}
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', minWidth: '24px' }}>
-              <DragIndicatorIcon sx={{ fontSize: '0.75rem', opacity: 0.25, color: getOppositeColor }} />
-            </Box>
+            {/* The rest of the bar is empty and drags the card. */}
+            <Box sx={{ flex: 1, minWidth: "24px" }} />
 
             <Box sx={{ position: "relative" }}>
-              {/* Color Picker Button - smaller */}
-              <Tooltip title={t("dashboard.cardWrapper.changeColor")}>
-                <IconButton
-                  onClick={openPicker}
-                  sx={{
-                    width: "8px",
-                    height: "8px",
-                    minWidth: "8px",
-                    minHeight: "8px",
-                    padding: 0,
-                    borderRadius: "50%",
-                    backgroundColor: cardColor || theme.palette.primary.main,
-                    border: `1px solid ${getOppositeColor}`,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      transform: "scale(1.3)",
-                      boxShadow: `0 0 3px ${cardColor || theme.palette.primary.main}`,
-                    },
-                  }}
-                  className="non-draggable" // Prevent dragging when clicking color picker
-                >
-                  <Box
-                    sx={{
-                      width: "2px",
-                      height: "2px",
-                      borderRadius: "50%",
-                      backgroundColor: getOppositeColor,
-                    }}
-                  />
-                </IconButton>
-              </Tooltip>
-              
-              {/* Hidden file input for color picker */}
+              {/* The colour picker opens from the right-click menu. */}
               <input
                 ref={colorInputRef}
                 type="color"
@@ -554,6 +484,23 @@ const DashboardCardWrapper = React.forwardRef(
                   sx={{ width: 20, height: 20, p: 0, ml: 0.5, color: getOppositeColor, opacity: 0.4, "&:hover": { opacity: 1 } }}
                 >
                   {isMinimized ? <UnfoldMoreIcon sx={{ fontSize: 16 }} /> : <UnfoldLessIcon sx={{ fontSize: 16 }} />}
+                </IconButton>
+              </Tooltip>
+            )}
+            {onHideCard && !onClose && (
+              <Tooltip title={t("dashboard.cardWrapper.hideCard")}>
+                <IconButton
+                  aria-label={t("dashboard.cardWrapper.hideCard")}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onHideCard();
+                  }}
+                  className="non-draggable"
+                  size="small"
+                  sx={{ width: 18, height: 18, p: 0, ml: 0.5, color: getOppositeColor, opacity: 0.35, "&:hover": { opacity: 1 } }}
+                >
+                  <CloseIcon sx={{ fontSize: 13 }} />
                 </IconButton>
               </Tooltip>
             )}
