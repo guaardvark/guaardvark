@@ -50,6 +50,7 @@ import * as outreachApi from "../api/outreachService";
 import TypingRhythmCard from "../components/outreach/TypingRhythmCard";
 import InfographicKeepersCard from "../components/outreach/InfographicKeepersCard";
 import OutreachDraftImage from "../components/outreach/OutreachDraftImage";
+import { CardWorkspace } from "../components/board";
 import { translate, uiLocale, useUiTranslation, Trans } from "../i18n";
 
 // Per-platform character soft-caps used by the pre-flight panel.
@@ -805,19 +806,18 @@ const OutreachPage = () => {
 
       {busy && <LinearProgress sx={{ mb: 1 }} />}
 
-      <Box sx={{
-        display: "grid",
-        gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "320px minmax(0, 1fr) 320px" },
-        gap: 2,
-        alignItems: "start",
-      }}>
-        {/* ── Source / Context Zone ─────────────────────────────────── */}
-        <Stack spacing={2}>
-          <Paper sx={{ p: 2 }}>
+      {/* Each panel is a card on the shared board. */}
+      <CardWorkspace
+        boardKey="outreach"
+        cards={[
+          {
+            id: "profile",
+            title: t("outreach.profile.title"),
+            layout: { x: 0, y: 0, w: 45, h: 16 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack direction="row" alignItems="center" sx={{ mb: 1 }}>
-              <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                {t("outreach.profile.title")}
-              </Typography>
+              <Box sx={{ flex: 1 }} />
               {profile && (
                 <Button
                   size="small"
@@ -884,13 +884,17 @@ const OutreachPage = () => {
                 {t("outreach.profile.empty")}
               </Typography>
             )}
-          </Paper>
-
-          <Paper sx={{ p: 2 }}>
+              </Box>
+            ),
+          },
+          {
+            id: "queue",
+            title: t("outreach.queue.title", { count: queue.length }),
+            layout: { x: 0, y: 16, w: 45, h: 40 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack direction="row" alignItems="center" sx={{ mb: 1 }}>
-              <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                {t("outreach.queue.title", { count: queue.length })}
-              </Typography>
+              <Box sx={{ flex: 1 }} />
               <Tooltip title={t("outreach.queue.newTooltip")}>
                 <Button
                   size="small"
@@ -1064,10 +1068,15 @@ const OutreachPage = () => {
                 ))}
               </List>
             )}
-          </Paper>
-
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.source.title")}</Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "source",
+            title: t("outreach.source.title"),
+            layout: { x: 0, y: 56, w: 45, h: 18 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             {selected ? (
               <Stack spacing={1}>
                 <Typography variant="caption" color="text.secondary">
@@ -1093,10 +1102,15 @@ const OutreachPage = () => {
                 {t("outreach.source.empty")}
               </Typography>
             )}
-          </Paper>
-
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.snippets.title")}</Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "snippets",
+            title: t("outreach.snippets.title"),
+            layout: { x: 0, y: 74, w: 45, h: 22 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             {loadingSnippets ? (
               <CircularProgress size={20} />
             ) : snippets && (snippets.pitch || snippets.site_url || snippets.repo_url || snippets.videos?.length || Object.keys(snippets.feature_blurbs || {}).length) ? (
@@ -1144,12 +1158,15 @@ const OutreachPage = () => {
             ) : (
               <Typography variant="body2" color="text.secondary">{t("outreach.snippets.unavailable")}</Typography>
             )}
-          </Paper>
-        </Stack>
-
-        {/* ── Drafting Zone ─────────────────────────────────────────── */}
-        <Stack spacing={2}>
-          <Paper sx={{ p: 2 }}>
+              </Box>
+            ),
+          },
+          {
+            id: "draft",
+            title: t("outreach.newDraft.body"),
+            layout: { x: 45, y: 0, w: 85, h: 66 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
               <FormControl size="small" sx={{ minWidth: 220 }}>
                 <InputLabel>{t("outreach.drafting.platform")}</InputLabel>
@@ -1202,10 +1219,15 @@ const OutreachPage = () => {
                 {t("outreach.drafting.linkCount", { count: urls.length })}
               </Typography>
             </Stack>
-          </Paper>
-
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.citation.title")}</Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "citation",
+            title: t("outreach.citation.title"),
+            layout: { x: 45, y: 66, w: 130, h: 30 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
               <TextField
                 size="small"
@@ -1235,13 +1257,15 @@ const OutreachPage = () => {
                 </Box>
               </Stack>
             )}
-          </Paper>
-        </Stack>
-
-        {/* ── Task / Output Zone ─────────────────────────────────────── */}
-        <Stack spacing={2}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.preflight.title")}</Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "preflight",
+            title: t("outreach.preflight.title"),
+            layout: { x: 130, y: 0, w: 45, h: 24 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack spacing={0.75}>
               <Stack direction="row" spacing={1} alignItems="center">
                 {formatGate(draftPresent)}
@@ -1273,10 +1297,15 @@ const OutreachPage = () => {
                 </Typography>
               </Stack>
             </Stack>
-          </Paper>
-
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.action.title")}</Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "action",
+            title: t("outreach.action.title"),
+            layout: { x: 130, y: 24, w: 45, h: 42 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack spacing={1}>
               <Button
                 fullWidth
@@ -1315,10 +1344,9 @@ const OutreachPage = () => {
                 {t("outreach.action.note")}
               </Typography>
             </Stack>
-          </Paper>
 
           {selected && (
-            <Paper sx={{ p: 2 }}>
+            <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.selected.title")}</Typography>
               <Stack spacing={0.5}>
                 <Typography variant="caption" color="text.secondary">
@@ -1342,21 +1370,39 @@ const OutreachPage = () => {
                   </Typography>
                 )}
               </Stack>
-            </Paper>
+            </Box>
           )}
-        </Stack>
-      </Box>
-
-      <TypingRhythmCard />
-
-      <InfographicKeepersCard />
-
-      {/* ── History (read-only audit trail) ─────────────────────────── */}
-      <Paper sx={{ p: 2, mt: 2 }}>
+              </Box>
+            ),
+          },
+          {
+            id: "typing",
+            title: t("outreach.typing.title"),
+            layout: { x: 0, y: 96, w: 85, h: 30 },
+            body: (
+              <Box sx={{ p: 0.5, "& > .MuiPaper-root": { mt: 0, boxShadow: "none", backgroundColor: "transparent", backgroundImage: "none" } }}>
+                <TypingRhythmCard />
+              </Box>
+            ),
+          },
+          {
+            id: "infographics",
+            title: t("outreach.infographics.title"),
+            layout: { x: 85, y: 96, w: 90, h: 30 },
+            body: (
+              <Box sx={{ p: 0.5, "& > .MuiPaper-root": { mt: 0, boxShadow: "none", backgroundColor: "transparent", backgroundImage: "none" } }}>
+                <InfographicKeepersCard />
+              </Box>
+            ),
+          },
+          {
+            id: "history",
+            title: t("outreach.history.title"),
+            layout: { x: 0, y: 126, w: 175, h: 40 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-          <Typography variant="subtitle2" sx={{ flex: 1 }}>
-            {t("outreach.history.title")}
-          </Typography>
+          <Box sx={{ flex: 1 }} />
           {[...HISTORY_STATUSES, "all"].map((f) => (
             <Chip
               key={f}
@@ -1471,7 +1517,11 @@ const OutreachPage = () => {
             </Box>
           );
         })()}
-      </Paper>
+              </Box>
+            ),
+          },
+        ]}
+      />
 
       {/* ── New Draft modal ─────────────────────────────────────────── */}
       <Dialog
