@@ -49,6 +49,11 @@ const createUISlice = (set, get) => ({
 
   trainerOpen: false,
   setTrainerOpen: (open) => set({ trainerOpen: open }),
+  // Counts the changes the Trainer makes to demonstrations (a replay ending,
+  // a Lesson saved), so the Training page's table reloads when it does.
+  demonstrationsVersion: 0,
+  bumpDemonstrationsVersion: () =>
+    set((state) => ({ demonstrationsVersion: state.demonstrationsVersion + 1 })),
 
   // Keyboard → Agent Screen forwarding. When true, a global keydown listener
   // forwards keystrokes to :99 via /api/agent-control/learn/input. Mirrored

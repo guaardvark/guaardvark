@@ -432,6 +432,12 @@ const TrainingPage = () => {
     fetchBaseModels();
   }, [fetchDemonstrations, fetchDatasets, fetchJobs, fetchDeviceProfiles, fetchBaseModels]);
 
+  // The Trainer finished a replay or saved a Lesson: reload the table.
+  const demonstrationsVersion = useAppStore((state) => state.demonstrationsVersion);
+  useEffect(() => {
+    if (demonstrationsVersion > 0) fetchDemonstrations();
+  }, [demonstrationsVersion, fetchDemonstrations]);
+
   // Handle URL params for deep-linking from TrainingFloater
   useEffect(() => {
     const tab = searchParams.get("tab");
