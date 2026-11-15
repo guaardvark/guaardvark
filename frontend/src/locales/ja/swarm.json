@@ -59,7 +59,9 @@
   "sections": {
     "activeSwarms": "アクティブなSwarm",
     "quickLaunchTemplates": "クイック起動テンプレート",
-    "recentSwarms": "最近のSwarm"
+    "recentSwarms": "最近のSwarm",
+    "noTemplates": "テンプレートが見つかりません。",
+    "noHistory": "過去のSwarmはまだありません。"
   },
   "taskCount": "{{count}} タスク",
   "flightMode": "フライトモード",

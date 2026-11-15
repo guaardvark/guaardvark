@@ -59,7 +59,9 @@
   "sections": {
     "activeSwarms": "Actieve Swarms",
     "quickLaunchTemplates": "Snelstart-templates",
-    "recentSwarms": "Recente Swarms"
+    "recentSwarms": "Recente Swarms",
+    "noTemplates": "Geen sjablonen gevonden.",
+    "noHistory": "Nog geen eerdere swarms."
   },
   "taskCount": "{{count}} taken",
   "flightMode": "Vliegtuigmodus",

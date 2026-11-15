@@ -59,7 +59,9 @@
   "sections": {
     "activeSwarms": "활성 Swarm",
     "quickLaunchTemplates": "빠른 실행 템플릿",
-    "recentSwarms": "최근 Swarm"
+    "recentSwarms": "최근 Swarm",
+    "noTemplates": "템플릿을 찾을 수 없습니다.",
+    "noHistory": "아직 생성된 Swarm이 없습니다."
   },
   "taskCount": "{{count}} 작업",
   "flightMode": "비행 모드",

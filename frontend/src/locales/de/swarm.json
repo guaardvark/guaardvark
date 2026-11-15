@@ -59,7 +59,9 @@
   "sections": {
     "activeSwarms": "Aktive Swarms",
     "quickLaunchTemplates": "Schnellstart-Vorlagen",
-    "recentSwarms": "Letzte Swarms"
+    "recentSwarms": "Letzte Swarms",
+    "noTemplates": "Keine Vorlagen gefunden.",
+    "noHistory": "Noch keine vergangenen Swarms."
   },
   "taskCount": "{{count}} Aufgaben",
   "flightMode": "Flugmodus",
