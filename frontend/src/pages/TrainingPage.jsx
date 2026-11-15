@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -17,8 +16,6 @@ import {
   Snackbar,
   Alert,
   Alert as MuiAlert,
-  Tabs,
-  Tab,
   LinearProgress,
   Chip,
   Card,
@@ -29,8 +26,6 @@ import EditIcon from "@mui/icons-material/Edit";
 import CloseIcon from "@mui/icons-material/Close";
 import CancelIcon from "@mui/icons-material/Cancel";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import StorageIcon from "@mui/icons-material/Storage";
-import WorkIcon from "@mui/icons-material/Work";
 import ComputerIcon from "@mui/icons-material/Computer";
 import SchoolIcon from "@mui/icons-material/School";
 import SaveIcon from "@mui/icons-material/Save";
@@ -85,6 +80,7 @@ import {
   mergeServerValues,
   setFieldValue,
 } from "../utils/serverFormSync";
+import { CardWorkspace } from "../components/board";
 import { uiLocale, useUiTranslation, Trans } from "../i18n";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
@@ -257,7 +253,6 @@ const TrainingPage = () => {
   // The Interactive Trainer is the app-wide floating window that records demonstrations.
   const setTrainerOpen = useAppStore((state) => state.setTrainerOpen);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => TAB_INDEX[searchParams.get("tab")] ?? 0);
 
   // Demonstrations state
   const [demonstrations, setDemonstrations] = useState([]);
@@ -442,7 +437,6 @@ const TrainingPage = () => {
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab in TAB_INDEX) {
-      setActiveTab(TAB_INDEX[tab]);
       const demoId = searchParams.get("demo");
       if (tab === "demonstrations" && demoId) setExpandedDemoId(parseInt(demoId, 10));
       // Clear params after applying
@@ -450,15 +444,13 @@ const TrainingPage = () => {
     }
   }, []);
 
-  // Refresh jobs periodically when on jobs tab
+  // The Jobs card is always on the page, so its list is kept fresh.
   useEffect(() => {
-    if (activeTab === 2) {
-      const interval = setInterval(() => {
-        fetchJobs();
-      }, 5000); // Refresh every 5 seconds
-      return () => clearInterval(interval);
-    }
-  }, [activeTab, fetchJobs]);
+    const interval = setInterval(() => {
+      fetchJobs();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [fetchJobs]);
 
   const handleOpenEditModal = (item = null, prefill = null) => {
     setCurrentItem(item);
@@ -791,26 +783,22 @@ const TrainingPage = () => {
           }}
         />
       </Alert>
-      <Paper elevation={2}>
-        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-          <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
-            <Tab icon={<SchoolIcon />} iconPosition="start" label={t("training.tabs.demonstrations")} />
-            <Tab icon={<StorageIcon />} iconPosition="start" label={t("training.tabs.datasets")} />
-            <Tab icon={<WorkIcon />} iconPosition="start" label={t("training.tabs.jobs")} />
-            <Tab icon={<ComputerIcon />} iconPosition="start" label={t("training.tabs.devices")} />
-          </Tabs>
-        </Box>
-
-        {/* Demonstrations Tab */}
-        {activeTab === 0 && (
+      {/* The four sections are cards on the shared board. */}
+      <CardWorkspace
+        boardKey="training"
+        cards={[
+          {
+            id: "demonstrations",
+            title: t("training.tabs.demonstrations"),
+            layout: { x: 0, y: 0, w: 100, h: 46 },
+            body: (
           <Box sx={{ p: 2 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">
-                {t("training.demos.title")}
+              <Box>
                 {demonstrations.length > 0 && (
-                  <Chip label={demonstrations.length} size="small" sx={{ ml: 1, height: 20, fontSize: "0.75rem" }} />
+                  <Chip label={demonstrations.length} size="small" sx={{ height: 20, fontSize: "0.75rem" }} />
                 )}
-              </Typography>
+              </Box>
               <Box display="flex" alignItems="center" gap={1}>
                 <Button
                   variant="outlined"
@@ -886,18 +874,20 @@ const TrainingPage = () => {
               </TableContainer>
             )}
           </Box>
-        )}
-
-        {/* Datasets Tab */}
-        {activeTab === 1 && (
+            ),
+          },
+          {
+            id: "datasets",
+            title: t("training.tabs.datasets"),
+            layout: { x: 100, y: 0, w: 75, h: 46 },
+            body: (
           <Box sx={{ p: 2 }}>
             <Box
               display="flex"
-              justifyContent="space-between"
+              justifyContent="flex-end"
               alignItems="center"
               mb={2}
             >
-              <Typography variant="h6">{t("training.datasets.title")}</Typography>
               <Box display="flex" gap={1}>
                 <Button
                   variant="outlined"
@@ -996,18 +986,20 @@ const TrainingPage = () => {
               </TableContainer>
             )}
           </Box>
-        )}
-
-        {/* Jobs Tab */}
-        {activeTab === 2 && (
+            ),
+          },
+          {
+            id: "jobs",
+            title: t("training.tabs.jobs"),
+            layout: { x: 0, y: 46, w: 100, h: 50 },
+            body: (
           <Box sx={{ p: 2 }}>
             <Box
               display="flex"
-              justifyContent="space-between"
+              justifyContent="flex-end"
               alignItems="center"
               mb={2}
             >
-              <Typography variant="h6">{t("training.jobs.title")}</Typography>
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -1204,18 +1196,20 @@ const TrainingPage = () => {
               </Box>
             )}
           </Box>
-        )}
-
-        {/* Devices Tab */}
-        {activeTab === 3 && (
+            ),
+          },
+          {
+            id: "devices",
+            title: t("training.tabs.devices"),
+            layout: { x: 100, y: 46, w: 75, h: 50 },
+            body: (
           <Box sx={{ p: 2 }}>
             <Box
               display="flex"
-              justifyContent="space-between"
+              justifyContent="flex-end"
               alignItems="center"
               mb={2}
             >
-              <Typography variant="h6">{t("training.devices.title")}</Typography>
               <Box display="flex" gap={1}>
                 <Button
                   variant="outlined"
@@ -1312,8 +1306,10 @@ const TrainingPage = () => {
               </TableContainer>
             )}
           </Box>
-        )}
-      </Paper>
+            ),
+          },
+        ]}
+      />
 
       {editModalOpen && (
         <TrainingDatasetModal
