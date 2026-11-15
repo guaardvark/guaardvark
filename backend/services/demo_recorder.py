@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,14 @@ SCREEN_SETTLE_INTERVAL = 0.3         # seconds — polling interval during settl
 SCREEN_CHANGE_THRESHOLD = 0.005      # normalized pixel diff — below this means "settled"
 INJECTION_ECHO_GRACE = 0.3           # seconds — listener events this soon after a /learn/input
                                      # injection are that injection's echo
+# The click target is shown to the vision model as a close-up with a ring on
+# the spot. Measured 2026-11-14 with gemma4:e4b on a 1000x1000 desktop of six
+# labelled icons, three runs each: naming the pixel coordinates in words
+# described the clicked element 13/18 times (the other five named a neighbour),
+# a ring on the full screen 17/18 (one neighbour), this close-up 17/18 with no
+# neighbour named.
+TARGET_CLOSEUP_HALF = 170            # pixels each side of the click kept in the close-up
+TARGET_RING_RADIUS = 46              # pixels
 STOP_DRAIN_TIMEOUT = 60.0            # seconds — stop() waits this long for queued listener events
 
 # X modifier mask bits as printed in xinput's "modifiers: ... effective: 0x.." field.
@@ -384,6 +392,20 @@ class DemoRecorder:
             self._shot_seq += 1
             return f"step_{self._shot_seq:04d}_{suffix}"
 
+    @staticmethod
+    def _target_closeup(image: Image.Image, x: int, y: int) -> Image.Image:
+        """The part of the screen around a click, with a ring on the clicked spot."""
+        marked = image.convert("RGB")
+        draw = ImageDraw.Draw(marked)
+        r = TARGET_RING_RADIUS
+        for width, colour in ((5, (255, 255, 255)), (3, (255, 0, 0))):
+            draw.ellipse([x - r, y - r, x + r, y + r], outline=colour, width=width)
+        half = TARGET_CLOSEUP_HALF
+        return marked.crop((
+            max(0, x - half), max(0, y - half),
+            min(marked.width, x + half), min(marked.height, y + half),
+        ))
+
     def _describe_precondition(self, image: Optional[Image.Image]) -> str:
         """What the screen showed before a step; replay checks it before acting."""
         if image is None:
@@ -485,9 +507,10 @@ class DemoRecorder:
         if evt.event_type in ("click", "scroll") and target_img is not None:
             try:
                 target_result = self.analyzer.analyze(
-                    target_img,
-                    prompt=f"Describe the UI element at pixel coordinates ({evt.x}, {evt.y}) in one sentence. "
-                           f"Include its type (button, link, field, etc.), label text, and visual appearance.",
+                    self._target_closeup(target_img, evt.x, evt.y),
+                    prompt="This is a close-up of part of a screen. A red ring marks one UI element. "
+                           "Describe that element in one sentence. Include its type (button, link, field, etc.), "
+                           "label text, and visual appearance. Do not mention the ring.",
                 )
                 if target_result.success and target_result.description:
                     step["target_description"] = target_result.description

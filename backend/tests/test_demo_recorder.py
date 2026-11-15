@@ -134,8 +134,17 @@ class TestDemoRecorder:
         mock_screen.capture.side_effect = None
         mock_screen.capture.return_value = (after, (0, 0))
         recorder._process_event(InputEvent(event_type="click", x=1, y=2, button=1, timestamp=1.0))
-        described = [c.args[0] for c in mock_analyzer.analyze.call_args_list]
-        assert described and all(img is before for img in described)
+        target_img, precondition_img = [c.args[0] for c in mock_analyzer.analyze.call_args_list]
+        assert precondition_img is before
+        # The target is a close-up cut from the before screen, away from the ring.
+        assert target_img.getpixel((target_img.width - 1, target_img.height - 1)) == (255, 255, 255)
+
+    def test_click_target_is_shown_as_a_close_up_without_coordinates(self, recorder, mock_analyzer):
+        recorder._last_screenshot = Image.new("RGB", (1024, 1024), color="white")
+        recorder._process_event(InputEvent(event_type="click", x=500, y=500, button=1, timestamp=1.0))
+        target_call = mock_analyzer.analyze.call_args_list[0]
+        assert target_call.args[0].size == (340, 340)
+        assert "500" not in target_call.kwargs["prompt"]
 
 
 # One xdotool click, Ctrl+L, Shift+e and Return as `xinput test-xi2 --root`
