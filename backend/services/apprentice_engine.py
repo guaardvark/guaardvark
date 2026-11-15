@@ -22,6 +22,12 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from backend.services.demonstration_lessons import (
+    clean_target_description,
+    describe_step,
+    scroll_amount,
+)
+
 logger = logging.getLogger(__name__)
 
 # --- Constants ---
@@ -29,6 +35,8 @@ logger = logging.getLogger(__name__)
 PROMOTION_THRESHOLD = 3          # consecutive successes needed to promote
 CONFIDENCE_FALLBACK_THRESHOLD = 0.6  # below this, SUPERVISED falls back to GUIDED
 QUESTION_TIMEOUT = 60            # seconds to wait for human answer
+SIGNOFF_TIMEOUT = 300            # seconds a finished step waits for a person's verdict
+SIGNOFF_VERDICTS = ("ok", "retry", "stop")
 
 
 @dataclass
@@ -198,6 +206,7 @@ class ApprenticeEngine:
         autonomy_level: str = "guided",
         demonstration_id: Optional[str] = None,
         emit_fn: Optional[Callable] = None,
+        review: bool = False,
     ) -> AttemptResult:
         """
         Execute a demonstration's steps at the given autonomy level.
@@ -208,42 +217,59 @@ class ApprenticeEngine:
             demonstration_id: Optional ID for tracking
             emit_fn: Optional callback for emitting SocketIO events
                      signature: emit_fn(event_name: str, data: dict)
+            review: A person is there to judge finished steps. A guided run
+                    then waits after every step for their verdict (worked,
+                    retry, stop), and a supervised run after a step that
+                    failed. Their verdict is the step's result: a step they
+                    say worked counts even when the click's own check saw
+                    nothing change. Signing a step off also approves running
+                    the next one, which the review shows, unless the screen
+                    then fails that step's precondition.
 
         Returns:
-            AttemptResult with success status and per-step results
+            AttemptResult with success status and per-step results. With
+            review, each step result carries 'signed_off'.
         """
         self._killed = False
         level = autonomy_level.lower()
         step_results: List[Dict] = []
         steps_completed = 0
+        total = len(steps)
+
+        def _ended(reason: str) -> AttemptResult:
+            return AttemptResult(
+                success=False,
+                steps_completed=steps_completed,
+                total_steps=total,
+                step_results=step_results,
+                failure_reason=reason,
+            )
 
         logger.info(
-            f"[APPRENTICE] Executing {len(steps)} steps at level={level} "
-            f"demo_id={demonstration_id}"
+            f"[APPRENTICE] Executing {total} steps at level={level} "
+            f"demo_id={demonstration_id} review={review}"
         )
 
-        for step in steps:
-            if self._killed:
-                return AttemptResult(
-                    success=False,
-                    steps_completed=steps_completed,
-                    total_steps=len(steps),
-                    step_results=step_results,
-                    failure_reason="Execution killed by user",
-                )
+        index = 0
+        preapproved = False  # the last sign-off covered running this step
+        retrying = False     # the person asked for this step again
+        retries = 0
 
-            step_index = step.get("step_index", steps_completed)
+        while index < total:
+            step = steps[index]
+            if self._killed:
+                return _ended("Execution killed by user")
+
+            step_index = step.get("step_index", index)
             action_type = step.get("action_type", "unknown")
             precondition = step.get("precondition", "")
+            description = describe_step(step)
 
-            logger.info(
-                f"[APPRENTICE] Step {step_index}: {action_type} "
-                f"target={step.get('target_description', '')}"
-            )
+            logger.info(f"[APPRENTICE] Step {step_index}: {description}")
 
             # --- 1. Precondition check ---
             precondition_ok = True
-            if precondition:
+            if precondition and not retrying:
                 pre_result = self._check_precondition(precondition)
                 precondition_ok = pre_result.get("matches", False)
                 if not precondition_ok:
@@ -252,13 +278,10 @@ class ApprenticeEngine:
                         f"{pre_result.get('description', '')}"
                     )
                     if level == "autonomous":
-                        return AttemptResult(
-                            success=False,
-                            steps_completed=steps_completed,
-                            total_steps=len(steps),
-                            step_results=step_results,
-                            failure_reason=f"Precondition failed at step {step_index}: {precondition}",
-                        )
+                        return _ended(f"Precondition failed at step {step_index}: {precondition}")
+                    # Approved against a screen that is not the one in front
+                    # of the step: ask again.
+                    preapproved = False
 
             # --- 2. Handle variable input ---
             variable_input = None
@@ -267,39 +290,20 @@ class ApprenticeEngine:
                 # For now, use the recorded text as default
                 variable_input = step.get("text")
 
-            # --- 3. Mode-specific behavior ---
-            if level == "guided":
-                # Emit preview and wait for human confirmation
-                if emit_fn:
-                    emit_fn("step_preview", {
-                        "step_index": step_index,
-                        "action_type": action_type,
-                        "target_description": step.get("target_description", ""),
-                        "precondition": precondition,
-                        "precondition_ok": precondition_ok,
-                        "demonstration_id": demonstration_id,
-                    })
-                confirmation = self._wait_for_confirmation(QUESTION_TIMEOUT)
-                if self._killed:
-                    return AttemptResult(
-                        success=False,
-                        steps_completed=steps_completed,
-                        total_steps=len(steps),
-                        step_results=step_results,
-                        failure_reason="Execution killed by user",
-                    )
-                if confirmation is None:
-                    return AttemptResult(
-                        success=False,
-                        steps_completed=steps_completed,
-                        total_steps=len(steps),
-                        step_results=step_results,
-                        failure_reason=f"Timeout waiting for confirmation at step {step_index}",
-                    )
-                # Check if human provided override input
-                if confirmation.get("variable_input"):
-                    variable_input = confirmation["variable_input"]
-
+            # --- 3. Ask before running, where the level calls for it ---
+            ask = False
+            preview = {
+                "step_index": step_index,
+                "action_type": action_type,
+                "target_description": description,
+                "precondition": precondition,
+                "precondition_ok": precondition_ok,
+                "demonstration_id": demonstration_id,
+            }
+            if retrying:
+                pass  # asking for the step again is the go-ahead
+            elif level == "guided":
+                ask = not preapproved
             elif level == "supervised":
                 # Auto-execute but fall back to GUIDED for low-confidence steps
                 confidence = self._estimate_confidence(step)
@@ -308,91 +312,121 @@ class ApprenticeEngine:
                         f"[APPRENTICE] Low confidence ({confidence:.2f}) at step {step_index}, "
                         f"falling back to guided mode"
                     )
-                    if emit_fn:
-                        emit_fn("step_preview", {
-                            "step_index": step_index,
-                            "action_type": action_type,
-                            "target_description": step.get("target_description", ""),
-                            "precondition": precondition,
-                            "precondition_ok": precondition_ok,
-                            "confidence": confidence,
-                            "demonstration_id": demonstration_id,
-                        })
-                    confirmation = self._wait_for_confirmation(QUESTION_TIMEOUT)
-                    if self._killed:
-                        return AttemptResult(
-                            success=False,
-                            steps_completed=steps_completed,
-                            total_steps=len(steps),
-                            step_results=step_results,
-                            failure_reason="Execution killed by user",
-                        )
-                    # The step was put to a person because it looked unsafe to run
-                    # alone; with no answer it does not run, as in guided mode.
-                    if confirmation is None:
-                        return AttemptResult(
-                            success=False,
-                            steps_completed=steps_completed,
-                            total_steps=len(steps),
-                            step_results=step_results,
-                            failure_reason=f"Timeout waiting for confirmation at step {step_index}",
-                        )
-                    if confirmation.get("variable_input"):
-                        variable_input = confirmation["variable_input"]
-
+                    preview["confidence"] = confidence
+                    ask = True
             # level == "autonomous": just execute, no preview or fallback
+
+            if ask:
+                if emit_fn:
+                    emit_fn("step_preview", preview)
+                confirmation = self._wait_for_confirmation(QUESTION_TIMEOUT)
+                if self._killed:
+                    return _ended("Execution killed by user")
+                # The step was put to a person; with no answer it does not run.
+                if confirmation is None:
+                    return _ended(f"Timeout waiting for confirmation at step {step_index}")
+                if confirmation.get("verdict") == "stop":
+                    return _ended(f"Stopped by the user before step {step_index}")
+                # Check if human provided override input
+                if confirmation.get("variable_input"):
+                    variable_input = confirmation["variable_input"]
+            preapproved = False
 
             # --- 4. Execute the step ---
             exec_result = self._execute_step(step, variable_input=variable_input)
+            machine_success = bool(exec_result.get("success", False))
+            success = machine_success
+            signed_off = False
+
+            # --- 5. A person's verdict on the finished step ---
+            if review and (level == "guided" or (level == "supervised" and not machine_success)):
+                following = steps[index + 1] if index + 1 < total else None
+                if emit_fn:
+                    emit_fn("step_review", {
+                        "step_index": step_index,
+                        "action_type": action_type,
+                        "target_description": description,
+                        "machine_success": machine_success,
+                        "error": "" if machine_success else str(exec_result.get("error") or ""),
+                        "next_description": describe_step(following) if following else "",
+                        "demonstration_id": demonstration_id,
+                    })
+                verdict = self._wait_for_signoff(step_index, SIGNOFF_TIMEOUT)
+                if self._killed:
+                    return _ended("Execution killed by user")
+                choice = verdict.get("verdict") if verdict else None
+                if choice == "retry":
+                    retrying = True
+                    retries += 1
+                    continue
+                if choice != "ok":
+                    step_results.append({
+                        "step_index": step_index,
+                        "action_type": action_type,
+                        "success": False,
+                        "machine_success": machine_success,
+                        "signed_off": False,
+                        "retries": retries,
+                        "precondition_ok": precondition_ok,
+                        "result": exec_result,
+                    })
+                    if choice == "stop":
+                        return _ended(f"Stopped by the user at step {step_index}")
+                    return _ended(f"No sign-off at step {step_index}")
+                success = True
+                signed_off = True
+                preapproved = level == "guided"
 
             step_result = {
                 "step_index": step_index,
                 "action_type": action_type,
-                "success": exec_result.get("success", False),
+                "success": success,
+                "machine_success": machine_success,
+                "signed_off": signed_off,
+                "retries": retries,
                 "precondition_ok": precondition_ok,
                 "result": exec_result,
             }
             step_results.append(step_result)
 
-            if not exec_result.get("success", False):
+            if not success:
                 logger.warning(f"[APPRENTICE] Step {step_index} failed: {exec_result}")
                 if level == "autonomous":
-                    return AttemptResult(
-                        success=False,
-                        steps_completed=steps_completed,
-                        total_steps=len(steps),
-                        step_results=step_results,
-                        failure_reason=f"Step {step_index} ({action_type}) failed",
-                    )
-                # In guided/supervised, continue but mark failure
+                    return _ended(f"Step {step_index} ({action_type}) failed")
+                # In guided/supervised with nobody reviewing, continue but mark failure
             else:
                 steps_completed += 1
 
-            # --- 5. Emit step completion ---
+            # --- 6. Emit step completion ---
             if emit_fn:
                 emit_fn("step_complete", {
                     "step_index": step_index,
-                    "success": exec_result.get("success", False),
+                    "action_type": action_type,
+                    "success": success,
                     "demonstration_id": demonstration_id,
                 })
+                if signed_off:
+                    emit_fn("step_signed", {
+                        "step_index": step_index,
+                        "step": step,
+                        "description": description,
+                        "demonstration_id": demonstration_id,
+                    })
 
-            # --- 6. Record for training ---
-            # Click steps are already recorded by servo.click_target's own
-            # collector (the SAME TrainingDataCollector instance — see the
-            # construction in agent_control_service), with full screenshot +
-            # coordinate metadata. The old block here called record() with a
-            # `data=` kwarg the signature never had — it raised TypeError into
-            # the except on every step and had never written a row (found in
-            # the 2026-08-01 learning-stack audit). Removed rather than fixed:
-            # a second apprentice-level record would double-count clicks, and
-            # non-click steps carry no coordinate label (DemoStep rows are the
-            # labeled source for those).
+            # Click steps are recorded for training by servo.click_target's own
+            # collector (the same TrainingDataCollector instance, see the
+            # construction in agent_control_service). A second record here would
+            # double-count clicks, and non-click steps carry no coordinate label.
 
-        all_success = steps_completed == len(steps)
+            index += 1
+            retrying = False
+            retries = 0
+
+        all_success = steps_completed == total
         return AttemptResult(
             success=all_success,
             steps_completed=steps_completed,
-            total_steps=len(steps),
+            total_steps=total,
             step_results=step_results,
             failure_reason="" if all_success else "Some steps failed",
         )
@@ -412,9 +446,10 @@ class ApprenticeEngine:
 
         try:
             if action_type == "click":
-                target = step.get("target_description", "")
-                context = step.get("element_context", "")
-                if context:
+                # Found by what it looks like, never by where it was recorded.
+                target = clean_target_description(step.get("target_description", ""))
+                context = clean_target_description(step.get("element_context", ""))
+                if context and context != target:
                     target = f"{target} {context}"
                 result = self.servo.click_target(target)
                 # A sent click is not a done step: when nothing changed where it
@@ -439,10 +474,11 @@ class ApprenticeEngine:
                 return self.screen.hotkey(*keys)
 
             elif action_type == "scroll":
-                x = step.get("x", 640)
-                y = step.get("y", 360)
-                amount = step.get("scroll_amount", -3)
-                return self.screen.scroll(x, y, amount)
+                # Saved steps carry the position as coordinates: [x, y].
+                coords = step.get("coordinates") or [step.get("x"), step.get("y")]
+                x = coords[0] if coords[0] is not None else 640
+                y = coords[1] if coords[1] is not None else 360
+                return self.screen.scroll(x, y, scroll_amount(step))
 
             else:
                 return {"success": False, "error": f"Unknown action type: {action_type}"}
@@ -586,9 +622,45 @@ class ApprenticeEngine:
         return None
 
     def confirm_step(self, data: Optional[Dict] = None):
-        """Called by frontend/API to confirm the current step."""
+        """Called by frontend/API to answer the step the replay is waiting on.
+
+        Before a step: {} or {"confirmed": True} runs it, {"verdict": "stop"}
+        ends the replay. After a step under review: {"verdict": "ok" |
+        "retry" | "stop", "step_index": n}.
+        """
         self._confirmation_data = data or {"confirmed": True}
         self._confirmation_event.set()
+
+    def _wait_for_signoff(self, step_index: int, timeout: float = SIGNOFF_TIMEOUT) -> Optional[Dict]:
+        """
+        Wait for a person's verdict on the step that just ran.
+
+        Only a reply that names a verdict counts, and one that names another
+        step is ignored, so a late click on the earlier Go button is not
+        taken as a sign-off.
+
+        Returns:
+            The reply dict, or None on timeout or kill
+        """
+        deadline = time.monotonic() + timeout
+        self._confirmation_event.clear()
+        self._confirmation_data = None
+        while not self._killed:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not self._confirmation_event.wait(timeout=remaining):
+                return None
+            data = self._confirmation_data or {}
+            self._confirmation_event.clear()
+            self._confirmation_data = None
+            if self._killed:
+                return None
+            if data.get("verdict") not in SIGNOFF_VERDICTS:
+                continue
+            named = data.get("step_index")
+            if named is not None and named != step_index:
+                continue
+            return data
+        return None
 
     def _wait_for_answer(self, timeout: float = QUESTION_TIMEOUT) -> Optional[Dict]:
         """
