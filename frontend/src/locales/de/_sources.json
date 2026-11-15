@@ -14946,10 +14946,6 @@
       "en": "e1946387893c",
       "out": "d4faca6b1635"
     },
-    "modeHelp.identity": {
-      "en": "440cb43cc32c",
-      "out": "4e15e543d474"
-    },
     "modeHelp.edit": {
       "en": "a0aef16d54cb",
       "out": "5a744fe17f61"
@@ -14981,10 +14977,6 @@
     "photos.faces": {
       "en": "78f09a1d0da4",
       "out": "83a4eddcd835"
-    },
-    "photos.facesHelp": {
-      "en": "4909873ba393",
-      "out": "c909b20c4867"
     },
     "photos.source": {
       "en": "d01d900383e4",
@@ -15137,10 +15129,6 @@
     "consent.confirm": {
       "en": "1904bb2d3fe8",
       "out": "2ad32a21ace2"
-    },
-    "consent.confirmed": {
-      "en": "0a361cbd1a72",
-      "out": "316ba478bf44"
     },
     "consent.failed": {
       "en": "f422a7a017cb",
@@ -27143,9 +27131,6 @@
     },
     "generationPanel.verbatimForcedTooltip": {
       "en": "18e57b6ff575"
-    },
-    "generationPanel.verbatimTooltip": {
-      "en": "81a55c41fc4b"
     },
     "generationPanel.stillsModels": {
       "en": "8c41f9a2bdfc"
