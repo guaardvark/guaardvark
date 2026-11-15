@@ -24,8 +24,6 @@ import {
   Paper,
   Stack,
   Switch,
-  Tab,
-  Tabs,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -58,6 +56,7 @@ import {
   requestDesktopNotifications,
   usePendingApprovals,
 } from "../hooks/usePendingApprovals";
+import { CardWorkspace } from "../components/board";
 import { translate, uiLocale, useUiTranslation } from "../i18n";
 
 // status → chip colour, so a publish reads the same wherever it appears.
@@ -132,19 +131,20 @@ const editedLine = (record) => {
   return translate("approvals.publishes.edited", { when });
 };
 
-// Tabs a link may open the page on (?tab=outreach).
-const TABS = ["pending", "outreach", "code", "chat_tools", "history"];
+// Cards a link may bring into view (?tab=outreach).
+const CARDS = ["pending", "outreach", "code", "chat_tools", "history"];
 
 const ApprovalsPage = () => {
   const { t } = useUiTranslation();
   const { showMessage } = useSnackbar();
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState(() => (TABS.includes(searchParams.get("tab")) ? searchParams.get("tab") : "pending"));
   const [connections, setConnections] = useState([]);
   const [queued, setQueued] = useState([]);
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
+  // The waiting publishes and the history are separate cards, each with its own selection.
+  const [selectedIds, setSelectedIds] = useState({ pending: null, history: null });
+  const select = (kind, id) => setSelectedIds((current) => ({ ...current, [kind]: id }));
   const [busyId, setBusyId] = useState(null);
   const [rejecting, setRejecting] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -202,23 +202,28 @@ const ApprovalsPage = () => {
   }, [loadSupporting]);
 
   useEffect(() => {
-    if (tab === "history") loadHistory();
-  }, [tab, loadHistory]);
+    loadHistory();
+  }, [loadHistory]);
 
-  const rows = tab === "pending" ? pending : history;
-  const selected = useMemo(
-    () => rows.find((r) => r.id === selectedId) || null,
-    [rows, selectedId],
-  );
+  // A link that names a card (?tab=outreach) brings that card into view once the board has drawn.
+  const linkedCard = searchParams.get("tab");
+  useEffect(() => {
+    if (!CARDS.includes(linkedCard)) return undefined;
+    const timer = setTimeout(() => {
+      document.querySelector(`[data-card-id="${linkedCard}"]`)?.scrollIntoView({ block: "start" });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [linkedCard]);
+
+  const rowsOf = useMemo(() => ({ pending, history }), [pending, history]);
 
   const runAction = async (record, action, verb) => {
     setBusyId(record.id);
     try {
       await action();
       showMessage(publishDone(verb));
-      await Promise.all([refresh(), loadSupporting()]);
-      if (tab === "history") await loadHistory();
-      setSelectedId(null);
+      await Promise.all([refresh(), loadSupporting(), loadHistory()]);
+      select("pending", null);
     } catch (err) {
       // Edited or decided elsewhere since this page loaded it: show what it is now.
       if (err?.status === 409 && err?.data?.code) {
@@ -248,15 +253,17 @@ const ApprovalsPage = () => {
     }
   };
 
-  const renderList = () => {
-    if (tab === "pending" && loading) {
+  const renderList = (kind) => {
+    const rows = rowsOf[kind];
+    const selectedId = selectedIds[kind];
+    if (kind === "pending" && loading) {
       return (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
           <CircularProgress />
         </Box>
       );
     }
-    if (tab === "history" && historyLoading) {
+    if (kind === "history" && historyLoading) {
       return (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
           <CircularProgress />
@@ -266,7 +273,7 @@ const ApprovalsPage = () => {
     if (!rows.length) {
       return (
         <Alert severity="info" sx={{ m: 2 }}>
-          {tab === "pending"
+          {kind === "pending"
             ? t("approvals.publishes.emptyPending")
             : t("approvals.publishes.emptyHistory")}
         </Alert>
@@ -278,7 +285,7 @@ const ApprovalsPage = () => {
           <ListItemButton
             key={record.id}
             selected={selectedId === record.id}
-            onClick={() => setSelectedId(record.id)}
+            onClick={() => select(kind, record.id)}
           >
             <ListItemText
               primary={
@@ -307,7 +314,7 @@ const ApprovalsPage = () => {
                 </Typography>
               }
             />
-            {tab === "history" && (
+            {kind === "history" && (
               <Chip
                 label={publishStatusLabel(record.status)}
                 size="small"
@@ -320,7 +327,8 @@ const ApprovalsPage = () => {
     );
   };
 
-  const renderDetail = () => {
+  const renderDetail = (kind) => {
+    const selected = rowsOf[kind].find((r) => r.id === selectedIds[kind]) || null;
     if (!selected) {
       return (
         <Typography variant="body2" color="text.secondary" sx={{ p: 3 }}>
@@ -463,6 +471,15 @@ const ApprovalsPage = () => {
     );
   };
 
+  const listAndDetail = (kind) => (
+    <Box sx={{ display: "flex", minHeight: 360 }}>
+      <Box sx={{ width: 340, flexShrink: 0, borderRight: 1, borderColor: "divider" }}>
+        {renderList(kind)}
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0, overflowY: "auto" }}>{renderDetail(kind)}</Box>
+    </Box>
+  );
+
   return (
     <PageLayout
       title={t("approvals.title")}
@@ -519,60 +536,60 @@ const ApprovalsPage = () => {
         </Paper>
       )}
 
-      <Paper variant="outlined">
-        <Tabs
-          value={tab}
-          onChange={(_, value) => {
-            setTab(value);
-            setSelectedId(null);
-          }}
-          sx={{ borderBottom: 1, borderColor: "divider" }}
-        >
-          <Tab
-            value="pending"
-            label={pending.length ? t("approvals.tabs.publishesCount", { count: pending.length }) : t("approvals.tabs.publishes")}
-          />
-          <Tab
-            value="outreach"
-            label={
+      {/* Each kind of approval is a card on the shared board. */}
+      <CardWorkspace
+        boardKey="approvals"
+        cards={[
+          {
+            id: "pending",
+            title: pending.length ? t("approvals.tabs.publishesCount", { count: pending.length }) : t("approvals.tabs.publishes"),
+            layout: { x: 0, y: 0, w: 110, h: 60 },
+            body: listAndDetail("pending"),
+          },
+          {
+            id: "outreach",
+            title:
               outreach.length + outreachWaiting.length
                 ? t("approvals.tabs.outreachCount", { count: outreach.length + outreachWaiting.length })
-                : t("approvals.tabs.outreach")
-            }
-          />
-          <Tab
-            value="code"
-            label={held.length ? t("approvals.tabs.codeCount", { count: held.length }) : t("approvals.tabs.code")}
-          />
-          <Tab value="chat_tools" label={t("approvals.tabs.chatTools")} />
-          <Tab value="history" label={t("approvals.tabs.history")} />
-        </Tabs>
-        {tab === "chat_tools" ? (
-          <AlwaysApprovedToolsPanel showMessage={showMessage} />
-        ) : tab === "code" ? (
-          <HeldChangesPanel
-            held={held}
-            loading={heldLoading}
-            onChanged={refresh}
-            showMessage={showMessage}
-          />
-        ) : tab === "outreach" ? (
-          <OutreachDraftsPanel
-            drafts={outreach}
-            waiting={outreachWaiting}
-            loading={outreachLoading}
-            onChanged={refresh}
-            showMessage={showMessage}
-          />
-        ) : (
-          <Box sx={{ display: "flex", minHeight: 360 }}>
-            <Box sx={{ width: 340, borderRight: 1, borderColor: "divider" }}>
-              {renderList()}
-            </Box>
-            <Box sx={{ flex: 1, overflowY: "auto" }}>{renderDetail()}</Box>
-          </Box>
-        )}
-      </Paper>
+                : t("approvals.tabs.outreach"),
+            layout: { x: 110, y: 0, w: 65, h: 60 },
+            body: (
+              <OutreachDraftsPanel
+                drafts={outreach}
+                waiting={outreachWaiting}
+                loading={outreachLoading}
+                onChanged={refresh}
+                showMessage={showMessage}
+              />
+            ),
+          },
+          {
+            id: "code",
+            title: held.length ? t("approvals.tabs.codeCount", { count: held.length }) : t("approvals.tabs.code"),
+            layout: { x: 0, y: 60, w: 88, h: 45 },
+            body: (
+              <HeldChangesPanel
+                held={held}
+                loading={heldLoading}
+                onChanged={refresh}
+                showMessage={showMessage}
+              />
+            ),
+          },
+          {
+            id: "chat_tools",
+            title: t("approvals.tabs.chatTools"),
+            layout: { x: 88, y: 60, w: 87, h: 45 },
+            body: <AlwaysApprovedToolsPanel showMessage={showMessage} />,
+          },
+          {
+            id: "history",
+            title: t("approvals.tabs.history"),
+            layout: { x: 0, y: 105, w: 175, h: 55 },
+            body: listAndDetail("history"),
+          },
+        ]}
+      />
 
       <EditPublishDialog
         open={!!editing}
