@@ -5,7 +5,6 @@ import { SOCKET_URL } from "../api/apiClient";
 import {
   Box,
   Typography,
-  Grid,
   Button,
   CircularProgress,
   Card,
@@ -62,6 +61,7 @@ import {
   Psychology as PsychologyIcon,
   Hub as HubIcon,
 } from "@mui/icons-material";
+import { CardWorkspace } from "../components/board";
 import { useUiTranslation, uiLocale } from "../i18n";
 
 // A failed check that brought no message of its own; worded where it renders.
@@ -508,6 +508,12 @@ const DevToolsPage = () => {
     }
   });
 
+  // The sections were cards of their own on the old page; in a card frame they are plain sections.
+  const cardBodySx = {
+    p: 0.5,
+    "& > .MuiCard-root": { boxShadow: "none", backgroundColor: "transparent", backgroundImage: "none", mb: 0 },
+  };
+
   return (
     <PageLayout
       title={t("devTools.title")}
@@ -516,12 +522,18 @@ const DevToolsPage = () => {
       activeModel={isLoadingModel ? t("devTools.loading") : modelError ? t("devTools.status.error") : activeModel || t("devTools.model.default")}
     >
       <Box data-component="devtools">
-      {/* System Status Summary */}
+      {/* Each section is a card on the shared board. */}
+      <CardWorkspace
+        boardKey="dev-tools"
+        cards={[
+          {
+            id: "summary",
+            title: t("devTools.summary.heading"),
+            layout: { x: 0, y: 0, w: 175, h: 14 },
+            body: (
+              <Box sx={cardBodySx}>
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom>
-            {t("devTools.summary.heading")}
-          </Typography>
           <Box display="flex" gap={2} flexWrap="wrap">
             <Chip
               icon={health && !healthError ? <CheckCircle /> : <ErrorIcon />}
@@ -550,15 +562,19 @@ const DevToolsPage = () => {
           </Box>
         </CardContent>
       </Card>
-
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+              </Box>
+            ),
+          },
+          {
+            id: "backend",
+            title: t("devTools.backend.heading"),
+            layout: { x: 0, y: 14, w: 44, h: 26 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                <Typography variant="h6">
-                  {t("devTools.backend.heading")}
-                </Typography>
+                <Box />
                 <Tooltip title={t("devTools.actions.refresh")}>
                   <IconButton size="small" onClick={handleRetry}>
                     <Refresh />
@@ -595,13 +611,17 @@ const DevToolsPage = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
+              </Box>
+            ),
+          },
+          {
+            id: "database",
+            title: t("devTools.database.heading"),
+            layout: { x: 44, y: 14, w: 44, h: 26 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t("devTools.database.heading")}
-              </Typography>
               {dbHealth && !dbError ? (
                 <>
                   <Box display="flex" alignItems="center" mb={1}>
@@ -642,13 +662,17 @@ const DevToolsPage = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
+              </Box>
+            ),
+          },
+          {
+            id: "celery",
+            title: t("devTools.celery.heading"),
+            layout: { x: 88, y: 14, w: 44, h: 26 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t("devTools.celery.heading")}
-              </Typography>
               {celeryHealth && !celeryError ? (
                 <>
                   <Box display="flex" alignItems="center" mb={1}>
@@ -690,13 +714,17 @@ const DevToolsPage = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
+              </Box>
+            ),
+          },
+          {
+            id: "redis",
+            title: t("devTools.redis.heading"),
+            layout: { x: 132, y: 14, w: 43, h: 26 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t("devTools.redis.heading")}
-              </Typography>
               {redisHealth && !redisError ? (
                 <>
                   <Box display="flex" alignItems="center" mb={1}>
@@ -723,13 +751,17 @@ const DevToolsPage = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
+              </Box>
+            ),
+          },
+          {
+            id: "failedTasks",
+            title: t("devTools.failedTasks.heading"),
+            layout: { x: 0, y: 40, w: 88, h: 30 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t("devTools.failedTasks.heading")}
-              </Typography>
               {failedTasks.length === 0 ? (
                 <Typography>{t("devTools.failedTasks.none")}</Typography>
               ) : (
@@ -741,13 +773,17 @@ const DevToolsPage = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
+              </Box>
+            ),
+          },
+          {
+            id: "controls",
+            title: t("devTools.controls.heading"),
+            layout: { x: 88, y: 40, w: 87, h: 30 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t("devTools.controls.heading")}
-              </Typography>
               <Box display="flex" gap={1} flexWrap="wrap">
                 <Button
                   variant="outlined"
@@ -781,15 +817,19 @@ const DevToolsPage = () => {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-        {/* NEW: Progress Jobs Management Section */}
-        <Grid item xs={12}>
+              </Box>
+            ),
+          },
+          {
+            id: "jobs",
+            title: t("devTools.jobs.heading"),
+            layout: { x: 0, y: 70, w: 175, h: 60 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                <Typography variant="h6">
-                  {t("devTools.jobs.heading")}
-                </Typography>
+                <Box />
                 <Box display="flex" gap={1}>
                   <Chip 
                     label={t("devTools.jobs.activeCount", { count: incompleteJobs.length })} 
@@ -1070,15 +1110,19 @@ const DevToolsPage = () => {
               </Accordion>
             </CardContent>
           </Card>
-        </Grid>
-        {/* Log Viewer Section */}
-        <Grid item xs={12}>
+              </Box>
+            ),
+          },
+          {
+            id: "logs",
+            title: t("devTools.logs.heading"),
+            layout: { x: 0, y: 130, w: 175, h: 50 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-                <Typography variant="h6" gutterBottom>
-                  {t("devTools.logs.heading")}
-                </Typography>
+                <Box />
                 <Button size="small" onClick={fetchLogs} disabled={logsLoading}>
                   {logsLoading ? t("devTools.loading") : t("devTools.actions.refresh")}
                 </Button>
@@ -1104,13 +1148,17 @@ const DevToolsPage = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
+              </Box>
+            ),
+          },
+          {
+            id: "performance",
+            title: t("devTools.performance.heading"),
+            layout: { x: 0, y: 180, w: 88, h: 34 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t("devTools.performance.heading")}
-              </Typography>
               <Box>
                 <Typography variant="body2">
                   {t("devTools.performance.backendUptime", { seconds: health ? Math.round(health.uptime_seconds) : t("devTools.performance.notAvailable") })}
@@ -1127,25 +1175,33 @@ const DevToolsPage = () => {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12}>
+              </Box>
+            ),
+          },
+          {
+            id: "metrics",
+            title: t("devTools.metrics.heading"),
+            layout: { x: 88, y: 180, w: 87, h: 34 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t("devTools.metrics.heading")}
-              </Typography>
               <Box sx={{ maxWidth: 300 }}>
                 <SystemMetricsBar />
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12}>
+              </Box>
+            ),
+          },
+          {
+            id: "selfTest",
+            title: t("devTools.selfTest.resultsHeading"),
+            layout: { x: 0, y: 214, w: 88, h: 26 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t("devTools.selfTest.resultsHeading")}
-              </Typography>
               {selfTestResults ? (
                 <Box sx={{ mt: 2 }}>
                   <pre style={{ fontSize: "0.75rem", whiteSpace: "pre-wrap" }}>
@@ -1159,28 +1215,39 @@ const DevToolsPage = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12}>
+              </Box>
+            ),
+          },
+          {
+            id: "diagnostics",
+            title: t("devTools.diagnostics.heading"),
+            layout: { x: 88, y: 214, w: 87, h: 26 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t("devTools.diagnostics.heading")}
-              </Typography>
               <DiagnosticsPanel showMessage={showMessage} />
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12}>
+              </Box>
+            ),
+          },
+          {
+            id: "retrievalDebug",
+            title: t("devTools.retrievalDebug.heading"),
+            layout: { x: 0, y: 240, w: 175, h: 30 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t("devTools.retrievalDebug.heading")}
-              </Typography>
               <RAGDebugSection />
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+              </Box>
+            ),
+          },
+        ]}
+      />
       <AlertSnackbar
         open={snackbar.open}
         onClose={handleCloseSnackbar}
