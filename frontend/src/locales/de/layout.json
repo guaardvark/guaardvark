@@ -99,8 +99,17 @@
       "prompt": "Prompt",
       "settings": "Einstellungen",
       "queue": "Warteschlange",
-      "results": "Ergebnisse"
+      "results": "Ergebnisse",
+      "status": "Status"
     },
-    "queueEmpty": "Nichts in der Warteschlange oder wird nicht gerendert."
+    "queueEmpty": "Nichts in der Warteschlange oder wird nicht gerendert.",
+    "useLayout": "Layout: {{name}}",
+    "layouts": {
+      "columns": "Spalten",
+      "library": "Breite Bibliothek",
+      "compose": "Komposition"
+    },
+    "fullScreen": "Vollbild",
+    "exitFullScreen": "Vollbild beenden"
   }
 }

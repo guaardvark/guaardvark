@@ -99,8 +99,17 @@
       "prompt": "プロンプト",
       "settings": "設定",
       "queue": "キュー",
-      "results": "結果"
+      "results": "結果",
+      "status": "ステータス"
     },
-    "queueEmpty": "キューは空、またはレンダリングされていません。"
+    "queueEmpty": "キューは空、またはレンダリングされていません。",
+    "useLayout": "レイアウト: {{name}}",
+    "layouts": {
+      "columns": "カラム",
+      "library": "ワイドライブラリ",
+      "compose": "コンポーズ"
+    },
+    "fullScreen": "全画面",
+    "exitFullScreen": "全画面を終了"
   }
 }
