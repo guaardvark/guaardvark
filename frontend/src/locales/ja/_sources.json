@@ -33308,6 +33308,14 @@
       "en": "a6cec32825f4",
       "out": "f87f82d81d35"
     },
+    "sections.noTemplates": {
+      "en": "326abcdd78bc",
+      "out": "ae23c7c287f5"
+    },
+    "sections.noHistory": {
+      "en": "ba72cae32821",
+      "out": "89d56f229395"
+    },
     "taskCount": {
       "en": "a56abf7c3686",
       "out": "dbf2f39d7614"

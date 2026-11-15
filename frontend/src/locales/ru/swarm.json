@@ -59,7 +59,9 @@
   "sections": {
     "activeSwarms": "Активные Swarm",
     "quickLaunchTemplates": "Шаблоны быстрого запуска",
-    "recentSwarms": "Недавние Swarm"
+    "recentSwarms": "Недавние Swarm",
+    "noTemplates": "Шаблоны не найдены.",
+    "noHistory": "История Swarm пока пуста."
   },
   "taskCount": "{{count}} задач",
   "flightMode": "Авиарежим",

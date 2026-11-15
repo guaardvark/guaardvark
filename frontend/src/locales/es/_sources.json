@@ -33700,6 +33700,14 @@
       "en": "a6cec32825f4",
       "out": "3bb4c9acb400"
     },
+    "sections.noTemplates": {
+      "en": "326abcdd78bc",
+      "out": "b2d329464986"
+    },
+    "sections.noHistory": {
+      "en": "ba72cae32821",
+      "out": "675ea7c285f6"
+    },
     "taskCount": {
       "en": "a56abf7c3686",
       "out": "d85b63c7beba"

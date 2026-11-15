@@ -59,7 +59,9 @@
   "sections": {
     "activeSwarms": "活跃的 Swarm",
     "quickLaunchTemplates": "快速启动模板",
-    "recentSwarms": "最近的 Swarm"
+    "recentSwarms": "最近的 Swarm",
+    "noTemplates": "未找到模板。",
+    "noHistory": "尚无历史 Swarm。"
   },
   "taskCount": "{{count}} 个任务",
   "flightMode": "飞行模式",
