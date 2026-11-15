@@ -99,8 +99,17 @@
       "prompt": "Prompt",
       "settings": "Ustawienia",
       "queue": "Kolejka",
-      "results": "Wyniki"
+      "results": "Wyniki",
+      "status": "Status"
     },
-    "queueEmpty": "Nic nie jest w kolejce ani w trakcie renderowania."
+    "queueEmpty": "Nic nie jest w kolejce ani w trakcie renderowania.",
+    "useLayout": "Układ: {{name}}",
+    "layouts": {
+      "columns": "Kolumny",
+      "library": "Szeroka Biblioteka",
+      "compose": "Kompozycja"
+    },
+    "fullScreen": "Pełny ekran",
+    "exitFullScreen": "Wyjdź z pełnego ekranu"
   }
 }

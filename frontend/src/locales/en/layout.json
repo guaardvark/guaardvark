@@ -99,8 +99,17 @@
       "prompt": "Prompt",
       "settings": "Settings",
       "queue": "Queue",
-      "results": "Results"
+      "results": "Results",
+      "status": "Status"
     },
-    "queueEmpty": "Nothing is queued or rendering."
+    "queueEmpty": "Nothing is queued or rendering.",
+    "useLayout": "Layout: {{name}}",
+    "layouts": {
+      "columns": "Columns",
+      "library": "Wide library",
+      "compose": "Compose"
+    },
+    "fullScreen": "Full screen",
+    "exitFullScreen": "Exit full screen"
   }
 }

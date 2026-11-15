@@ -87,7 +87,9 @@
     "viewDependencies": "의존성 보기",
     "mapTitle": "저장소 맵",
     "noMap": "사용 가능한 맵이 없습니다.",
-    "graphTitle": "의존성 그래프"
+    "graphTitle": "의존성 그래프",
+    "mapping": "저장소 매핑 중…",
+    "mappingFailed": "저장소를 매핑할 수 없습니다: {{error}}"
   },
   "desktop": {
     "loadFailed": "데스크톱 항목을 불러오지 못했습니다.",

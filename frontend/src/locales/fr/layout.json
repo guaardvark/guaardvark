@@ -99,8 +99,17 @@
       "prompt": "Prompt",
       "settings": "Paramètres",
       "queue": "File d'attente",
-      "results": "Résultats"
+      "results": "Résultats",
+      "status": "Statut"
     },
-    "queueEmpty": "Rien n'est en file d'attente ou en cours de rendu."
+    "queueEmpty": "Rien n'est en file d'attente ou en cours de rendu.",
+    "useLayout": "Mise en page : {{name}}",
+    "layouts": {
+      "columns": "Colonnes",
+      "library": "Bibliothèque large",
+      "compose": "Composition"
+    },
+    "fullScreen": "Plein écran",
+    "exitFullScreen": "Quitter le plein écran"
   }
 }

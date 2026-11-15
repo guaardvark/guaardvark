@@ -89,7 +89,9 @@
     "viewDependencies": "Ver Dependências",
     "mapTitle": "Mapa do Repositório",
     "noMap": "Nenhum mapa disponível.",
-    "graphTitle": "Grafo de Dependências"
+    "graphTitle": "Grafo de Dependências",
+    "mapping": "Mapeando o repositório…",
+    "mappingFailed": "O repositório não pôde ser mapeado: {{error}}"
   },
   "desktop": {
     "loadFailed": "Falha ao carregar itens da área de trabalho",

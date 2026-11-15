@@ -98,6 +98,45 @@ import { useUiTranslation,  Trans } from "../i18n";
 // Lazy import for VideoModelsModal
 const VideoModelsModal = lazyWithReload(() => import("../components/modals/VideoModelsModal"));
 
+// Ready-made arrangements of the page's cards (175 columns). The first is the default.
+const VIDEO_GEN_LAYOUTS = [
+  {
+    id: "columns",
+    labelKey: "layout.board.layouts.columns",
+    layout: {
+      status: { x: 0, y: 0, w: 175, h: 14 },
+      prompt: { x: 0, y: 14, w: 60, h: 86 },
+      settings: { x: 60, y: 14, w: 55, h: 86 },
+      queue: { x: 115, y: 14, w: 60, h: 46 },
+      results: { x: 115, y: 60, w: 60, h: 40 },
+    },
+  },
+  {
+    // The library across the full width, for browsing what has been made.
+    id: "library",
+    labelKey: "layout.board.layouts.library",
+    layout: {
+      status: { x: 0, y: 0, w: 175, h: 14 },
+      prompt: { x: 0, y: 14, w: 60, h: 50 },
+      settings: { x: 60, y: 14, w: 60, h: 50 },
+      queue: { x: 120, y: 14, w: 55, h: 50 },
+      results: { x: 0, y: 64, w: 175, h: 60 },
+    },
+  },
+  {
+    // Prompt and settings side by side at full height; status, queue and results in a side column.
+    id: "compose",
+    labelKey: "layout.board.layouts.compose",
+    layout: {
+      prompt: { x: 0, y: 0, w: 65, h: 99 },
+      settings: { x: 65, y: 0, w: 60, h: 99 },
+      status: { x: 125, y: 0, w: 50, h: 25 },
+      queue: { x: 125, y: 25, w: 50, h: 34 },
+      results: { x: 125, y: 59, w: 50, h: 40 },
+    },
+  },
+];
+
 const VideoGeneratorPage = ({ embedded = false }) => {
   const { t, language } = useUiTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1876,50 +1915,61 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         </Alert>
       )}
 
-      <DashboardStrip>
-        <DashboardTile
-          label={t("videoGenerator.tiles.model")}
-          value={MODEL_OPTIONS[model]?.label || model}
-          sub={modelMeta[model]?.is_ready === false ? t("videoGenerator.tiles.notInstalled") : accelLabel || t("videoGenerator.tiles.readinessUnknown")}
-          tone={modelMeta[model]?.is_ready === false ? "error" : modelMeta[model]?.is_ready ? "ok" : "off"}
-          onClick={() => setVideoModelsModalOpen(true)}
-        />
-        <DashboardTile
-          label={t("videoGenerator.tiles.frame")}
-          value={`${computedParams.width}×${computedParams.height}`}
-          sub={t("videoGenerator.tiles.frameSub", { frames: computedParams.duration_frames, fps: computedParams.fps })}
-        />
-        <DashboardTile
-          label={t("videoGenerator.tiles.steps")}
-          value={String(computedParams.num_inference_steps)}
-          sub={stepsTileNote({
-            lowVramClamp: lowVramClampApplies,
-            profile: profileSteps,
-            presetLabel: qualityChipOptions.find((o) => o.value === qualityPreset)?.label,
-          })}
-        />
-        <DashboardTile
-          label={t("videoGenerator.tiles.queue")}
-          value={
-            queue.filter((q) => ["queued", "running", "pending"].includes(q.status)).length
-              ? t("videoGenerator.queue.active", { count: queue.filter((q) => ["queued", "running", "pending"].includes(q.status)).length })
-              : t("videoGenerator.tiles.idle")
-          }
-          tone={gpuBusy ? "warn" : "ok"}
-          sub={gpuBusy ? blockReason || t("videoGenerator.tiles.gpuBusy") : t("videoGenerator.tiles.readyToQueue")}
-        />
-      </DashboardStrip>
-
-      {/* The page is four cards on the shared board: what to make, how to make
-          it, what is rendering, and what has been made. */}
+      {/* The page is five cards on the shared board: the current setup at a
+          glance, what to make, how to make it, what is rendering, and what has
+          been made. */}
       <Box sx={{ mt: 0.5 }}>
         <CardWorkspace
           boardKey="video-gen"
+          version={2}
+          presets={VIDEO_GEN_LAYOUTS.map((preset) => ({ ...preset, label: t(preset.labelKey) }))}
           cards={[
+            {
+              id: "status",
+              title: t("layout.board.cards.status"),
+              layout: VIDEO_GEN_LAYOUTS[0].layout.status,
+              body: (
+                <Box sx={{ p: 0.5 }}>
+                <DashboardStrip>
+                  <DashboardTile
+                    label={t("videoGenerator.tiles.model")}
+                    value={MODEL_OPTIONS[model]?.label || model}
+                    sub={modelMeta[model]?.is_ready === false ? t("videoGenerator.tiles.notInstalled") : accelLabel || t("videoGenerator.tiles.readinessUnknown")}
+                    tone={modelMeta[model]?.is_ready === false ? "error" : modelMeta[model]?.is_ready ? "ok" : "off"}
+                    onClick={() => setVideoModelsModalOpen(true)}
+                  />
+                  <DashboardTile
+                    label={t("videoGenerator.tiles.frame")}
+                    value={`${computedParams.width}×${computedParams.height}`}
+                    sub={t("videoGenerator.tiles.frameSub", { frames: computedParams.duration_frames, fps: computedParams.fps })}
+                  />
+                  <DashboardTile
+                    label={t("videoGenerator.tiles.steps")}
+                    value={String(computedParams.num_inference_steps)}
+                    sub={stepsTileNote({
+                      lowVramClamp: lowVramClampApplies,
+                      profile: profileSteps,
+                      presetLabel: qualityChipOptions.find((o) => o.value === qualityPreset)?.label,
+                    })}
+                  />
+                  <DashboardTile
+                    label={t("videoGenerator.tiles.queue")}
+                    value={
+                      queue.filter((q) => ["queued", "running", "pending"].includes(q.status)).length
+                        ? t("videoGenerator.queue.active", { count: queue.filter((q) => ["queued", "running", "pending"].includes(q.status)).length })
+                        : t("videoGenerator.tiles.idle")
+                    }
+                    tone={gpuBusy ? "warn" : "ok"}
+                    sub={gpuBusy ? blockReason || t("videoGenerator.tiles.gpuBusy") : t("videoGenerator.tiles.readyToQueue")}
+                  />
+                </DashboardStrip>
+                </Box>
+              ),
+            },
             {
               id: "prompt",
               title: t("layout.board.cards.prompt"),
-              layout: { x: 0, y: 0, w: 60, h: 86 },
+              layout: VIDEO_GEN_LAYOUTS[0].layout.prompt,
               body: (
                 <VideoPromptCard
                   applyPromptPreset={actions.applyPromptPreset}
@@ -1993,7 +2043,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             {
               id: "settings",
               title: t("layout.board.cards.settings"),
-              layout: { x: 60, y: 0, w: 55, h: 86 },
+              layout: VIDEO_GEN_LAYOUTS[0].layout.settings,
               body: (
                 <VideoSettingsCard
                   activeSpeedProfile={activeSpeedProfile}
@@ -2079,7 +2129,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             {
               id: "queue",
               title: t("layout.board.cards.queue"),
-              layout: { x: 115, y: 0, w: 60, h: 46 },
+              layout: VIDEO_GEN_LAYOUTS[0].layout.queue,
               body: (
                 <VideoQueueCard
                   batchStatus={batchStatus}
@@ -2106,7 +2156,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             {
               id: "results",
               title: t("layout.board.cards.results"),
-              layout: { x: 115, y: 46, w: 60, h: 40 },
+              layout: VIDEO_GEN_LAYOUTS[0].layout.results,
               body: (
                 <VideoLibraryCard
                   batchMenuActions={actions.batchMenuActions}

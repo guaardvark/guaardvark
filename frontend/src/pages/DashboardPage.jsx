@@ -120,6 +120,9 @@ const cardTitles = () => ({
   ),
 });
 
+// Below this card width the board is shown re-packed instead of shrunk.
+const NARROW_CARD_PX = 300;
+
 // Turns on each card's right-click menu; a card adds its own items over this.
 const NO_CARD_ACTIONS = [];
 
@@ -337,10 +340,15 @@ const DashboardPage = () => {
   // On a narrow board the two card-grid modes are shown re-packed into columns
   // of readable width instead of shrinking; the bar modes are narrow strips
   // already and are left alone.
+  // Compact cards are small on purpose, so the board is only narrow for them
+  // below their own scaled-down minimum; at the full-size minimum Compact was
+  // re-packed (and locked) on every ordinary screen.
+  const compact = layoutMode === "compact";
   const reflow = narrowReflow(
     gridSettings,
     gridWidth,
-    layoutMode === "compact" ? Math.round(cardGridW * COMPACT_SCALE) : cardGridW,
+    compact ? Math.round(cardGridW * COMPACT_SCALE) : cardGridW,
+    compact ? Math.round(NARROW_CARD_PX * COMPACT_SCALE) : NARROW_CARD_PX,
   );
   const isNarrow = (layoutMode === "normal" || layoutMode === "compact") && reflow.isNarrow;
 

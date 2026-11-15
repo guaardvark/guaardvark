@@ -89,7 +89,9 @@
     "viewDependencies": "Abhängigkeiten anzeigen",
     "mapTitle": "Repository-Map",
     "noMap": "Keine Map verfügbar.",
-    "graphTitle": "Abhängigkeitsgraph"
+    "graphTitle": "Abhängigkeitsgraph",
+    "mapping": "Repository wird gemappt…",
+    "mappingFailed": "Das Repository konnte nicht gemappt werden: {{error}}"
   },
   "desktop": {
     "loadFailed": "Fehler beim Laden der Desktop-Elemente",

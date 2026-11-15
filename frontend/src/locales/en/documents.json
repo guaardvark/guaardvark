@@ -89,7 +89,9 @@
     "viewDependencies": "View Dependencies",
     "mapTitle": "Repository Map",
     "noMap": "No map available.",
-    "graphTitle": "Dependency Graph"
+    "graphTitle": "Dependency Graph",
+    "mapping": "Mapping the repository…",
+    "mappingFailed": "The repository could not be mapped: {{error}}"
   },
   "desktop": {
     "loadFailed": "Failed to load desktop items",

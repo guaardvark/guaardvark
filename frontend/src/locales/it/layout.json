@@ -99,8 +99,17 @@
       "prompt": "Prompt",
       "settings": "Impostazioni",
       "queue": "Coda",
-      "results": "Risultati"
+      "results": "Risultati",
+      "status": "Stato"
     },
-    "queueEmpty": "Nessun elemento in coda o in fase di rendering."
+    "queueEmpty": "Nessun elemento in coda o in fase di rendering.",
+    "useLayout": "Layout: {{name}}",
+    "layouts": {
+      "columns": "Colonne",
+      "library": "Libreria ampia",
+      "compose": "Composizione"
+    },
+    "fullScreen": "Schermo intero",
+    "exitFullScreen": "Esci schermo intero"
   }
 }

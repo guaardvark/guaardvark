@@ -99,8 +99,17 @@
       "prompt": "Prompt",
       "settings": "Configurações",
       "queue": "Fila",
-      "results": "Resultados"
+      "results": "Resultados",
+      "status": "Status"
     },
-    "queueEmpty": "Nada está na fila ou sendo renderizado."
+    "queueEmpty": "Nada está na fila ou sendo renderizado.",
+    "useLayout": "Layout: {{name}}",
+    "layouts": {
+      "columns": "Colunas",
+      "library": "Biblioteca ampla",
+      "compose": "Compor"
+    },
+    "fullScreen": "Tela cheia",
+    "exitFullScreen": "Sair da tela cheia"
   }
 }

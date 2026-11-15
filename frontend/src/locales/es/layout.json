@@ -99,8 +99,17 @@
       "prompt": "Prompt",
       "settings": "Ajustes",
       "queue": "Cola",
-      "results": "Resultados"
+      "results": "Resultados",
+      "status": "Estado"
     },
-    "queueEmpty": "No hay nada en cola ni renderizando."
+    "queueEmpty": "No hay nada en cola ni renderizando.",
+    "useLayout": "Diseño: {{name}}",
+    "layouts": {
+      "columns": "Columnas",
+      "library": "Biblioteca ancha",
+      "compose": "Componer"
+    },
+    "fullScreen": "Pantalla completa",
+    "exitFullScreen": "Salir de pantalla completa"
   }
 }
