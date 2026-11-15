@@ -298,6 +298,10 @@ def learn_stop():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+def _dict_or_none(value):
+    return value if isinstance(value, dict) else None
+
+
 @agent_control_bp.route("/learn/status", methods=["GET"])
 def learn_status():
     """Get current learning mode state.
@@ -333,8 +337,8 @@ def learn_status():
             "demonstration_id": demo_id,
             "steps_count": steps_count,
             # The replay in flight (None when idle) and the last one finished.
-            "attempt": getattr(service, "_attempt_state", None),
-            "last_attempt": getattr(service, "_last_attempt", None),
+            "attempt": _dict_or_none(getattr(service, "_attempt_state", None)),
+            "last_attempt": _dict_or_none(getattr(service, "_last_attempt", None)),
         })
     except Exception as e:
         logger.error(f"Error getting learning status: {e}", exc_info=True)
