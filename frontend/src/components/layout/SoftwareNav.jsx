@@ -10,6 +10,8 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import { useAppStore } from "../../stores/useAppStore";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";
 import { isFloatingChatHiddenRoute } from "../../config/floatingChat";
@@ -108,6 +110,21 @@ const SoftwareNav = () => {
   const chatAction = byId("floating-chat");
   const voiceAction = byId("voice-mic");
   const pins = pinnedItems(catalog);
+
+  // Full screen is the browser's; Esc or F11 can leave it too, so the button follows the document.
+  const [isFullScreen, setIsFullScreen] = useState(() => Boolean(document.fullscreenElement));
+  useEffect(() => {
+    const sync = () => setIsFullScreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  const toggleFullScreen = () => {
+    const change = document.fullscreenElement
+      ? document.exitFullscreen?.()
+      : document.documentElement.requestFullscreen?.();
+    // A browser may refuse (no user gesture, embedded frame); the button then stays as it was.
+    change?.catch?.(() => {});
+  };
 
   const chatOpen = useFloatingChatStore((state) => state.isOpen);
   const toggleChat = useFloatingChatStore((state) => state.toggleOpen);
@@ -293,6 +310,16 @@ const SoftwareNav = () => {
                 </span>
               </Tooltip>
             )}
+            <Tooltip title={isFullScreen ? t("layout.board.exitFullScreen") : t("layout.board.fullScreen")}>
+              <ButtonBase
+                onClick={toggleFullScreen}
+                aria-label={isFullScreen ? t("layout.board.exitFullScreen") : t("layout.board.fullScreen")}
+                aria-pressed={isFullScreen}
+                sx={pinButtonSx(isFullScreen, "primary.main")}
+              >
+                {isFullScreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+              </ButtonBase>
+            </Tooltip>
           </Box>
         </Box>
 
