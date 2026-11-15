@@ -158,6 +158,18 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
           <Typography variant="body2" fontWeight="medium">
             {demo.name || t("training.demos.untitled")}
           </Typography>
+          {demo.lesson && (
+            <Tooltip title={t("training.demos.lessonSaved", { title: demo.lesson.title })}>
+              <Chip
+                icon={<SchoolIcon />}
+                label={t("training.demos.lesson")}
+                size="small"
+                variant="outlined"
+                color="success"
+                sx={{ height: 20, mt: 0.5 }}
+              />
+            </Tooltip>
+          )}
         </TableCell>
         <TableCell align="center">{demo.steps?.length ?? 0}</TableCell>
         <TableCell>
@@ -402,6 +414,8 @@ const TrainingPage = () => {
   const handleAttemptDemo = async (demo) => {
     try {
       const res = await axios.post(`${LEARN_API}/demonstrations/${demo.id}/attempt`);
+      // The Trainer is where each step is approved and signed off.
+      setTrainerOpen(true);
       if (res.data.success) {
         showMessage(t("training.demos.attemptStarted", { mode: res.data.autonomy_level }), "info");
       }
@@ -791,13 +805,23 @@ const TrainingPage = () => {
                   <Chip label={demonstrations.length} size="small" sx={{ ml: 1, height: 20, fontSize: "0.75rem" }} />
                 )}
               </Typography>
-              <Tooltip title={t("training.common.refresh")}>
-                <span>
-                  <IconButton onClick={fetchDemonstrations} disabled={demosLoading}>
-                    <RefreshIcon />
-                  </IconButton>
-                </span>
-              </Tooltip>
+              <Box display="flex" alignItems="center" gap={1}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<SchoolIcon />}
+                  onClick={() => setTrainerOpen(true)}
+                >
+                  {t("training.demos.openTrainer")}
+                </Button>
+                <Tooltip title={t("training.common.refresh")}>
+                  <span>
+                    <IconButton onClick={fetchDemonstrations} disabled={demosLoading}>
+                      <RefreshIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
             </Box>
             {demosLoading ? (
               <Box display="flex" justifyContent="center" my={3}>

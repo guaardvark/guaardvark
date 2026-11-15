@@ -19,7 +19,9 @@
     "attempts": "Attempts",
     "created": "Created",
     "empty": "No demonstrations yet. Record one with the Interactive Trainer: show the agent a task on its screen and the steps are saved here.",
-    "openTrainer": "Open Interactive Trainer"
+    "openTrainer": "Open Interactive Trainer",
+    "lesson": "Lesson",
+    "lessonSaved": "Signed off step by step and saved as the Lesson \"{{title}}\""
   },
   "common": {
     "saveFailed": "Save failed: {{error}}",

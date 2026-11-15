@@ -21,6 +21,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
 import EditIcon from '@mui/icons-material/Edit';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
+import ReplayIcon from '@mui/icons-material/Replay';
 // No trash icons — system uses X/close for all remove actions
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
@@ -104,7 +105,12 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
   const [demonstrations, setDemonstrations] = useState([]);
   const [stepsRecorded, setStepsRecorded] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(null);
-  const [attemptInfo, setAttemptInfo] = useState(null);
+  // The replay in flight and the last one finished, as /learn/status reports
+  // them: the server holds the truth, so a missed socket event or a reload
+  // loses nothing.
+  const [attempt, setAttempt] = useState(null);
+  const [lastAttempt, setLastAttempt] = useState(null);
+  const [dismissedAttempt, setDismissedAttempt] = useState(saved.dismissedAttempt ?? null);
   const [demoName, setDemoName] = useState('');
   const [showNameInput, setShowNameInput] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -114,8 +120,8 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
 
   // --- Persist window state ---
   useEffect(() => {
-    saveState({ collapsed, x: position.x, y: position.y, w: size.w, h: size.h });
-  }, [collapsed, position, size]);
+    saveState({ collapsed, x: position.x, y: position.y, w: size.w, h: size.h, dismissedAttempt });
+  }, [collapsed, position, size, dismissedAttempt]);
 
   // Start display on open; arm idle shutdown when an open trainer closes,
   // not on mount (it is mounted closed on every page).
@@ -178,33 +184,35 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
   }, [isResizing, resizeStart]);
 
   // --- Polling + SocketIO ---
-  useEffect(() => {
-    if (!open) return;
-
-    const poll = async () => {
-      try {
-        const res = await axios.get(`${API_BASE}/status`);
-        const data = res.data;
-        if (data.learning && mode !== 'recording' && mode !== 'questioning') {
-          setMode('recording');
-        } else if (!data.learning && mode === 'recording') {
-          setMode('idle');
-        }
-        if (data.steps_count !== undefined) {
-          setStepsRecorded(data.steps_count);
-        }
-      } catch {
-        // poll error tolerated; next tick will retry
+  const poll = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API_BASE}/status`);
+      setAttempt(data.attempt || null);
+      setLastAttempt(data.last_attempt || null);
+      setMode((current) => {
+        if (data.attempt) return 'attempting';
+        if (current === 'attempting') return 'idle';
+        if (data.learning && current !== 'recording' && current !== 'questioning') return 'recording';
+        if (!data.learning && current === 'recording') return 'idle';
+        return current;
+      });
+      if (data.steps_count !== undefined) {
+        setStepsRecorded(data.steps_count);
       }
-    };
+    } catch {
+      // poll error tolerated; next tick will retry
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
     poll();
     pollRef.current = setInterval(poll, POLL_INTERVAL);
-
-    if (mode === 'idle') {
-      loadDemonstrations();
-    }
-
     return () => clearInterval(pollRef.current);
+  }, [open, poll]);
+
+  useEffect(() => {
+    if (open && mode === 'idle') loadDemonstrations();
   }, [open, mode]);
 
   useEffect(() => {
@@ -229,45 +237,22 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
       setMode('questioning');
     });
 
-    socket.on('agent:step_preview', (data) => {
-      setAttemptInfo((prev) => ({
-        ...prev,
-        stepIndex: data.step_index,
-        stepDescription: `${data.action_type}: ${data.target_description}`,
-        confidence: data.confidence,
-        awaitingConfirm: true,
-      }));
+    // Replay events only say "look now"; the state itself comes from status.
+    ['agent:step_preview', 'agent:step_review', 'agent:step_executed', 'agent:step_signed'].forEach((name) => {
+      socket.on(name, poll);
     });
-
-    socket.on('agent:step_executed', (data) => {
-      setAttemptInfo((prev) => ({
-        ...prev,
-        stepIndex: data.step_index + 1,
-        awaitingConfirm: false,
-      }));
-    });
-
-    socket.on('agent:attempt_complete', (data) => {
-      setAttemptInfo((prev) => ({
-        ...prev,
-        complete: true,
-        success: data.success,
-        stepsCompleted: data.steps_completed,
-        totalSteps: data.total_steps ?? prev?.totalSteps,
-      }));
-      // Long enough to read the result; the list refreshes at once.
-      loadDemonstrations();
-      setTimeout(() => {
-        setMode('idle');
-        setAttemptInfo(null);
-      }, 15000);
+    ['agent:attempt_complete', 'agent:lesson_saved'].forEach((name) => {
+      socket.on(name, () => {
+        poll();
+        loadDemonstrations();
+      });
     });
 
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [open]);
+  }, [open, poll]);
 
   // --- API actions ---
   const loadDemonstrations = async () => {
@@ -311,20 +296,8 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
   const handleAttempt = async (demo) => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE}/demonstrations/${demo.id}/attempt`);
-      if (res.data.success) {
-        setMode('attempting');
-        setAttemptInfo({
-          demoName: demo.name || demo.description,
-          level: res.data.autonomy_level,
-          stepIndex: 0,
-          totalSteps: demo.steps?.length || 0,
-          stepDescription: '',
-          complete: false,
-          success: false,
-          awaitingConfirm: false,
-        });
-      }
+      await axios.post(`${API_BASE}/demonstrations/${demo.id}/attempt`);
+      await poll();
     } catch (err) {
       console.error('Failed to start attempt:', err);
     }
@@ -349,26 +322,20 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
       console.error('Failed to send answer:', err);
     }
     setCurrentQuestion(null);
-    setMode(attemptInfo ? 'attempting' : 'idle');
+    setMode(attempt ? 'attempting' : 'idle');
   };
 
-  const handleConfirmStep = () => {
-    if (socketRef.current) {
-      socketRef.current.emit('agent:step_confirm', {
-        step_index: attemptInfo?.stepIndex,
-      });
+  // Answer the step the replay is waiting on: "go" before a step; "ok",
+  // "retry" or "stop" on one that just ran ("stop" also rejects a preview).
+  const respond = async (verdict) => {
+    const stepIndex = attempt?.step_index;
+    setAttempt((prev) => (prev ? { ...prev, waiting: null } : prev));
+    try {
+      await axios.post(`${API_BASE}/attempt/respond`, { verdict, step_index: stepIndex });
+    } catch (err) {
+      console.error('Failed to answer the replay:', err);
     }
-    setAttemptInfo((prev) => ({ ...prev, awaitingConfirm: false }));
-  };
-
-  const handleCorrectStep = () => {
-    if (socketRef.current) {
-      socketRef.current.emit('agent:step_correct', {
-        step_index: attemptInfo?.stepIndex,
-        correction: {},
-      });
-    }
-    setAttemptInfo((prev) => ({ ...prev, awaitingConfirm: false }));
+    poll();
   };
 
   const handleDeleteDemo = async (demo, e) => {
@@ -397,8 +364,59 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
     }
   };
 
+  const lessonLine = (finished) => {
+    const title = finished.lesson?.title;
+    switch (finished.lesson_state) {
+      case 'saving': return t('agents.trainer.lessonSaving');
+      case 'saved': return t('agents.trainer.lessonSaved', { title, count: finished.lesson?.steps ?? 0 });
+      case 'kept': return t('agents.trainer.lessonKept', { title });
+      case 'failed': return t('agents.trainer.lessonFailed');
+      default: return null;
+    }
+  };
+
+  // The last finished replay: what happened and what became of its lesson.
+  const renderLastAttempt = () => {
+    if (!lastAttempt || lastAttempt.attempt_id === dismissedAttempt) return null;
+    const lesson = lessonLine(lastAttempt);
+    return (
+      <Box sx={{ mb: 1, p: 1, border: 1, borderRadius: 1, borderColor: lastAttempt.success ? 'success.main' : 'error.main' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Typography
+            variant="body2"
+            sx={{ flex: 1, fontWeight: 600, fontSize: '0.8rem', color: lastAttempt.success ? 'success.main' : 'error.main' }}
+          >
+            {lastAttempt.success ? t('agents.trainer.success') : t('agents.trainer.failed')}
+          </Typography>
+          <IconButton size="small" onClick={() => setDismissedAttempt(lastAttempt.attempt_id)} sx={{ p: 0.25 }}>
+            <CloseIcon sx={{ fontSize: 14 }} />
+          </IconButton>
+        </Box>
+        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+          {lastAttempt.name || t('agents.trainer.untitled')}
+          {' · '}
+          {t('agents.trainer.stepsCompleted', { completed: lastAttempt.steps_completed, total: lastAttempt.total_steps })}
+        </Typography>
+        {!lastAttempt.success && lastAttempt.failure_reason && (
+          <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+            {lastAttempt.failure_reason}
+          </Typography>
+        )}
+        {lesson && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+            {lastAttempt.lesson_state === 'saving'
+              ? <CircularProgress size={12} />
+              : <SchoolIcon sx={{ fontSize: 14, color: lastAttempt.lesson_state === 'failed' ? 'error.main' : 'success.main' }} />}
+            <Typography variant="caption" sx={{ fontSize: '0.72rem' }}>{lesson}</Typography>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
   const renderIdleView = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {renderLastAttempt()}
       {demonstrations.length === 0 ? (
         <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', py: 3, px: 1 }}>
           {t('agents.trainer.noDemos')}
@@ -433,6 +451,18 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
                   <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
                     {t('agents.trainer.attempts', { count: demo.attempt_count })}
                   </Typography>
+                  {demo.lesson && (
+                    <Tooltip title={t('agents.trainer.hasLesson', { title: demo.lesson.title })}>
+                      <Chip
+                        icon={<SchoolIcon sx={{ fontSize: 12 }} />}
+                        label={t('agents.trainer.lessonChip')}
+                        size="small"
+                        variant="outlined"
+                        color="success"
+                        sx={{ height: 18, fontSize: '0.65rem' }}
+                      />
+                    </Tooltip>
+                  )}
                 </Box>
               </Box>
               <Box sx={{ display: 'flex', gap: 0.25, alignItems: 'center' }}>
@@ -619,88 +649,153 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
   };
 
   const renderAttemptingView = () => {
-    if (!attemptInfo) return null;
-    const progress = attemptInfo.totalSteps > 0
-      ? ((attemptInfo.stepIndex) / attemptInfo.totalSteps) * 100
-      : 0;
+    if (!attempt) return null;
+    const total = attempt.total_steps || 0;
+    const stepNumber = Math.min(attempt.step_index + 1, total || 1);
+    const progress = total > 0 ? (Math.min(attempt.step_index, total) / total) * 100 : 0;
+    const signed = attempt.signed || [];
+    const answerButton = { fontSize: '0.7rem', textTransform: 'none' };
 
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, py: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="body2" noWrap sx={{ fontSize: '0.8rem', fontWeight: 600, flex: 1 }}>
-            {attemptInfo.demoName}
+            {attempt.name || t('agents.trainer.untitled')}
           </Typography>
           <Chip
-            label={levelLabel(attemptInfo.level)}
+            label={levelLabel(attempt.level)}
             size="small"
-            color={levelColor(attemptInfo.level)}
+            color={levelColor(attempt.level)}
             sx={{ height: 20, fontSize: '0.65rem', ml: 1 }}
           />
         </Box>
 
-        {attemptInfo.complete ? (
-          <Box sx={{ textAlign: 'center', py: 2 }}>
-            <Typography
-              variant="h6"
-              sx={{ color: attemptInfo.success ? 'success.main' : 'error.main', fontSize: '1rem' }}
-            >
-              {attemptInfo.success ? t('agents.trainer.success') : t('agents.trainer.failed')}
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {t('agents.trainer.stepOf', { step: stepNumber, total })}
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {t('agents.trainer.stepsCompleted', { completed: attemptInfo.stepsCompleted, total: attemptInfo.totalSteps })}
+              {Math.round(progress)}%
             </Typography>
           </Box>
-        ) : (
-          <>
-            <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  {t('agents.trainer.stepOf', { step: attemptInfo.stepIndex + 1, total: attemptInfo.totalSteps })}
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  {Math.round(progress)}%
+          <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 3 }} />
+        </Box>
+
+        {signed.length > 0 && (
+          <Box>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {t('agents.trainer.signedCount', { count: signed.length })}
+            </Typography>
+            {signed.map((pearl) => (
+              <Box key={pearl.step_index} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+                <CheckIcon sx={{ fontSize: 14, mt: '2px', color: 'success.main' }} />
+                <Typography variant="caption" sx={{ fontSize: '0.72rem', lineHeight: 1.3 }}>
+                  {pearl.description}
                 </Typography>
               </Box>
-              <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 3 }} />
-            </Box>
+            ))}
+          </Box>
+        )}
 
-            {attemptInfo.stepDescription && (
-              <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary', fontStyle: 'italic' }}>
-                {attemptInfo.stepDescription}
+        {attempt.description && (
+          <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary', fontStyle: 'italic' }}>
+            {attempt.description}
+          </Typography>
+        )}
+
+        {attempt.waiting === 'confirm' && (
+          <>
+            {attempt.precondition_ok === false && (
+              <Typography variant="caption" sx={{ color: 'warning.main' }}>
+                {t('agents.trainer.screenDiffers')}
               </Typography>
             )}
-
-            {attemptInfo.awaitingConfirm && attemptInfo.level === 'guided' && (
-              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', mt: 1 }}>
-                <Button
-                  variant="contained"
-                  color="success"
-                  size="small"
-                  startIcon={<CheckIcon sx={{ fontSize: 14 }} />}
-                  onClick={handleConfirmStep}
-                  sx={{ fontSize: '0.7rem' }}
-                >
-                  {t('agents.trainer.confirm')}
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="warning"
-                  size="small"
-                  startIcon={<EditIcon sx={{ fontSize: 14 }} />}
-                  onClick={handleCorrectStep}
-                  sx={{ fontSize: '0.7rem' }}
-                >
-                  {t('agents.trainer.correct')}
-                </Button>
-              </Box>
-            )}
+            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                startIcon={<PlayArrowIcon sx={{ fontSize: 14 }} />}
+                onClick={() => respond('go')}
+                sx={answerButton}
+              >
+                {t('agents.trainer.goAhead')}
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                size="small"
+                startIcon={<StopIcon sx={{ fontSize: 14 }} />}
+                onClick={() => respond('stop')}
+                sx={answerButton}
+              >
+                {t('agents.trainer.stopAttempt')}
+              </Button>
+            </Box>
           </>
         )}
 
-        {!attemptInfo.complete && attemptInfo.level && (
-          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 1, mt: 'auto' }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
-              {levelLabel(attemptInfo.level).toUpperCase()}
+        {attempt.waiting === 'review' && (
+          <>
+            <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+              {t('agents.trainer.didItWork')}
+            </Typography>
+            <Typography variant="caption" sx={{ color: attempt.machine_success ? 'text.secondary' : 'warning.main' }}>
+              {attempt.machine_success
+                ? t('agents.trainer.agentSawChange')
+                : t('agents.trainer.agentSawFailure', { error: attempt.error || t('agents.trainer.noReason') })}
+            </Typography>
+            {!attempt.machine_success && (
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {t('agents.trainer.doItYourself')}
+              </Typography>
+            )}
+            {attempt.next_description && (
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {t('agents.trainer.nextStep', { step: attempt.next_description })}
+              </Typography>
+            )}
+            <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                startIcon={<CheckIcon sx={{ fontSize: 14 }} />}
+                onClick={() => respond('ok')}
+                sx={answerButton}
+              >
+                {t('agents.trainer.worked')}
+              </Button>
+              <Button
+                variant="outlined"
+                color="warning"
+                size="small"
+                startIcon={<ReplayIcon sx={{ fontSize: 14 }} />}
+                onClick={() => respond('retry')}
+                sx={answerButton}
+              >
+                {t('agents.trainer.retry')}
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                size="small"
+                startIcon={<StopIcon sx={{ fontSize: 14 }} />}
+                onClick={() => respond('stop')}
+                sx={answerButton}
+              >
+                {t('agents.trainer.stopAttempt')}
+              </Button>
+            </Box>
+          </>
+        )}
+
+        {!attempt.waiting && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CircularProgress size={14} />
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {t('agents.trainer.working')}
             </Typography>
           </Box>
         )}

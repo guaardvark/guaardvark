@@ -77,6 +77,7 @@ data/conversations/sessions/
 data/conversations/daily/
 data/conversations/summaries/
 data/training/screenshots/
+data/training/demonstrations/
 data/training/failures/
 data/training/datasets/*.jsonl
 data/training/scrub_terms.txt
