@@ -68,7 +68,7 @@ scripts/lint.sh                                    # flake8 (syntax-only: E9,E11
 
 **Frontend (`frontend/src/`).** React 18 + Vite + Material-UI v5. `pages/` (about 50 page components), `components/` (chat, agent, videoeditor, documents, swarm, …), `stores/` (Zustand for global state, React Context for layout/status). REST via Axios, realtime via `socket.io-client`, code editing via Monaco, graph views via reactflow/d3-force, VNC viewer via `@novnc/novnc`. The Vite config proxies to Flask on `:5000` and includes node polyfills for browser builds.
 
-**CLI (`cli/llx/`).** The `llx` command (published to PyPI as `guaardvark`) — a REPL + command catalog (`commands/`, `command_catalog.py`) that talks to the backend, with its own lite server fallback. Version is single-sourced from the repo-root `VERSION` file.
+**CLI (`cli/llx/`).** The `guaardvark` command (Python package `llx`, published to PyPI as `guaardvark`) — a REPL + command catalog (`commands/`, `command_catalog.py`) that talks to the backend, with its own lite server fallback. Version is single-sourced from the repo-root `VERSION` file.
 
 ## Database & schema
 
