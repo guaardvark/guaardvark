@@ -89,7 +89,9 @@
     "viewDependencies": "Visualizza Dipendenze",
     "mapTitle": "Mappa Repository",
     "noMap": "Nessuna mappa disponibile.",
-    "graphTitle": "Grafico Dipendenze"
+    "graphTitle": "Grafico Dipendenze",
+    "mapping": "Mappatura del repository…",
+    "mappingFailed": "Impossibile mappare il repository: {{error}}"
   },
   "desktop": {
     "loadFailed": "Impossibile caricare gli elementi della scrivania",

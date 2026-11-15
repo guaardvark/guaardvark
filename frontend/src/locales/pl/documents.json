@@ -91,7 +91,9 @@
     "viewDependencies": "Pokaż zależności",
     "mapTitle": "Mapa repozytorium",
     "noMap": "Brak dostępnej mapy.",
-    "graphTitle": "Graf zależności"
+    "graphTitle": "Graf zależności",
+    "mapping": "Mapowanie repozytorium…",
+    "mappingFailed": "Nie można było zmapować repozytorium: {{error}}"
   },
   "desktop": {
     "loadFailed": "Nie udało się załadować elementów pulpitu",

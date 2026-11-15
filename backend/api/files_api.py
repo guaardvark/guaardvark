@@ -313,6 +313,29 @@ def _browse_live_repo_folder(folder_path: str) -> dict:
     return listing
 
 
+@files_bp.route("/live-repo/code-map", methods=["GET"])
+def live_repo_code_map():
+    """
+    GET /api/files/live-repo/code-map
+    The repository map and import graph of the live repo mount. Built from
+    disk on the first request and reused until a source file changes, so it is
+    kept out of the browse listing and fetched only when someone asks for it.
+    """
+    from backend.services.repository_analysis_service import project_code_map
+
+    try:
+        data = project_code_map("self", str(default_repo_root()))
+    except Exception as e:  # noqa: BLE001 - reported to the caller
+        logger.error("Mapping the live repo failed: %s", e, exc_info=True)
+        return error_response(f"Could not map the repository: {e}", 500, "CODE_MAP_FAILED")
+    return success_response({
+        "repository_map": data.get("repository_map") or "",
+        "dependency_graph": data.get("dependency_graph") or {},
+        "analyzed_at": data.get("analyzed_at"),
+        "file_count": data.get("file_count", 0),
+    })
+
+
 @files_bp.route("/browse", methods=["GET"])
 @ensure_db_session_cleanup
 def browse_folder():

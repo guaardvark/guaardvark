@@ -87,7 +87,9 @@
     "viewDependencies": "依存関係を表示",
     "mapTitle": "リポジトリマップ",
     "noMap": "マップは利用できません。",
-    "graphTitle": "依存関係グラフ"
+    "graphTitle": "依存関係グラフ",
+    "mapping": "リポジトリをマッピング中…",
+    "mappingFailed": "リポジトリをマッピングできませんでした: {{error}}"
   },
   "desktop": {
     "loadFailed": "デスクトップ項目の読み込みに失敗しました",
