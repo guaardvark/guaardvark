@@ -2508,7 +2508,7 @@ class AgentControlService:
         engine = self._apprentice_engine
         if engine is None:
             return False
-        state = self._attempt_state
+        state = getattr(self, "_attempt_state", None)
         if state is not None:
             state["waiting"] = None
         engine.confirm_step(data)
