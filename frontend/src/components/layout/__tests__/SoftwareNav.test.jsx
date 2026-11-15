@@ -129,11 +129,13 @@ describe("SoftwareNav", () => {
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
   });
 
-  it("ends the right side with a floating-chat button, off on a page that is a chat itself", () => {
+  it("ends the right side with the floating-chat button, off on a page that is a chat itself, then full screen", () => {
     const { unmount } = renderNav("/documents");
     const button = screen.getByRole("button", { name: "Floating chat" });
     expect(button).toBeEnabled();
-    expect(button.parentElement.nextElementSibling).toBeNull();
+    const fullScreen = screen.getByRole("button", { name: "Full screen" });
+    expect(button.parentElement.nextElementSibling).toBe(fullScreen);
+    expect(fullScreen.nextElementSibling).toBeNull();
     unmount();
     renderNav("/chat");
     expect(screen.getByRole("button", { name: "Floating chat" })).toBeDisabled();
