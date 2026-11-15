@@ -813,6 +813,11 @@ class GPUResourceCoordinator:
             amd = self._get_vram_via_amd()
             if amd:
                 return amd
+            import shutil
+            if shutil.which("rocm-smi"):
+                # rocm-smi is installed but did not answer this time (busy card,
+                # timeout): a transient failure. Do not set the sticky flag.
+                return {"success": False, "available_mb": 0, "reason": "probe_unavailable"}
             # No nvidia-smi binary AND pynvml failed earlier → no NVIDIA stack
             # present on this host. Flip the class-level flag so future calls
             # short-circuit without spamming ERROR lines.

@@ -43,6 +43,7 @@ def test_an_amd_card_is_reported_in_the_nvidia_shape(coord, monkeypatch):
 
 def test_no_probe_answering_still_means_no_gpu_hardware(coord, monkeypatch):
     _stub_amd(monkeypatch, None)
+    monkeypatch.setattr("shutil.which", lambda name: None)
     info = coord.get_available_vram()
     assert info["success"] is False
     assert info["reason"] == "no_gpu_hardware"
@@ -60,3 +61,16 @@ def test_nvidia_comes_first(coord, monkeypatch):
     import backend.services.hardware_detector as hd
     monkeypatch.setattr(hd, "probe_amd_vram_bytes", boom)
     assert coord.get_available_vram() == nvidia
+
+
+def test_a_failed_probe_with_rocm_smi_present_is_retried_not_remembered(coord, monkeypatch):
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/rocm-smi" if name == "rocm-smi" else None)
+    _stub_amd(monkeypatch, None)
+    first = coord.get_available_vram()
+    assert first["success"] is False
+    assert first["reason"] == "probe_unavailable"
+    assert grc.GPUResourceCoordinator._no_gpu_detected is False
+    _stub_amd(monkeypatch, CARD)
+    second = coord.get_available_vram()
+    assert second["success"] is True and second["total_mb"] == 24560
+    assert grc.has_gpu() is True
