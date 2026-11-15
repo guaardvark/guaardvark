@@ -59,7 +59,9 @@
   "sections": {
     "activeSwarms": "Swarms activos",
     "quickLaunchTemplates": "Plantillas de lanzamiento rápido",
-    "recentSwarms": "Swarms recientes"
+    "recentSwarms": "Swarms recientes",
+    "noTemplates": "¿No se encontraron plantillas.",
+    "noHistory": "Aún no hay swarms anteriores."
   },
   "taskCount": "{{count}} tareas",
   "flightMode": "Modo de vuelo",

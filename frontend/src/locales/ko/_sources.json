@@ -33416,6 +33416,14 @@
       "en": "a6cec32825f4",
       "out": "9ceef1454ddc"
     },
+    "sections.noTemplates": {
+      "en": "326abcdd78bc",
+      "out": "ff0008ba3a0e"
+    },
+    "sections.noHistory": {
+      "en": "ba72cae32821",
+      "out": "c6329c47f574"
+    },
     "taskCount": {
       "en": "a56abf7c3686",
       "out": "20c2c85ba513"

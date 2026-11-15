@@ -59,7 +59,9 @@
   "sections": {
     "activeSwarms": "Swarm Attivi",
     "quickLaunchTemplates": "Modelli Avvio Rapido",
-    "recentSwarms": "Swarm Recenti"
+    "recentSwarms": "Swarm Recenti",
+    "noTemplates": "Nessun modello trovato.",
+    "noHistory": "Nessun swarm precedente ancora."
   },
   "taskCount": "{{count}} task",
   "flightMode": "Modalità Volo",
