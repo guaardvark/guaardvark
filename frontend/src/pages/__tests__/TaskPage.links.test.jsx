@@ -9,6 +9,21 @@ const TASKS = [
   { id: 13, name: "Other work", status: "pending", type: "file_generation", created_at: "2026-09-30T00:00:00" },
 ];
 
+// The page lays its cards out on the shared board, which reads the grid from the layout context.
+vi.mock("../../contexts/LayoutContext", () => {
+  const layout = {
+    gridSettings: {
+      CONTAINER_PADDING_PX: 4,
+      CARD_MARGIN_PX: 8,
+      COLS_COUNT: 175,
+      ROW_HEIGHT_PX: 10,
+      cardGridW: 35,
+      cardGridH: 49,
+      cardMinGridW: 30,
+    },
+  };
+  return { useDashboardWidth: () => 1750, useLayout: () => layout };
+});
 vi.mock("../../api", () => ({
   cancelJob: vi.fn(),
   createTask: vi.fn(),
