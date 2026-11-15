@@ -87,7 +87,9 @@
     "viewDependencies": "查看依赖关系",
     "mapTitle": "仓库地图",
     "noMap": "暂无可用地图。",
-    "graphTitle": "依赖关系图"
+    "graphTitle": "依赖关系图",
+    "mapping": "正在映射仓库…",
+    "mappingFailed": "无法映射仓库：{{error}}"
   },
   "desktop": {
     "loadFailed": "加载桌面项目失败",

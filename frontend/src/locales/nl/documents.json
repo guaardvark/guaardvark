@@ -89,7 +89,9 @@
     "viewDependencies": "Bekijk Afhankelijkheden",
     "mapTitle": "Repository Map",
     "noMap": "Geen map beschikbaar.",
-    "graphTitle": "Afhankelijkheidsgraaf"
+    "graphTitle": "Afhankelijkheidsgraaf",
+    "mapping": "Repository wordt gemapt…",
+    "mappingFailed": "Het repository kon niet worden gemapt: {{error}}"
   },
   "desktop": {
     "loadFailed": "Fout bij laden van desktop-items",

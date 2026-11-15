@@ -89,7 +89,9 @@
     "viewDependencies": "Ver dependencias",
     "mapTitle": "Mapa del repositorio",
     "noMap": "No hay mapa disponible.",
-    "graphTitle": "Grafo de dependencias"
+    "graphTitle": "Grafo de dependencias",
+    "mapping": "Mapeando el repositorio…",
+    "mappingFailed": "No se pudo mapear el repositorio: {{error}}"
   },
   "desktop": {
     "loadFailed": "Error al cargar elementos del escritorio",

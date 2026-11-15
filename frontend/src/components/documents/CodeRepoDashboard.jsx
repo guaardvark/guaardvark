@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import {
   Box,
   Typography,
@@ -12,6 +13,8 @@ import {
   IconButton,
   Divider,
   Tooltip,
+  Alert,
+  LinearProgress,
 } from '@mui/material';
 import { Code, Map, GitMerge, X as CloseIcon } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
@@ -35,6 +38,8 @@ const CodeRepoDashboard = ({ folder }) => {
   const [intelOpen, setIntelOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
+  // The live repo mount's map and graph are built on request, not sent with the folder listing.
+  const [liveMap, setLiveMap] = useState({ loading: false, data: null, error: null });
 
   if (!folder || !folder.is_repository) {
     return null;
@@ -50,14 +55,26 @@ const CodeRepoDashboard = ({ folder }) => {
     metadata = {};
   }
 
+  const isLiveRepo = metadata.source_type === 'live_repo';
   const {
     languages = {},
     frameworks = [],
     file_count = 0,
-    repository_map = '',
-    dependency_graph = {},
     analyzed_at,
   } = metadata;
+  const repository_map = liveMap.data?.repository_map ?? metadata.repository_map ?? '';
+  const dependency_graph = liveMap.data?.dependency_graph ?? metadata.dependency_graph ?? {};
+
+  const loadLiveMap = async () => {
+    if (!isLiveRepo || liveMap.data || liveMap.loading) return;
+    setLiveMap({ loading: true, data: null, error: null });
+    try {
+      const res = await axios.get('/api/files/live-repo/code-map');
+      setLiveMap({ loading: false, data: res.data?.data || res.data, error: null });
+    } catch (e) {
+      setLiveMap({ loading: false, data: null, error: e.response?.data?.error?.message || e.response?.data?.message || e.message });
+    }
+  };
 
   const languageEntries = Array.isArray(languages)
     ? languages.map((lang) => [lang, null])
@@ -165,8 +182,8 @@ const CodeRepoDashboard = ({ folder }) => {
             <Button
               variant="outlined"
               startIcon={<Map size={16} />}
-              onClick={() => setMapOpen(true)}
-              disabled={!repository_map}
+              onClick={() => { setMapOpen(true); loadLiveMap(); }}
+              disabled={!isLiveRepo && !repository_map}
               size="small"
             >
               {t('documents.codeRepo.viewMap')}
@@ -174,8 +191,8 @@ const CodeRepoDashboard = ({ folder }) => {
             <Button
               variant="outlined"
               startIcon={<GitMerge size={16} />}
-              onClick={() => setGraphOpen(true)}
-              disabled={dependencyCount === 0}
+              onClick={() => { setGraphOpen(true); loadLiveMap(); }}
+              disabled={!isLiveRepo && dependencyCount === 0}
               size="small"
             >
               {t('documents.codeRepo.viewDependencies')}
@@ -197,7 +214,16 @@ const CodeRepoDashboard = ({ folder }) => {
         </DialogTitle>
         <Divider />
         <DialogContent>
-          <Box sx={{ bgcolor: 'background.default', p: 2, borderRadius: 1, overflowX: 'auto' }}>
+          {liveMap.loading && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t('documents.codeRepo.mapping')}</Typography>
+              <LinearProgress />
+            </Box>
+          )}
+          {liveMap.error && (
+            <Alert severity="error" sx={{ mb: 2 }}>{t('documents.codeRepo.mappingFailed', { error: liveMap.error })}</Alert>
+          )}
+          <Box sx={{ bgcolor: 'background.default', p: 2, borderRadius: 1, overflowX: 'auto', display: liveMap.loading ? 'none' : 'block' }}>
             <Typography variant="body2" component="pre" sx={{ fontFamily: 'monospace' }}>
               {repository_map || t('documents.codeRepo.noMap')}
             </Typography>
@@ -218,7 +244,16 @@ const CodeRepoDashboard = ({ folder }) => {
         </DialogTitle>
         <Divider />
         <DialogContent>
-          <Box sx={{ bgcolor: 'background.default', p: 2, borderRadius: 1, overflowX: 'auto' }}>
+          {liveMap.loading && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t('documents.codeRepo.mapping')}</Typography>
+              <LinearProgress />
+            </Box>
+          )}
+          {liveMap.error && (
+            <Alert severity="error" sx={{ mb: 2 }}>{t('documents.codeRepo.mappingFailed', { error: liveMap.error })}</Alert>
+          )}
+          <Box sx={{ bgcolor: 'background.default', p: 2, borderRadius: 1, overflowX: 'auto', display: liveMap.loading ? 'none' : 'block' }}>
             <Typography variant="body2" component="pre" sx={{ fontFamily: 'monospace' }}>
               {JSON.stringify(dependencyGraph, null, 2)}
             </Typography>
