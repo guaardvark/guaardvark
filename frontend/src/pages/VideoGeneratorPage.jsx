@@ -5,61 +5,46 @@ import React, { useEffect, useMemo, useState, useRef, useCallback } from "react"
 import {
   Box,
   Typography,
-  TextField,
   Button,
   Grid,
   Stack,
-  Divider,
   Chip,
   IconButton,
-  Tooltip,
   Card,
   CardContent,
-  CardActions,
-  LinearProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Alert,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   CircularProgress,
-  Collapse,
 } from "@mui/material";
 import PageLayout from "../components/layout/PageLayout";
 import { CardWorkspace } from "../components/board";
-import GpuGateBanner from "../components/common/GpuGateBanner";
 import {
-  SettingChip,
-  ChoiceChips,
-  ActionButton,
-  SettingsPanel,
-  Cluster,
-  Line,
-  Hint,
   ConfirmActionDialog,
   DashboardStrip,
   DashboardTile,
 } from "../components/settings/ui";
-import { useUnifiedProgress } from "../contexts/UnifiedProgressContext";
 import useJobsGate from "../hooks/useJobsGate";
 import useBatchVideo from "../hooks/useBatchVideo";
+import useStableCallbacks from "../hooks/useStableCallbacks";
+import VideoPromptCard from "../components/videogen/cards/VideoPromptCard";
+import VideoSettingsCard from "../components/videogen/cards/VideoSettingsCard";
+import VideoQueueCard from "../components/videogen/cards/VideoQueueCard";
+import VideoLibraryCard from "../components/videogen/cards/VideoLibraryCard";
+import { API_BASE, stripGlyph, batchStatusLabel, PathFromUrl, encodePathSegments } from "../components/videogen/videoGenPage";
 import {
   QUALITY_PRESETS,
   durationPresetsFor,
   aspectRatiosFor,
   resolveAspectRatio,
-  WAN5B_SAMPLER_PROFILES,
   MOTION_PRESETS,
   OUTPUT_QUALITY_TIERS,
   KEYFRAME_MODEL_OPTIONS,
   DEFAULT_KEYFRAME_MODEL,
   MODEL_DEFAULT_GUIDANCE,
   ASPECT_RATIO_PRESETS,
-  PROMPT_STYLES,
   VIDEO_SIZE_PRESETS,
   MODEL_OPTIONS,
   GENERATION_TYPES,
@@ -69,44 +54,26 @@ import {
   isCogVideoXModel,
   canvasDimensions,
   parseSeed,
-  MAX_SEED,
   isWanModel,
   isLtxModel,
   isMinimaxModel,
   snapDimensions,
   fitAreaToRatio,
 } from "../constants/videoGeneratorPresets";
-import QualityFlagsPill from "../components/videogen/QualityFlagsPill";
-import VlmReviewPill from "../components/videogen/VlmReviewPill";
-import ColourMatchPill from "../components/videogen/ColourMatchPill";
-import KeyframeMatchPill from "../components/videogen/KeyframeMatchPill";
-import ClipReviewHold, { ReviewStatePill } from "../components/videogen/ClipReviewHold";
-import RenderFailureNote from "../components/videogen/RenderFailureNote";
 import { refusalText } from "../utils/renderFailure";
 import { applicableAdapters as applicableAdapterModels } from "../utils/videoAdapters";
 import { stepsFromProfile, stepsTileNote } from "../utils/videoSteps";
 import { promptControlsState } from "../utils/videoPromptControls";
-import { joinPreviews, previewLabel, promptsToPreview } from "../utils/videoPreviewPrompts";
-import { comfyUiLink } from "../utils/comfyUiLink";
+import { joinPreviews,  promptsToPreview } from "../utils/videoPreviewPrompts";
 import { applyClipRename, applyClipRenameToPlayer, clipFileName } from "../utils/videoRename";
-import BatchLibraryGrid from "../components/videogen/BatchLibraryGrid";
-import VideoGenEffectiveSettings from "../components/videogen/VideoGenEffectiveSettings";
-import LiveLatentPreview from "../components/videogen/LiveLatentPreview";
-import ReferenceBoard from "../components/videogen/ReferenceBoard";
-import FrameSlot from "../components/videogen/FrameSlot";
 import {
   boardProblems,
   emptyBoard,
   previewBoard,
   serializeBoard,
 } from "../components/videogen/referenceBoardModel";
-import { videoGenStageLabel } from "../components/videogen/stageLabels";
 import {
-  PlayArrow as PlayIcon,
-  Refresh as RefreshIcon,
   Download as DownloadIcon,
-  VideoLibrary as VideoIcon,
-  DriveFileRenameOutline as RenameIcon,
   ExpandLess as ExpandLessIcon,
   Settings as SettingsIcon,
   Close as CloseIcon,
@@ -123,26 +90,9 @@ import { useSearchParams } from "react-router-dom";
 import { uploadDroppedMedia } from "../components/videoeditor/useExternalDrop";
 import { formatUiError } from "../utils/uiError";
 import { handleResponse } from "../api/apiClient";
-import EntityContextMenu from "../components/common/EntityContextMenu";
 import TextInputDialog from "../components/common/TextInputDialog";
-import useContextMenu from "../hooks/useContextMenu";
 import lazyWithReload from "../utils/lazyWithReload";
-import { useUiTranslation, translate, Trans } from "../i18n";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
-
-const stripGlyph = (label) => String(label || "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
-
-// A batch status as a chip shows it; an unknown status shows as it came.
-const batchStatusLabel = (status) => ({
-  queued: translate("videoGenerator.status.queued"),
-  pending: translate("videoGenerator.status.pending"),
-  running: translate("videoGenerator.status.running"),
-  processing: translate("videoGenerator.status.processing"),
-  completed: translate("videoGenerator.status.completed"),
-  error: translate("videoGenerator.status.error"),
-  cancelled: translate("videoGenerator.status.cancelled"),
-})[status] || status || "";
+import { useUiTranslation,  Trans } from "../i18n";
 
 // Lazy import for VideoModelsModal
 const VideoModelsModal = lazyWithReload(() => import("../components/modals/VideoModelsModal"));
@@ -455,8 +405,6 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   const [highlightModelId, setHighlightModelId] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
-  const resultMenu = useContextMenu();
-  const batchMenu = useContextMenu();
 
   // Pull the authoritative model list + readiness. Extracted so we can re-run it
   // after the user closes the install modal (a freshly-installed model should
@@ -1711,23 +1659,6 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     return batchStatus.results;
   }, [batchStatus]);
 
-  // Live per-step progress for the currently-rendering video. The batch bar only
-  // moves when a whole clip finishes; THIS shows "denoising 12/50" inside the
-  // active clip, fed by the ComfyUI ws progress bridge (process_type=video_render,
-  // process_id=item_id). Single GPU = at most one active render, so we just take
-  // the freshest non-terminal video_render process (preferring this batch's).
-  const { getProcessesByType, activeProcesses, getPreviewUrl } = useUnifiedProgress();
-  const activeStep = useMemo(() => {
-    if (!batchStatus || batchStatus.status !== "running") return null;
-    const live = (getProcessesByType("video_render") || []).filter((p) =>
-      !["complete", "end", "error", "cancelled"].includes(p.status)
-    );
-    if (!live.length) return null;
-    const mine = live.filter((p) => p.additional_data?.batch_id === batchStatus.batch_id);
-    const pool = mine.length ? mine : live;
-    return pool.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
-  }, [batchStatus, getProcessesByType, activeProcesses]);
-
   const controlsDisabled = isGenerating;
   const canQueue =
     !isGenerating && (
@@ -1797,9 +1728,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   confirmDeleteBatchRef.current = confirmDeleteBatch;
   const requestDeleteBatch = useCallback((b) => confirmDeleteBatchRef.current(b), []);
 
-  const resultMenuActions = () => {
-    if (!resultMenu.payload || !batchStatus) return [];
-    const { res, idx, videoUrl } = resultMenu.payload;
+  const resultMenuActions = (payload) => {
+    if (!payload || !batchStatus) return [];
+    const { res, idx, videoUrl } = payload;
     const batchId = batchStatus.batch_id;
     const held = res.success && res.review?.state === "needs_review";
     return [
@@ -1831,8 +1762,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     ];
   };
 
-  const batchMenuActions = () => {
-    const b = batchMenu.payload;
+  const batchMenuActions = (b) => {
     if (!b) return [];
     const running = b.status === "running" || b.status === "pending" || b.status === "processing";
     const finished = b.status === "completed" || b.status === "error" || b.status === "cancelled";
@@ -1857,21 +1787,40 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     ];
   };
 
-  // Inside a card: the compose panels dim and stop taking input while a batch is being queued.
-  const composeSx = {
-    display: "flex",
-    flexDirection: "column",
-    gap: 1.5,
-    p: 1,
-    opacity: controlsDisabled ? 0.5 : 1,
-    pointerEvents: controlsDisabled ? "none" : "auto",
-  };
-  // The status blocks were cards of their own on the old two-column page; in a
-  // card frame they are plain sections.
-  const statusSx = {
-    p: 0.5,
-    "& > .MuiCard-root": { boxShadow: "none", backgroundColor: "transparent", backgroundImage: "none", mb: 1 },
-  };
+  // The cards are memoized, so they are handed functions that keep their
+  // identity; each call still runs this render's version.
+  const actions = useStableCallbacks({
+    applyPromptPreset,
+    batchMenuActions,
+    confirmCancelBatch,
+    confirmDeleteVideo,
+    fetchBatches,
+    fetchPromptPreview,
+    handleAdjustRetry,
+    handleApproveClip,
+    handleAudioGuideUpload,
+    handleCancelBatch,
+    handleClearCompletedQueue,
+    handleCombineFrames,
+    handleDeleteBatch,
+    handleDownloadBatch,
+    handleDragLeave,
+    handleDragOver,
+    handleDrop,
+    handleEndFrameUpload,
+    handleFileUpload,
+    handleGenerate,
+    handleRenameVideo,
+    handleRerenderClip,
+    handleRetryBatch,
+    insertPromptTag,
+    openBatch,
+    openGallery,
+    openResultPlayer,
+    removeSelectedImage,
+    requestDeleteBatch,
+    resultMenuActions,
+  });
 
   return (
     <PageLayout title={embedded ? undefined : t("videoGenerator.page.title")} variant={embedded ? "fullscreen" : "standard"} noPadding={embedded}>
@@ -1966,313 +1915,73 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               title: t("layout.board.cards.prompt"),
               layout: { x: 0, y: 0, w: 60, h: 86 },
               body: (
-                <Box sx={composeSx}>
-            <SettingsPanel
-              id="videogen-mode"
-              title={t("videoGenerator.mode.title")}
-              description={t("videoGenerator.mode.description")}
-              actions={
-                <ActionButton
-                  kind={canQueue ? "primary" : "neutral"}
-                  onClick={handleGenerate}
-                  loading={isGenerating}
-                  disabled={!canQueue || controlsDisabled}
-                >
-                  {t("videoGenerator.mode.addToQueue")}
-                </ActionButton>
-              }
-            >
-              <Line>
-                <SettingChip
-                  label={t("videoGenerator.mode.lowVram")}
-                  on={lowVramMode}
-                  note={lowVramMode ? (lowVramClampApplies ? t("videoGenerator.mode.nextJob") : t("videoGenerator.mode.notForModel")) : undefined}
-                  tooltip={lowVramClampApplies || !lowVramMode
-                    ? t("videoGenerator.mode.lowVramTooltip")
-                    : t("videoGenerator.mode.lowVramOtherModel")}
-                  onToggle={(next) => {
-                    setLowVramMode(next);
-                    localStorage.setItem("lowVramMode", next.toString());
-                    if (next && highConsistencyMode) setHighConsistencyMode(false);
-                  }}
+                <VideoPromptCard
+                  applyPromptPreset={actions.applyPromptPreset}
+                  canQueue={canQueue}
+                  controlsDisabled={controlsDisabled}
+                  dragActive={dragActive}
+                  endFrame={endFrame}
+                  endFrameModes={endFrameModes}
+                  enhancePrompt={enhancePrompt}
+                  fetchPromptPreview={actions.fetchPromptPreview}
+                  fidelityMode={fidelityMode}
+                  fileInputRef={fileInputRef}
+                  handleDragLeave={actions.handleDragLeave}
+                  handleDragOver={actions.handleDragOver}
+                  handleDrop={actions.handleDrop}
+                  handleEndFrameUpload={actions.handleEndFrameUpload}
+                  handleFileUpload={actions.handleFileUpload}
+                  handleGenerate={actions.handleGenerate}
+                  highConsistencyMode={highConsistencyMode}
+                  inputMode={inputMode}
+                  insertPromptTag={actions.insertPromptTag}
+                  isGenerating={isGenerating}
+                  isUploading={isUploading}
+                  isUploadingEndFrame={isUploadingEndFrame}
+                  lookAndFeel={lookAndFeel}
+                  lowVramClampApplies={lowVramClampApplies}
+                  lowVramMode={lowVramMode}
+                  model={model}
+                  modelCaps={modelCaps}
+                  modelMeta={modelMeta}
+                  negativePrompt={negativePrompt}
+                  openGallery={actions.openGallery}
+                  parsedPrompts={parsedPrompts}
+                  previewCounts={previewCounts}
+                  previewEnhanceOff={previewEnhanceOff}
+                  previewEnhanced={previewEnhanced}
+                  previewLoading={previewLoading}
+                  previewVerbatim={previewVerbatim}
+                  promptGallery={promptGallery}
+                  promptInputRef={promptInputRef}
+                  promptPresets={promptPresets}
+                  promptsText={promptsText}
+                  refBoard={refBoard}
+                  refFit={refFit}
+                  refLimits={refLimits}
+                  refModelIds={refModelIds}
+                  refProblems={refProblems}
+                  removeSelectedImage={actions.removeSelectedImage}
+                  selectedImages={selectedImages}
+                  selectedPromptPreset={selectedPromptPreset}
+                  setEndFrame={setEndFrame}
+                  setEnhancePrompt={setEnhancePrompt}
+                  setError={setError}
+                  setFidelityMode={setFidelityMode}
+                  setHighConsistencyMode={setHighConsistencyMode}
+                  setInputMode={setInputMode}
+                  setLookAndFeel={setLookAndFeel}
+                  setLowVramMode={setLowVramMode}
+                  setNegativePrompt={setNegativePrompt}
+                  setPreviewEnhanced={setPreviewEnhanced}
+                  setPromptsText={setPromptsText}
+                  setRefBoard={setRefBoard}
+                  setShowPreview={setShowPreview}
+                  showPreview={showPreview}
+                  storyboardMode={storyboardMode}
+                  storyboardShots={storyboardShots}
+                  verbatimPrompts={verbatimPrompts}
                 />
-                <SettingChip
-                  label={t("videoGenerator.mode.highConsistency")}
-                  on={highConsistencyMode}
-                  tooltip={t("videoGenerator.mode.highConsistencyTooltip")}
-                  onToggle={(next) => {
-                    setHighConsistencyMode(next);
-                    if (next && lowVramMode) {
-                      setLowVramMode(false);
-                      localStorage.setItem("lowVramMode", "false");
-                    }
-                  }}
-                />
-              </Line>
-            </SettingsPanel>
-
-            <SettingsPanel id="videogen-prompt" title={t("videoGenerator.prompt.title")}>
-              <Cluster label={t("videoGenerator.prompt.input")}>
-                <ChoiceChips
-                  ariaLabel={t("videoGenerator.prompt.inputMode")}
-                  value={inputMode}
-                  onChange={setInputMode}
-                  options={[
-                    { value: "text", label: t("videoGenerator.prompt.modeText") },
-                    { value: "image", label: t("videoGenerator.prompt.modeImage") },
-                    ...(refModelIds.length > 0
-                      ? [{ value: "references", label: t("videoGenerator.prompt.modeReferences"), tooltip: t("videoGenerator.prompt.modeReferencesTooltip") }]
-                      : []),
-                  ]}
-                />
-              </Cluster>
-              {inputMode === "text" && promptPresets.length > 0 && (
-                <Cluster label={t("videoGenerator.prompt.preset")}>
-                  <Line nowrap>
-                    <FormControl size="small" className="grow">
-                      <InputLabel>{t("videoGenerator.prompt.promptPreset")}</InputLabel>
-                      <Select
-                        value={selectedPromptPreset}
-                        onChange={(e) => applyPromptPreset(e.target.value)}
-                        label={t("videoGenerator.prompt.promptPreset")}
-                      >
-                        <MenuItem value="">{t("videoGenerator.common.none")}</MenuItem>
-                        {promptPresets.map((p) => (
-                          <MenuItem key={p.slug} value={p.slug}>
-                            {p.title}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Line>
-                  {promptGallery?.source?.url && (
-                    <Hint>
-                      <Trans
-                        i18nKey="videoGenerator.prompt.galleryHint"
-                        components={{ galleryLink: <a href={promptGallery.source.url} target="_blank" rel="noreferrer noopener" /> }}
-                      />
-                    </Hint>
-                  )}
-                </Cluster>
-              )}
-              {inputMode === "references" ? (
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                  <ReferenceBoard
-                    value={refBoard}
-                    onChange={setRefBoard}
-                    limits={refLimits}
-                    fit={refFit}
-                    onInsertTag={insertPromptTag}
-                    onError={setError}
-                  />
-                  <TextField
-                    label={t("videoGenerator.prompt.describeVideo")}
-                    multiline
-                    minRows={3}
-                    maxRows={8}
-                    value={promptsText}
-                    onChange={(e) => setPromptsText(e.target.value)}
-                    inputRef={promptInputRef}
-                    placeholder={t("videoGenerator.prompt.referencesPlaceholder")}
-                    helperText={enhancePrompt
-                      ? t("videoGenerator.prompt.referencesHelp")
-                      : t("videoGenerator.prompt.referencesHelpVerbatim")}
-                    fullWidth
-                    size="small"
-                  />
-                  {refProblems.length > 0 && (refBoard.images.length + refBoard.videos.length + refBoard.audios.length) > 0 && (
-                    <Hint sx={{ color: "warning.main" }}>{refProblems.join(" ")}</Hint>
-                  )}
-                </Box>
-              ) : inputMode === "text" ? (
-                <TextField
-                  label={storyboardMode ? t("videoGenerator.prompt.storyboardConcept") : t("videoGenerator.prompt.whatToSee")}
-                  multiline
-                  minRows={storyboardMode ? 2 : 3}
-                  maxRows={storyboardMode ? 4 : 6}
-                  value={promptsText}
-                  onChange={(e) => setPromptsText(e.target.value)}
-                  placeholder={
-                    storyboardMode
-                      ? t("videoGenerator.prompt.storyboardPlaceholder")
-                      : t("videoGenerator.prompt.textPlaceholder")
-                  }
-                  helperText={
-                    storyboardMode
-                      ? t("videoGenerator.prompt.storyboardHelp", { count: storyboardShots })
-                      : parsedPrompts.length > 1
-                        ? t("videoGenerator.prompt.clipsHelp", { count: parsedPrompts.length })
-                        : undefined
-                  }
-                  fullWidth
-                  size="small"
-                />
-              ) : (
-                <Box>
-                  <TextField
-                    label={selectedImages.length === 0 && endFrame && endFrameModes.includes("l2v")
-                      ? t("videoGenerator.prompt.describeEndFrame")
-                      : t("videoGenerator.prompt.describeMotion")}
-                    multiline
-                    minRows={2}
-                    maxRows={4}
-                    value={promptsText}
-                    onChange={(e) => setPromptsText(e.target.value)}
-                    placeholder={t("videoGenerator.prompt.motionPlaceholder")}
-                    fullWidth
-                    size="small"
-                    sx={{ mb: 1.5 }}
-                  />
-                  <Box
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    sx={{
-                      border: "2px dashed",
-                      borderColor: dragActive ? "primary.main" : "divider",
-                      borderRadius: "8px",
-                      p: 2,
-                      textAlign: "center",
-                      bgcolor: dragActive ? "action.hover" : "transparent",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {isUploading ? (
-                      <CircularProgress size={28} />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        {t("videoGenerator.prompt.dropImages")}
-                      </Typography>
-                    )}
-                  </Box>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        handleFileUpload(Array.from(e.target.files));
-                        e.target.value = "";
-                      }
-                    }}
-                  />
-                  <Line sx={{ mt: 1 }}>
-                    <ActionButton onClick={openGallery}>{t("videoGenerator.prompt.selectFromGallery")}</ActionButton>
-                  </Line>
-                  {endFrameModes.length > 0 && (
-                    <Box sx={{ mt: 1.5 }}>
-                      <FrameSlot
-                        label={t("videoGenerator.prompt.endFrame")}
-                        frameName={t("videoGenerator.prompt.endFrameName")}
-                        value={endFrame}
-                        onChange={setEndFrame}
-                        onUploadFile={handleEndFrameUpload}
-                        uploading={isUploadingEndFrame}
-                        hint={endFrameModes.includes("l2v")
-                          ? t("videoGenerator.prompt.endFrameHintL2v")
-                          : t("videoGenerator.prompt.endFrameHint")}
-                      />
-                    </Box>
-                  )}
-                  {selectedImages.length > 0 && (
-                    <Box sx={{ mt: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
-                      {selectedImages.map((img) => (
-                        <Box key={img.id} sx={{ position: "relative", width: 72, height: 72, borderRadius: "6px", overflow: "hidden" }}>
-                          <Box component="img" src={img.thumbnailUrl} alt={img.name} sx={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          <IconButton
-                            size="small"
-                            onClick={() => removeSelectedImage(img.id)}
-                            sx={{ position: "absolute", top: 2, right: 2, bgcolor: "rgba(0,0,0,0.6)", color: "white", p: 0.25 }}
-                          >
-                            <CloseIcon sx={{ fontSize: 14 }} />
-                          </IconButton>
-                        </Box>
-                      ))}
-                    </Box>
-                  )}
-                </Box>
-              )}
-              <TextField
-                label={t("videoGenerator.prompt.lookAndFeel")}
-                multiline
-                minRows={2}
-                maxRows={4}
-                value={lookAndFeel}
-                onChange={(e) => setLookAndFeel(e.target.value)}
-                placeholder={t("videoGenerator.prompt.lookAndFeelPlaceholder")}
-                helperText={lookAndFeel.trim() ? t("videoGenerator.prompt.appendedTo", { count: parsedPrompts.length || 0 }) : t("videoGenerator.prompt.lookAndFeelHelp")}
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label={t("videoGenerator.prompt.negative")}
-                multiline
-                minRows={2}
-                maxRows={4}
-                value={negativePrompt}
-                disabled={modelCaps?.cfg === false || isMinimaxModel(model, modelMeta[model])}
-                onChange={(e) => setNegativePrompt(e.target.value)}
-                placeholder={t("videoGenerator.prompt.negativePlaceholder")}
-                helperText={
-                  modelCaps?.cfg === false || isMinimaxModel(model, modelMeta[model])
-                    ? t("videoGenerator.prompt.negativeUnused")
-                    : undefined
-                }
-                fullWidth
-                size="small"
-              />
-              <Line>
-                <SettingChip
-                  label={t("videoGenerator.prompt.exactText")}
-                  on={fidelityMode}
-                  tooltip={t("videoGenerator.prompt.exactTextTooltip")}
-                  onToggle={(next) => {
-                    setFidelityMode(next);
-                    setPreviewEnhanced("");
-                    setShowPreview(false);
-                  }}
-                />
-                <SettingChip
-                  label={t("videoGenerator.prompt.enhance")}
-                  on={enhancePrompt}
-                  note={enhancePrompt && verbatimPrompts && inputMode !== "references" ? t("videoGenerator.prompt.enhanceSkipped") : undefined}
-                  tooltip={verbatimPrompts && inputMode !== "references"
-                    ? t("videoGenerator.prompt.enhanceVerbatim")
-                    : t("videoGenerator.prompt.enhanceTooltip")}
-                  onToggle={setEnhancePrompt}
-                />
-                <ActionButton
-                  onClick={fetchPromptPreview}
-                  loading={previewLoading}
-                  disabled={!((inputMode === "text" ? parsedPrompts.length : promptsText.trim().length) > 0)}
-                >
-                  {t("videoGenerator.prompt.previewEnhanced")}
-                </ActionButton>
-              </Line>
-              {showPreview && previewEnhanced && (
-                <TextField
-                  label={previewLabel({
-                    shown: previewCounts.shown,
-                    total: previewCounts.total,
-                    verbatim: previewVerbatim,
-                    enhanceOff: previewEnhanceOff,
-                    storyboard: previewCounts.storyboard,
-                  })}
-                  value={previewEnhanced}
-                  multiline
-                  minRows={2}
-                  maxRows={previewCounts.total > 1 ? 16 : undefined}
-                  fullWidth
-                  size="small"
-                  InputProps={{ readOnly: true }}
-                />
-              )}
-            </SettingsPanel>
-
-                </Box>
               ),
             },
             {
@@ -2280,504 +1989,85 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               title: t("layout.board.cards.settings"),
               layout: { x: 60, y: 0, w: 55, h: 86 },
               body: (
-                <Box sx={composeSx}>
-            {inputMode !== "references" && (
-            <SettingsPanel
-              id="videogen-pipeline"
-              title={t("videoGenerator.pipeline.title")}
-              description={t("videoGenerator.pipeline.description")}
-            >
-              <Line>
-                <SettingChip
-                  label={t("videoGenerator.pipeline.director")}
-                  on={directorMode}
-                  tooltip={t("videoGenerator.pipeline.directorTooltip")}
-                  onToggle={setDirectorMode}
+                <VideoSettingsCard
+                  activeSpeedProfile={activeSpeedProfile}
+                  advancedParams={advancedParams}
+                  allowedAspectRatios={allowedAspectRatios}
+                  anyModelReady={anyModelReady}
+                  applicableAdapters={applicableAdapters}
+                  applicableEncoders={applicableEncoders}
+                  aspectRatio={aspectRatio}
+                  audioGuide={audioGuide}
+                  availableModels={availableModels}
+                  blockDetail={blockDetail}
+                  blockReason={blockReason}
+                  canQueue={canQueue}
+                  castError={castError}
+                  castIdentityLocked={castIdentityLocked}
+                  castSubjects={castSubjects}
+                  cinematicKeyframe={cinematicKeyframe}
+                  comfyUiUrl={comfyUiUrl}
+                  computedParams={computedParams}
+                  controlsDisabled={controlsDisabled}
+                  directorGuidance={directorGuidance}
+                  directorMode={directorMode}
+                  durationPreset={durationPreset}
+                  durationPresets={durationPresets}
+                  faceRestoreAvailable={faceRestoreAvailable}
+                  faceRestoreModelReady={faceRestoreModelReady}
+                  faceRestoreNodeAvailable={faceRestoreNodeAvailable}
+                  fetaEnabled={fetaEnabled}
+                  fetaWeight={fetaWeight}
+                  gpuBusy={gpuBusy}
+                  handleAudioGuideUpload={actions.handleAudioGuideUpload}
+                  handleGenerate={actions.handleGenerate}
+                  highConsistencyMode={highConsistencyMode}
+                  inputMode={inputMode}
+                  isGenerating={isGenerating}
+                  isUploadingAudioGuide={isUploadingAudioGuide}
+                  keyframeModel={keyframeModel}
+                  keyframeModelOptions={keyframeModelOptions}
+                  model={model}
+                  modelCaps={modelCaps}
+                  modelMeta={modelMeta}
+                  motionPreset={motionPreset}
+                  offeredStyles={offeredStyles}
+                  postUpscale={postUpscale}
+                  profileSteps={profileSteps}
+                  promptControls={promptControls}
+                  promptStyle={promptStyle}
+                  qualityChipOptions={qualityChipOptions}
+                  qualityPreset={qualityPreset}
+                  qualityTier={qualityTier}
+                  selectedSubjectIds={selectedSubjectIds}
+                  setAdvancedParams={setAdvancedParams}
+                  setAspectRatio={setAspectRatio}
+                  setAudioGuide={setAudioGuide}
+                  setCastReload={setCastReload}
+                  setCinematicKeyframe={setCinematicKeyframe}
+                  setDirectorGuidance={setDirectorGuidance}
+                  setDirectorMode={setDirectorMode}
+                  setDurationPreset={setDurationPreset}
+                  setFetaEnabled={setFetaEnabled}
+                  setFetaWeight={setFetaWeight}
+                  setHighlightModelId={setHighlightModelId}
+                  setKeyframeModel={setKeyframeModel}
+                  setModel={setModel}
+                  setMotionPreset={setMotionPreset}
+                  setPostUpscale={setPostUpscale}
+                  setPromptStyle={setPromptStyle}
+                  setQualityPreset={setQualityPreset}
+                  setQualityTier={setQualityTier}
+                  setSelectedSubjectIds={setSelectedSubjectIds}
+                  setStoryboardMode={setStoryboardMode}
+                  setStoryboardShots={setStoryboardShots}
+                  setVideoModelsModalOpen={setVideoModelsModalOpen}
+                  setVideoSize={setVideoSize}
+                  storyboardMode={storyboardMode}
+                  storyboardShots={storyboardShots}
+                  videoSize={videoSize}
+                  voiceClips={voiceClips}
                 />
-                <SettingChip
-                  label={t("videoGenerator.pipeline.keyframe")}
-                  on={cinematicKeyframe || selectedSubjectIds.length > 0}
-                  disabled={selectedSubjectIds.length > 0}
-                  tooltip={
-                    selectedSubjectIds.length > 0
-                      ? t("videoGenerator.pipeline.keyframeCast")
-                      : t("videoGenerator.pipeline.keyframeTooltip")
-                  }
-                  onToggle={setCinematicKeyframe}
-                />
-                <SettingChip
-                  label={t("videoGenerator.pipeline.storyboard")}
-                  on={storyboardMode}
-                  tooltip={t("videoGenerator.pipeline.storyboardTooltip")}
-                  onToggle={setStoryboardMode}
-                />
-                {storyboardMode && (
-                  <TextField
-                    type="number"
-                    label={t("videoGenerator.pipeline.shots")}
-                    value={storyboardShots}
-                    onChange={(e) => setStoryboardShots(Math.max(1, Math.min(50, parseInt(e.target.value, 10) || 1)))}
-                    size="small"
-                    sx={{ width: 96 }}
-                    inputProps={{ min: 1, max: 50 }}
-                  />
-                )}
-              </Line>
-              {(directorMode || storyboardMode) && (
-                <TextField
-                  value={directorGuidance}
-                  onChange={(e) => setDirectorGuidance(e.target.value)}
-                  placeholder={t("videoGenerator.pipeline.guidancePlaceholder")}
-                  size="small"
-                  fullWidth
-                />
-              )}
-              <Collapse in={cinematicKeyframe || selectedSubjectIds.length > 0}>
-                {castIdentityLocked ? (
-                  <Hint>{t("videoGenerator.pipeline.keyframeFromCast")}</Hint>
-                ) : (
-                  <FormControl size="small" fullWidth sx={{ mt: 0.5 }}>
-                    <InputLabel>{t("videoGenerator.pipeline.keyframeModel")}</InputLabel>
-                    <Select
-                      value={keyframeModel === "from-lora" ? DEFAULT_KEYFRAME_MODEL : keyframeModel}
-                      onChange={(e) => setKeyframeModel(e.target.value)}
-                      label={t("videoGenerator.pipeline.keyframeModel")}
-                    >
-                      {keyframeModelOptions.map(([key, cfg]) => (
-                        <MenuItem key={key} value={key}>
-                          {cfg.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              </Collapse>
-              <FormControl size="small" fullWidth>
-                <InputLabel>{t("videoGenerator.pipeline.cast")}</InputLabel>
-                <Select
-                  multiple
-                  value={selectedSubjectIds}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setSelectedSubjectIds(typeof v === "string" ? v.split(",").map(Number) : v);
-                  }}
-                  label={t("videoGenerator.pipeline.cast")}
-                  renderValue={(sel) =>
-                    castSubjects.filter((s) => sel.includes(s.id)).map((s) => s.name).join(", ") || t("videoGenerator.common.none")
-                  }
-                >
-                  {castSubjects.map((s) => (
-                    <MenuItem key={s.id} value={s.id}>
-                      {s.name}{s.trigger_word ? ` (${s.trigger_word})` : ""}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Hint>
-                {castError ? (
-                  <Box component="span" sx={{ color: "error.main" }}>
-                    <Trans
-                      i18nKey="videoGenerator.pipeline.castLoadFailed"
-                      values={{ reason: castError }}
-                      components={{
-                        retry: (
-                          <Box
-                            component="button"
-                            type="button"
-                            onClick={() => setCastReload((n) => n + 1)}
-                            sx={{ background: "none", border: 0, p: 0, color: "inherit", textDecoration: "underline", cursor: "pointer", font: "inherit" }}
-                          />
-                        ),
-                      }}
-                    />
-                  </Box>
-                ) : castSubjects.length === 0
-                  ? t("videoGenerator.pipeline.noCast")
-                  : t("videoGenerator.pipeline.castHelp")}
-              </Hint>
-            </SettingsPanel>
-            )}
-
-            <SettingsPanel id="videogen-clip" title={t("videoGenerator.clip.title")}>
-              <Cluster label={t("videoGenerator.clip.model")}>
-                <Line nowrap>
-                  <FormControl size="small" className="grow">
-                    <InputLabel>{t("videoGenerator.clip.model")}</InputLabel>
-                    <Select value={model} onChange={(e) => setModel(e.target.value)} label={t("videoGenerator.clip.model")}>
-                      {availableModels.map(([key, opt]) => (
-                        <MenuItem key={key} value={key}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <ActionButton onClick={() => setVideoModelsModalOpen(true)}>{t("videoGenerator.clip.manageModels")}</ActionButton>
-                  <ActionButton
-                    kind="link"
-                    tooltip={t("videoGenerator.clip.comfyTooltip", { url: comfyUiLink(window.location.hostname, comfyUiUrl) })}
-                    onClick={() => window.open(comfyUiLink(window.location.hostname, comfyUiUrl), "_blank", "noopener")}
-                  >
-                    ComfyUI
-                  </ActionButton>
-                </Line>
-                {applicableAdapters.length > 0 && (
-                  <>
-                    <Line wrap>
-                      {applicableAdapters.map((a) => {
-                        const on = (advancedParams.adapters || []).includes(a.id);
-                        return (
-                          <SettingChip
-                            key={a.id}
-                            label={a.name}
-                            on={on}
-                            onToggle={() => {
-                              setAdvancedParams((prev) => {
-                                const cur = prev.adapters || [];
-                                return {
-                                  ...prev,
-                                  adapters: on ? cur.filter((id) => id !== a.id) : [...cur, a.id],
-                                };
-                              });
-                            }}
-                          />
-                        );
-                      })}
-                    </Line>
-                    <Hint>{t("videoGenerator.clip.adaptersHint")}</Hint>
-                  </>
-                )}
-                {applicableEncoders.length > 0 && (
-                  <>
-                    <Line>
-                      <FormControl size="small" sx={{ minWidth: 260 }}>
-                        <InputLabel>{t("videoGenerator.clip.textEncoder")}</InputLabel>
-                        <Select
-                          value={applicableEncoders.some((e) => e.id === advancedParams.text_encoder) ? advancedParams.text_encoder : ""}
-                          label={t("videoGenerator.clip.textEncoder")}
-                          onChange={(e) => setAdvancedParams((prev) => ({ ...prev, text_encoder: e.target.value }))}
-                        >
-                          <MenuItem value="">{t("videoGenerator.clip.shippedEncoder")}</MenuItem>
-                          {applicableEncoders.map((e) => (
-                            <MenuItem key={e.id} value={e.id}>
-                              {e.name}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Line>
-                    <Hint>{t("videoGenerator.clip.encodersHint")}</Hint>
-                  </>
-                )}
-                {modelMeta[model]?.license?.name && (
-                  <Hint>
-                    {modelMeta[model].license.attribution} · {modelMeta[model].license.name}. {modelMeta[model].license.note}
-                  </Hint>
-                )}
-                {anyModelReady === false && (
-                  <Hint>{t("videoGenerator.clip.noModel")}</Hint>
-                )}
-              </Cluster>
-              {qualityChipOptions.length > 0 && (
-                <Cluster
-                  label={t("videoGenerator.clip.steps")}
-                  note={profileSteps.fixed
-                    ? t("videoGenerator.clip.stepsFixed", { profile: profileSteps.label })
-                    : t("videoGenerator.clip.stepsFloor")}
-                >
-                  <ChoiceChips
-                    ariaLabel={t("videoGenerator.clip.qualitySteps")}
-                    value={qualityPreset}
-                    onChange={setQualityPreset}
-                    disabled={profileSteps.fixed}
-                    options={qualityChipOptions}
-                  />
-                </Cluster>
-              )}
-              <Cluster label={t("videoGenerator.clip.duration")}>
-                <ChoiceChips
-                  ariaLabel={t("videoGenerator.clip.duration")}
-                  value={durationPreset}
-                  onChange={setDurationPreset}
-                  options={Object.entries(durationPresets).map(([key, preset]) => ({
-                    value: key,
-                    label: stripGlyph(preset.label),
-                    tooltip: preset.description,
-                  }))}
-                />
-              </Cluster>
-              <Cluster label={t("videoGenerator.clip.motion")} note={promptControls.motion.note}>
-                <ChoiceChips
-                  ariaLabel={t("videoGenerator.clip.motion")}
-                  value={motionPreset}
-                  onChange={setMotionPreset}
-                  disabled={!promptControls.motion.active}
-                  options={Object.entries(MOTION_PRESETS).map(([key, preset]) => ({
-                    value: key,
-                    label: stripGlyph(preset.label),
-                    tooltip: preset.description,
-                  }))}
-                />
-              </Cluster>
-              {isCogVideoXModel(model, modelMeta[model]) && !MODEL_OPTIONS[model]?.canvas ? (
-                <Hint>{t("videoGenerator.clip.cogFixed", { width: computedParams.width, height: computedParams.height })}</Hint>
-              ) : (
-                <>
-                  <Cluster label={t("videoGenerator.clip.aspect")}>
-                    <ChoiceChips
-                      ariaLabel={t("videoGenerator.clip.aspectRatio")}
-                      value={aspectRatio}
-                      onChange={setAspectRatio}
-                      options={Object.entries(allowedAspectRatios).map(([key, preset]) => ({
-                        value: key,
-                        label: preset.label,
-                        tooltip: preset.description,
-                      }))}
-                    />
-                  </Cluster>
-                  <Cluster label={t("videoGenerator.clip.size")} note={t("videoGenerator.clip.renders", { width: computedParams.width, height: computedParams.height })}>
-                    <ChoiceChips
-                      ariaLabel={t("videoGenerator.clip.videoSize")}
-                      value={videoSize}
-                      onChange={setVideoSize}
-                      disabled={isLtxModel(model, modelMeta[model]) || isMinimaxModel(model, modelMeta[model]) || !!MODEL_OPTIONS[model]?.canvas}
-                      options={Object.entries(VIDEO_SIZE_PRESETS).map(([key, preset]) => ({
-                        value: key,
-                        label: stripGlyph(preset.label),
-                        tooltip: preset.description,
-                      }))}
-                    />
-                  </Cluster>
-                </>
-              )}
-              <Cluster label={t("videoGenerator.clip.output")}>
-                <ChoiceChips
-                  ariaLabel={t("videoGenerator.clip.outputQuality")}
-                  value={qualityTier}
-                  onChange={setQualityTier}
-                  options={Object.entries(OUTPUT_QUALITY_TIERS).map(([key, tier]) => ({
-                    value: key,
-                    label: tier.label,
-                    tooltip: tier.description,
-                  }))}
-                />
-              </Cluster>
-            </SettingsPanel>
-
-            <SettingsPanel id="videogen-finish" title={t("videoGenerator.finish.title")}>
-              <Line>
-                <SettingChip
-                  label={t("videoGenerator.finish.fixAnatomy")}
-                  on={advancedParams.face_restore}
-                  disabled={!faceRestoreAvailable}
-                  tooltip={
-                    faceRestoreAvailable
-                      ? t("videoGenerator.finish.faceRestore")
-                      : !faceRestoreNodeAvailable
-                        ? t("videoGenerator.finish.nodeMissing")
-                        : t("videoGenerator.finish.weightsMissing")
-                  }
-                  onToggle={(next) => setAdvancedParams({ ...advancedParams, face_restore: next })}
-                  onSettings={
-                    faceRestoreNodeAvailable && faceRestoreModelReady === false
-                      ? () => {
-                          setHighlightModelId("codeformer");
-                          setVideoModelsModalOpen(true);
-                        }
-                      : undefined
-                  }
-                />
-                <SettingChip
-                  label={t("videoGenerator.finish.upscale")}
-                  on={postUpscale || qualityTier === "cinema"}
-                  disabled={qualityTier === "cinema"}
-                  tooltip={qualityTier === "cinema" ? t("videoGenerator.finish.upscaleCinema") : t("videoGenerator.finish.upscaleTooltip")}
-                  onToggle={setPostUpscale}
-                />
-                <SettingChip
-                  label={t("videoGenerator.finish.pngFrames")}
-                  on={advancedParams.generate_frames_only}
-                  tooltip={t("videoGenerator.finish.pngFramesTooltip")}
-                  onToggle={(next) => setAdvancedParams({ ...advancedParams, generate_frames_only: next })}
-                />
-                {isCogVideoXModel(model, modelMeta[model]) && (
-                  <SettingChip
-                    label="FETA"
-                    on={fetaEnabled || qualityTier === "cinema" || highConsistencyMode}
-                    disabled={qualityTier === "cinema" || highConsistencyMode}
-                    tooltip={t("videoGenerator.finish.fetaTooltip")}
-                    onToggle={setFetaEnabled}
-                  />
-                )}
-              </Line>
-              {isCogVideoXModel(model, modelMeta[model]) && (fetaEnabled || qualityTier === "cinema" || highConsistencyMode) && (
-                <TextField
-                  size="small"
-                  label={t("videoGenerator.finish.fetaWeight")}
-                  type="number"
-                  inputProps={{ step: 0.1, min: 0.1, max: 3.0 }}
-                  value={fetaWeight}
-                  onChange={(e) => setFetaWeight(Number(e.target.value))}
-                  sx={{ width: 140 }}
-                />
-              )}
-              {MODEL_OPTIONS[model]?.samplerProfiles && (
-                <FormControl size="small" fullWidth>
-                  <InputLabel>{t("videoGenerator.finish.samplerProfile")}</InputLabel>
-                  <Select
-                    value={advancedParams.wan_sampler_profile}
-                    onChange={(e) => setAdvancedParams({ ...advancedParams, wan_sampler_profile: e.target.value })}
-                    label={t("videoGenerator.finish.samplerProfile")}
-                  >
-                    {MODEL_OPTIONS[model].samplerProfiles.map((key) => (
-                      <MenuItem key={key} value={key}>
-                        {WAN5B_SAMPLER_PROFILES[key]?.label || key}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-              {activeSpeedProfile && (
-                <FormControl size="small" fullWidth>
-                  <InputLabel>{t("videoGenerator.finish.speedProfile")}</InputLabel>
-                  <Select
-                    value={activeSpeedProfile}
-                    onChange={(e) => setAdvancedParams({ ...advancedParams, speed_profile: e.target.value })}
-                    label={t("videoGenerator.finish.speedProfile")}
-                  >
-                    {Object.entries(modelCaps.speed_profiles).map(([key, spec]) => (
-                      <MenuItem key={key} value={key}>
-                        {spec.label || key}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-              {modelCaps?.style_embeddings?.length > 0 && (
-                <FormControl size="small" fullWidth>
-                  <InputLabel>{t("videoGenerator.finish.styleEmbedding")}</InputLabel>
-                  <Select
-                    value={advancedParams.style_embedding || ""}
-                    onChange={(e) => setAdvancedParams({ ...advancedParams, style_embedding: e.target.value })}
-                    label={t("videoGenerator.finish.styleEmbedding")}
-                  >
-                    <MenuItem value="">{t("videoGenerator.common.none")}</MenuItem>
-                    {modelCaps.style_embeddings.map((emb) => (
-                      <MenuItem key={emb.id} value={emb.id}>{emb.label}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-              {modelCaps?.audio_in && inputMode !== "references" && (
-                <Cluster label={t("videoGenerator.finish.audioGuide")}>
-                  <Line nowrap>
-                    <FormControl size="small" className="grow">
-                      <InputLabel>{t("videoGenerator.finish.audioToPerform")}</InputLabel>
-                      <Select
-                        value={audioGuide?.path || ""}
-                        onChange={(e) => {
-                          const clip = voiceClips.find((c) => c.path === e.target.value);
-                          setAudioGuide(clip ? { path: clip.path, name: clip.filename } : null);
-                        }}
-                        label={t("videoGenerator.finish.audioToPerform")}
-                      >
-                        <MenuItem value="">{t("videoGenerator.common.none")}</MenuItem>
-                        {voiceClips.map((c) => (
-                          <MenuItem key={c.id || c.path} value={c.path}>{c.filename}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <ActionButton component="label" loading={isUploadingAudioGuide}>
-                      {t("videoGenerator.finish.upload")}
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        hidden
-                        onChange={(e) => {
-                          handleAudioGuideUpload(e.target.files?.[0]);
-                          e.target.value = "";
-                        }}
-                      />
-                    </ActionButton>
-                  </Line>
-                </Cluster>
-              )}
-              <Cluster label={t("videoGenerator.finish.promptTuning")}>
-                <Line>
-                  <TextField
-                    size="small"
-                    label={t("videoGenerator.finish.guidance")}
-                    type="number"
-                    inputProps={{ step: 0.5, min: 1, max: 20 }}
-                    value={advancedParams.guidance_scale}
-                    disabled={modelCaps?.cfg === false || isMinimaxModel(model, modelMeta[model])}
-                    onChange={(e) => setAdvancedParams({ ...advancedParams, guidance_scale: Number(e.target.value) })}
-                    sx={{ width: 120 }}
-                  />
-                  <FormControl size="small" sx={{ minWidth: 180 }} disabled={!promptControls.style.active}>
-                    <InputLabel>{t("videoGenerator.finish.promptStyle")}</InputLabel>
-                    <Select value={promptStyle} onChange={(e) => setPromptStyle(e.target.value)} label={t("videoGenerator.finish.promptStyle")}>
-                      {Object.entries(PROMPT_STYLES)
-                        .filter(([key]) => !offeredStyles || offeredStyles.includes(key))
-                        .map(([key, preset]) => (
-                          <MenuItem key={key} value={key}>{preset.label}</MenuItem>
-                        ))}
-                    </Select>
-                  </FormControl>
-                  <TextField
-                    size="small"
-                    label={t("videoGenerator.finish.seed")}
-                    placeholder={t("videoGenerator.finish.seedRandom")}
-                    value={advancedParams.seed ?? ""}
-                    inputProps={{ inputMode: "numeric" }}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "").slice(0, String(MAX_SEED).length);
-                      setAdvancedParams((prev) => ({ ...prev, seed: digits }));
-                    }}
-                    sx={{ width: 150 }}
-                  />
-                  <TextField
-                    label={t("videoGenerator.finish.framesPerBatch")}
-                    type="number"
-                    size="small"
-                    inputProps={{ min: 1, max: 8 }}
-                    value={advancedParams.frames_per_batch}
-                    onChange={(e) => {
-                      const v = Math.max(1, parseInt(e.target.value || "1", 10));
-                      setAdvancedParams((prev) => ({ ...prev, frames_per_batch: v }));
-                    }}
-                    sx={{ width: 140 }}
-                  />
-                </Line>
-                {!promptControls.style.active && <Hint>{promptControls.style.note}.</Hint>}
-                {computedParams.seed != null && (
-                  <Hint>{t("videoGenerator.finish.seedFixed", { seed: computedParams.seed })}</Hint>
-                )}
-                {computedParams.seed == null && String(advancedParams.seed ?? "").trim() !== "" && (
-                  <Hint>{t("videoGenerator.finish.seedTooBig", { max: MAX_SEED })}</Hint>
-                )}
-              </Cluster>
-              <VideoGenEffectiveSettings
-                model={model}
-                computedParams={computedParams}
-                capabilities={modelCaps}
-                cinematicKeyframe={cinematicKeyframe}
-                selectedSubjectIds={selectedSubjectIds}
-                keyframeModel={keyframeModel}
-                directorMode={directorMode}
-                faceRestore={advancedParams.face_restore}
-              />
-              <GpuGateBanner gpuBusy={gpuBusy} blockReason={blockReason} blockDetail={blockDetail} queueMode />
-              <ActionButton
-                kind={canQueue ? "primary" : "neutral"}
-                onClick={handleGenerate}
-                loading={isGenerating}
-                disabled={!canQueue || controlsDisabled}
-                sx={{ height: 36, alignSelf: "flex-start" }}
-              >
-                {t("videoGenerator.mode.addToQueue")}
-              </ActionButton>
-            </SettingsPanel>
-                </Box>
               ),
             },
             {
@@ -2785,453 +2075,26 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               title: t("layout.board.cards.queue"),
               layout: { x: 115, y: 0, w: 60, h: 46 },
               body: (
-                <Box sx={statusSx}>
-          {/* Batch Queue panel — live view of what's running and what's stacked behind it */}
-          {queue.length > 0 && (
-            <Card sx={{ mb: 3, boxShadow: 2, borderRadius: 2 }}>
-              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    {t("videoGenerator.queue.title")}
-                  </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    {queue.some((q) => ["completed", "error", "cancelled"].includes(q.status)) && (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="inherit"
-                        onClick={handleClearCompletedQueue}
-                        sx={{ textTransform: "none", borderRadius: 1 }}
-                      >
-                        {t("videoGenerator.queue.clearCompleted")}
-                      </Button>
-                    )}
-                    <Chip
-                      label={t("videoGenerator.queue.active", { count: queue.filter(q => q.status === 'queued' || q.status === 'running' || q.status === 'pending').length })}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
-                  </Stack>
-                </Stack>
-                <Stack spacing={1}>
-                  {queue.map((q, idx) => {
-                    const slotTag = `#${idx + 1}`;
-                    const pct = q.total_videos > 0
-                      ? Math.round(((q.completed_videos + q.failed_videos) / q.total_videos) * 100)
-                      : 0;
-                    const chipColor =
-                      q.status === 'running' ? 'primary' :
-                      q.status === 'queued' ? 'default' :
-                      q.status === 'completed' ? 'success' :
-                      q.status === 'cancelled' ? 'warning' :
-                      q.status === 'error' ? 'error' : 'default';
-                    const cancellable = q.status === 'queued' || q.status === 'running';
-                    return (
-                      <Box
-                        key={q.batch_id}
-                        sx={{
-                          p: 1.5,
-                          border: '1px solid',
-                          borderColor: q.is_running ? 'primary.main' : 'divider',
-                          borderRadius: 1,
-                          bgcolor: q.is_running ? 'action.hover' : 'transparent',
-                        }}
-                      >
-                        <Stack direction="row" alignItems="center" spacing={1.5}>
-                          <Chip
-                            label={slotTag}
-                            size="small"
-                            variant="outlined"
-                            sx={{ minWidth: 44, fontFamily: 'monospace' }}
-                          />
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="body2" noWrap title={q.batch_id}>
-                              {q.display_name || q.batch_id}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {t("videoGenerator.queue.videos", { done: q.completed_videos + q.failed_videos, total: q.total_videos })}
-                              {q.failed_videos > 0 ? ` ${t("videoGenerator.queue.failed", { count: q.failed_videos })}` : ''}
-                            </Typography>
-                          </Box>
-                          <Chip
-                            label={batchStatusLabel(q.status).toUpperCase()}
-                            size="small"
-                            color={chipColor}
-                          />
-                          {cancellable && (
-                            <Tooltip
-                              title={q.status === 'running' ? t("videoGenerator.queue.cancelRunning") : t("videoGenerator.queue.remove")}
-                              arrow
-                            >
-                              <IconButton
-                                size="small"
-                                onClick={() => confirmCancelBatch(q)}
-                                aria-label={t("videoGenerator.queue.cancelAria")}
-                              >
-                                <CloseIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Stack>
-                        {q.status === 'running' && (
-                          <LinearProgress
-                            variant="determinate"
-                            value={pct}
-                            sx={{ mt: 1, height: 4, borderRadius: 2 }}
-                          />
-                        )}
-                        {q.error && (
-                          <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                            {formatUiError(q.error)}
-                          </Typography>
-                        )}
-                      </Box>
-                    );
-                  })}
-                </Stack>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Active batch status */}
-          {batchStatus ? (
-            <Card sx={{ 
-              mb: 3,
-              boxShadow: 2,
-              borderRadius: 2
-            }}>
-              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Typography 
-                  variant="h6" 
-                  sx={{ 
-                    fontWeight: 600,
-                    mb: 2,
-                    color: 'text.primary'
-                  }}
-                >
-                  {t("videoGenerator.progress.title")}
-                </Typography>
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    {t("videoGenerator.progress.batchId", { id: batchStatus.batch_id })}
-                  </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1, flexWrap: "wrap" }}>
-                    <Chip
-                      label={batchStatusLabel(batchStatus.status).toUpperCase()}
-                      color={batchStatus.status === 'running' ? 'primary' :
-                             batchStatus.status === 'completed' ? 'success' :
-                             batchStatus.status === 'error' ? 'error' :
-                             batchStatus.status === 'cancelled' ? 'warning' : 'default'}
-                      size="small"
-                    />
-                    {batchStatus.stage && (
-                      <Chip
-                        label={videoGenStageLabel(batchStatus.stage)}
-                        size="small"
-                        variant="outlined"
-                        color={batchStatus.stage === "gpu_wait" ? "warning" : "default"}
-                      />
-                    )}
-                    {(batchStatus.status === 'running' || batchStatus.status === 'pending' || batchStatus.status === 'queued') && (
-                      <Button
-                        size="small"
-                        color="warning"
-                        variant="outlined"
-                        onClick={() => setConfirmAction({
-                          title: t("videoGenerator.confirm.cancelBatchTitle"),
-                          description: t("videoGenerator.confirm.cancelBatchText"),
-                          facts: [{ label: t("videoGenerator.confirm.batch"), value: batchStatus.display_name || batchStatus.batch_id.slice(0, 8) }],
-                          keeps: t("videoGenerator.confirm.cancelBatchKeeps"),
-                          confirmLabel: t("videoGenerator.confirm.cancelBatch"),
-                          run: () => handleCancelBatch(batchStatus.batch_id),
-                        })}
-                      >
-                        {t("videoGenerator.progress.cancel")}
-                      </Button>
-                    )}
-                  </Stack>
-                </Box>
-
-                <Box sx={{ mb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2">
-                      {t("videoGenerator.progress.progress", { done: batchStatus.completed_videos || 0, total: batchStatus.total_videos || 0 })}
-                      {batchStatus.stage === "gpu_wait" ? ` — ${t("videoGenerator.progress.waitingForGpu")}` : ""}
-                    </Typography>
-                    <Typography variant="body2">
-                      {typeof batchStatus.progress_pct === "number"
-                        ? Math.round(batchStatus.progress_pct)
-                        : Math.round(((batchStatus.completed_videos || 0) / (batchStatus.total_videos || 1)) * 100)}%
-                    </Typography>
-                  </Box>
-                  <LinearProgress
-                    variant="determinate"
-                    value={
-                      typeof batchStatus.progress_pct === "number"
-                        ? batchStatus.progress_pct
-                        : ((batchStatus.completed_videos || 0) / (batchStatus.total_videos || 1)) * 100
-                    }
-                  />
-                </Box>
-
-                {/* Live current-step (per-clip) progress from the ComfyUI ws bridge */}
-                {activeStep && (
-                  <Box sx={{ mb: 2 }}>
-                    <LiveLatentPreview src={getPreviewUrl(activeStep.job_id)} />
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
-                        {activeStep.message || t("videoGenerator.progress.rendering")}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {activeStep.progress || 0}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={activeStep.progress || 0}
-                      color="secondary"
-                      sx={{ height: 4, borderRadius: 2 }}
-                    />
-                  </Box>
-                )}
-
-                {(batchStatus.status === 'completed' || batchStatus.status === 'error' || batchStatus.status === 'cancelled') && (
-                  <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                    {batchStatus.status === 'completed' && (
-                      <Button
-                        startIcon={<DownloadIcon />}
-                        variant="contained"
-                        sx={{ flex: 2 }}
-                        onClick={() => handleDownloadBatch(batchStatus.batch_id)}
-                      >
-                        {t("videoGenerator.menu.downloadAll")}
-                      </Button>
-                    )}
-                    <Button
-                      startIcon={<SettingsIcon />}
-                      variant="outlined"
-                      sx={{ flex: 1, whiteSpace: 'nowrap' }}
-                      onClick={() => handleAdjustRetry(batchStatus.batch_id)}
-                    >
-                      {t("videoGenerator.menu.adjustRetry")}
-                    </Button>
-                    <Button
-                      startIcon={<CloseIcon />}
-                      variant="outlined"
-                      color="error"
-                      sx={{ flex: 1, whiteSpace: 'nowrap' }}
-                      onClick={() => setConfirmAction({
-                        title: t("videoGenerator.confirm.deleteBatchTitle", { name: batchStatus.display_name || batchStatus.batch_id.slice(0, 8) }),
-                        description: t("videoGenerator.confirm.deleteBatchText"),
-                        facts: [{ label: t("videoGenerator.confirm.videos"), value: String(batchStatus.completed_videos ?? batchStatus.total_videos ?? t("videoGenerator.confirm.all")) }],
-                        keeps: t("videoGenerator.confirm.deleteBatchKeeps"),
-                        confirmLabel: t("videoGenerator.confirm.deleteBatch"),
-                        run: () => handleDeleteBatch(batchStatus.batch_id),
-                      })}
-                    >
-                      {t("videoGenerator.progress.delete")}
-                    </Button>
-                  </Box>
-                )}
-
-                <Divider sx={{ my: 2 }} />
-
-                <Grid container spacing={2}>
-                  {currentResults.map((res, idx) => {
-                    const videoUrl = res.video_path
-                      ? `${API_BASE}/batch-video/video/${batchStatus.batch_id}/${encodePathSegments(PathFromUrl(res.video_path))}`
-                      : null;
-                    const thumbUrl = res.thumbnail_path
-                      ? `${API_BASE}/batch-video/video/${batchStatus.batch_id}/${encodePathSegments(PathFromUrl(res.thumbnail_path))}`
-                      : null;
-                    const liveThumb = (!thumbUrl && activeStep && res.item_id === activeStep.job_id)
-                      ? getPreviewUrl(activeStep.job_id)
-                      : null;
-                    return (
-                    <Grid item xs={12} sm={6} key={res.item_id}>
-                      <Card
-                        variant="outlined"
-                        onContextMenu={(e) => resultMenu.open(e, { res, idx, videoUrl })}
-                      >
-                        <CardContent sx={{ pb: 1 }}>
-                          <Box
-                            sx={{
-                              position: "relative",
-                              width: "100%",
-                              aspectRatio: "16/9",
-                              borderRadius: 1,
-                              overflow: "hidden",
-                              mb: 1,
-                              bgcolor: "grey.900",
-                              cursor: videoUrl ? "pointer" : "default",
-                            }}
-                            onClick={() => {
-                              if (!videoUrl) return;
-                              openResultPlayer(res, idx, videoUrl);
-                            }}
-                          >
-                            {thumbUrl || liveThumb ? (
-                              <Box
-                                component="img"
-                                src={thumbUrl || liveThumb}
-                                alt={t("videoGenerator.results.thumbAlt")}
-                                sx={{ width: "100%", height: "100%", objectFit: "cover" }}
-                              />
-                            ) : (
-                              <Box sx={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                <VideoIcon color="action" sx={{ fontSize: 40 }} />
-                              </Box>
-                            )}
-                            {videoUrl && (
-                              <Box sx={{
-                                position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                bgcolor: "rgba(0,0,0,0.3)", opacity: 0, transition: "opacity 0.2s",
-                                "&:hover": { opacity: 1 },
-                              }}>
-                                <PlayIcon sx={{ fontSize: 48, color: "white" }} />
-                              </Box>
-                            )}
-                          </Box>
-                          <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
-                            {/* A held clip is not "Ready": its pill says it waits for a person. */}
-                            {res.review?.state !== "needs_review" && (
-                              <Chip
-                                label={res.success ? t("videoGenerator.results.ready") : t("videoGenerator.results.error")}
-                                color={res.success ? "success" : "error"}
-                                size="small"
-                              />
-                            )}
-                            {res.success && <ReviewStatePill review={res.review} />}
-                            {res.frame_paths?.length > 0 && (
-                              <Chip label={`${res.frame_paths.length}f`} size="small" variant="outlined" />
-                            )}
-                            <VlmReviewPill review={res.metadata?.quality?.vlm_review} />
-                            <KeyframeMatchPill quality={res.metadata?.quality} />
-                            <ColourMatchPill quality={res.metadata?.quality} />
-                            <QualityFlagsPill quality={res.metadata?.quality} />
-                          </Stack>
-                          {!res.success && <RenderFailureNote failure={res.failure} error={res.error} />}
-                          {!res.success && ["pending", "queued", "running"].includes(batchStatus?.status) && (
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                              {t("videoGenerator.results.batchContinues")}
-                            </Typography>
-                          )}
-                          {res.success && (
-                            <ClipReviewHold
-                              review={res.review}
-                              onApprove={() => handleApproveClip(batchStatus.batch_id, res.item_id)}
-                              onRerender={() => handleRerenderClip(batchStatus.batch_id, res.item_id)}
-                            />
-                          )}
-                        </CardContent>
-                        <CardActions sx={{ pt: 0 }}>
-                          {videoUrl && (
-                            <Button
-                              size="small"
-                              variant="contained"
-                              startIcon={<PlayIcon />}
-                              onClick={() => openResultPlayer(res, idx, videoUrl)}
-                            >
-                              {t("videoGenerator.menu.play")}
-                            </Button>
-                          )}
-                          {videoUrl && (
-                            <Tooltip title={t("videoGenerator.menu.openInNewTab")}>
-                              <IconButton size="small" onClick={() => window.open(videoUrl, "_blank")}>
-                                <OpenInNewIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {res.video_path && (
-                            <>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleRenameVideo(batchStatus.batch_id, PathFromUrl(res.video_path))}
-                              >
-                                <RenameIcon fontSize="small" />
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                onClick={() => confirmDeleteVideo(batchStatus.batch_id, res)}
-                              >
-                                <CloseIcon fontSize="small" />
-                              </IconButton>
-                            </>
-                          )}
-                          {!res.video_path && res.frame_paths?.length > 0 && (
-                            <Button
-                              size="small"
-                              onClick={() => handleCombineFrames(batchStatus.batch_id, res.item_id)}
-                            >
-                              {t("videoGenerator.menu.combineFrames")}
-                            </Button>
-                          )}
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                    );
-                  })}
-                </Grid>
-                <EntityContextMenu
-                  anchorPosition={resultMenu.anchorPosition}
-                  onClose={resultMenu.close}
-                  actions={resultMenu.isOpen ? resultMenuActions() : []}
+                <VideoQueueCard
+                  batchStatus={batchStatus}
+                  confirmCancelBatch={actions.confirmCancelBatch}
+                  confirmDeleteVideo={actions.confirmDeleteVideo}
+                  currentResults={currentResults}
+                  handleAdjustRetry={actions.handleAdjustRetry}
+                  handleApproveClip={actions.handleApproveClip}
+                  handleCancelBatch={actions.handleCancelBatch}
+                  handleClearCompletedQueue={actions.handleClearCompletedQueue}
+                  handleCombineFrames={actions.handleCombineFrames}
+                  handleDeleteBatch={actions.handleDeleteBatch}
+                  handleDownloadBatch={actions.handleDownloadBatch}
+                  handleRenameVideo={actions.handleRenameVideo}
+                  handleRerenderClip={actions.handleRerenderClip}
+                  handleRetryBatch={actions.handleRetryBatch}
+                  openResultPlayer={actions.openResultPlayer}
+                  queue={queue}
+                  resultMenuActions={actions.resultMenuActions}
+                  setConfirmAction={setConfirmAction}
                 />
-
-                {(batchStatus.status === 'error' || batchStatus.status === 'cancelled') && (
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                    {batchStatus.retry_data ? (
-                      <Button
-                        startIcon={<RefreshIcon />}
-                        variant="contained"
-                        color="primary"
-                        onClick={() => handleRetryBatch(batchStatus.batch_id)}
-                      >
-                        {t("videoGenerator.progress.retryBatch")}
-                      </Button>
-                    ) : (
-                      // No saved config (legacy batch) — honest disabled state, not placebo.
-                      // Disabled buttons swallow hover events, so wrap in a span for the Tooltip.
-                      <Tooltip title={t("videoGenerator.progress.noRetryData")}>
-                        <span>
-                          <Button startIcon={<RefreshIcon />} variant="outlined" color="primary" disabled>
-                            {t("videoGenerator.progress.retryBatch")}
-                          </Button>
-                        </span>
-                      </Tooltip>
-                    )}
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card sx={{
-              mb: 3,
-              boxShadow: 2,
-              borderRadius: 2
-            }}>
-              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Typography 
-                  variant="h6" 
-                  sx={{ 
-                    fontWeight: 600,
-                    mb: 2,
-                    color: 'text.primary'
-                  }}
-                >
-                  {t("videoGenerator.progress.statusTitle")}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                  {t("videoGenerator.progress.none")}
-                </Typography>
-              </CardContent>
-            </Card>
-          )}
-
-                </Box>
               ),
             },
             {
@@ -3239,69 +2102,15 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               title: t("layout.board.cards.results"),
               layout: { x: 115, y: 46, w: 60, h: 40 },
               body: (
-                <Box sx={statusSx}>
-          {/* Batch History — Stacked Thumbnail Gallery */}
-          <Card sx={{
-            boxShadow: 2,
-            borderRadius: 2
-          }}>
-            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  {t("videoGenerator.library.title")}
-                </Typography>
-                <IconButton size="small" onClick={fetchBatches}>
-                  <RefreshIcon />
-                </IconButton>
-              </Stack>
-              <Box sx={{ maxHeight: 520, overflowY: 'auto', pr: 0.5 }}>
-              <BatchLibraryGrid
-                batches={batches}
-                onOpen={openBatch}
-                onOpenMenu={batchMenu.open}
-                onDelete={requestDeleteBatch}
-                statusLabel={batchStatusLabel}
-              />
-              </Box>
-              <EntityContextMenu
-                anchorPosition={batchMenu.anchorPosition}
-                onClose={batchMenu.close}
-                actions={batchMenu.isOpen ? batchMenuActions() : []}
-              />
-              {batches.length === 0 && (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <VideoIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {t("videoGenerator.library.empty")}
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Legacy batch controls — keep for running/pending batches */}
-          {batches.filter(b => b.status === "running" || b.status === "pending" || b.status === "processing").map((b) => (
-            <Box key={`ctrl-${b.batch_id}`} sx={{ mt: 1 }}>
-              <Button size="small" color="warning" variant="outlined" onClick={() => confirmCancelBatch(b)}>
-                {t("videoGenerator.library.cancelNamed", { name: b.display_name || b.batch_id.slice(0, 8) })}
-              </Button>
-            </Box>
-          ))}
-          {/* Retry for failed batches that have persisted original config */}
-          {batches.filter(b => b.status === "error" && b.can_retry).map((b) => (
-            <Box key={`retry-${b.batch_id}`} sx={{ mt: 1 }}>
-              <Button
-                size="small"
-                color="primary"
-                variant="contained"
-                startIcon={<RefreshIcon />}
-                onClick={() => handleRetryBatch(b.batch_id)}
-              >
-                {t("videoGenerator.library.retryNamed", { name: b.display_name || b.batch_id.slice(0, 8) })}
-              </Button>
-            </Box>
-          ))}
-                </Box>
+                <VideoLibraryCard
+                  batchMenuActions={actions.batchMenuActions}
+                  batches={batches}
+                  confirmCancelBatch={actions.confirmCancelBatch}
+                  fetchBatches={actions.fetchBatches}
+                  handleRetryBatch={actions.handleRetryBatch}
+                  openBatch={actions.openBatch}
+                  requestDeleteBatch={actions.requestDeleteBatch}
+                />
               ),
             },
           ]}
@@ -3624,25 +2433,5 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     </PageLayout>
   );
 };
-
-// Helper to handle local/absolute paths encoded in responses
-function PathFromUrl(path) {
-  if (!path) return "";
-  try {
-    const url = new URL(path, window.location.origin);
-    return url.pathname.replace(/^\/+/, "");
-  } catch {
-    return String(path).replace(/^\/+/, "");
-  }
-}
-
-function encodePathSegments(path) {
-  if (!path) return "";
-  return path
-    .split("/")
-    .filter(Boolean)
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-}
 
 export default VideoGeneratorPage;
