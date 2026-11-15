@@ -74,6 +74,7 @@ import { getGpuStatus } from '../api/gpuService';
 import OllamaLifecycleSection from '../components/settings/OllamaLifecycleSection';
 import { ComfyUpdateSection, useComfyUpdate } from '../components/plugins/ComfyUpdate';
 import { EmbeddingPathSection, PluginInstallSection } from '../components/plugins/PluginInstall';
+import { CardWorkspace } from '../components/board';
 import { translate, useUiTranslation } from '../i18n';
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -1054,9 +1055,26 @@ const PluginsPage = () => {
         <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>
       )}
 
-      {/* VRAM Budget Bar */}
-      {plugins.length > 0 && <VramBudgetBar plugins={plugins} gpuVram={gpuVram} />}
-
+      {/* GPU memory and the plugin list are cards on the shared board. */}
+      <CardWorkspace
+        boardKey="plugins"
+        cards={[
+          {
+            id: "vram",
+            title: t('plugins.vram.title'),
+            layout: { x: 0, y: 0, w: 175, h: 20 },
+            body: (
+              <Box sx={{ p: 0.5, '& > .MuiPaper-root': { mb: 0, boxShadow: 'none', backgroundColor: 'transparent', backgroundImage: 'none' } }}>
+                <VramBudgetBar plugins={plugins} gpuVram={gpuVram} />
+              </Box>
+            ),
+          },
+          {
+            id: "plugins",
+            title: t('plugins.page.title'),
+            layout: { x: 0, y: 20, w: 175, h: 90 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
       {loading && plugins.length === 0 ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <ContextualLoader loading message={t('plugins.page.loading')} showProgress={false} inline />
@@ -1083,6 +1101,11 @@ const PluginsPage = () => {
           ))}
         </Grid>
       )}
+              </Box>
+            ),
+          },
+        ]}
+      />
 
       <ConfigDialog
         open={configPlugin !== null}
