@@ -129,6 +129,8 @@ describe("BulkImportDocumentsPage server folder", () => {
     pickServerFolder();
     await runFromMenu("Import and move");
     expect(bulkApi.startBulkImport).toHaveBeenLastCalledWith(expect.objectContaining({ dry_run: true }));
+    // The poll timer starts once the job is on screen.
+    await screen.findByTestId("import-status");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
