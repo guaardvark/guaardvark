@@ -81,6 +81,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
   const navigate = useNavigate();
   const kbdForwarding = useAppStore((s) => s.keyboardForwardingEnabled);
   const toggleKbdForwarding = useAppStore((s) => s.toggleKeyboardForwarding);
+  const bumpDemonstrationsVersion = useAppStore((s) => s.bumpDemonstrationsVersion);
   // --- Persisted window state ---
   const saved = loadState();
   const [collapsed, setCollapsed] = useState(saved.collapsed ?? false);
@@ -214,6 +215,18 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
   useEffect(() => {
     if (open && mode === 'idle') loadDemonstrations();
   }, [open, mode]);
+
+  // A replay that ended, or whose Lesson was just saved, changed what the
+  // Training page lists.
+  const finishedKey = lastAttempt ? `${lastAttempt.attempt_id}:${lastAttempt.lesson_state}` : null;
+  const seenFinishedKey = useRef(undefined);
+  useEffect(() => {
+    if (seenFinishedKey.current !== undefined && finishedKey && finishedKey !== seenFinishedKey.current) {
+      loadDemonstrations();
+      bumpDemonstrationsVersion();
+    }
+    seenFinishedKey.current = finishedKey;
+  }, [finishedKey, bumpDemonstrationsVersion]);
 
   useEffect(() => {
     if (!open) return;
