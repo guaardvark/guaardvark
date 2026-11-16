@@ -112,6 +112,17 @@
       "tiles": "Kacheln",
       "stacked": "Gestapelt"
     },
+    "status": {
+      "model": "Modell",
+      "size": "Größe",
+      "steps": "Schritte",
+      "queue": "Warteschlange",
+      "idle": "Leerlauf",
+      "active": "{{count}} aktiv",
+      "running": "Läuft",
+      "queued": "In Warteschlange",
+      "none": "Keines ausgewählt"
+    },
     "fullScreen": "Vollbild",
     "exitFullScreen": "Vollbild beenden"
   }

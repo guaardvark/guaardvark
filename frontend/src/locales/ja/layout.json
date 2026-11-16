@@ -112,6 +112,17 @@
       "tiles": "タイル",
       "stacked": "スタック"
     },
+    "status": {
+      "model": "モデル",
+      "size": "サイズ",
+      "steps": "ステップ",
+      "queue": "キュー",
+      "idle": "アイドル",
+      "active": "{{count}} アクティブ",
+      "running": "実行中",
+      "queued": "待機中",
+      "none": "未選択"
+    },
     "fullScreen": "全画面",
     "exitFullScreen": "全画面を終了"
   }

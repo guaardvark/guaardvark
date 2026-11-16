@@ -112,6 +112,17 @@
       "tiles": "Piastrelle",
       "stacked": "Impilati"
     },
+    "status": {
+      "model": "Modello",
+      "size": "Dimensione",
+      "steps": "Passaggi",
+      "queue": "Coda",
+      "idle": "Inattivo",
+      "active": "{{count}} attivi",
+      "running": "In esecuzione",
+      "queued": "In coda",
+      "none": "Nessuno selezionato"
+    },
     "fullScreen": "Schermo intero",
     "exitFullScreen": "Esci schermo intero"
   }

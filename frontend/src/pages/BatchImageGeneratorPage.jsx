@@ -23,6 +23,7 @@ import {
 import { useImageProcesses } from '../contexts/UnifiedProgressContext';
 import { useSearchParams } from 'react-router-dom';
 import PageLayout from '../components/layout/PageLayout';
+import PageStatus, { StatusChip } from '../components/layout/PageStatus';
 import { CardWorkspace } from '../components/board';
 import ImageLightbox from '../components/images/ImageLightbox';
 import useImageBatchQueue, { POLLABLE_STATUSES, TERMINAL_BATCH_STATUSES } from '../hooks/useImageBatchQueue';
@@ -1468,6 +1469,8 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     startGeneration,
   });
 
+  const activeInQueue = queue.filter((q) => POLLABLE_STATUSES.has(q.status)).length;
+
   return (
     <PageLayout
       title={embedded ? undefined : t('imagesBatch.page.title')}
@@ -1503,6 +1506,16 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
       {/* The page is four cards on the shared board: what to make, how to make
           it, what is rendering, and what has been made. */}
+      <PageStatus>
+        <StatusChip label={t('layout.board.status.model')} value={modelLabel} onClick={() => openModels()} />
+        <StatusChip label={t('layout.board.status.size')} value={`${params.width}×${params.height}`} />
+        <StatusChip label={t('layout.board.status.steps')} value={String(params.steps)} />
+        <StatusChip
+          label={t('layout.board.status.queue')}
+          value={activeInQueue ? t('layout.board.status.active', { count: activeInQueue }) : t('layout.board.status.idle')}
+          tone={activeInQueue ? 'warn' : 'ok'}
+        />
+      </PageStatus>
       <CardWorkspace
         boardKey="image-gen"
         presets={IMAGE_GEN_LAYOUTS.map((preset) => ({ ...preset, label: t(preset.labelKey) }))}

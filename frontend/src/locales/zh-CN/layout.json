@@ -112,6 +112,17 @@
       "tiles": "平铺",
       "stacked": "堆叠"
     },
+    "status": {
+      "model": "模型",
+      "size": "尺寸",
+      "steps": "步数",
+      "queue": "队列",
+      "idle": "空闲",
+      "active": "{{count}} 个活动中",
+      "running": "运行中",
+      "queued": "排队中",
+      "none": "未选择"
+    },
     "fullScreen": "全屏",
     "exitFullScreen": "退出全屏"
   }
