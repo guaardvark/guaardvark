@@ -18,12 +18,14 @@ import {
 } from '@mui/material';
 import {
   CloudDownload,
+  PlayArrow,
 } from '@mui/icons-material';
 
 import { useImageProcesses } from '../contexts/UnifiedProgressContext';
 import { useSearchParams } from 'react-router-dom';
 import PageLayout from '../components/layout/PageLayout';
-import PageStatus, { StatusChip } from '../components/layout/PageStatus';
+import PageStatus, { PagePrimaryAction, StatusChip } from '../components/layout/PageStatus';
+import { useSnackbar } from '../components/common/SnackbarProvider';
 import { CardWorkspace } from '../components/board';
 import ImageLightbox from '../components/images/ImageLightbox';
 import useImageBatchQueue, { POLLABLE_STATUSES, TERMINAL_BATCH_STATUSES } from '../hooks/useImageBatchQueue';
@@ -171,6 +173,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  // Confirmations go to the app's toast, so they do not push the cards down.
+  const toast = useSnackbar();
+  useEffect(() => {
+    if (!success) return;
+    toast?.showMessage(success, 'success');
+    setSuccess('');
+  }, [success, toast]);
   // Typed seed; blank gives every image its own seed.
   const [seedText, setSeedText] = useState('');
   const [imageModelsModalOpen, setImageModelsModalOpen] = useState(false);
@@ -1498,12 +1507,6 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         </Alert>
       )}
 
-      {success && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
-          {success}
-        </Alert>
-      )}
-
       {/* The page is four cards on the shared board: what to make, how to make
           it, what is rendering, and what has been made. */}
       <PageStatus>
@@ -1516,6 +1519,22 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           tone={activeInQueue ? 'warn' : 'ok'}
         />
       </PageStatus>
+      <PagePrimaryAction>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={actions.startGeneration}
+          disabled={loading || installBlocksStart}
+          startIcon={<PlayArrow />}
+          sx={{ textTransform: 'none', borderRadius: 1, fontWeight: 600, whiteSpace: 'nowrap' }}
+        >
+          {loading
+            ? t('imagesBatch.actions.queuing')
+            : activeInQueue
+              ? t('imagesBatch.actions.addToQueue')
+              : t('imagesBatch.actions.start')}
+        </Button>
+      </PagePrimaryAction>
       <CardWorkspace
         boardKey="image-gen"
         presets={IMAGE_GEN_LAYOUTS.map((preset) => ({ ...preset, label: t(preset.labelKey) }))}
