@@ -16692,6 +16692,10 @@
       "en": "ffd52b0ea1b7",
       "out": "fe6617695ed1"
     },
+    "infographic.noRecent": {
+      "en": "f9bcc50ae4da",
+      "out": "0ad80e7ef463"
+    },
     "infographic.seedBlank": {
       "en": "d45bd738d576",
       "out": "a3f233adf8b1"
@@ -17543,12 +17547,24 @@
       "out": "ea55ced8627e"
     },
     "history.cleared": {
-      "en": "f53d42167321",
-      "out": "5a994734067e"
+      "en": "a1df1c6175c5",
+      "out": "9058be4747fa"
     },
     "history.clear": {
       "en": "d04c3641652f",
       "out": "7414ed4cb5d9"
+    },
+    "history.hideAll": {
+      "en": "0ad5f9f56964",
+      "out": "ebbbffbf00da"
+    },
+    "history.viewRows": {
+      "en": "52d0b35277ee",
+      "out": "96ac96a1181b"
+    },
+    "history.viewGrid": {
+      "en": "fcecbb00b488",
+      "out": "fb62f8fde1ac"
     },
     "history.title": {
       "en": "44c45d139d20",
@@ -28605,12 +28621,12 @@
       "out": "b8180dc8c413"
     },
     "generationPanel.keepHourTooltip": {
-      "en": "803382f50cb7",
-      "out": "871eb640eebe"
+      "en": "233a03597bd5",
+      "out": "284a8096f2f8"
     },
     "generationPanel.keepMinutesTooltip": {
-      "en": "6b24be42ae29",
-      "out": "f632f8866f5c"
+      "en": "39add0c84c11",
+      "out": "b73000129f10"
     },
     "generationPanel.loraStrength": {
       "en": "634639aceee9",

@@ -163,6 +163,7 @@
     "progress": "{{done}} van {{total}} voltooid",
     "waiting": "Wachten op beurt in de wachtrij…",
     "recent": "Recente infographics",
+    "noRecent": "Infographics die je maakt, verschijnen hier.",
     "seedBlank": "Leeg: elke infographic krijgt een eigen willekeurige seed. Open er een en druk op de dobbelsteen om de seed te hergebruiken.",
     "retryLoaded": "\"{{name}}\" geladen in het formulier. Verander iets en klik op Genereer.",
     "retryLoadedImage": "Eén infographic uit \"{{name}}\" geladen met de bijbehorende seed. Verander iets en klik op Genereer.",

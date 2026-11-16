@@ -16,7 +16,6 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Box,
-  Paper,
   Typography,
   TextField,
   Button,
@@ -38,6 +37,8 @@ import {
   INFOGRAPHIC_ASPECTS,
 } from '../../api/infographicService';
 import BatchQueuePanel from './BatchQueuePanel';
+import { CardWorkspace } from '../board';
+import PageStatus, { PagePrimaryAction, StatusChip } from '../layout/PageStatus';
 import BatchHistoryCard from './BatchHistoryCard';
 import ImageLightbox from './ImageLightbox';
 import useImageBatchQueue, { POLLABLE_STATUSES } from '../../hooks/useImageBatchQueue';
@@ -472,33 +473,60 @@ const InfographicGenerator = () => {
     );
   };
 
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, maxWidth: 1600 }}>
-      <Box>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          {t('images.infographic.title')}
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {t('images.infographic.intro')}
-        </Typography>
-      </Box>
+  const cardBodySx = { p: 1.5, display: 'flex', flexDirection: 'column', gap: 2 };
 
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', p: 1 }}>
       {renderStatusBanner()}
 
-      <ToggleButtonGroup
-        value={mode}
-        exclusive
-        onChange={(_e, v) => v && setMode(v)}
-        size="small"
-        sx={{ alignSelf: 'flex-start' }}
-      >
-        <ToggleButton value="structured">{t('images.infographic.structured')}</ToggleButton>
-        <ToggleButton value="freeform">{t('images.infographic.freeform')}</ToggleButton>
-      </ToggleButtonGroup>
+      <PageStatus>
+        <StatusChip
+          label={t('layout.board.status.queue')}
+          value={queueBusy
+            ? t('layout.board.status.active', { count: queue.filter((q) => POLLABLE_STATUSES.has(q.status)).length })
+            : t('layout.board.status.idle')}
+          tone={queueBusy ? 'warn' : 'ok'}
+        />
+      </PageStatus>
+      <PagePrimaryAction>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AutoAwesomeIcon />}
+          onClick={handleGenerate}
+          disabled={!canGenerate}
+          sx={{ textTransform: 'none', borderRadius: 1, fontWeight: 600, whiteSpace: 'nowrap' }}
+        >
+          {queuing
+            ? t('images.infographic.queuing')
+            : queueBusy ? t('images.infographic.addToQueue') : t('images.shared.generate')}
+        </Button>
+      </PagePrimaryAction>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, alignItems: 'start' }}>
-        {/* LEFT — form */}
-        <Paper variant="outlined" sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Four cards on the shared board: what to draw, what is rendering, what came out, and earlier ones. */}
+      <CardWorkspace
+        boardKey="infographic"
+        cards={[
+          {
+            id: 'compose',
+            title: t('layout.board.cards.prompt'),
+            layout: { x: 0, y: 0, w: 85, h: 90 },
+            body: (
+              <Box sx={cardBodySx}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  {t('images.infographic.intro')}
+                </Typography>
+                <ToggleButtonGroup
+                  value={mode}
+                  exclusive
+                  onChange={(_e, v) => v && setMode(v)}
+                  size="small"
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  <ToggleButton value="structured">{t('images.infographic.structured')}</ToggleButton>
+                  <ToggleButton value="freeform">{t('images.infographic.freeform')}</ToggleButton>
+                </ToggleButtonGroup>
+
           {mode === 'structured' ? (
             <>
               <TextField
@@ -654,25 +682,37 @@ const InfographicGenerator = () => {
               <Alert severity="error" sx={{ flex: 1, py: 0 }} onClose={() => setError('')}>{error}</Alert>
             )}
           </Box>
-        </Paper>
-
-        {/* RIGHT — queue and results */}
-        <Box>
-          <BatchQueuePanel queue={queue} onCancel={handleCancel} onClearCompleted={clearCompleted} />
-          <Paper variant="outlined" sx={{ p: 2, minHeight: 240, bgcolor: 'rgba(0,0,0,0.02)' }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-              {t('images.infographic.results')}
-            </Typography>
-            {renderResults()}
-          </Paper>
-        </Box>
-      </Box>
-
-      {history.length > 0 && (
-        <Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-            {t('images.infographic.recent')}
-          </Typography>
+              </Box>
+            ),
+          },
+          {
+            id: 'queue',
+            title: t('layout.board.cards.queue'),
+            layout: { x: 85, y: 0, w: 90, h: 22 },
+            body: (
+              <Box sx={cardBodySx}>
+                {queue.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">{t('layout.board.queueEmpty')}</Typography>
+                )}
+                <BatchQueuePanel queue={queue} onCancel={handleCancel} onClearCompleted={clearCompleted} />
+              </Box>
+            ),
+          },
+          {
+            id: 'results',
+            title: t('images.infographic.results'),
+            layout: { x: 85, y: 22, w: 90, h: 68 },
+            body: <Box sx={cardBodySx}>{renderResults()}</Box>,
+          },
+          {
+            id: 'recent',
+            title: t('images.infographic.recent'),
+            layout: { x: 0, y: 90, w: 175, h: 40 },
+            body: (
+              <Box sx={cardBodySx}>
+                {history.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">{t('images.infographic.noRecent')}</Typography>
+                )}
           <Grid container spacing={2}>
             {history.map((batch) => (
               <Grid item xs={6} sm={4} md={3} lg={2} key={batch.batch_id}>
@@ -688,8 +728,11 @@ const InfographicGenerator = () => {
               </Grid>
             ))}
           </Grid>
-        </Box>
-      )}
+              </Box>
+            ),
+          },
+        ]}
+      />
 
       {lightboxItem && (
         <ImageLightbox

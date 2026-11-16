@@ -163,6 +163,7 @@
     "progress": "{{done}} of {{total}} done",
     "waiting": "Waiting its turn in the queue…",
     "recent": "Recent infographics",
+    "noRecent": "Infographics you make appear here.",
     "seedBlank": "Blank: every infographic gets its own random seed. Open one and press the dice to reuse its seed.",
     "retryLoaded": "Loaded \"{{name}}\" into the form. Change anything, then Generate.",
     "retryLoadedImage": "Loaded one infographic from \"{{name}}\" with its seed. Change anything, then Generate.",
