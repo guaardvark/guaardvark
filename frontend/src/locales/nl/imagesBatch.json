@@ -105,8 +105,11 @@
     "statusFailed": "Fout bij het controleren van de servicedoeleis"
   },
   "history": {
-    "cleared": "Batchgeschiedenis gewist.",
+    "cleared": "Elke batch is verborgen in deze lijst. Er is niets verwijderd.",
     "clear": "Batchlijst wissen",
+    "hideAll": "Verberg elke batch in deze lijst (niets wordt verwijderd)",
+    "viewRows": "Rijen",
+    "viewGrid": "Miniaturen",
     "title": "Recente batches",
     "refresh": "Batches vernieuwen",
     "retry": "Opnieuw proberen",

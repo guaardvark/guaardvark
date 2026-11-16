@@ -105,8 +105,11 @@
     "statusFailed": "Error al verificar el estado del servicio"
   },
   "history": {
-    "cleared": "Lista de lotes eliminada.",
+    "cleared": "Cada lote se oculta de esta lista. No se eliminó nada.",
     "clear": "Limpiar lista de lotes",
+    "hideAll": "Ocultar todos los lotes de esta lista (no se elimina nada)",
+    "viewRows": "Filas",
+    "viewGrid": "Miniaturas",
     "title": "Lotes recientes",
     "refresh": "Actualizar lotes",
     "retry": "Reintentar",

@@ -105,8 +105,11 @@
     "statusFailed": "Überprüfung des Service-Status fehlgeschlagen"
   },
   "history": {
-    "cleared": "Batch-Verlauf gelöscht.",
+    "cleared": "Jeder Batch wird aus dieser Liste ausgeblendet. Nichts wurde gelöscht.",
     "clear": "Batch-Liste löschen",
+    "hideAll": "Alle Batches aus dieser Liste ausblenden (nichts wird gelöscht)",
+    "viewRows": "Zeilen",
+    "viewGrid": "Miniaturansichten",
     "title": "Letzte Batches",
     "refresh": "Batches aktualisieren",
     "retry": "Erneut versuchen",

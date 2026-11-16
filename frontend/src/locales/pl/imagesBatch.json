@@ -105,8 +105,11 @@
     "statusFailed": "Nie udało się sprawdzić statusu usługi"
   },
   "history": {
-    "cleared": "Wykaszowano listę historii partii.",
+    "cleared": "Każda partia jest ukryta na tej liście. Nic nie zostało usunięte.",
     "clear": "Wyczyść listę partii",
+    "hideAll": "Ukryj wszystkie partie na tej liście (nic nie jest usuwane)",
+    "viewRows": "Wiersze",
+    "viewGrid": "Miniatury",
     "title": "Ostatnie partie",
     "refresh": "Odśwież partie",
     "retry": "Powtórz",

@@ -105,8 +105,11 @@
     "statusFailed": "Échec de la vérification du statut du service"
   },
   "history": {
-    "cleared": "Liste de l'historique des lots effacée.",
+    "cleared": "Chaque lot est masqué de cette liste. Rien n'a été supprimé.",
     "clear": "Effacer la liste des lots",
+    "hideAll": "Masquer tous les lots de cette liste (rien n'est supprimé)",
+    "viewRows": "Lignes",
+    "viewGrid": "Vignettes",
     "title": "Lots récents",
     "refresh": "Actualiser les lots",
     "retry": "Réessayer",
