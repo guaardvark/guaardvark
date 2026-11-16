@@ -163,6 +163,7 @@
     "progress": "{{done}} de {{total}} concluídos",
     "waiting": "Aguardando sua vez na fila…",
     "recent": "Infográficos recentes",
+    "noRecent": "Os infográficos que você criar aparecerão aqui.",
     "seedBlank": "Vazio: cada Infográfico recebe sua própria semente aleatória. Abra um e pressione o dado para reutilizar sua semente.",
     "retryLoaded": "Carregado \"{{name}}\" no formulário. Altere qualquer coisa e clique em Gerar.",
     "retryLoadedImage": "Um Infográfico de \"{{name}}\" foi carregado com sua semente. Altere qualquer coisa e clique em Gerar.",

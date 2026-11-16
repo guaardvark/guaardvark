@@ -166,6 +166,7 @@
     "progress": "Zakończono {{done}} z {{total}}",
     "waiting": "Oczekiwanie na swoją kolej w kolejce…",
     "recent": "Ostatnie infografiki",
+    "noRecent": "Twoje infografiki pojawią się tutaj.",
     "seedBlank": "Puste: każda infografika otrzymuje własne losowe ziarno. Otwórz jedną i kliknij ikonę kostki, aby użyć jej ziarna ponownie.",
     "retryLoaded": "Załadowano \"{{name}}\" do formularza. Zmień cokolwiek, a następnie kliknij Generuj.",
     "retryLoadedImage": "Załadowano jedną infografikę z \"{{name}}\" wraz z jej ziarnem. Zmień cokolwiek, a następnie kliknij Generuj.",

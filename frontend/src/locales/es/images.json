@@ -163,6 +163,7 @@
     "progress": "{{done}} de {{total}} completadas",
     "waiting": "Esperando su turno en la cola…",
     "recent": "Infografías recientes",
+    "noRecent": "¿Aparecerán aquí las infografías que hagas.",
     "seedBlank": "En blanco: cada infografía tiene su propia semilla aleatoria. Abre una y pulsa el dado para reutilizar su semilla.",
     "retryLoaded": "Se ha cargado \"{{name}}\" en el formulario. Cambia cualquier cosa y luego pulsa Generar.",
     "retryLoadedImage": "Se ha cargado una infografía de \"{{name}}\" con su semilla. Cambia cualquier cosa y luego pulsa Generar.",

@@ -163,6 +163,7 @@
     "progress": "{{done}} von {{total}} abgeschlossen",
     "waiting": "Wartet auf seine Position in der Warteschlange…",
     "recent": "Letzte Infografiken",
+    "noRecent": "Deine erstellten Infografiken erscheinen hier.",
     "seedBlank": "Leer: Jede Infografik erhält einen eigenen Zufalls-Seed. Öffne eine und drücke auf das Würfelchen, um ihren Seed wiederzuverwenden.",
     "retryLoaded": "\"{{name}}\" wurde in das Formular geladen. Ändere etwas und klicke dann auf Generieren.",
     "retryLoadedImage": "Eine Infografik aus \"{{name}}\" mit ihrem Seed wurde geladen. Ändere etwas und klicke dann auf Generieren.",
