@@ -1,8 +1,9 @@
 """Delete History removes batch-image, batch-video and audio history — files
 and their database mirrors — and nothing else in the same folders.
 
-Scope is structural: a batch is a directory carrying batch_metadata.json, an
-audio generation is a uuid-hex-named file. Hand-named audio, editor renders,
+Scope is structural: a batch is a directory carrying batch_metadata.json
+wherever it was moved to, a single render or infographic is a file named as
+its generator names it, an audio generation is a uuid-hex-named file. Hand-named audio, editor renders,
 root folders, indexing job history and running batches must all survive.
 
 ComfyUI's output/ and input/ are emptied too (they duplicate what the batch
@@ -406,3 +407,73 @@ def test_spoken_clips_in_the_voice_subfolder_are_history(seeded, no_generators, 
     assert f"Audio/Voice/{HEX_B}.wav" not in remaining_docs
     assert "Audio/Voice/my intro.wav" in remaining_docs
     assert Folder.query.filter_by(path="Audio/Voice").count() == 1
+
+
+def _seed_moved_and_single(upload):
+    """A batch moved into a user folder, single renders, infographics, and hand-placed files beside them."""
+    moved = upload / "Images" / "Keepers" / "ImageBatch_moved"
+    (moved / "images").mkdir(parents=True)
+    (moved / "batch_metadata.json").write_text(json.dumps({"status": "completed"}))
+    (moved / "images" / "m.png").write_bytes(b"m" * 10)
+    (upload / "Images" / "Keepers" / "holiday.png").write_bytes(b"h" * 5)
+    images = upload / "Images"
+    (images / "ImageGen_10-31-2026_045727_047.png").write_bytes(b"1" * 7)
+    (images / "guaardvark-moss-image_00224_.png").write_bytes(b"2" * 8)
+    (images / "guaardvark-moss-image_00229_ (2).png").write_bytes(b"3" * 9)
+    (images / "yapper.jpeg").write_bytes(b"y" * 4)
+    info = images / "Infographics"
+    info.mkdir()
+    (info / "infographic_20261113_111852_319420.png").write_bytes(b"i" * 11)
+    (info / "my-chart.png").write_bytes(b"c" * 3)
+
+    images_root = Folder.query.filter_by(path="Images").one()
+    keepers = Folder(name="Keepers", path="Images/Keepers", parent_id=images_root.id)
+    info_folder = Folder(name="Infographics", path="Images/Infographics", parent_id=images_root.id)
+    db.session.add_all([keepers, info_folder])
+    db.session.flush()
+    moved_folder = Folder(name="ImageBatch_moved", path="Images/Keepers/ImageBatch_moved", parent_id=keepers.id)
+    db.session.add(moved_folder)
+    db.session.flush()
+    db.session.add_all([
+        Document(filename="m.png", path="Images/Keepers/ImageBatch_moved/images/m.png", folder_id=moved_folder.id),
+        Document(filename="holiday.png", path="Images/Keepers/holiday.png", folder_id=keepers.id),
+        Document(filename="ImageGen_10-31-2026_045727_047.png", path="Images/ImageGen_10-31-2026_045727_047.png", folder_id=images_root.id),
+        Document(filename="guaardvark-moss-image_00224_.png", path="Images/guaardvark-moss-image_00224_.png", folder_id=images_root.id),
+        Document(filename="yapper.jpeg", path="Images/yapper.jpeg", folder_id=images_root.id),
+        Document(filename="infographic_20261113_111852_319420.png",
+                 path="Images/Infographics/infographic_20261113_111852_319420.png", folder_id=info_folder.id),
+        Document(filename="my-chart.png", path="Images/Infographics/my-chart.png", folder_id=info_folder.id),
+    ])
+    db.session.commit()
+
+
+def test_moved_batches_single_renders_and_infographics_are_history(seeded, no_generators, sidecar_down):
+    _seed_moved_and_single(seeded)
+    counts = svc.count_generation_history(upload_dir=seeded)
+    assert counts["images"]["batches"] == 2
+    assert counts["loose"] == {"files": 3, "bytes": 24}
+    assert counts["infographics"] == {"files": 1, "bytes": 11}
+
+    result = svc.delete_generation_history(upload_dir=seeded, triggered_by="test")
+    assert result["success"], result["errors"]
+    assert result["deleted"]["images"]["batches"] == 2
+    assert result["deleted"]["loose"] == {"files": 3, "bytes": 24}
+    assert result["deleted"]["infographics"] == {"files": 1, "bytes": 11}
+
+    images = seeded / "Images"
+    assert not (images / "Keepers" / "ImageBatch_moved").exists()
+    assert sorted(p.name for p in images.iterdir()) == ["Infographics", "Keepers", "yapper.jpeg"]
+    assert [p.name for p in (images / "Infographics").iterdir()] == ["my-chart.png"]
+    assert [p.name for p in (images / "Keepers").iterdir()] == ["holiday.png"]
+
+    remaining_folders = {f.path for f in Folder.query.all()}
+    assert remaining_folders == {
+        "Images", "Videos", "Audio", "Videos/Editor Renders", "Images/Keepers", "Images/Infographics",
+    }
+    remaining_docs = {d.path for d in Document.query.all()}
+    assert remaining_docs == {
+        "Videos/Editor Renders/r.mp4", "Audio/NARRATOR.wav",
+        "Images/Keepers/holiday.png", "Images/yapper.jpeg", "Images/Infographics/my-chart.png",
+    }
+    kinds = {r.kind for r in RetentionAudit.query.all()}
+    assert {"generation_history_loose", "generation_history_infographics"} <= kinds
