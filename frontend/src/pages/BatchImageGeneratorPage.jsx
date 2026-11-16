@@ -102,6 +102,42 @@ const debugLog = (...args) => {
 // Pull a renderable message out of an API error envelope or a fetch failure.
 const errorMessageFrom = (payload, fallback) => formatUiError(payload) || fallback;
 
+// Ready-made arrangements of the page's cards (175 columns). The first is the default.
+const IMAGE_GEN_LAYOUTS = [
+  {
+    id: "columns",
+    labelKey: "layout.board.layouts.columns",
+    layout: {
+      prompt: { x: 0, y: 0, w: 60, h: 86 },
+      settings: { x: 60, y: 0, w: 55, h: 86 },
+      queue: { x: 115, y: 0, w: 60, h: 36 },
+      results: { x: 115, y: 36, w: 60, h: 50 },
+    },
+  },
+  {
+    // The library across the full width, for browsing what has been made.
+    id: "library",
+    labelKey: "layout.board.layouts.library",
+    layout: {
+      prompt: { x: 0, y: 0, w: 60, h: 50 },
+      settings: { x: 60, y: 0, w: 60, h: 50 },
+      queue: { x: 120, y: 0, w: 55, h: 50 },
+      results: { x: 0, y: 50, w: 175, h: 70 },
+    },
+  },
+  {
+    // Prompt and settings side by side at full height; queue and results in a side column.
+    id: "compose",
+    labelKey: "layout.board.layouts.compose",
+    layout: {
+      prompt: { x: 0, y: 0, w: 65, h: 99 },
+      settings: { x: 65, y: 0, w: 60, h: 99 },
+      queue: { x: 125, y: 0, w: 50, h: 40 },
+      results: { x: 125, y: 40, w: 50, h: 59 },
+    },
+  },
+];
+
 const BatchImageGeneratorPage = ({ embedded = false }) => {
   const { t, language } = useUiTranslation();
   const theme = useTheme();
@@ -1469,6 +1505,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           it, what is rendering, and what has been made. */}
       <CardWorkspace
         boardKey="image-gen"
+        presets={IMAGE_GEN_LAYOUTS.map((preset) => ({ ...preset, label: t(preset.labelKey) }))}
         cards={[
           {
             id: "prompt",

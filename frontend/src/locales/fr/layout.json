@@ -95,6 +95,7 @@
   },
   "board": {
     "resetLayout": "Réinitialiser la disposition des cartes",
+    "layout": "Mise en page",
     "cards": {
       "prompt": "Prompt",
       "settings": "Paramètres",
@@ -107,7 +108,9 @@
     "layouts": {
       "columns": "Colonnes",
       "library": "Bibliothèque large",
-      "compose": "Composition"
+      "compose": "Composition",
+      "tiles": "Tuiles",
+      "stacked": "Empilé"
     },
     "fullScreen": "Plein écran",
     "exitFullScreen": "Quitter le plein écran"

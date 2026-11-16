@@ -95,6 +95,7 @@
   },
   "board": {
     "resetLayout": "Redefinir layout do cartão",
+    "layout": "Layout",
     "cards": {
       "prompt": "Prompt",
       "settings": "Configurações",
@@ -107,7 +108,9 @@
     "layouts": {
       "columns": "Colunas",
       "library": "Biblioteca ampla",
-      "compose": "Compor"
+      "compose": "Compor",
+      "tiles": "Blocos",
+      "stacked": "Empilhado"
     },
     "fullScreen": "Tela cheia",
     "exitFullScreen": "Sair da tela cheia"

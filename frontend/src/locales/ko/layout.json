@@ -95,6 +95,7 @@
   },
   "board": {
     "resetLayout": "카드 레이아웃 초기화",
+    "layout": "레이아웃",
     "cards": {
       "prompt": "프롬프트",
       "settings": "설정",
@@ -107,7 +108,9 @@
     "layouts": {
       "columns": "열",
       "library": "와이드 라이브러리",
-      "compose": "구성"
+      "compose": "구성",
+      "tiles": "타일",
+      "stacked": "스택"
     },
     "fullScreen": "전체 화면",
     "exitFullScreen": "전체 화면 종료"
