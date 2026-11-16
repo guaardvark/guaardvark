@@ -86,4 +86,12 @@ const PageStatus = ({ children }) => {
 
 PageStatus.propTypes = { children: PropTypes.node };
 
+/** Shows the page's main action (Generate, Add to queue) in the header, where no card arrangement moves it. */
+export const PagePrimaryAction = ({ children }) => {
+  const slot = usePageHeaderSlot("primary");
+  return slot ? createPortal(children, slot) : null;
+};
+
+PagePrimaryAction.propTypes = { children: PropTypes.node };
+
 export default PageStatus;

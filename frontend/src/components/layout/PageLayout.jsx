@@ -79,7 +79,11 @@ const PageLayout = ({
   const outerSlots = React.useContext(PageHeaderSlotContext);
   const [actionsSlot, setActionsSlot] = useState(null);
   const [statusSlot, setStatusSlot] = useState(null);
-  const ownSlots = useMemo(() => ({ actions: actionsSlot, status: statusSlot }), [actionsSlot, statusSlot]);
+  const [primarySlot, setPrimarySlot] = useState(null);
+  const ownSlots = useMemo(
+    () => ({ actions: actionsSlot, status: statusSlot, primary: primarySlot }),
+    [actionsSlot, statusSlot, primarySlot],
+  );
   const headerSlots = showHeader ? ownSlots : outerSlots;
   const contentPadding = noPadding || variant === "grid" ? 0 : { xs: 1.5, sm: spacing.sectionGap };
 
@@ -189,6 +193,8 @@ const PageLayout = ({
                   </ToggleButton>
                 </ToggleButtonGroup>
               )}
+              {/* The page's main action, set apart from the other buttons so it is always in one place. */}
+              <Box ref={setPrimarySlot} sx={{ display: "flex", mr: 10, "&:empty": { display: "none" } }} />
               <Box ref={setActionsSlot} sx={{ display: "contents" }} />
               {actions}
               {modelStatus && activeModel && (
