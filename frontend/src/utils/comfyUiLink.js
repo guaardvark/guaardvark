@@ -4,13 +4,19 @@
 // reports where it talks to ComfyUI (/gpu/comfyui/status: comfyui_url, from
 // the plugin manifest's port or GUAARDVARK_COMFYUI_URL); that address names
 // the backend's own machine as localhost, which from another computer on the
-// network is the viewer's machine. So a loopback host is swapped for the host
-// the page was opened on, and the port is kept. An address that already names
-// a machine is opened as given.
+// network is the viewer's machine. The same goes for the names a container
+// uses for its host (host.containers.internal, host.docker.internal): they
+// resolve only inside the container, never in the browser. So a loopback or
+// container-host name is swapped for the host the page was opened on, and the
+// port and protocol are kept. An address that already names a machine is
+// opened as given.
 
 export const DEFAULT_COMFYUI_PORT = 8188;
 
-const LOOPBACK = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0"]);
+const LOOPBACK = new Set([
+  "localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0",
+  "host.containers.internal", "host.docker.internal",
+]);
 
 /**
  * @param {string} pageHostname  window.location.hostname
