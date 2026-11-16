@@ -26606,6 +26606,14 @@
       "en": "a3653350a8bb",
       "out": "4c4e53b717c3"
     },
+    "history.looseFiles": {
+      "en": "020dc8f0461e",
+      "out": "19c8e18f04d6"
+    },
+    "history.infographics": {
+      "en": "0f7a338f23fa",
+      "out": "feed01e936ae"
+    },
     "history.audio": {
       "en": "930ecfa60add",
       "out": "d890eac87f71"
@@ -26941,6 +26949,15 @@
       "en": "f81193dba23e",
       "out": "95ffd2f9c040"
     },
+    "embedding.reindexStarted": {
+      "en": "2de61797d3e9"
+    },
+    "embedding.reindexStartedPending": {
+      "en": "fbee0a520f13"
+    },
+    "embedding.reindexFailed": {
+      "en": "9742ab9e6e00"
+    },
     "media.saved": {
       "en": "2fbb23ec9d8f",
       "out": "2fbb23ec9d8f"
@@ -27266,6 +27283,15 @@
     },
     "modelsPanel.embeddingRefreshAria": {
       "en": "35a6cd015d59"
+    },
+    "modelsPanel.reindexHint": {
+      "en": "b763f1f14032"
+    },
+    "modelsPanel.reindex": {
+      "en": "3f669e3dc7ba"
+    },
+    "modelsPanel.reindexTooltip": {
+      "en": "e993e1828601"
     },
     "chatPanel.title": {
       "en": "2ced57f12591"
@@ -27874,6 +27900,18 @@
     "deleteHistory.videos": {
       "en": "56b71e89fb10"
     },
+    "deleteHistory.loose": {
+      "en": "28f0ab54e94d",
+      "out": "87c5c3245322"
+    },
+    "deleteHistory.infographics": {
+      "en": "9bf6ee4bfdd5",
+      "out": "30a0c4ad8658"
+    },
+    "deleteHistory.filesValue": {
+      "en": "78a8a57ab305",
+      "out": "411d6748f757"
+    },
     "deleteHistory.audio": {
       "en": "acdac205f5e2"
     },
@@ -27899,7 +27937,8 @@
       "en": "0160a7e8b5d1"
     },
     "deleteHistory.description": {
-      "en": "5f9b31fd505a"
+      "en": "1c19168c4b2d",
+      "out": "70065dc19765"
     },
     "deleteHistory.runningSkipped": {
       "en": "0a096fd12652"
@@ -27934,6 +27973,21 @@
     },
     "dialogs.embeddingConfirm": {
       "en": "ea0f8b7569f9"
+    },
+    "dialogs.reindexTitle": {
+      "en": "3f669e3dc7ba"
+    },
+    "dialogs.reindexDescription": {
+      "en": "2cb0c79b0062"
+    },
+    "dialogs.documentPrompt": {
+      "en": "afee9dabedab"
+    },
+    "dialogs.reindexKeeps": {
+      "en": "676cbdad1d40"
+    },
+    "dialogs.reindexConfirm": {
+      "en": "6e0918907358"
     },
     "dialogs.rebootTitle": {
       "en": "e1c6101b08a9"
