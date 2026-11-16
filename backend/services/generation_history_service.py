@@ -7,10 +7,16 @@ them, which the per-batch delete routes never did (they `rmtree` and leave
 
 Scope is deliberately narrow and structural, not by folder prefix:
 
-- image/video history = subdirectories of ``UPLOAD_DIR/Images`` and
-  ``UPLOAD_DIR/Videos`` that contain ``batch_metadata.json``. The same
-  folders also hold ``Editor Renders``, ``Text Overlay`` and standalone
-  ComfyUI output, none of which is batch history;
+- image/video history = every folder under ``UPLOAD_DIR`` that contains
+  ``batch_metadata.json``, wherever it was moved to in the Library. The
+  media folders also hold ``Editor Renders`` and ``Text Overlay``, which are
+  not history;
+- single renders = files directly in ``UPLOAD_DIR/Images`` and
+  ``UPLOAD_DIR/Videos`` that carry a name only a generator gives: the Bates
+  stamp (``ImageGen_04-02-2026_153000_001.png``) or ComfyUI's counter
+  (``<prefix>_00224_.png``). A file dropped there by hand stays;
+- infographics = files in ``UPLOAD_DIR/Images/Infographics`` named as the
+  infographic generator names them;
 - audio history = files in ``UPLOAD_DIR/Audio`` and its ``Voice`` subfolder
   named ``<uuid4 hex>.wav``, ``.mp3`` or ``_input_params.json`` (the
   audio_foundry backends name every generation ``uuid.uuid4().hex``) plus the
@@ -43,6 +49,16 @@ logger = logging.getLogger(__name__)
 
 BATCH_METADATA = "batch_metadata.json"
 AUDIO_GENERATED_RE = re.compile(r"^[0-9a-f]{32}(\.wav|\.mp3|_input_params\.json)$")
+# A copy made in the Library keeps the name and gains " (2)".
+_COPY = r"( \(\d+\))?"
+# output_registration.bates_name for single renders, and ComfyUI's SaveImage /
+# SaveVideo counter, which nothing but ComfyUI writes.
+LOOSE_GENERATED_RE = re.compile(
+    r"^((ImageGen|VideoGen)_\d{2}-\d{2}-\d{4}(_\d+)+|.+_\d{5}_)" + _COPY + r"\.[A-Za-z0-9]+$"
+)
+INFOGRAPHIC_RE = re.compile(r"^infographic_\d{8}_\d{6}_[0-9a-f]{6}" + _COPY + r"\.png$")
+INFOGRAPHICS_SUBDIR = ("Images", "Infographics")
+MEDIA_ROOTS = ("Images", "Videos")
 # Where audio_foundry files spoken clips (its config.yaml output.voice_subdir).
 AUDIO_VOICE_SUBDIR = "Voice"
 # A batch in one of these states is still owned by a generator and is skipped.
@@ -83,23 +99,86 @@ def _tree_stats(path: Path) -> tuple[int, int]:
     return files, size
 
 
-def _discover_batches(root: Path) -> list[dict[str, Any]]:
-    """Batch directories under ``root``: only those carrying batch_metadata.json."""
+def _batch_kind(rel: str, name: str) -> str:
+    """A moved batch keeps its kind: by the media folder it sits under, else by its Bates prefix."""
+    if rel.startswith("Videos/") or name.startswith("VideoBatch"):
+        return "videos"
+    return "images"
+
+
+def _discover_all_batches(upload: Path) -> list[dict[str, Any]]:
+    """Every batch folder under the uploads folder, at any depth.
+
+    A batch dragged into another Library folder is still a batch. The walk
+    does not descend into a batch or into dot-folders.
+    """
+    import os
+
     batches: list[dict[str, Any]] = []
-    if not root.is_dir():
+    if not upload.is_dir():
         return batches
-    for d in sorted(root.iterdir()):
-        meta = d / BATCH_METADATA
-        if not d.is_dir() or not meta.is_file():
+    for root, dirs, files in os.walk(upload):
+        d = Path(root)
+        if BATCH_METADATA in files and d != upload:
+            dirs[:] = []
+            status = None
+            try:
+                status = json.loads((d / BATCH_METADATA).read_text(encoding="utf-8")).get("status")
+            except Exception:
+                status = None  # unreadable metadata is still a batch; it just cannot be running
+            n, size = _tree_stats(d)
+            rel = d.relative_to(upload).as_posix()
+            batches.append({
+                "batch_id": d.name, "dir": d, "rel": rel, "kind": _batch_kind(rel, d.name),
+                "status": status, "files": n, "bytes": size,
+            })
             continue
-        status = None
+        dirs[:] = sorted(x for x in dirs if not x.startswith("."))
+    return sorted(batches, key=lambda b: b["rel"])
+
+
+def _matching_files(folder: Path, pattern: "re.Pattern[str]") -> list[Path]:
+    if not folder.is_dir():
+        return []
+    return sorted(p for p in folder.iterdir() if p.is_file() and pattern.match(p.name))
+
+
+def _loose_generated_files(upload: Path) -> list[Path]:
+    """Single renders sitting directly in Images/ and Videos/."""
+    found: list[Path] = []
+    for root in MEDIA_ROOTS:
+        found.extend(_matching_files(upload / root, LOOSE_GENERATED_RE))
+    return found
+
+
+def _infographic_files(upload: Path) -> list[Path]:
+    return _matching_files(upload.joinpath(*INFOGRAPHICS_SUBDIR), INFOGRAPHIC_RE)
+
+
+def _files_size(paths: Iterable[Path]) -> int:
+    total = 0
+    for p in paths:
         try:
-            status = json.loads(meta.read_text(encoding="utf-8")).get("status")
-        except Exception:
-            status = None  # unreadable metadata is still a batch; it just cannot be running
-        files, size = _tree_stats(d)
-        batches.append({"batch_id": d.name, "dir": d, "status": status, "files": files, "bytes": size})
-    return batches
+            total += p.stat().st_size
+        except OSError:
+            pass
+    return total
+
+
+def _unlink_all(paths: Iterable[Path], label: str, errors: list[str]) -> tuple[list[Path], int]:
+    """Remove files; returns (the ones removed, bytes freed)."""
+    removed: list[Path] = []
+    freed = 0
+    for p in paths:
+        try:
+            size = p.stat().st_size
+            p.unlink()
+        except Exception as e:
+            errors.append(f"{label} {p.name}: {e}")
+            continue
+        removed.append(p)
+        freed += size
+    return removed, freed
 
 
 def _audio_root(upload: Path) -> Path:
@@ -318,12 +397,29 @@ def _batch_targets(
     return folder_ids, doc_ids
 
 
-def _db_targets(image_ids: Iterable[str], video_ids: Iterable[str]) -> tuple[list[int], list[int]]:
-    """(folder ids, document ids) that mirror the given batches and every
-    generated audio file. Root folders are never included."""
+def _db_targets(batch_paths: Iterable[str], file_paths: Iterable[str] = ()) -> tuple[list[int], list[int]]:
+    """(folder ids, document ids) that mirror the given batch folders, the
+    given single files and every generated audio file. Paths are relative to
+    the uploads folder. Root folders are never included."""
     from backend.models import db, Document, Folder
 
-    folder_ids, doc_ids = _batch_targets(image_ids, video_ids)
+    batch_set = set(batch_paths)
+    file_set = set(file_paths)
+
+    def inside_batch(path: str) -> bool:
+        parent = Path(path or "")
+        return any(ancestor.as_posix() in batch_set for ancestor in parent.parents)
+
+    folder_ids = [
+        fid for fid, path in db.session.query(Folder.id, Folder.path)
+        if path in batch_set or inside_batch(path)
+    ] if batch_set else []
+    folder_set = set(folder_ids)
+    doc_ids: set[int] = set()
+    if batch_set or file_set:
+        for did, path, folder_id in db.session.query(Document.id, Document.path, Document.folder_id):
+            if folder_id in folder_set or path in file_set or (batch_set and inside_batch(path)):
+                doc_ids.add(did)
     audio_folder_ids = [
         fid for (fid,) in db.session.query(Folder.id).filter(
             Folder.path.in_(["Audio", f"Audio/{AUDIO_VOICE_SUBDIR}"])
@@ -463,8 +559,11 @@ def count_generation_history(
 ) -> dict[str, Any]:
     """What "Delete History" would remove, for the confirmation dialog."""
     upload = _upload_dir(upload_dir)
-    images = _discover_batches(upload / "Images")
-    videos = _discover_batches(upload / "Videos")
+    batches = _discover_all_batches(upload)
+    images = [b for b in batches if b["kind"] == "images"]
+    videos = [b for b in batches if b["kind"] == "videos"]
+    loose = _loose_generated_files(upload)
+    infographics = _infographic_files(upload)
     audio_root = _audio_root(upload)
     audio_files = _audio_generated_files(audio_root)
     audio_jobs = _audio_job_files(audio_root)
@@ -489,7 +588,10 @@ def count_generation_history(
 
     db_counts = {"documents": 0, "folders": 0, "job_history": 0}
     try:
-        folder_ids, doc_ids = _db_targets([b["batch_id"] for b in images], [b["batch_id"] for b in videos])
+        folder_ids, doc_ids = _db_targets(
+            [b["rel"] for b in batches],
+            [p.relative_to(upload).as_posix() for p in loose + infographics],
+        )
         db_counts = {
             "documents": len(doc_ids),
             "folders": len(folder_ids),
@@ -505,7 +607,11 @@ def count_generation_history(
         for sub in COMFYUI_SCRATCH_DIRS
     }
     comfy_bytes = sum(c["bytes"] for c in comfy_counts.values())
-    total_bytes = sum(b["bytes"] for b in images) + sum(b["bytes"] for b in videos) + audio_bytes + comfy_bytes
+    loose_bytes = _files_size(loose)
+    infographic_bytes = _files_size(infographics)
+    total_bytes = (
+        sum(b["bytes"] for b in batches) + audio_bytes + comfy_bytes + loose_bytes + infographic_bytes
+    )
     return {
         "images": {
             "batches": len(images),
@@ -525,6 +631,8 @@ def count_generation_history(
             "bytes": audio_bytes,
             "running": running_audio,
         },
+        "loose": {"files": len(loose), "bytes": loose_bytes},
+        "infographics": {"files": len(infographics), "bytes": infographic_bytes},
         "comfyui": {
             **comfy_counts,
             "files": sum(c["files"] for c in comfy_counts.values()),
@@ -543,7 +651,7 @@ def delete_generation_history(
     triggered_by: str = "settings_ui",
 ) -> dict[str, Any]:
     """Delete all batch-image, batch-video and audio generation history,
-    plus ComfyUI's output/ and input/ scratch.
+    single renders, infographics, plus ComfyUI's output/ and input/ scratch.
 
     Each stage is isolated: a failure is recorded in ``errors`` and the
     remaining stages still run, so a bad sidecar cannot leave batch
@@ -557,34 +665,48 @@ def delete_generation_history(
         "images": {"batches": 0, "files": 0, "bytes": 0},
         "videos": {"batches": 0, "files": 0, "bytes": 0},
         "audio": {"jobs": 0, "files": 0, "bytes": 0},
+        "loose": {"files": 0, "bytes": 0},
+        "infographics": {"files": 0, "bytes": 0},
         "comfyui": {sub: {"files": 0, "bytes": 0} for sub in COMFYUI_SCRATCH_DIRS},
         "documents": 0,
         "folders": 0,
         "job_history": 0,
     }
     removed_ids: dict[str, list[str]] = {"images": [], "videos": []}
+    removed_batch_paths: list[str] = []
+    removed_file_paths: list[str] = []
 
     # 1. Batch directories. A batch whose metadata still says "running" but
     #    that no live generator owns was interrupted; it is history now.
     generators = {"images": _generator_instance("images"), "videos": _generator_instance("videos")}
+    live = {kind: _active_batch_ids(generators[kind]) for kind in ("images", "videos")}
+    for batch in _discover_all_batches(upload):
+        kind, bid = batch["kind"], batch["batch_id"]
+        if bid in live[kind]:
+            skipped[kind].append(bid)
+            continue
+        try:
+            shutil.rmtree(batch["dir"])
+        except Exception as e:
+            errors.append(f"{kind}/{bid}: {e}")
+            continue
+        removed_ids[kind].append(bid)
+        removed_batch_paths.append(batch["rel"])
+        deleted[kind]["batches"] += 1
+        deleted[kind]["files"] += batch["files"]
+        deleted[kind]["bytes"] += batch["bytes"]
     for kind in ("images", "videos"):
-        root = upload / ("Images" if kind == "images" else "Videos")
-        live = _active_batch_ids(generators[kind])
-        for batch in _discover_batches(root):
-            bid = batch["batch_id"]
-            if bid in live:
-                skipped[kind].append(bid)
-                continue
-            try:
-                shutil.rmtree(batch["dir"])
-            except Exception as e:
-                errors.append(f"{kind}/{bid}: {e}")
-                continue
-            removed_ids[kind].append(bid)
-            deleted[kind]["batches"] += 1
-            deleted[kind]["files"] += batch["files"]
-            deleted[kind]["bytes"] += batch["bytes"]
         _forget_batches(generators[kind], removed_ids[kind])
+
+    # 1a. Single renders and infographics: files, written whole when a render ends.
+    for key, paths, label in (
+        ("loose", _loose_generated_files(upload), "render"),
+        ("infographics", _infographic_files(upload), "infographic"),
+    ):
+        removed, freed = _unlink_all(paths, label, errors)
+        deleted[key]["files"] = len(removed)
+        deleted[key]["bytes"] = freed
+        removed_file_paths.extend(p.relative_to(upload).as_posix() for p in removed)
 
     # 1b. ComfyUI's own output/ and input/. A prompt still executing may read
     #     input/ or write output/ next, so a non-empty queue defers both.
@@ -651,7 +773,7 @@ def delete_generation_history(
 
     # 3. Database mirrors of what is now gone from disk.
     try:
-        folder_ids, doc_ids = _db_targets(removed_ids["images"], removed_ids["videos"])
+        folder_ids, doc_ids = _db_targets(removed_batch_paths, removed_file_paths)
         jh_ids = _job_history_ids(removed_ids["images"], keep=skipped["images"] + skipped["videos"])
         deleted.update(_delete_db_rows(folder_ids, doc_ids, jh_ids))
     except Exception as e:
@@ -681,6 +803,16 @@ def delete_generation_history(
                 parameters={"skipped": skipped["audio"], "sidecar_available": sidecar_available},
                 triggered_by=triggered_by,
             )
+        for key in ("loose", "infographics"):
+            if deleted[key]["files"]:
+                record_deletion(
+                    actor="user",
+                    kind=f"generation_history_{key}",
+                    operation="bulk_delete",
+                    item_count=deleted[key]["files"],
+                    bytes_freed=deleted[key]["bytes"],
+                    triggered_by=triggered_by,
+                )
         comfy_files = sum(c["files"] for c in deleted["comfyui"].values())
         if comfy_files:
             record_deletion(
@@ -706,6 +838,7 @@ def delete_generation_history(
 
     bytes_freed = (
         deleted["images"]["bytes"] + deleted["videos"]["bytes"] + deleted["audio"]["bytes"]
+        + deleted["loose"]["bytes"] + deleted["infographics"]["bytes"]
         + sum(c["bytes"] for c in deleted["comfyui"].values())
     )
     return {
