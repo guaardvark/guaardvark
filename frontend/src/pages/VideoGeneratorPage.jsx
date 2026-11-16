@@ -89,8 +89,10 @@ import { uploadDroppedMedia } from "../components/videoeditor/useExternalDrop";
 import { formatUiError } from "../utils/uiError";
 import { handleResponse } from "../api/apiClient";
 import TextInputDialog from "../components/common/TextInputDialog";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import lazyWithReload from "../utils/lazyWithReload";
-import PageStatus, { StatusChip } from "../components/layout/PageStatus";
+import PageStatus, { PagePrimaryAction, StatusChip } from "../components/layout/PageStatus";
+import { useSnackbar } from "../components/common/SnackbarProvider";
 import { useUiTranslation,  Trans } from "../i18n";
 
 // Lazy import for VideoModelsModal
@@ -360,6 +362,13 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  // Confirmations go to the app's toast, so they do not push the cards down.
+  const toast = useSnackbar();
+  useEffect(() => {
+    if (!success) return;
+    toast?.showMessage(formatUiError(success) || String(success), "success");
+    setSuccess("");
+  }, [success, toast]);
   const [videoPlayer, setVideoPlayer] = useState(null); // { url, title, batchId, results, currentIndex }
   const [renameDialog, setRenameDialog] = useState(null); // { batchId, videoPath, current }
   const videoPlayerBoxRef = useRef(null);
@@ -1867,12 +1876,6 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         </Alert>
       )}
 
-      {success && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
-          {formatUiError(success) || String(success)}
-        </Alert>
-      )}
-
       {/* Selected model not installed — block generation rather than silently
           downgrade to a worse model. The action button reopens the install
           modal and pulses the exact model to download. */}
@@ -1942,6 +1945,18 @@ const VideoGeneratorPage = ({ embedded = false }) => {
           sub={gpuBusy ? blockReason || t("videoGenerator.tiles.gpuBusy") : t("videoGenerator.tiles.readyToQueue")}
         />
         </PageStatus>
+        <PagePrimaryAction>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={actions.handleGenerate}
+            disabled={!canQueue || controlsDisabled}
+            startIcon={<PlayArrowIcon />}
+            sx={{ textTransform: "none", borderRadius: 1, fontWeight: 600, whiteSpace: "nowrap" }}
+          >
+            {t("videoGenerator.mode.addToQueue")}
+          </Button>
+        </PagePrimaryAction>
         <CardWorkspace
           boardKey="video-gen"
           version={2}
