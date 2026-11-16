@@ -112,6 +112,17 @@
       "tiles": "Płytki",
       "stacked": "Skumulowane"
     },
+    "status": {
+      "model": "Model",
+      "size": "Rozmiar",
+      "steps": "Kroki",
+      "queue": "Kolejka",
+      "idle": "Bezczynny",
+      "active": "{{count}} aktywnych",
+      "running": "Uruchamianie",
+      "queued": "W kolejce",
+      "none": "Brak wyboru"
+    },
     "fullScreen": "Pełny ekran",
     "exitFullScreen": "Wyjdź z pełnego ekranu"
   }
