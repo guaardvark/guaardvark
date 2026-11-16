@@ -1,7 +1,7 @@
 // The Image Gen Results card: what has been made. The open batch's images
 // and the recent batches.
 
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import {
   Box,
   Card,
@@ -15,15 +15,32 @@ import {
   ImageListItemBar,
   IconButton,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
 } from '@mui/material';
 import {
   Visibility,
   Refresh as RefreshIcon,
   Image as ImageIcon,
+  ViewList as ViewListIcon,
+  ViewModule as ViewModuleIcon,
+  VisibilityOff as HideAllIcon,
 } from '@mui/icons-material';
 import BatchHistoryCard from '../BatchHistoryCard';
+import BatchHistoryRow from '../BatchHistoryRow';
 import { useUiTranslation } from '../../../i18n';
 import { API_BASE, HISTORY_PAGE, encodeFilename, statusSx } from "../imageGenPage";
+
+// Recent batches as rows or as the thumbnail grid; the choice is kept per browser.
+const BATCH_VIEW_KEY = 'imageGenBatchView';
+const readBatchView = () => {
+  try {
+    return localStorage.getItem(BATCH_VIEW_KEY) === 'grid' ? 'grid' : 'rows';
+  } catch {
+    return 'rows';
+  }
+};
 
 function ImageLibraryCard({
   activeBatch,
@@ -45,6 +62,26 @@ function ImageLibraryCard({
   setHistoryShown,
 }) {
   const { t } = useUiTranslation();
+  const [batchView, setBatchView] = useState(readBatchView);
+  const chooseBatchView = (event, view) => {
+    if (!view) return;
+    setBatchView(view);
+    try {
+      localStorage.setItem(BATCH_VIEW_KEY, view);
+    } catch {
+      // The view still changes for this visit.
+    }
+  };
+  const shownBatches = liveBatchHistory.slice(0, historyShown);
+  const batchProps = (batch) => ({
+    batch,
+    dateStr: formatImageDate(batch.created_at || batch.start_time || batch.end_time),
+    onOpen: openHistoryBatchGallery,
+    onLoad: loadBatchById,
+    onHide: hideBatch,
+    onDownload: downloadResults,
+    onAdjustRetry: handleAdjustRetry,
+  });
   return (
         <Box sx={statusSx}>
     {/* Generated Images Gallery */}
@@ -160,38 +197,48 @@ function ImageLibraryCard({
           </Typography>
           <Stack direction="row" spacing={1} alignItems="center">
             {batchHistory.length > 0 && (
-              <Button
-                size="small"
-                variant="outlined"
-                color="inherit"
-                onClick={handleClearBatchList}
-                sx={{ textTransform: 'none', borderRadius: 1 }}
-              >
-                {t('imagesBatch.history.clear')}
-              </Button>
+              <Tooltip title={t('imagesBatch.history.hideAll')}>
+                <IconButton size="small" onClick={handleClearBatchList} aria-label={t('imagesBatch.history.hideAll')}>
+                  <HideAllIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
             <IconButton size="small" onClick={loadBatchHistory} title={t('imagesBatch.history.refresh')}>
               <RefreshIcon />
             </IconButton>
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={batchView}
+              onChange={chooseBatchView}
+              sx={{ '& .MuiToggleButton-root': { px: 0.75, py: 0.4 } }}
+            >
+              <ToggleButton value="rows" aria-label={t('imagesBatch.history.viewRows')} title={t('imagesBatch.history.viewRows')}>
+                <ViewListIcon sx={{ fontSize: 18 }} />
+              </ToggleButton>
+              <ToggleButton value="grid" aria-label={t('imagesBatch.history.viewGrid')} title={t('imagesBatch.history.viewGrid')}>
+                <ViewModuleIcon sx={{ fontSize: 18 }} />
+              </ToggleButton>
+            </ToggleButtonGroup>
           </Stack>
         </Stack>
 
         <Box sx={{ maxHeight: 520, overflowY: 'auto', pr: 0.5 }}>
-          <Grid container spacing={2}>
-            {liveBatchHistory.slice(0, historyShown).map((batch) => (
-              <Grid item xs={6} sm={4} md={3} key={batch.batch_id}>
-                <BatchHistoryCard
-                  batch={batch}
-                  dateStr={formatImageDate(batch.created_at || batch.start_time || batch.end_time)}
-                  onOpen={openHistoryBatchGallery}
-                  onLoad={loadBatchById}
-                  onHide={hideBatch}
-                  onDownload={downloadResults}
-                  onAdjustRetry={handleAdjustRetry}
-                />
-              </Grid>
-            ))}
-          </Grid>
+          {batchView === 'rows' ? (
+            <Box>
+              {shownBatches.map((batch) => (
+                <BatchHistoryRow key={batch.batch_id} {...batchProps(batch)} />
+              ))}
+            </Box>
+          ) : (
+            <Grid container spacing={2}>
+              {shownBatches.map((batch) => (
+                <Grid item xs={6} sm={4} md={3} key={batch.batch_id}>
+                  <BatchHistoryCard {...batchProps(batch)} />
+                </Grid>
+              ))}
+            </Grid>
+          )}
           {liveBatchHistory.length > historyShown && (
             <Box sx={{ textAlign: 'center', mt: 1.5 }}>
               <Button size="small" onClick={() => setHistoryShown((n) => n + HISTORY_PAGE)}>

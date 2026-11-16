@@ -163,6 +163,7 @@
     "progress": "Completate {{done}} di {{total}}",
     "waiting": "In attesa del proprio turno in coda…",
     "recent": "Infografiche recenti",
+    "noRecent": "Le tue infografiche appariranno qui.",
     "seedBlank": "Vuoto: ogni Infografica ha il proprio seed casuale. Aprine una e premi sui dadi per riutilizzare il suo seed.",
     "retryLoaded": "Caricata \"{{name}}\" nel modulo. Cambia qualcosa, poi Genera.",
     "retryLoadedImage": "Caricata un'Infografica da \"{{name}}\" con il suo seed. Cambia qualcosa, poi Genera.",

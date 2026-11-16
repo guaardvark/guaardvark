@@ -105,8 +105,11 @@
     "statusFailed": "Impossibile controllare lo stato del servizio"
   },
   "history": {
-    "cleared": "Elenco della cronologia batch cancellato.",
+    "cleared": "Ogni batch è nascosto da questa lista. Nulla è stato eliminato.",
     "clear": "Cancella Elenco Batch",
+    "hideAll": "Nascondi ogni batch da questa lista (nulla viene eliminato)",
+    "viewRows": "Righe",
+    "viewGrid": "Miniature",
     "title": "Batch Recenti",
     "refresh": "Aggiorna batch",
     "retry": "Riprova",

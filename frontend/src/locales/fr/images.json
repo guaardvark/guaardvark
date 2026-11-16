@@ -163,6 +163,7 @@
     "progress": "{{done}} sur {{total}} terminées",
     "waiting": "En attente dans la file d'attentente…",
     "recent": "Infographies récentes",
+    "noRecent": "Les infographies que vous créez apparaissent ici.",
     "seedBlank": "Vide : chaque infographie possède sa propre graine aléatoire. Ouvrez-en une et appuyez sur le dé pour réutiliser sa graine.",
     "retryLoaded": "«{{name}}» chargé dans le formulaire. Modifiez quoi que ce soit, puis Générer.",
     "retryLoadedImage": "Une infographie de «{{name}}» chargée avec sa graine. Modifiez quoi que ce soit, puis Générer.",

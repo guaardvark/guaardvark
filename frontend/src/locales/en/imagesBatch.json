@@ -105,8 +105,11 @@
     "statusFailed": "Failed to check service status"
   },
   "history": {
-    "cleared": "Cleared batch history list.",
+    "cleared": "Every batch is hidden from this list. Nothing was deleted.",
     "clear": "Clear Batch List",
+    "hideAll": "Hide every batch from this list (nothing is deleted)",
+    "viewRows": "Rows",
+    "viewGrid": "Thumbnails",
     "title": "Recent Batches",
     "refresh": "Refresh batches",
     "retry": "Retry",
