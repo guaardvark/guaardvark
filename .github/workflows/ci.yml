@@ -361,6 +361,7 @@ jobs:
             backend/tests/services/test_connections_safety.py \
             backend/tests/services/test_resource_hardening.py \
             backend/tests/services/test_gpu_resource_policy.py \
+            backend/tests/unit/test_gpu_metrics_rocm.py \
             backend/tests/services/test_gpu_pipeline_pin.py \
             backend/tests/services/test_media_player_service.py \
             backend/tests/test_social_outreach/test_reject_stops_post.py \
