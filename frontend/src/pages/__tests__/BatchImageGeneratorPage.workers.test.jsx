@@ -71,7 +71,8 @@ describe("Image Gen workers on a CUDA card", () => {
   it("shows one-at-a-time instead of a worker count", async () => {
     await renderPage();
     expect(screen.getByText("One at a time")).toBeInTheDocument();
-    expect(screen.queryByText(/Workers: \d/)).toBeNull();
+    // The chip's own text; the Max Workers slider label in Advanced is not it.
+    expect(screen.queryByText(/^Workers: \d/)).toBeNull();
   });
 
   it("disables Max Workers with a plain reason", async () => {
