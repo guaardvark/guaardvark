@@ -95,6 +95,7 @@
   },
   "board": {
     "resetLayout": "重置卡片布局",
+    "layout": "布局",
     "cards": {
       "prompt": "提示词",
       "settings": "设置",
@@ -107,7 +108,9 @@
     "layouts": {
       "columns": "列",
       "library": "宽库",
-      "compose": "组合"
+      "compose": "组合",
+      "tiles": "平铺",
+      "stacked": "堆叠"
     },
     "fullScreen": "全屏",
     "exitFullScreen": "退出全屏"
