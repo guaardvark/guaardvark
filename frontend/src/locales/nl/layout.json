@@ -95,6 +95,7 @@
   },
   "board": {
     "resetLayout": "Reset kaartindeling",
+    "layout": "Indeling",
     "cards": {
       "prompt": "Prompt",
       "settings": "Instellingen",
@@ -107,7 +108,9 @@
     "layouts": {
       "columns": "Kolommen",
       "library": "Brede Bibliotheek",
-      "compose": "Componeren"
+      "compose": "Componeren",
+      "tiles": "Tegels",
+      "stacked": "Gestapeld"
     },
     "fullScreen": "Volledig scherm",
     "exitFullScreen": "Volledig scherm afsluiten"

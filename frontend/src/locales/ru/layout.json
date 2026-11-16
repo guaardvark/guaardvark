@@ -95,6 +95,7 @@
   },
   "board": {
     "resetLayout": "Сбросить макет карточек",
+    "layout": "Макет",
     "cards": {
       "prompt": "Промпт",
       "settings": "Настройки",
@@ -107,7 +108,9 @@
     "layouts": {
       "columns": "Колонки",
       "library": "Широкая Библиотека",
-      "compose": "Композиция"
+      "compose": "Композиция",
+      "tiles": "Плитки",
+      "stacked": "Стек"
     },
     "fullScreen": "Полный экран",
     "exitFullScreen": "Выход из полного экрана"

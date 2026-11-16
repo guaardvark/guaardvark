@@ -95,6 +95,7 @@
   },
   "board": {
     "resetLayout": "Resetuj układ kart",
+    "layout": "Układ",
     "cards": {
       "prompt": "Prompt",
       "settings": "Ustawienia",
@@ -107,7 +108,9 @@
     "layouts": {
       "columns": "Kolumny",
       "library": "Szeroka Biblioteka",
-      "compose": "Kompozycja"
+      "compose": "Kompozycja",
+      "tiles": "Płytki",
+      "stacked": "Skumulowane"
     },
     "fullScreen": "Pełny ekran",
     "exitFullScreen": "Wyjdź z pełnego ekranu"

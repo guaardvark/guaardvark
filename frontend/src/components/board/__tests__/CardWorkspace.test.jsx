@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 vi.mock("../../../contexts/LayoutContext", () => {
@@ -18,7 +18,8 @@ vi.mock("../../../contexts/LayoutContext", () => {
   return { useDashboardWidth: () => 1750, useLayout: () => layout };
 });
 
-import CardWorkspace, { workspaceLayout } from "../CardWorkspace";
+import CardWorkspace, { standardPresets, workspaceLayout } from "../CardWorkspace";
+import PageLayout from "../../layout/PageLayout";
 
 const defaults = [
   { i: "prompt", x: 0, y: 0, w: 60, h: 86, minW: 20, minH: 10 },
@@ -44,6 +45,15 @@ describe("workspaceLayout", () => {
     expect(workspaceLayout(defaults, { version: 1, layout: [{ i: "prompt", x: 9, y: 9, w: 9, h: 9 }] }, 2)).toBe(defaults);
     expect(workspaceLayout(defaults, { version: 2, layout: [] }, 2)).toBe(defaults);
     expect(workspaceLayout(defaults, null, 2)).toBe(defaults);
+  });
+});
+
+describe("standardPresets", () => {
+  it("offers equal tiles and a full-width stack in reading order, and nothing for a single card", () => {
+    const [tiles, stacked] = standardPresets(defaults, 175, (key) => key);
+    expect(tiles.layout).toEqual({ prompt: { x: 0, y: 0, w: 87, h: 45 }, queue: { x: 87, y: 0, w: 87, h: 45 } });
+    expect(stacked.layout).toEqual({ prompt: { x: 0, y: 0, w: 175, h: 86 }, queue: { x: 0, y: 86, w: 175, h: 46 } });
+    expect(standardPresets(defaults.slice(0, 1), 175, (key) => key)).toEqual([]);
   });
 });
 
@@ -95,5 +105,26 @@ describe("CardWorkspace", () => {
     expect(saved.body.layout.map((item) => item.i)).toEqual(["prompt", "queue"]);
     // A minimized card keeps its body in the page: a form in it must not lose what was typed.
     expect(screen.getByText("queue body")).toBeInTheDocument();
+  });
+
+  it("puts a Layout button in the page header that brings a hidden card back", async () => {
+    render(
+      <MemoryRouter>
+        <PageLayout title="Studio">
+          <CardWorkspace boardKey="video-gen" version={3} cards={cards} />
+        </PageLayout>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith("/api/state/board/video-gen"));
+    const button = await screen.findByRole("button", { name: /Layout/ });
+    await waitFor(() => {
+      fireEvent.click(within(screen.getByText("Queue").closest(".card-header-buttons")).getByRole("button", { name: "Hide card" }));
+      expect(screen.queryByText("queue body")).not.toBeInTheDocument();
+    });
+    fireEvent.click(button);
+    expect(screen.getByRole("menuitem", { name: "Layout: Tiles" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Show Queue" }));
+    expect(screen.getByText("queue body")).toBeInTheDocument();
+    expect(posts.at(-1).body.hiddenCards).toEqual({});
   });
 });

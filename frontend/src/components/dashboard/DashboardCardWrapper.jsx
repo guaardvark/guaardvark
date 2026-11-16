@@ -82,6 +82,7 @@ const DashboardCardWrapper = React.forwardRef(
       contextMenuActions,
       contextMenuArea = "card",
       onHideCard,
+      minHeightPx = 200,
       onRename,
       titlePlaceholder,
       route: routeProp,
@@ -294,7 +295,7 @@ const DashboardCardWrapper = React.forwardRef(
             flexDirection: "column",
             height: isMinimized ? "auto" : "100%",
             maxHeight: "100%",
-            minHeight: isMinimized ? "unset" : "200px",
+            minHeight: isMinimized ? "unset" : `${minHeightPx}px`,
             p: 0.5, // Reduced base padding from 1 to 0.5
             overflow: "hidden", // Hide overflow
             // Body uses a normal cursor — only the header (.card-header-buttons,
@@ -565,6 +566,8 @@ DashboardCardWrapper.propTypes = {
   contextMenuActions: PropTypes.array,
   contextMenuArea: PropTypes.oneOf(["card", "header"]),
   onHideCard: PropTypes.func,
+  // The least height of an open card; a board that sizes cards itself passes 0.
+  minHeightPx: PropTypes.number,
   route: PropTypes.string,
   onRename: PropTypes.func,
   titlePlaceholder: PropTypes.string,

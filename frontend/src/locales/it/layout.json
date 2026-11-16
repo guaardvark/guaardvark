@@ -95,6 +95,7 @@
   },
   "board": {
     "resetLayout": "Ripristina layout schede",
+    "layout": "Layout",
     "cards": {
       "prompt": "Prompt",
       "settings": "Impostazioni",
@@ -107,7 +108,9 @@
     "layouts": {
       "columns": "Colonne",
       "library": "Libreria ampia",
-      "compose": "Composizione"
+      "compose": "Composizione",
+      "tiles": "Piastrelle",
+      "stacked": "Impilati"
     },
     "fullScreen": "Schermo intero",
     "exitFullScreen": "Esci schermo intero"

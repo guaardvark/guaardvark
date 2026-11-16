@@ -103,11 +103,11 @@ const VIDEO_GEN_LAYOUTS = [
     id: "columns",
     labelKey: "layout.board.layouts.columns",
     layout: {
-      status: { x: 0, y: 0, w: 175, h: 14 },
-      prompt: { x: 0, y: 14, w: 60, h: 86 },
-      settings: { x: 60, y: 14, w: 55, h: 86 },
-      queue: { x: 115, y: 14, w: 60, h: 46 },
-      results: { x: 115, y: 60, w: 60, h: 40 },
+      status: { x: 0, y: 0, w: 175, h: 16 },
+      prompt: { x: 0, y: 16, w: 60, h: 86 },
+      settings: { x: 60, y: 16, w: 55, h: 86 },
+      queue: { x: 115, y: 16, w: 60, h: 46 },
+      results: { x: 115, y: 62, w: 60, h: 40 },
     },
   },
   {
@@ -115,11 +115,11 @@ const VIDEO_GEN_LAYOUTS = [
     id: "library",
     labelKey: "layout.board.layouts.library",
     layout: {
-      status: { x: 0, y: 0, w: 175, h: 14 },
-      prompt: { x: 0, y: 14, w: 60, h: 50 },
-      settings: { x: 60, y: 14, w: 60, h: 50 },
-      queue: { x: 120, y: 14, w: 55, h: 50 },
-      results: { x: 0, y: 64, w: 175, h: 60 },
+      status: { x: 0, y: 0, w: 175, h: 16 },
+      prompt: { x: 0, y: 16, w: 60, h: 50 },
+      settings: { x: 60, y: 16, w: 60, h: 50 },
+      queue: { x: 120, y: 16, w: 55, h: 50 },
+      results: { x: 0, y: 66, w: 175, h: 60 },
     },
   },
   {
@@ -1921,7 +1921,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             {
               id: "status",
               title: t("layout.board.cards.status"),
-              layout: VIDEO_GEN_LAYOUTS[0].layout.status,
+              // The least height that shows the tiles whole.
+              layout: { ...VIDEO_GEN_LAYOUTS[0].layout.status, minH: 14 },
               body: (
                 <Box sx={{ p: 0.5 }}>
                 <DashboardStrip>

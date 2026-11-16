@@ -1,7 +1,7 @@
 // frontend/src/components/layout/PageLayout.jsx
 // Shared page layout component — standardizes page chrome across all pages.
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Box,
   Paper,
@@ -19,6 +19,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useLocation, useNavigate } from "react-router-dom";
 import { spacing, typography as typoTokens } from "../../theme/tokens";
 import brand from "../../config/brand";
+import { PageHeaderSlotContext, usePageHeaderSlot } from "./pageHeaderSlot";
 
 /**
  * Colour for the current route from the active theme's `moduleAccents` map,
@@ -72,11 +73,16 @@ const PageLayout = ({
     accent ?? accentForPath(theme.palette.moduleAccents, pathname);
   const showHeader = variant !== "fullscreen" && !hideHeader;
   // The buttons only step the browser's own history, which the router fills
-  // on every navigation; a brand that turns them off keeps back and forward.
-  const showHistoryButtons = brand.pageHistoryButtons !== false;
+  // on every navigation, so they are off unless a brand turns them on.
+  const showHistoryButtons = brand.pageHistoryButtons === true;
+  // A page embedded without a header hands its controls to the header above it.
+  const outerSlot = usePageHeaderSlot();
+  const [ownSlot, setOwnSlot] = useState(null);
+  const headerSlot = showHeader ? ownSlot : outerSlot;
   const contentPadding = noPadding || variant === "grid" ? 0 : { xs: 1.5, sm: spacing.sectionGap };
 
   return (
+    <PageHeaderSlotContext.Provider value={headerSlot}>
     <Box
       sx={{
         display: "flex",
@@ -167,6 +173,7 @@ const PageLayout = ({
                   </ToggleButton>
                 </ToggleButtonGroup>
               )}
+              <Box ref={setOwnSlot} sx={{ display: "contents" }} />
               {actions}
               {modelStatus && activeModel && (
                 <Chip
@@ -197,6 +204,7 @@ const PageLayout = ({
         {children}
       </Box>
     </Box>
+    </PageHeaderSlotContext.Provider>
   );
 };
 

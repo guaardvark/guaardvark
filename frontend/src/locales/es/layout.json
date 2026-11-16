@@ -95,6 +95,7 @@
   },
   "board": {
     "resetLayout": "Restablecer diseño de tarjetas",
+    "layout": "Diseño",
     "cards": {
       "prompt": "Prompt",
       "settings": "Ajustes",
@@ -107,7 +108,9 @@
     "layouts": {
       "columns": "Columnas",
       "library": "Biblioteca ancha",
-      "compose": "Componer"
+      "compose": "Componer",
+      "tiles": "Mosaico",
+      "stacked": "Apilado"
     },
     "fullScreen": "Pantalla completa",
     "exitFullScreen": "Salir de pantalla completa"

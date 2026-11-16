@@ -95,6 +95,7 @@
   },
   "board": {
     "resetLayout": "カードレイアウトをリセット",
+    "layout": "レイアウト",
     "cards": {
       "prompt": "プロンプト",
       "settings": "設定",
@@ -107,7 +108,9 @@
     "layouts": {
       "columns": "カラム",
       "library": "ワイドライブラリ",
-      "compose": "コンポーズ"
+      "compose": "コンポーズ",
+      "tiles": "タイル",
+      "stacked": "スタック"
     },
     "fullScreen": "全画面",
     "exitFullScreen": "全画面を終了"

@@ -4,7 +4,10 @@
 // cards, colours) in the backend's page-state store under `boardKey`.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
+import { Badge, Button } from "@mui/material";
+import ViewQuiltIcon from "@mui/icons-material/ViewQuilt";
 import CardBoard, { TILED } from "./CardBoard";
 import { barRows, narrowReflow, repackRows } from "./boardGeometry";
 import { loadBoardState, saveBoardState } from "./boardState";
@@ -13,6 +16,7 @@ import DashboardCardWrapper from "../dashboard/DashboardCardWrapper";
 import EntityContextMenu from "../common/EntityContextMenu";
 import useContextMenu from "../../hooks/useContextMenu";
 import { useLayout, useDashboardWidth } from "../../contexts/LayoutContext";
+import { usePageHeaderSlot } from "../layout/pageHeaderSlot";
 import { useUiTranslation } from "../../i18n";
 
 // A workspace card holds forms and galleries. Once the narrowest card of the
@@ -23,7 +27,7 @@ const STACKED_CARD_PX = 420;
 
 /**
  * The arrangement to show for a saved one: saved cards keep their place and
- * size, cards the page no longer has are dropped, and cards the save predates
+ * size (never under the card's least size), cards the page no longer has are dropped, and cards the save predates
  * take their default place. A save from another `version` is not used.
  */
 export function workspaceLayout(defaults, saved, version) {
@@ -31,9 +35,38 @@ export function workspaceLayout(defaults, saved, version) {
   const defaultById = new Map(defaults.map((item) => [item.i, item]));
   const kept = saved.layout
     .filter((item) => defaultById.has(item.i))
-    .map((item) => ({ ...defaultById.get(item.i), x: item.x, y: item.y, w: item.w, h: item.h }));
+    .map((item) => {
+      const base = defaultById.get(item.i);
+      // A save from before a card had a least size is brought up to it.
+      return { ...base, x: item.x, y: item.y, w: Math.max(item.w, base.minW || 0), h: Math.max(item.h, base.minH || 0) };
+    });
   const keptIds = new Set(kept.map((item) => item.i));
   return [...kept, ...defaults.filter((item) => !keptIds.has(item.i))];
+}
+
+/**
+ * Arrangements any board can offer when the page names none: every card at
+ * full width one under another, and equal tiles.
+ */
+export function standardPresets(defaults, columns, t) {
+  if (defaults.length < 2) return [];
+  const ordered = [...defaults].sort((a, b) => a.y - b.y || a.x - b.x);
+  const stacked = {};
+  let y = 0;
+  ordered.forEach((item) => {
+    stacked[item.i] = { x: 0, y, w: columns, h: item.h };
+    y += item.h;
+  });
+  const perRow = ordered.length <= 4 ? 2 : 3;
+  const w = Math.floor(columns / perRow);
+  const tiles = {};
+  ordered.forEach((item, idx) => {
+    tiles[item.i] = { x: (idx % perRow) * w, y: Math.floor(idx / perRow) * 45, w, h: 45 };
+  });
+  return [
+    { id: "tiles", label: t("layout.board.layouts.tiles"), layout: tiles },
+    { id: "stacked", label: t("layout.board.layouts.stacked"), layout: stacked },
+  ];
 }
 
 /**
@@ -41,13 +74,15 @@ export function workspaceLayout(defaults, saved, version) {
  * @param {number} version   bump when the default layout changes shape, so everyone gets it once
  * @param {Array<{id: string, title: string, body: node, layout: {x, y, w, h, minW?, minH?}}>} cards
  * @param {Array<{id: string, label: string, layout: Object<string, {x, y, w, h}>}>} [presets]
- *   ready-made arrangements offered in the board's menus; `layout` maps a card id to its place
+ *   ready-made arrangements offered in the board's menus; `layout` maps a card id to its place.
+ *   A page that names none gets the standard ones.
  */
 const CardWorkspace = ({ boardKey, version = 1, cards, presets }) => {
   const { t } = useUiTranslation();
   const { gridSettings } = useLayout();
   const { COLS_COUNT, ROW_HEIGHT_PX, CARD_MARGIN_PX } = gridSettings;
   const [containerRef, width] = useMeasuredWidth(useDashboardWidth());
+  const headerSlot = usePageHeaderSlot();
 
   // Card ids and default places only change when the page changes its cards.
   const defaultsKey = JSON.stringify(cards.map((card) => [card.id, card.layout]));
@@ -195,8 +230,9 @@ const CardWorkspace = ({ boardKey, version = 1, cards, presets }) => {
   const hiddenIds = cards.map((card) => card.id).filter((id) => hidden[id]);
 
   // The same items on a card's bar and on the empty board: tiled cards can leave no board to right-click.
+  const offered = presets || standardPresets(defaults, COLS_COUNT, t);
   const boardActions = () => [
-    ...(presets || []).map((preset) => ({
+    ...offered.map((preset) => ({
       label: t("layout.board.useLayout", { name: preset.label }),
       onClick: () => applyPreset(preset),
     })),
@@ -241,6 +277,7 @@ const CardWorkspace = ({ boardKey, version = 1, cards, presets }) => {
               onToggleMinimize={() => toggleMinimize(item.i)}
               keepMounted
               onHideCard={() => hideCard(item.i)}
+              minHeightPx={0}
               contextMenuArea="header"
               contextMenuActions={boardActions()}
             >
@@ -249,6 +286,22 @@ const CardWorkspace = ({ boardKey, version = 1, cards, presets }) => {
           );
         }}
       />
+      {headerSlot &&
+        createPortal(
+          <Badge badgeContent={hiddenIds.length} color="primary" overlap="rectangular">
+            <Button
+              size="small"
+              color="inherit"
+              aria-haspopup="menu"
+              startIcon={<ViewQuiltIcon fontSize="small" />}
+              onClick={(e) => menu.open(e)}
+              sx={{ textTransform: "none", opacity: 0.8, "&:hover": { opacity: 1 } }}
+            >
+              {t("layout.board.layout")}
+            </Button>
+          </Badge>,
+          headerSlot,
+        )}
       <EntityContextMenu
         anchorPosition={menu.anchorPosition}
         onClose={menu.close}
