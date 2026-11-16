@@ -132,7 +132,10 @@ class GPUMonitor:
     def __init__(self):
         self._nvidia_smi_path = shutil.which("nvidia-smi")
         self._nvitop_path = shutil.which("nvitop")
-        self._gpu_available = bool(self._nvidia_smi_path or self._nvitop_path)
+        self._rocm_smi_path = shutil.which("rocm-smi")
+        self._gpu_available = bool(
+            self._nvidia_smi_path or self._nvitop_path or self._rocm_smi_path
+        )
         
     def get_gpu_metrics(self) -> Dict[str, Any]:
         """Get current GPU metrics"""
@@ -144,6 +147,9 @@ class GPUMonitor:
                 return self._get_nvidia_smi_metrics()
             elif self._nvitop_path:
                 return self._get_nvitop_metrics()
+            elif self._rocm_smi_path:
+                from backend.utils.gpu_metrics import rocm_smi_metrics
+                return rocm_smi_metrics(self._rocm_smi_path)
         except Exception as e:
             logger.warning(f"GPU monitoring failed: {e}")
             return {"available": False, "error": str(e)}

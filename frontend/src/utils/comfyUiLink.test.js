@@ -18,6 +18,17 @@ describe("comfyUiLink", () => {
     expect(comfyUiLink("192.168.1.20", "http://comfy.lan:9000/")).toBe("http://comfy.lan:9000");
   });
 
+  it("treats the container host names like loopback", () => {
+    expect(comfyUiLink("localhost", "http://host.containers.internal:8188")).toBe("http://localhost:8188");
+    expect(comfyUiLink("192.168.1.20", "http://host.docker.internal:9000")).toBe("http://192.168.1.20:9000");
+    expect(comfyUiLink("studio.local", "https://host.containers.internal:8443")).toBe("https://studio.local:8443");
+  });
+
+  it("uses 8188 for a container host name without a port", () => {
+    expect(comfyUiLink("localhost", "http://host.containers.internal")).toBe("http://localhost:8188");
+    expect(comfyUiLink("192.168.1.20", "http://host.docker.internal/")).toBe("http://192.168.1.20:8188");
+  });
+
   it("brackets an IPv6 page host", () => {
     expect(comfyUiLink("fe80::1", "http://localhost:8188")).toBe("http://[fe80::1]:8188");
     expect(comfyUiLink("[::1]", "http://localhost:8188")).toBe("http://[::1]:8188");
