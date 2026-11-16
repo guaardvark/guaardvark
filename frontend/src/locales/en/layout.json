@@ -112,6 +112,17 @@
       "tiles": "Tiles",
       "stacked": "Stacked"
     },
+    "status": {
+      "model": "Model",
+      "size": "Size",
+      "steps": "Steps",
+      "queue": "Queue",
+      "idle": "Idle",
+      "active": "{{count}} active",
+      "running": "Running",
+      "queued": "Queued",
+      "none": "None chosen"
+    },
     "fullScreen": "Full screen",
     "exitFullScreen": "Exit full screen"
   }

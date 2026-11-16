@@ -18599,6 +18599,42 @@
       "en": "9eafca464381",
       "out": "5cddf4ea1326"
     },
+    "board.status.model": {
+      "en": "68c2cc7f0cea",
+      "out": "1e20dd673d7a"
+    },
+    "board.status.size": {
+      "en": "b7152342a267",
+      "out": "cd3361122279"
+    },
+    "board.status.steps": {
+      "en": "cdde4f20ba31",
+      "out": "d0c9d3161379"
+    },
+    "board.status.queue": {
+      "en": "d325fcd91938",
+      "out": "ff12ae0e624b"
+    },
+    "board.status.idle": {
+      "en": "cc1ebdd04e76",
+      "out": "e675291623a1"
+    },
+    "board.status.active": {
+      "en": "8eaf4563b05d",
+      "out": "773eb44f51ce"
+    },
+    "board.status.running": {
+      "en": "73989d9c5926",
+      "out": "222c85476354"
+    },
+    "board.status.queued": {
+      "en": "6a599877d753",
+      "out": "55e95614c837"
+    },
+    "board.status.none": {
+      "en": "5c8fcbe26ae4",
+      "out": "ac6c17d04a83"
+    },
     "board.fullScreen": {
       "en": "d15f886d60b1",
       "out": "fb20fafd7b34"

@@ -112,6 +112,17 @@
       "tiles": "Blocos",
       "stacked": "Empilhado"
     },
+    "status": {
+      "model": "Modelo",
+      "size": "Tamanho",
+      "steps": "Passos",
+      "queue": "Fila",
+      "idle": "Ocioso",
+      "active": "{{count}} ativos",
+      "running": "Executando",
+      "queued": "Na fila",
+      "none": "Nenhum selecionado"
+    },
     "fullScreen": "Tela cheia",
     "exitFullScreen": "Sair da tela cheia"
   }

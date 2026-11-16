@@ -112,6 +112,17 @@
       "tiles": "Tuiles",
       "stacked": "Empilé"
     },
+    "status": {
+      "model": "Modèle",
+      "size": "Taille",
+      "steps": "Étapes",
+      "queue": "File d'attente",
+      "idle": "Inactif",
+      "active": "{{count}} actif",
+      "running": "En cours",
+      "queued": "En attente",
+      "none": "Aucun choisi"
+    },
     "fullScreen": "Plein écran",
     "exitFullScreen": "Quitter le plein écran"
   }

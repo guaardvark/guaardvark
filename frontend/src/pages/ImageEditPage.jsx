@@ -59,6 +59,7 @@ import {
 } from "../api/imageEditService";
 import { useUiTranslation } from "../i18n";
 import { CardWorkspace } from "../components/board";
+import PageStatus, { StatusChip } from "../components/layout/PageStatus";
 
 const ImageModelsModal = lazyWithReload(() => import("../components/modals/ImageModelsModal"));
 
@@ -752,6 +753,19 @@ const ImageEditPage = () => {
         </Alert>
       )}
 
+      <PageStatus>
+        <StatusChip
+          label={t("layout.board.status.queue")}
+          value={
+            !running
+              ? t("layout.board.status.idle")
+              : job?.status === "queued"
+                ? t("layout.board.status.queued")
+                : t("layout.board.status.running")
+          }
+          tone={running ? "warn" : "ok"}
+        />
+      </PageStatus>
       {/* Three cards on the shared board: the photos, how to edit them, and what came out. */}
       <CardWorkspace
         boardKey="image-edit"

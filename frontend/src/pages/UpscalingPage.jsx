@@ -29,6 +29,7 @@ import {
   Slider,
 } from "@mui/material";
 import PageLayout from "../components/layout/PageLayout";
+import PageStatus, { StatusChip } from "../components/layout/PageStatus";
 import {
   Upload as UploadIcon,
   AutoFixHigh as EnhanceIcon,
@@ -560,6 +561,7 @@ const UpscalingPage = ({ embedded = false }) => {
     }
   };
 
+  const activeJobCount = jobs.filter((j) => j.status === "pending" || j.status === "running").length;
   const finishedCount = jobs.filter(
     (j) => j.status === "completed" || j.status === "failed" || j.status === "cancelled"
   ).length;
@@ -700,6 +702,18 @@ const UpscalingPage = ({ embedded = false }) => {
         </Alert>
       )}
 
+      <PageStatus>
+        <StatusChip
+          label={t("layout.board.status.model")}
+          value={selectedModel || t("layout.board.status.none")}
+          tone={selectedModel ? "ok" : "off"}
+        />
+        <StatusChip
+          label={t("layout.board.status.queue")}
+          value={activeJobCount ? t("layout.board.status.active", { count: activeJobCount }) : t("layout.board.status.idle")}
+          tone={activeJobCount ? "warn" : "ok"}
+        />
+      </PageStatus>
       {/* Three cards on the shared board: what to upscale and how, the picture, and the jobs. */}
       <CardWorkspace
         boardKey="upscaling"

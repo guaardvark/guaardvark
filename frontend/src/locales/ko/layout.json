@@ -112,6 +112,17 @@
       "tiles": "타일",
       "stacked": "스택"
     },
+    "status": {
+      "model": "모델",
+      "size": "크기",
+      "steps": "단계",
+      "queue": "대기열",
+      "idle": "대기 중",
+      "active": "{{count}} 활성",
+      "running": "실행 중",
+      "queued": "대기 중",
+      "none": "선택 안 함"
+    },
     "fullScreen": "전체 화면",
     "exitFullScreen": "전체 화면 종료"
   }
