@@ -105,8 +105,11 @@
     "statusFailed": "检查服务状态失败"
   },
   "history": {
-    "cleared": "已清除批次历史列表。",
+    "cleared": "每个批次都已从此列表中隐藏。未删除任何内容。",
     "clear": "清除批次列表",
+    "hideAll": "隐藏此列表中的所有批次（不会删除任何内容）",
+    "viewRows": "列表",
+    "viewGrid": "缩略图",
     "title": "最近批次",
     "refresh": "刷新批次",
     "retry": "重试",
