@@ -71,9 +71,9 @@ A module a script or manifest starts (`uvicorn service.app:app` in a plugin's
 | `kind` | `severity` | What it means |
 |---|---|---|
 | `url-path-collision` | `high` | Two files register the same path with an overlapping method |
-| `url-prefix-collision` | `medium` | Two files register routes under the same `/api/<segment>` |
+| `url-prefix-collision` | `medium` | Two files share `/api/<segment>` and a variable route in one also matches a fixed path the other serves. Sharing a prefix alone is counted in `stats.reachability.shared_prefixes` |
 | `ghost-endpoint` | `low` | A backend route no frontend call reaches (25 listed, then one rollup); it may be called by scripts, MCP or the CLI |
-| `ghost-api-caller` | `medium` | A frontend call to a path no route serves. A URL with no fixed segment after `/api` is counted in `stats.reachability.unresolved_callers` instead |
+| `ghost-api-caller` | `medium` | A frontend call to a path no route serves. A URL built from a function's parameter is judged by the literals its call sites pass. A URL with no fixed segment after `/api` is counted in `stats.reachability.unresolved_callers` instead |
 | `import-cycle` | `medium` (≤5 modules) / `low` | Modules that import each other at load time |
 | `over-coupled` | `medium` | A module on five or more import cycles of at most four modules |
 | `unwired-tool` | `high` | A tool registered for chat that no list, pin, route, slash command or the semantic selector can offer |

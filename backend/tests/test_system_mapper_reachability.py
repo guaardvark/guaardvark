@@ -70,3 +70,43 @@ def test_ghost_caller_for_unmatched_base_url_path(tmp_path):
     ghost_callers = {f.evidence.get("path") for f in result["findings"]
                      if f.kind == FindingKind.GHOST_API_CALLER}
     assert "/api/ghost" in ghost_callers
+
+
+def _blueprint(root, name, prefix, routes):
+    body = (f"from flask import Blueprint\nbp = Blueprint('{name}', __name__, url_prefix='{prefix}')\n")
+    for i, (path, methods) in enumerate(routes):
+        body += f"@bp.route('{path}', methods={methods!r})\ndef h{i}():\n    return {{}}\n"
+    p = root / "backend" / "api" / f"{name}_api.py"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(body)
+
+
+def _prefix_findings(root):
+    result = reachability.analyze(root)
+    return result, [f for f in result["findings"] if f.kind == FindingKind.URL_PREFIX_COLLISION]
+
+
+def test_files_sharing_a_prefix_without_a_common_url_are_not_a_collision(tmp_path):
+    _blueprint(tmp_path, "meta", "/api/meta", [("/status", ["GET"]), ("/jobs/<job_id>", ["DELETE"])])
+    _blueprint(tmp_path, "cache", "/api/meta", [("/clear", ["POST"]), ("/jobs/active", ["GET"])])
+    result, found = _prefix_findings(tmp_path)
+    assert found == []
+    assert result["stats"]["shared_prefixes"] == 1
+    assert result["stats"]["prefix_collisions"] == 0
+
+
+def test_a_variable_route_matching_another_files_fixed_path_is_a_collision(tmp_path):
+    _blueprint(tmp_path, "docs", "/api/docs", [("/<doc_id>", ["GET"])])
+    _blueprint(tmp_path, "query", "/api/docs", [("/search", ["GET"])])
+    _result, found = _prefix_findings(tmp_path)
+    assert len(found) == 1
+    assert found[0].evidence["key"] == "/api/docs"
+    assert sorted(found[0].paths) == ["backend/api/docs_api.py", "backend/api/query_api.py"]
+
+
+def test_a_path_tail_route_collides_with_deeper_paths_in_another_file(tmp_path):
+    _blueprint(tmp_path, "files", "/api/files", [("/raw/<path:name>", ["GET"])])
+    _blueprint(tmp_path, "ops", "/api/files", [("/raw/thumb/<file_id>", ["GET"]), ("/list", ["GET"])])
+    _result, found = _prefix_findings(tmp_path)
+    assert len(found) == 1 and len(found[0].evidence["pairs"]) == 1
+
