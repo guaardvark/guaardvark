@@ -548,9 +548,12 @@ def load_chat_history(
 def _get_tokenizer_fn():
     """Get tokenizer function for token counting."""
     try:
-        import tiktoken
-        encoding = tiktoken.get_encoding("cl100k_base")
-        return lambda text: len(encoding.encode(text))
+        # LlamaIndex's tokenizer is cl100k_base read from the copy it ships;
+        # tiktoken.get_encoding would fetch the file from openaipublic when its
+        # own temp-dir cache is empty.
+        from llama_index.core.utils import get_tokenizer
+        encode = get_tokenizer()
+        return lambda text: len(encode(text))
     except Exception:
         # Fallback: approximate tokens as words * 1.3
         return lambda text: int(len(text.split()) * 1.3)
