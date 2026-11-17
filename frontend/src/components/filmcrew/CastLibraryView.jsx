@@ -25,6 +25,8 @@ import { listCastLibrary, createCastSubject, deleteCastSubject } from '../../api
 import DragDropImageUpload from './DragDropImageUpload';
 import EntityContextMenu from '../common/EntityContextMenu';
 import useContextMenu from '../../hooks/useContextMenu';
+import { CardWorkspace } from '../board';
+import { PagePrimaryAction } from '../layout/PageStatus';
 import { formatUiError } from '../../utils/uiError';
 import { useUiTranslation, translate } from '../../i18n';
 
@@ -52,6 +54,14 @@ export const SubjectThumb = ({ subject }) => {
 };
 
 const KINDS = ['character', 'environment', 'prop'];
+const EMPTY_FORM = { name: '', kind: 'character', description: '', trigger_word: '' };
+
+// Where each kind's card sits by default on the Cast Library board.
+const KIND_CARD_LAYOUT = {
+  character: { x: 0, y: 0, w: 88, h: 46 },
+  environment: { x: 88, y: 0, w: 87, h: 46 },
+  prop: { x: 0, y: 46, w: 175, h: 46 },
+};
 
 /** A subject kind as shown; the value itself is what the backend stores. */
 export const kindLabel = (kind) => ({
@@ -72,13 +82,15 @@ export const trainingStatusLabel = (status) => ({
 // click. When omitted (e.g. the Film Crew tab), clicking opens the studio detail
 // route directly — so cast management always lands in the dedicated studio, never
 // the old dead /images link.
-const CastLibraryView = ({ onOpenSubject } = {}) => {
+// `asCards` (the Cast Library page) shows one card per kind on the shared
+// board, with New Subject in the page header.
+const CastLibraryView = ({ onOpenSubject, asCards = false, intro } = {}) => {
   const { t } = useUiTranslation();
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', kind: 'character', description: '', trigger_word: '' });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   // Why the list could not be loaded; shown instead of the empty-library text.
   const [loadError, setLoadError] = useState(null);
@@ -115,7 +127,7 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
         await uploaderRef.current.flushTo(subj.id);
       }
       setOpen(false);
-      setForm({ name: '', kind: 'character', description: '', trigger_word: '' });
+      setForm(EMPTY_FORM);
       loadLibrary();
     } catch (err) {
       setError(t('filmCrew.castLibrary.createFailed', { reason: reason(err) }));
@@ -135,77 +147,140 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
     }
   };
 
-  return (
+  const openNew = (kind) => {
+    if (kind) setForm((prev) => ({ ...prev, kind }));
+    setOpen(true);
+  };
+
+  const newSubjectButton = (kind) => (
+    <Button variant="contained" startIcon={<AddIcon />} onClick={() => openNew(kind)}>
+      {t('filmCrew.castLibrary.newSubject')}
+    </Button>
+  );
+
+  const errorAlert = error && (
+    <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>
+  );
+  const loadErrorAlert = (
+    <Alert
+      severity="error"
+      action={<Button color="inherit" size="small" onClick={loadLibrary}>{t('filmCrew.castLibrary.retry')}</Button>}
+    >
+      {loadError}
+    </Alert>
+  );
+  const spinner = (
+    <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
+      <CircularProgress />
+    </Box>
+  );
+
+  const subjectGrid = (list) => (
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 2 }}>
+      {list.map((s) => (
+        <Card key={s.id} variant="outlined"
+              onClick={() => openDetail(s)}
+              onContextMenu={(e) => cardMenu.open(e, s)}
+              sx={{ display: 'flex', flexDirection: 'column', cursor: 'pointer',
+                    '&:hover': { borderColor: 'primary.main' } }}>
+          <SubjectThumb subject={s} />
+          <CardContent sx={{ flexGrow: 1, pb: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle1" noWrap sx={{ fontWeight: 'bold' }}>{s.name}</Typography>
+              <IconButton size="small"
+                          onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
+                          color="inherit" aria-label={t('filmCrew.castLibrary.removeAria')}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+              <Chip label={kindLabel(s.kind)} size="small" variant="outlined" color={s.kind === 'character' ? 'primary' : 'secondary'} />
+              <Chip label={trainingStatusLabel(s.training_status)} size="small" color={s.training_status === 'trained' ? 'success' : (s.training_status === 'training' ? 'warning' : 'default')} />
+            </Box>
+            {s.trigger_word && (
+              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontFamily: 'monospace' }} color="text.secondary">
+                {s.trigger_word}
+              </Typography>
+            )}
+          </CardContent>
+          <CardActions sx={{ pt: 0 }}>
+            <Button
+              size="small"
+              startIcon={<AutoAwesomeIcon />}
+              onClick={(e) => { e.stopPropagation(); openDetail(s); }}
+            >
+              {t('filmCrew.castLibrary.openStudio')}
+            </Button>
+          </CardActions>
+        </Card>
+      ))}
+    </Box>
+  );
+
+  // A kind with no subjects offers New Subject for that kind.
+  const kindCardBody = (kind) => {
+    // A kind this page has no card for is listed with the props.
+    const list = subjects.filter((s) => (KINDS.includes(s.kind) ? s.kind : 'prop') === kind);
+    if (loading) return spinner;
+    if (list.length) return <Box sx={{ p: 1.5 }}>{subjectGrid(list)}</Box>;
+    return (
+      <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, textAlign: 'center' }}>
+        {subjects.length === 0 && (
+          <Typography variant="body2" color="text.secondary">
+            {intro ? `${intro} ` : ''}{t('filmCrew.castLibrary.empty')}
+          </Typography>
+        )}
+        {newSubjectButton(kind)}
+      </Box>
+    );
+  };
+
+  const board = (
+    <Box>
+      <PagePrimaryAction>{newSubjectButton()}</PagePrimaryAction>
+      {errorAlert}
+      {loadError ? (
+        loadErrorAlert
+      ) : (
+        <CardWorkspace
+          boardKey="cast-library"
+          cards={KINDS.map((kind) => ({
+            id: kind,
+            title: kindLabel(kind),
+            layout: KIND_CARD_LAYOUT[kind],
+            body: kindCardBody(kind),
+          }))}
+        />
+      )}
+    </Box>
+  );
+
+  const page = (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h5">{t('filmCrew.castLibrary.title')}</Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />}
-          onClick={() => setOpen(true)}
-        >
-          {t('filmCrew.castLibrary.newSubject')}
-        </Button>
+        {newSubjectButton()}
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      {errorAlert}
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
-          <CircularProgress />
-        </Box>
+        spinner
       ) : loadError ? (
-        <Alert
-          severity="error"
-          action={<Button color="inherit" size="small" onClick={loadLibrary}>{t('filmCrew.castLibrary.retry')}</Button>}
-        >
-          {loadError}
-        </Alert>
+        loadErrorAlert
       ) : subjects.length === 0 ? (
         <Typography color="text.secondary" sx={{ textAlign: 'center', p: 5 }}>
           {t('filmCrew.castLibrary.empty')}
         </Typography>
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 2 }}>
-          {subjects.map((s) => (
-            <Card key={s.id} variant="outlined"
-                  onClick={() => openDetail(s)}
-                  onContextMenu={(e) => cardMenu.open(e, s)}
-                  sx={{ display: 'flex', flexDirection: 'column', cursor: 'pointer',
-                        '&:hover': { borderColor: 'primary.main' } }}>
-              <SubjectThumb subject={s} />
-              <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="subtitle1" noWrap sx={{ fontWeight: 'bold' }}>{s.name}</Typography>
-                  <IconButton size="small"
-                              onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
-                              color="inherit" aria-label={t('filmCrew.castLibrary.removeAria')}>
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
-                  <Chip label={kindLabel(s.kind)} size="small" variant="outlined" color={s.kind === 'character' ? 'primary' : 'secondary'} />
-                  <Chip label={trainingStatusLabel(s.training_status)} size="small" color={s.training_status === 'trained' ? 'success' : (s.training_status === 'training' ? 'warning' : 'default')} />
-                </Box>
-                {s.trigger_word && (
-                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontFamily: 'monospace' }} color="text.secondary">
-                    {s.trigger_word}
-                  </Typography>
-                )}
-              </CardContent>
-              <CardActions sx={{ pt: 0 }}>
-                <Button
-                  size="small"
-                  startIcon={<AutoAwesomeIcon />}
-                  onClick={(e) => { e.stopPropagation(); openDetail(s); }}
-                >
-                  {t('filmCrew.castLibrary.openStudio')}
-                </Button>
-              </CardActions>
-            </Card>
-          ))}
-        </Box>
+        subjectGrid(subjects)
       )}
+    </Box>
+  );
+
+  return (
+    <>
+      {asCards ? board : page}
 
       <EntityContextMenu
         anchorPosition={cardMenu.anchorPosition}
@@ -277,7 +352,7 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setOpen(false); setForm({ name: '', kind: 'character', description: '', trigger_word: '' }); }}>
+          <Button onClick={() => { setOpen(false); setForm(EMPTY_FORM); }}>
             {t('filmCrew.castLibrary.cancel')}
           </Button>
           <Button onClick={handleCreate} variant="contained" disabled={submitting || !form.name}>
@@ -285,7 +360,7 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 };
 
