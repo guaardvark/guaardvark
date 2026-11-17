@@ -16,7 +16,7 @@ from scripts.dep_reconciler.base import Reconciler
 # the corrective install below force-installs these exact specs, so a stale
 # pin here silently DOWNGRADES against requirements on every drifted install.
 CRITICAL_PACKAGES = {
-    "duckduckgo_search": "duckduckgo-search==8.1.1",
+    "primp": "primp==2.0.1",  # web search HTTP client
     "flask": "Flask==3.1.3",
     "celery": "celery==5.4.0",
     "redis": "redis==5.0.4",
