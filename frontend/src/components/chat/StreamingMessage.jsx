@@ -577,7 +577,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSeg
             chat thread isn't dominated by a long stack of accordions. */}
         {agentThinkingSteps.length > 0 && (
           <Box sx={{ mb: 1, mt: 0.5 }}>
-            <AgentThinkingTrail steps={agentThinkingSteps} />
+            <AgentThinkingTrail steps={agentThinkingSteps} streaming={isActive} />
           </Box>
         )}
 
