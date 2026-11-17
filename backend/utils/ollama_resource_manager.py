@@ -1367,6 +1367,50 @@ def refresh_context_window(llm) -> int:
     return decision.num_ctx
 
 
+def chat_num_ctx(llm) -> int:
+    """The ``num_ctx`` a chat call through ``llm`` sends.
+
+    Ollama reloads a loaded model when a request asks for another window, so
+    the chat engine and every request that loads the model ahead of a chat
+    (startup warm-up, model switch, Keep ready) take the window from here.
+    """
+    try:
+        window = refresh_context_window(llm)
+    except Exception:
+        window = getattr(llm, "context_window", None)
+    if not window or window <= 0:
+        try:
+            window = compute_optimal_num_ctx(getattr(llm, "model", "gemma4:e4b"))
+        except Exception:
+            window = FALLBACK_NUM_CTX
+    return int(window)
+
+
+def warm_chat_model(llm, keep_alive, timeout=(10.0, 900.0)) -> dict:
+    """Load ``llm``'s model at the window its first chat asks for; returns Ollama's reply.
+
+    One generated token through /api/generate, so the load and the first
+    generation are both paid here. The read timeout covers a cold load on a
+    CPU-only machine with a spinning disk. Raises when the request fails.
+    """
+    model = llm.model
+    num_ctx = chat_num_ctx(llm)
+    with load_in_flight(model, num_ctx):
+        resp = requests.post(
+            f"{get_ollama_base_url()}/api/generate",
+            json={
+                "model": model,
+                "prompt": "ok",
+                "stream": False,
+                "options": {"num_predict": 1, "num_ctx": num_ctx},
+                "keep_alive": keep_alive,
+            },
+            timeout=timeout,
+        )
+    resp.raise_for_status()
+    return resp.json()
+
+
 def follow_loaded_window(llm) -> int:
     """Set ``llm`` to the window its model is loaded with on the GPU; returns the window in force.
 
