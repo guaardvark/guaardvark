@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional, Sequence, Tuple
 
-from .model import MODES, SEVERITIES, SEVERITY_RANK, VERDICTS, Change, Finding, Verdict
+from .model import CORE_PROVIDER, MODES, SEVERITIES, SEVERITY_RANK, VERDICTS, Change, Finding, Verdict
 from .policy import decide, git_mode, normalize_mode
 from .rules import RuleSet
 from .sources import blob_text, change_from_texts, changes_from_diff, ignored_paths
@@ -35,7 +35,7 @@ ENGINE_VERSION = "1"
 Scanner = Callable[[Sequence[Change], dict], Iterable[Finding]]
 
 __all__ = [
-    "ENGINE_VERSION", "MODES", "SEVERITIES", "SEVERITY_RANK", "VERDICTS",
+    "CORE_PROVIDER", "ENGINE_VERSION", "MODES", "SEVERITIES", "SEVERITY_RANK", "VERDICTS",
     "Change", "Finding", "Verdict", "RuleSet", "Scanner",
     "scan", "scan_diff", "change_from_texts", "change_digest", "git_mode", "normalize_mode",
 ]
@@ -75,6 +75,8 @@ def scan(
 
     findings, notes = rules.evaluate(changes, blob_loader=loader, ignored=ignored, deadline=deadline,
                                      source=source)
+    for finding in findings:
+        finding.provider = CORE_PROVIDER
 
     errors: List[str] = list(notes)
     providers: List[str] = []
@@ -85,7 +87,10 @@ def scan(
             errors.append(f"provider {name} failed: {exc}")
             continue
         providers.append(name)
-        findings.extend(f for f in extra if isinstance(f, Finding) and f.severity in SEVERITY_RANK)
+        for finding in extra:
+            if isinstance(finding, Finding) and finding.severity in SEVERITY_RANK:
+                finding.provider = name  # set here, so a scanner cannot present its findings as core ones
+                findings.append(finding)
 
     findings.sort(key=lambda f: (-SEVERITY_RANK[f.severity], f.path, f.line or 0))
     return Verdict(

@@ -21,8 +21,10 @@ def get_state():
     from backend.models import InboundScan, db
 
     open_count = 0
+    open_by = None
     try:
         open_count = db.session.query(InboundScan.id).filter_by(status="open").count()
+        open_by = guard.open_summary()
     except Exception as exc:
         logger.warning("inbound guard: could not count open verdicts: %s", exc)
     from backend.services import inbound_guard_watch
@@ -31,6 +33,7 @@ def get_state():
         "mode": guard.get_mode(),
         "modes": list(guard.MODES),
         "open": open_count,
+        "open_by": open_by,
         "providers": guard.registered(),
         "git": guard.git_hooks_status(),
         "sweep": inbound_guard_watch.last_summary(),
@@ -47,40 +50,69 @@ def set_state():
     return success_response({"mode": mode})
 
 
+MAX_PAGE = 500
+MAX_BATCH = 500
+
+
+def _int_arg(name: str, default: int, low: int, high: int) -> int:
+    try:
+        value = int(request.args.get(name, default))
+    except (TypeError, ValueError):
+        value = default
+    return max(low, min(value, high))
+
+
 @inbound_guard_bp.route("/scans", methods=["GET"])
 def list_scans():
+    """Verdicts from the database and changes the git side recorded, each a page with its total.
+
+    ``limit``/``offset`` page the database rows; ``git_limit``/``git_offset`` page
+    the git items (default: the same limit, from 0), read from the whole ledger.
+    ``git=0`` leaves the git side out, for cheap polling. ``status=resolved``
+    lists what was decided: approved, rejected and cleared rows, newest decision
+    first, and the git records that carry an approval.
+    """
     from backend.models import InboundScan, db
 
     status = request.args.get("status", "open")
-    limit = max(1, min(int(request.args.get("limit", 50)), 200))
-    query = db.session.query(InboundScan).order_by(InboundScan.created_at.desc())
-    if status != "all":
+    limit = _int_arg("limit", 50, 1, MAX_PAGE)
+    offset = _int_arg("offset", 0, 0, 10 ** 9)
+    query = db.session.query(InboundScan)
+    if status == "resolved":
+        query = query.filter(InboundScan.status.in_(guard.RESOLVED_STATUSES))
+    elif status != "all":
         query = query.filter_by(status=status)
-    rows = [row.to_dict() for row in query.limit(limit).all()]
-    git_records = guard.git_ledger(limit) if request.args.get("git", "1") != "0" else []
-    approved = {r.get("digest") for r in git_records if r.get("kind") == "approval"}
-    git_verdicts = [
-        {**r, "approved": r.get("digest") in approved}
-        for r in reversed(git_records)
-        if r.get("kind") == "verdict" and r.get("verdict") != "allow"
-    ]
-    return success_response({"scans": rows, "git": git_verdicts})
+    total = query.count()
+    newest = (InboundScan.decided_at.desc().nullslast(),) if status == "resolved" else ()
+    rows = query.order_by(*newest, InboundScan.created_at.desc(), InboundScan.id.desc()).offset(offset).limit(limit).all()
+    body = {"scans": guard.describe_scans(rows), "scans_total": total, "mode": guard.get_mode(),
+            "git": [], "git_total": 0}
+    if request.args.get("git", "1") != "0":
+        hooks_mode = guard.git_hooks_status().get("mode", "off")
+        page, git_total = guard.git_items(
+            _int_arg("git_offset", 0, 0, 10 ** 9), _int_arg("git_limit", limit, 1, MAX_PAGE),
+            include_approved=status == "all", only_approved=status == "resolved", hooks_mode=hooks_mode,
+        )
+        body.update(git=page, git_total=git_total, git_mode=hooks_mode)
+    return success_response(body)
 
 
 @inbound_guard_bp.route("/scans/<int:scan_id>", methods=["GET"])
 def get_scan(scan_id):
     """One verdict with what a person needs to judge it: the diff it would apply."""
     from backend.models import InboundScan, PendingFix, db
+    from backend.utils.clock import iso_local
 
     row = db.session.get(InboundScan, scan_id)
     if row is None:
         return error_response("No such inbound verdict", 404)
-    data = row.to_dict(include_payload=True)
+    data = {**guard.describe_scans([row])[0], "payload": row.to_dict(include_payload=True)["payload"]}
     if row.pending_fix_id:
         fix = db.session.get(PendingFix, row.pending_fix_id)
         if fix is not None:
             data["fix"] = {"id": fix.id, "status": fix.status, "file_path": fix.display_path(),
-                           "diff": fix.proposed_diff, "description": fix.fix_description}
+                           "diff": fix.proposed_diff, "description": fix.fix_description,
+                           "created_at": iso_local(fix.created_at)}
     payload = data.get("payload") or {}
     if payload.get("kind") == "write_file":
         from backend.services.guarded_code_service import build_unified_diff
@@ -145,13 +177,85 @@ def decide_scan(scan_id):
     return success_response(result)
 
 
+def _is_digest(value) -> bool:
+    return isinstance(value, str) and value.isalnum() and 0 < len(value) <= 40
+
+
 @inbound_guard_bp.route("/git/<digest>/approve", methods=["POST"])
 def approve_git(digest):
+    """Record an approval for a git verdict. A block needs ``override_block``, as with check_inbound.py approve."""
     data = request.get_json(silent=True) or {}
-    if not digest.isalnum() or len(digest) > 40:
+    if not _is_digest(digest):
         return error_response("Not a verdict digest", 400)
-    guard.approve_git(digest, str(data.get("by") or "operator"), str(data.get("note") or ""))
-    return success_response({"digest": digest, "approved": True})
+    try:
+        entry = guard.approve_git(digest, str(data.get("by") or "operator"), str(data.get("note") or ""),
+                                  override_block=bool(data.get("override_block")))
+    except LookupError as exc:
+        return error_response(str(exc), 404)
+    except ValueError as exc:
+        return error_response(str(exc), 409)
+    return success_response({"digest": digest, "approved": True, "verdict": entry.get("verdict"),
+                             "effect": guard.git_effect_for(digest)})
+
+
+def _batch_body():
+    """((body, ids, digests), None) from a batch request, or (None, an error response)."""
+    data = request.get_json(silent=True) or {}
+    ids, digests = data.get("ids") or [], data.get("git_digests") or []
+    if not isinstance(ids, list) or not isinstance(digests, list):
+        return None, error_response("ids and git_digests must be lists", 400)
+    if len(ids) + len(digests) > MAX_BATCH:
+        return None, error_response(f"At most {MAX_BATCH} items in one batch", 400)
+    if not all(isinstance(i, int) and not isinstance(i, bool) for i in ids):
+        return None, error_response("ids must be whole numbers", 400)
+    if not all(_is_digest(d) for d in digests):
+        return None, error_response("Not a verdict digest", 400)
+    return (data, list(dict.fromkeys(ids)), list(dict.fromkeys(digests))), None
+
+
+def _batch_counts(results):
+    counts = {"approved": 0, "rejected": 0, "skipped": 0, "failed": 0, "left_for_you": 0}
+    for item in results:
+        counts[item["outcome"]] = counts.get(item["outcome"], 0) + 1
+        if item.get("left") == "own_decision":
+            counts["left_for_you"] += 1
+    return counts
+
+
+@inbound_guard_bp.route("/scans/approve-batch", methods=["POST"])
+def approve_batch():
+    """Approve several items, one at a time; blocks are skipped unless ``include_blocks`` is true."""
+    parsed, error = _batch_body()
+    if error:
+        return error
+    data, ids, digests = parsed
+    results = guard.approve_batch(ids, digests, by=str(data.get("by") or "operator"),
+                                  note=str(data.get("note") or ""), include_blocks=data.get("include_blocks") is True)
+    return success_response({"results": results, **_batch_counts(results)})
+
+
+@inbound_guard_bp.route("/scans/reject-batch", methods=["POST"])
+def reject_batch():
+    """Reject several database items, one at a time; git records come back skipped."""
+    parsed, error = _batch_body()
+    if error:
+        return error
+    data, ids, digests = parsed
+    results = guard.reject_batch(ids, digests, by=str(data.get("by") or "operator"), note=str(data.get("note") or ""))
+    return success_response({"results": results, **_batch_counts(results)})
+
+
+@inbound_guard_bp.route("/history", methods=["GET"])
+def history():
+    """What clearing the decided records would remove and keep, counted now."""
+    return success_response(guard.history_summary())
+
+
+@inbound_guard_bp.route("/history/clear", methods=["POST"])
+def clear_history():
+    """Delete rejected and cleared records nothing reads any more; approvals and open items stay."""
+    data = request.get_json(silent=True) or {}
+    return success_response(guard.clear_history(by=str(data.get("by") or "operator")))
 
 
 @inbound_guard_bp.route("/sweep", methods=["POST"])

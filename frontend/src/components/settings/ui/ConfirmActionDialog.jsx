@@ -20,6 +20,7 @@ import { translate, useUiTranslation } from "../../../i18n";
  * @param {ReactNode} [extra]      optional extra control (e.g. keep-vs-delete chip)
  * @param {string}   [confirmLabel]
  * @param {boolean}  [busy]
+ * @param {boolean}  [confirmDisabled]  nothing to confirm: only Cancel works
  * @param {boolean}  [reversible]  neutral styling, no "cannot be undone"
  * @param {function} onConfirm
  * @param {function} onClose
@@ -33,6 +34,7 @@ const ConfirmActionDialog = ({
   extra,
   confirmLabel = translate("settings.ui.confirmDialog.confirm"),
   busy = false,
+  confirmDisabled = false,
   reversible = false,
   onConfirm,
   onClose,
@@ -93,7 +95,7 @@ const ConfirmActionDialog = ({
       <ActionButton onClick={onClose} disabled={busy}>
         {t("settings.ui.confirmDialog.cancel")}
       </ActionButton>
-      <ActionButton kind={reversible ? "neutral" : "destructive"} onClick={onConfirm} loading={busy}>
+      <ActionButton kind={reversible ? "neutral" : "destructive"} onClick={onConfirm} loading={busy} disabled={confirmDisabled}>
         {confirmLabel}
       </ActionButton>
     </DialogActions>

@@ -203,9 +203,9 @@
       "off": "Off",
       "offTooltip": "Nothing is read. Code lands exactly as before.",
       "observe": "Observe",
-      "observeTooltip": "Every change the product writes into its own code is read and recorded; nothing is held.",
+      "observeTooltip": "Changes are read and recorded: Guaardvark's own edits, git merges, fetches and branch moves, and files the sweep finds changed. Nothing is held or refused.",
       "enforce": "Enforce",
-      "enforceTooltip": "Risky changes wait here for your approval; clearly malicious ones are refused."
+      "enforceTooltip": "Guaardvark's own risky edits wait for your approval and clearly malicious ones are refused; a git merge commit the guard holds is refused until approved. Fast-forward pulls, rebase, reset, cherry-pick, am, --no-verify and Interconnector deliveries are never refused: they are recorded after they land."
     },
     "scanSizeWhole": "{{files}} file(s) read whole",
     "scanSizeWholeLines": "{{files}} file(s) read whole, {{lines}} line(s)",
@@ -237,7 +237,7 @@
       "changedHeld": "Last sweep {{time}}: {{files}} files, {{changed}} changed, {{held}} held."
     },
     "label": "Inbound guard",
-    "help": "Reads code changes before they land in this install. In Enforce, risky changes wait here for your approval.",
+    "help": "Reads code changes as they come into this install: Guaardvark's own edits before they land, git merge commits before they are made, fetches and branch moves after, and changed files at each sweep. In Enforce, risky own edits and held merge commits wait for approval; everything else is recorded after it lands.",
     "modeAria": "Inbound guard mode",
     "waiting": "{{count}} waiting",
     "nothingWaiting": "nothing waiting",
@@ -246,7 +246,11 @@
     "sweepNow": "Sweep now",
     "gitHooksInstalled": "Git hooks installed ({{mode}})",
     "gitHooksMissing": "Git hooks not installed — run scripts/install_hooks.sh",
-    "extraChecks": "extra checks from {{scanners}}"
+    "extraChecks": "extra checks from {{scanners}}",
+    "recordedToRead": "{{count}} recorded to read",
+    "nothingOpen": "nothing open",
+    "openTooltip": "Waiting, nothing applied yet: {{waiting}}. Landed, recorded only: {{landed}}. On disk, found by the sweep: {{onDisk}}. Blocked (any of these): {{blocked}}. Git records are listed in the review.",
+    "reviewFindings": "Review findings"
   },
   "mcp": {
     "policy": {

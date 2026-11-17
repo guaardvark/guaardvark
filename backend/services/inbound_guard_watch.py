@@ -45,6 +45,12 @@ def _rules():
     return guard.engine().RuleSet.load()
 
 
+def _now_iso() -> str:
+    from datetime import datetime
+
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
 def _fingerprint(finding, sha: str) -> str:
     """Line findings are known by what they quote; file-level ones by the content they judged.
 
@@ -201,7 +207,7 @@ def sweep(paths: Optional[Iterable[str]] = None) -> Dict:
     if _git_busy():
         # Shown in Settings, so a lock git left behind is noticed rather than silently stopping sweeps.
         skipped = {"skipped": "a git operation is in progress; the next sweep reads it",
-                   "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+                   "at": _now_iso()}
         _last_summary.clear()
         _last_summary.update(skipped)
         return skipped
@@ -346,7 +352,7 @@ def _sweep(paths: Optional[Iterable[str]]) -> Dict:
             logger.warning("source watch: posture checks failed: %s", exc)
     summary["seconds"] = round(time.monotonic() - started, 2)
     _last_summary.clear()
-    _last_summary.update(summary, at=time.strftime("%Y-%m-%dT%H:%M:%S"))
+    _last_summary.update(summary, at=_now_iso())
     return summary
 
 

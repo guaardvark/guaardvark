@@ -190,6 +190,12 @@
     "interval_seconds": 600
   },
 
+  "review": {
+    "_doc": "Findings a person decides one at a time. A change with any of these is left out of every batch approval and is approved only with a note typed for it: each is a way data, keys or prompts could leave the machine (a new outside host, a hosted client, TLS checking off, a raw socket, an outbound switch turned on, an API key name added, a CI secret handed to a step, an agent told to send something out, the check that keeps secrets out of commits).",
+    "own_decision_packs": ["outbound-network"],
+    "own_decision_rules": ["posture.outbound", "posture.env", "steer.exfiltrate", "guard.workflow-secrets", "guard.outbound-guard"]
+  },
+
   "posture": {
     "_doc": "Where the posture checks look for pickle-format model files (loading one can run code).",
     "model_dirs": ["data/models", "plugins/comfyui/ComfyUI/models"],
