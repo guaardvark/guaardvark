@@ -49,6 +49,10 @@ JavaScript facts:
                  with a substituted constant (a wrapper such as post(url))
     calls        [[line, caller, callee]] for calls of imported or local names
                  and JSX elements of imported components
+    params       {function name: [parameter names]} ("" for a destructured one)
+    literal_args [[callee, [argument, ...]]] for calls of imported or local
+                 names that pass a string or template literal; an argument that
+                 is anything else is None
     i18n         [[key, line]] translation keys the file uses
     exports      exported names
     default_export  the name exported as default, or ""
@@ -67,7 +71,7 @@ from pathlib import Path
 from typing import Any
 
 # Bumped when the shape of the facts changes, so a stored cache is not reused.
-FACTS_VERSION = 9
+FACTS_VERSION = 10
 
 PY_SUFFIXES = (".py",)
 JS_SUFFIXES = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs")
@@ -748,6 +752,74 @@ def _js_def_end(text: str, start: int, kind: str) -> int | None:
     return min(ends) if ends else n
 
 
+def _split_js_args(text: str, start: int, end: int) -> list[str]:
+    """The top-level comma-separated pieces of text[start:end], stripped."""
+    out: list[str] = []
+    depth = 0
+    piece = start
+    i = start
+    while i < end:
+        c = text[i]
+        if c in "'\"`":
+            i = _skip_js_string(text, i)
+            continue
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+        elif c == "," and depth == 0:
+            out.append(text[piece:i].strip())
+            piece = i + 1
+        i += 1
+    last = text[piece:end].strip()
+    if last or out:
+        out.append(last)
+    return out
+
+
+def _js_params(text: str, start: int) -> list[str] | None:
+    """Parameter names of the function defined on the line at ``start``, in
+    order; "" stands for a destructured parameter. None when the line has no
+    parenthesised parameter list."""
+    line_end = text.find("\n", start)
+    line_end = len(text) if line_end < 0 else line_end
+    paren = text.find("(", start, line_end)
+    if paren < 0:
+        return None
+    close = _matching(text, paren, "(", ")")
+    if close is None:
+        return None
+    names = []
+    for piece in _split_js_args(text, paren + 1, close):
+        m = re.match(r"(?:\.\.\.)?([A-Za-z_$][\w$]*)", piece)
+        names.append(m.group(1) if m else "")
+    return names
+
+
+def _js_literal_args(text: str, open_paren: int) -> list | None:
+    """The arguments of the call whose "(" is at ``open_paren``: a string or
+    template literal as its template, anything else as None. None when no
+    argument is a literal."""
+    close = _matching(text, open_paren, "(", ")")
+    if close is None or close - open_paren > 600:
+        return None
+    args: list = []
+    for piece in _split_js_args(text, open_paren + 1, close):
+        scanned = _scan_js_string(piece, 0) if piece[:1] in ("'", '"', "`") else None
+        args.append(scanned[0] if scanned and scanned[1] == len(piece) else None)
+    return args if any(a is not None for a in args) else None
+
+
+def _in_js_comment(text: str, offset: int) -> bool:
+    """Whether text[offset] sits in a comment, judged from its own line: a
+    line comment that opens before it, or a line of a block comment."""
+    line_start = text.rfind("\n", 0, offset) + 1
+    before = text[line_start:offset]
+    if before.lstrip().startswith(("//", "*", "/*")):
+        return True
+    return re.search(r"(?<![:\w'\"`])//", before) is not None
+
+
 def js_facts_from_text(text: str, rel_path: str = "") -> dict:
     """Facts for JavaScript/JSX/TypeScript source ``text``."""
     from backend.utils.code_symbol_extractor import extract_symbols
@@ -774,6 +846,7 @@ def js_facts_from_text(text: str, rel_path: str = "") -> dict:
             imports.append({"spec": pat, "line": index.line(m.start()), "kind": "glob", "names": {}})
 
     defs: list[dict] = []
+    params: dict[str, list[str]] = {}
     seen: set[tuple[str, int]] = set()
     language = "typescript" if rel_path.endswith((".ts", ".tsx")) else "javascript"
     for sym in extract_symbols(text, language):
@@ -788,6 +861,10 @@ def js_facts_from_text(text: str, rel_path: str = "") -> dict:
         end = index.line(end_off) if end_off is not None else sym["line"]
         defs.append({"name": sym["name"], "qualname": sym["name"], "kind": sym["type"],
                      "line": sym["line"], "end": max(end, sym["line"]), "decorated": False, "doc": ""})
+        if sym["type"] == "function":
+            names = _js_params(text, line_start)
+            if names:
+                params.setdefault(sym["name"], names)
     defs.sort(key=lambda d: d["line"])
 
     consts: dict[str, str] = {}
@@ -815,6 +892,8 @@ def js_facts_from_text(text: str, rel_path: str = "") -> dict:
 
     api_calls: list[dict] = []
     for m in _JS_HTTP_CALL.finditer(text):
+        if _in_js_comment(text, m.start()):
+            continue
         start = m.end()
         raw = None
         if m.group("via") == "axios" and text.startswith("{", start):
@@ -832,7 +911,7 @@ def js_facts_from_text(text: str, rel_path: str = "") -> dict:
         if via in _JS_KEYWORDS or via.split(".")[-1] in ("log", "warn", "error", "info", "debug", "t", "translate"):
             continue
         line = index.line(m.start())
-        if line in seen_calls:
+        if line in seen_calls or _in_js_comment(text, m.start()):
             continue
         raw = _js_url_expr(text, m.end())
         if raw:
@@ -848,6 +927,7 @@ def js_facts_from_text(text: str, rel_path: str = "") -> dict:
     local_defs = {d["name"] for d in defs}
     known = bound | local_defs
     calls: list[list] = []
+    literal_args: list[list] = []
 
     def _caller_at(line: int) -> str:
         best = ""
@@ -867,6 +947,9 @@ def js_facts_from_text(text: str, rel_path: str = "") -> dict:
         if any(d["line"] == line and d["name"] == head for d in defs):
             continue  # the definition's own signature
         calls.append([line, _caller_at(line), name])
+        args = _js_literal_args(text, m.end() - 1)
+        if args:
+            literal_args.append([name, args])
     for m in _JSX_ELEMENT.finditer(text):
         name = m.group(1)
         if name.split(".", 1)[0] in known:
@@ -884,6 +967,8 @@ def js_facts_from_text(text: str, rel_path: str = "") -> dict:
         "local_consts": local_consts,
         "api_calls": api_calls,
         "calls": calls,
+        "params": params,
+        "literal_args": literal_args,
         "i18n": i18n,
         "exports": set(_JS_EXPORT_NAME.findall(text)),
         "default_export": _default_export(text),

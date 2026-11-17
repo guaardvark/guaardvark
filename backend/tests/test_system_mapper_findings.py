@@ -130,6 +130,65 @@ def test_a_real_ghost_is_still_reported(tmp_path):
     assert _ghost_callers(tmp_path) == {"/api/plugins/missing/thing"}
 
 
+def test_a_parameter_url_is_judged_by_the_literals_passed_to_it(tmp_path):
+    _frontend(tmp_path, {"frontend/src/components/Card.jsx": (
+        "const Card = () => {\n"
+        "  const trigger = async (endpoint) => {\n"
+        "    await fetch(`/api/social-outreach/${endpoint}`, { method: 'POST' });\n"
+        "  };\n"
+        "  return (<div>\n"
+        "    <button onClick={() => trigger(\"status\")} />\n"
+        "    <button onClick={() => trigger(\"wipe\")} />\n"
+        "  </div>);\n"
+        "};\nexport default Card;\n"
+    )})
+    assert _ghost_callers(tmp_path) == {"/api/social-outreach/wipe"}
+
+
+def test_literals_passed_from_another_file_count_through_a_reexport(tmp_path):
+    _frontend(tmp_path, {
+        "frontend/src/board/state.js": (
+            "export async function loadState(key) {\n  return fetch(`/api/plugins/${key}`);\n}\n"),
+        "frontend/src/board/index.js": 'export * from "./state";\n',
+        "frontend/src/pages/APage.jsx": (
+            'import { loadState } from "../board";\n'
+            'export default function APage() { loadState("code-execution/python"); return null; }\n'),
+        # Same name, not imported from anywhere: not a call site of loadState.
+        "frontend/src/pages/BPage.jsx": (
+            "function loadState(x) { return x; }\n"
+            'export default function BPage() { loadState("nothing/here"); return null; }\n'),
+    })
+    assert _ghost_callers(tmp_path) == set()
+
+
+def test_a_passed_literal_matches_a_variable_route(tmp_path):
+    _frontend(tmp_path, {"frontend/src/api/pluginsService.js": (
+        'import { BASE_URL } from "./apiClient";\n'
+        "export const startPlugin = async (id) => fetch(`${BASE_URL}/plugins/${id}/start`, { method: 'POST' });\n"
+        'export const startOllama = () => startPlugin("ollama");\n'
+    )})
+    assert _ghost_callers(tmp_path) == set()
+
+
+def test_a_parameter_url_with_no_literal_call_site_is_judged_as_written(tmp_path):
+    _frontend(tmp_path, {"frontend/src/api/x.js": (
+        'import { BASE_URL } from "./apiClient";\n'
+        "export const history = async (sessionId) => fetch(`${BASE_URL}/chat/${sessionId}`);\n"
+        "export const reload = (sessionId) => history(sessionId);\n"
+    )})
+    assert _ghost_callers(tmp_path) == {"/api/chat/<param>"}
+
+
+def test_a_url_in_a_comment_is_not_a_caller(tmp_path):
+    _frontend(tmp_path, {"frontend/src/api/x.js": (
+        "// One document per board (`/api/gone/<key>`).\n"
+        "/**\n * Replaces fetch('/api/gone/old').\n */\n"
+        "export const a = 1; // was request('/api/gone/older')\n"
+    )})
+    result = reachability.analyze(tmp_path)
+    assert result["graph"]["callers"] == []
+
+
 def test_pages_are_linked_to_the_endpoints_they_reach(tmp_path):
     _frontend(tmp_path, {
         "frontend/src/api/pluginsService.js": (
