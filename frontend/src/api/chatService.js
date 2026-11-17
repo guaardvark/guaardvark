@@ -299,7 +299,7 @@ class EnhancedChatService {
       }
 
       // Get regular chat history
-      const historyResponse = await fetch(`${BASE_URL}/chat/${sessionId}?limit=${limit}`);
+      const historyResponse = await fetch(`${BASE_URL}/enhanced-chat/${sessionId}/history?limit=${limit}`);
       const historyData = await handleResponse(historyResponse);
 
       // Combine with local context if available
@@ -315,7 +315,7 @@ class EnhancedChatService {
     } catch (error) {
       console.error('Enhanced Chat: Error getting history:', error);
       // Fallback to basic history
-      const response = await fetch(`${BASE_URL}/chat/${sessionId}?limit=${limit}`);
+      const response = await fetch(`${BASE_URL}/enhanced-chat/${sessionId}/history?limit=${limit}`);
       const data = await handleResponse(response);
       return {
         messages: data.messages || [],
@@ -533,7 +533,7 @@ export const clearSessionContext = async (sessionId) => {
 
 export const getSystemHealth = async () => {
   try {
-    const response = await fetch(`${BASE_URL}/enhanced-chat/system-health`);
+    const response = await fetch(`${BASE_URL}/rag-debug/system-health`);
     const data = await handleResponse(response);
     return data.success ? data.data : null;
   } catch (error) {

@@ -199,7 +199,7 @@ async function handleModel(args, { addMessage }) {
     // Show current model and available models
     try {
       const [activeRes, listRes] = await Promise.all([
-        fetch("/api/model/active"),
+        fetch("/api/model"),
         fetch("/api/model/list"),
       ]);
       // handleResponse: a 4xx/5xx or an offline backend becomes an error with
