@@ -122,3 +122,94 @@ def test_interrupted_download_leaves_no_model_file(tmp_path, monkeypatch):
 
     assert not mm.is_downloaded("RealESRGAN_x2plus")
     assert mm.missing_model_message("RealESRGAN_x2plus")
+
+
+def _zip_checkpoint(path):
+    """A small zip archive, the container torch.save writes."""
+    import zipfile
+
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("archive/data.pkl", b"\x80\x02}q\x00.")
+        z.writestr("archive/data/0", b"\x00" * 4096)
+
+
+def _cut_in_half(path):
+    with open(path, "r+b") as f:
+        f.truncate(os.path.getsize(path) // 2)
+
+
+def test_truncated_zip_checkpoint_reads_as_not_installed(tmp_path):
+    """A registry model whose archive lost its end is offered for install, with the reason."""
+    mm = ModelManager(models_dir=str(tmp_path), precision="fp32", compile_enabled=False)
+    path = tmp_path / "RealESRGAN_x2plus.pth"
+    _zip_checkpoint(path)
+    assert mm.is_downloaded("RealESRGAN_x2plus")
+    assert mm.incomplete_reason("RealESRGAN_x2plus") is None
+
+    _cut_in_half(path)
+
+    assert not mm.is_downloaded("RealESRGAN_x2plus")
+    assert mm.incomplete_reason("RealESRGAN_x2plus").startswith("truncated")
+    assert "incomplete" in mm.missing_model_message("RealESRGAN_x2plus")
+    listed = mm.list_models()
+    assert "RealESRGAN_x2plus" not in [m["name"] for m in listed["downloaded"]]
+    row = next(m for m in listed["available"] if m["name"] == "RealESRGAN_x2plus")
+    assert row["incomplete"].startswith("truncated")
+    with pytest.raises(ModelNotInstalledError, match="incomplete"):
+        mm.load_model("RealESRGAN_x2plus")
+
+
+def test_truncated_user_model_is_not_listed(tmp_path):
+    mm = ModelManager(models_dir=str(tmp_path), precision="fp32", compile_enabled=False)
+    path = tmp_path / "my_custom_model.pth"
+    _zip_checkpoint(path)
+    _cut_in_half(path)
+
+    listed = mm.list_models()
+
+    assert "my_custom_model" not in [m["name"] for m in listed["downloaded"]]
+    assert "incomplete" in mm.missing_model_message("my_custom_model")
+
+
+def test_install_replaces_a_truncated_file(tmp_path, monkeypatch):
+    mm = ModelManager(models_dir=str(tmp_path), precision="fp32", compile_enabled=False)
+    path = tmp_path / "RealESRGAN_x2plus.pth"
+    _zip_checkpoint(path)
+    _cut_in_half(path)
+    monkeypatch.setattr(model_manager_module, "urlretrieve", lambda url, dest: _zip_checkpoint(dest))
+
+    mm.download_model("RealESRGAN_x2plus")
+
+    assert mm.is_downloaded("RealESRGAN_x2plus")
+
+
+def test_legacy_pickle_checkpoint_passes_when_not_empty(tmp_path):
+    """A non-zip .pth has no length to check against; only an empty one fails."""
+    mm = ModelManager(models_dir=str(tmp_path), precision="fp32", compile_enabled=False)
+    path = tmp_path / "RealESRGAN_x2plus.pth"
+    path.write_bytes(b"\x80\x02\x8a\nlegacy")
+    assert mm.is_downloaded("RealESRGAN_x2plus")
+
+    path.write_bytes(b"")
+
+    assert not mm.is_downloaded("RealESRGAN_x2plus")
+    assert mm.incomplete_reason("RealESRGAN_x2plus") == "empty"
+
+
+def test_safetensors_check_matches_the_header(tmp_path):
+    import json
+    import struct
+
+    from service.model_file_integrity import file_problem
+
+    header = json.dumps({"w": {"dtype": "F32", "shape": [4], "data_offsets": [0, 16]}}).encode()
+    whole = struct.pack("<Q", len(header)) + header + b"\x00" * 16
+    path = tmp_path / "model.safetensors"
+
+    path.write_bytes(whole)
+    assert file_problem(path) is None
+    path.write_bytes(whole[:-8])
+    assert file_problem(path).startswith("truncated")
+    path.write_bytes(whole + b"\x00")
+    assert file_problem(path).startswith("corrupt")
+    assert file_problem(tmp_path / "absent.safetensors") == "missing"

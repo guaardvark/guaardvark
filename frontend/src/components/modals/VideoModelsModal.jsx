@@ -366,7 +366,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                     .map(([file, reason]) => `${file}: ${reason}`)
                     .join("\n")}
                 >
-                  {t("models.videoModels.filesIncomplete", {
+                  {t("models.shared.filesIncomplete", {
                     count: Object.keys(model.incomplete_files).length,
                   })}
                 </Typography>

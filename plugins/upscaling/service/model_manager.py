@@ -14,6 +14,8 @@ from urllib.request import urlretrieve
 
 import torch
 
+from service.model_file_integrity import MISSING, file_problem
+
 logger = logging.getLogger("upscaling.model_manager")
 
 
@@ -153,7 +155,14 @@ class ModelManager:
         return str(_contained(self.models_dir, f"{name}.pth"))
 
     def is_downloaded(self, name: str) -> bool:
-        return os.path.isfile(self._model_path(name))
+        """True when the model's file is on disk and whole."""
+        return file_problem(self._model_path(name)) is None
+
+    def incomplete_reason(self, name: str) -> Optional[str]:
+        """What is wrong with a model file that is on disk but not whole; None
+        when it is whole or not there at all."""
+        problem = file_problem(self._model_path(name))
+        return None if problem in (None, MISSING) else problem
 
     def missing_model_message(self, name: str) -> Optional[str]:
         """Why ``name`` cannot be used, or None when its weights are on disk.
@@ -162,6 +171,20 @@ class ModelManager:
         """
         if self.is_downloaded(name):
             return None
+        reason = self.incomplete_reason(name)
+        if reason and _registry_entry(name):
+            return (
+                f"Upscaling model '{name}' is not installed: the file on disk is "
+                f"incomplete ({reason}). Install it again from the Upscaling page "
+                "(Manage Upscaling Models), which replaces the file, then try again. "
+                "Upscaling never downloads a model on its own."
+            )
+        if reason:
+            return (
+                f"Upscaling model '{name}' cannot be used: {name}.pth in "
+                f"{self.models_dir} is incomplete ({reason}). Replace the file "
+                "with a whole copy, or pick another installed model."
+            )
         if _registry_entry(name):
             return (
                 f"Upscaling model '{name}' is not installed. Install it from the "
@@ -175,7 +198,12 @@ class ModelManager:
         )
 
     def list_models(self) -> Dict[str, List[Dict[str, Any]]]:
-        """List downloaded and available (not yet downloaded) models."""
+        """List downloaded and available (not yet downloaded) models.
+
+        A registry model whose file is on disk but not whole is listed as
+        available with ``incomplete`` set to the reason. A user-dropped file
+        that is not whole is left out.
+        """
         downloaded = []
         available = []
         for entry in MODEL_REGISTRY:
@@ -192,12 +220,15 @@ class ModelManager:
                 downloaded.append(info)
             else:
                 info["url"] = entry["url"]
+                reason = self.incomplete_reason(entry["name"])
+                if reason:
+                    info["incomplete"] = reason
                 available.append(info)
         # Check for extra .pth files not in registry (user-dropped models)
         for f in os.listdir(self.models_dir):
             if f.endswith(".pth"):
                 name = f[:-4]
-                if not _registry_entry(name):
+                if not _registry_entry(name) and self.is_downloaded(name):
                     size_mb = round(os.path.getsize(os.path.join(self.models_dir, f)) / (1024 * 1024))
                     downloaded.append({
                         "name": name,
@@ -214,7 +245,7 @@ class ModelManager:
         if not entry:
             raise ValueError(f"Unknown model: {name}. Drop custom .pth files into {self.models_dir}")
         dest = self._model_path(name)
-        if os.path.isfile(dest):
+        if self.is_downloaded(name):
             logger.info(f"Model {name} already downloaded at {dest}")
             return dest
         logger.info(f"Downloading {name} from {entry['url']}...")
