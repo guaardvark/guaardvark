@@ -98,20 +98,22 @@ _pt_stage_wheels() {  # usage: _pt_stage_wheels <index-url|""> <pkg...>
 # original network install so behaviour is unchanged if staging was skipped.
 _pt_repin_pillow() {
     # torch/torchvision depend on pillow, and --force-reinstall re-resolves it from
-    # download.pytorch.org, whose index tops out at Pillow 12.2.0. That release has 10
-    # HIGH CVEs (heap OOB writes in Image.paste/crop/RankFilter/ImageCmsTransform, plus
-    # decompression-bomb bypasses), so every torch install silently un-patched them.
+    # download.pytorch.org, whose index tops out at Pillow 12.2.0. Every 12.x release
+    # carries published advisories (heap OOB writes in Image.paste/crop/RankFilter/
+    # ImageCmsTransform, decompression-bomb bypasses); 13.0.0 is the fixed release, so
+    # every torch install silently un-patches them.
     #
-    # This CANNOT be fixed with PIP_CONSTRAINT: constraining Pillow>=12.3.0 during the
+    # This CANNOT be fixed with PIP_CONSTRAINT: constraining Pillow>=13.0.0 during the
     # torch install makes it unsatisfiable from that index and aborts the whole run -
     # exactly the failure the old setuptools pin used to cause. So re-pin AFTER, from
-    # PyPI, with --no-deps so torch's own resolution is left untouched.
+    # PyPI, with --no-deps so torch's own resolution is left untouched. The <14 cap
+    # matches backend/constraints.txt.
     command -v pip >/dev/null 2>&1 || return 0
     vader_info "Re-pinning Pillow (torch index caps it at a vulnerable 12.2.0)..."
-    if pip install --no-deps --upgrade 'Pillow>=12.3.0' >/dev/null 2>&1; then
+    if pip install --no-deps --upgrade 'Pillow>=13.0.0,<14' >/dev/null 2>&1; then
         vader_success "Pillow $(pip show Pillow 2>/dev/null | awk '/^Version/{print $2}') re-pinned"
     else
-        vader_warn "Could not re-pin Pillow - 12.2.0 has 10 HIGH CVEs. Run: pip install --upgrade 'Pillow>=12.3.0'"
+        vader_warn "Could not re-pin Pillow - releases below 13.0.0 carry published advisories. Run: pip install --upgrade 'Pillow>=13.0.0,<14'"
     fi
 }
 
