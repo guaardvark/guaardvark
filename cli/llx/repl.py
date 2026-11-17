@@ -29,8 +29,8 @@ from llx.theme import (
     ICON_OFFLINE,
     ICON_ONLINE,
     THEMES,
-    get_banner,
     make_console,
+    play_banner,
     prompt_colors,
 )
 from llx.working_memory import (
@@ -469,8 +469,8 @@ def launch_repl():
             status_line = f"[llx.status.offline]{ICON_OFFLINE} Offline[/llx.status.offline]  {server}"
             model_line = "[llx.dim]not connected[/llx.dim]"
 
-    # Print banner
-    console.print(get_banner(__version__, status_line, model_line))
+    # Launch mark. Still plate when this is not a color terminal.
+    play_banner(console, __version__, status_line, model_line)
 
     # Check for recent session to resume
     recent = get_recent_session(3600)

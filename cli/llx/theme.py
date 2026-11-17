@@ -1,15 +1,29 @@
 """LLX CLI visual theme — colors, styles, console factory, and logo."""
 
 import os
+import select
 import shutil
+import sys
+import time
 
-from rich.console import Console, Group
+try:
+    import termios
+    import tty
+except ImportError:  # Windows has no POSIX terminal, so the splash stays still.
+    termios = None  # type: ignore[assignment]
+    tty = None  # type: ignore[assignment]
+
+from rich.align import Align
+from rich.console import Console, Group, RenderableType
+from rich.live import Live
 from rich.style import Style
 from rich.theme import Theme
 from rich.text import Text
 from rich.table import Table
 from rich.panel import Panel
 from rich import box
+
+from llx.banner_art import COMPACT_PLATE, PLATE, POWER, TRACE, WORDMARK
 
 # ── Theme Palettes ────────────────────────────────────────────
 # Each palette defines the colors used to build the semantic Rich theme.
@@ -553,49 +567,133 @@ def terminal_rows() -> int:
         return 24
 
 
+# The stroke needs about a second to read as a drawing. Longer and the
+# prompt feels late. 28 steps over the 365-cell trace, then one power pulse.
+_TRACE_S = 0.90
+_PULSE_S = 0.14
+_TRACE_STEPS = 28
+_FULL_MIN_COLS = len(PLATE[0]) + 12
+_COMPACT_MIN_COLS = len(COMPACT_PLATE[0]) + 10
+
+
+def _mark_on_light() -> bool:
+    return resolve_theme_name() == "day" or detect_light_background()
+
+
+def _mark_colors() -> dict[str, str]:
+    """Ink for the logo. The mark stays black and white; themes color the prompt."""
+    if _mark_on_light():
+        return {"ink": "#1c1c1c", "head": "#000000", "dim": "#737373", "border": "#d4d4d8"}
+    return {"ink": "#f4f4f5", "head": "#ffffff", "dim": "#a1a1aa", "border": "#3f3f46"}
+
+
+def _centered(text: str, width: int) -> str:
+    if len(text) >= width:
+        return text
+    return " " * ((width - len(text)) // 2) + text
+
+
+def _plate_text(
+    rows: tuple[str, ...],
+    lit: set[tuple[int, int]] | None,
+    head: set[tuple[int, int]],
+    colors: dict[str, str],
+    body: str,
+) -> Text:
+    """Braille plate. lit=None draws every dot. head cells use the bright ink."""
+    result = Text()
+    for r, line in enumerate(rows):
+        for c, ch in enumerate(line):
+            on = ch != " " and (lit is None or (r, c) in lit)
+            if not on:
+                result.append(" ")
+                continue
+            tone = colors["head"] if (r, c) in head else colors[body]
+            result.append(ch, style=Style(color=tone, bold=(r, c) in head))
+        if r < len(rows) - 1:
+            result.append("\n")
+    return result
+
+
+def _banner_group(
+    plate: Text,
+    width: int,
+    version: str,
+    status_line: str,
+    model_line: str,
+    colors: dict[str, str],
+    show_wordmark: bool,
+) -> Group:
+    word = _centered(WORDMARK, width) if show_wordmark else " " * min(width, len(WORDMARK))
+    wordmark = Text(word, style=Style(color=colors["ink"], bold=True))
+    version_line = Text(
+        _centered(f"v{version}", width),
+        style=Style(color=_get_active_palette()["dim_text"]),
+    )
+    return Group(
+        plate,
+        Text(""),
+        wordmark,
+        version_line,
+        Text(""),
+        Text.from_markup(f"  {status_line}"),
+        Text.from_markup(f"  {model_line}"),
+    )
+
+
+def _mark_panel(group: Group, colors: dict[str, str]) -> Align:
+    panel = Panel(
+        group,
+        border_style=Style(color=colors["border"]),
+        box=box.ROUNDED,
+        padding=(1, 2),
+        expand=False,
+    )
+    return Align.center(panel)
+
+
+def _full_banner(version: str, status_line: str, model_line: str) -> RenderableType:
+    colors = _mark_colors()
+    width = len(PLATE[0])
+    plate = _plate_text(PLATE, None, set(), colors, "ink")
+    return _mark_panel(
+        _banner_group(plate, width, version, status_line, model_line, colors, True),
+        colors,
+    )
+
+
+def _text_banner(version: str, status_line: str, model_line: str) -> RenderableType:
+    """Wordmark only. Used when even the compact plate would wrap."""
+    colors = _mark_colors()
+    group = Group(
+        Text(WORDMARK, style=Style(color=colors["ink"], bold=True)),
+        Text(f"v{version}", style=Style(color=_get_active_palette()["dim_text"])),
+        Text(""),
+        Text.from_markup(f"  {status_line}"),
+        Text.from_markup(f"  {model_line}"),
+    )
+    return _mark_panel(group, colors)
+
+
 def should_use_compact_banner(config_banner: str | None = None) -> bool:
-    """True when the full 30-row art would overflow the pane."""
+    """True when the 24-row plate would overflow the pane."""
     mode = (config_banner or "auto").lower()
     if mode == "compact":
         return True
     if mode == "full":
         return False
-    return terminal_rows() < 40
+    size = shutil.get_terminal_size(fallback=(80, 24))
+    return size.lines < 40 or size.columns < _FULL_MIN_COLS
 
 
-def get_compact_banner(version: str, status_line: str, model_line: str) -> Panel:
-    """Small aardvark + version/status — for short terminals and `banner: compact`."""
-    palette = _get_active_palette()
-    stops = palette["gradient"]
-    DBL = "\u2588\u2588"
-    result = Text()
-    rows = [row.ljust(16) for row in _SMALL_AARDVARK_BITMAP]
-    total = max(sum(ch == "#" for r in rows for ch in r) - 1, 1)
-    filled_idx = 0
-    for local_idx, row in enumerate(rows):
-        for ch in row:
-            if ch == "#":
-                t = filled_idx / total
-                n = len(stops) - 1
-                seg = min(int(t * n), n - 1)
-                lt = (t * n) - seg
-                r, g, b = _lerp_color(stops[seg], stops[seg + 1], lt)
-                result.append(DBL, style=Style(color=_hex(r, g, b), bold=True))
-                filled_idx += 1
-            else:
-                result.append("  ")
-        if local_idx < len(rows) - 1:
-            result.append("\n")
-
-    title = Text(f"  GUAARDVARK  v{version}", style=Style(color=palette["brand_bright"], bold=True))
-    status = Text.from_markup(f"  {status_line}")
-    model = Text.from_markup(f"  {model_line}")
-    group = Group(result, Text(""), title, status, model)
-    return Panel(
-        group,
-        border_style=Style(color=palette["brand"]),
-        box=box.ROUNDED,
-        padding=(1, 2),
+def get_compact_banner(version: str, status_line: str, model_line: str) -> RenderableType:
+    """Smaller dot aardvark for short terminals and `banner: compact`."""
+    colors = _mark_colors()
+    width = len(COMPACT_PLATE[0])
+    plate = _plate_text(COMPACT_PLATE, None, set(), colors, "ink")
+    return _mark_panel(
+        _banner_group(plate, width, version, status_line, model_line, colors, True),
+        colors,
     )
 
 
@@ -604,8 +702,8 @@ def get_banner(
     status_line: str,
     model_line: str,
     compact: bool | None = None,
-) -> Panel:
-    """Build the REPL banner. Compact mode skips the 22-row aardvark."""
+) -> RenderableType:
+    """Finished launch mark. Compact on a short or narrow pane, text if narrower still."""
     if compact is None:
         banner_pref = "auto"
         try:
@@ -616,32 +714,125 @@ def get_banner(
             pass
         compact = should_use_compact_banner(banner_pref)
     if compact:
+        cols = shutil.get_terminal_size(fallback=(80, 24)).columns
+        if cols < _COMPACT_MIN_COLS:
+            return _text_banner(version, status_line, model_line)
         return get_compact_banner(version, status_line, model_line)
+    return _full_banner(version, status_line, model_line)
 
-    palette = _get_active_palette()
 
-    # Continuous row numbering for seamless stripe alternation
-    n_aardvark = len(_AARDVARK_BITMAP)     # 22 rows
-    spacer_row = n_aardvark                # row 22
-    wm_start   = n_aardvark + 1            # row 23
+def _power_on_frames(
+    version: str,
+    status_line: str,
+    model_line: str,
+) -> list[tuple[RenderableType, float]]:
+    """Stroke frames, then the finished plate, then one bright pulse on the power mark."""
+    colors = _mark_colors()
+    width = len(PLATE[0])
+    total = len(TRACE)
+    step_s = _TRACE_S / _TRACE_STEPS
+    frames: list[tuple[RenderableType, float]] = []
+    for step in range(1, _TRACE_STEPS):
+        k = total * step // _TRACE_STEPS
+        prev = total * (step - 1) // _TRACE_STEPS
+        plate = _plate_text(PLATE, set(TRACE[:k]), set(TRACE[prev:k]), colors, "dim")
+        group = _banner_group(plate, width, version, status_line, model_line, colors, False)
+        frames.append((_mark_panel(group, colors), step_s))
+    done = _plate_text(PLATE, None, set(), colors, "ink")
+    frames.append((
+        _mark_panel(
+            _banner_group(done, width, version, status_line, model_line, colors, True),
+            colors,
+        ),
+        step_s,
+    ))
+    pulse = _plate_text(PLATE, None, set(POWER), colors, "dim")
+    frames.append((
+        _mark_panel(
+            _banner_group(pulse, width, version, status_line, model_line, colors, True),
+            colors,
+        ),
+        _PULSE_S,
+    ))
+    return frames
 
-    aardvark = get_aardvark(row_offset=0)
-    spacer_stripe = _stripe_line(spacer_row)
-    wordmark = get_wordmark(row_offset=wm_start)
 
-    subtitle = Text(f"  v{version}", style=Style(color=palette["dim_text"]))
-    spacer = Text("")
-    status = Text.from_markup(f"  {status_line}")
-    model = Text.from_markup(f"  {model_line}")
+def _can_animate(console: Console) -> bool:
+    if not console.is_terminal or console.color_system is None:
+        return False
+    if termios is None or not sys.stdin.isatty():
+        return False
+    return True
 
-    group = Group(aardvark, spacer_stripe, wordmark, subtitle, spacer, status, model)
 
-    return Panel(
-        group,
-        border_style=Style(color=palette["brand"]),
-        box=box.ROUNDED,
-        padding=(1, 2),
-    )
+def _key_hit(timeout: float) -> bool:
+    """Wait up to timeout seconds. A key skips the rest of the splash and is consumed.
+
+    The read is non-blocking. A pty can report readable and then block on read,
+    which would freeze the splash on the first frame.
+    """
+    if termios is None or not sys.stdin.isatty():
+        time.sleep(timeout)
+        return False
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    was_blocking = os.get_blocking(fd)
+    try:
+        tty.setcbreak(fd)
+        os.set_blocking(fd, False)
+        ready, _, _ = select.select([fd], [], [], timeout)
+        if not ready:
+            return False
+        try:
+            data = os.read(fd, 16)
+        except BlockingIOError:
+            return False
+        return bool(data)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        os.set_blocking(fd, was_blocking)
+
+
+def play_banner(console: Console, version: str, status_line: str, model_line: str) -> None:
+    """Print the launch mark. On a color terminal the stroke draws itself, then the power mark pulses."""
+    banner_pref = "auto"
+    try:
+        from llx.config import load_config
+
+        banner_pref = load_config().get("banner", "auto")
+    except Exception:
+        pass
+    compact = should_use_compact_banner(banner_pref)
+    final = get_banner(version, status_line, model_line, compact=compact)
+    if compact or not _can_animate(console):
+        console.print(final)
+        return
+    frames = _power_on_frames(version, status_line, model_line)
+    try:
+        with Live(
+            frames[0][0],
+            console=console,
+            auto_refresh=False,
+            transient=False,
+            redirect_stdout=False,
+            redirect_stderr=False,
+            vertical_overflow="visible",
+        ) as live:
+            try:
+                skipped = _key_hit(frames[0][1])
+                if not skipped:
+                    for panel, delay in frames[1:]:
+                        live.update(panel, refresh=True)
+                        if _key_hit(delay):
+                            skipped = True
+                            break
+                live.update(final, refresh=True)
+            except KeyboardInterrupt:
+                live.update(final, refresh=True)
+                raise
+    except Exception:
+        console.print(final)
+        raise
 
 
 # ── Initialize from config on import ──────────────────────────
