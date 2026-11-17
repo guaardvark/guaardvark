@@ -6,8 +6,8 @@ backend for the voice_gen intent. ~500 MB weights, ~2 GB VRAM at fp16.
 Heavy imports (torch, chatterbox) live inside methods so `from service.app
 import app` stays cheap for tests.
 
-Install (handled at first start.sh run after the requirements.txt bump):
-    pip install chatterbox-tts
+Install: scripts/setup_venv.sh (start.sh does the same on first run).
+chatterbox-tts goes in without its dependencies; requirements.txt says why.
 """
 from __future__ import annotations
 
@@ -82,7 +82,7 @@ class ChatterboxBackend(AudioBackend):
         except ImportError as e:
             raise RuntimeError(
                 "chatterbox-tts package not installed. "
-                "Run: pip install chatterbox-tts"
+                "Run: plugins/audio_foundry/scripts/setup_venv.sh"
             ) from e
 
         from backends.hub_weights import require_hub_files

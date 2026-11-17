@@ -3,8 +3,11 @@
 # Provision the audio_foundry isolated venvs against the hardware policy.
 # Convention recognized by scripts/dep_reconciler registry.classify_plugin_venv_mode().
 #
-# Idempotent: a venv that already imports torch + runs a GPU kernel and passes
-# the Chatterbox load check is left untouched. On failure it is rebuilt once.
+# Idempotent: a venv that satisfies the tracked requirements, imports torch,
+# runs a GPU kernel and passes the Chatterbox import check is left untouched.
+# A main venv that works but is behind the requirements is brought up to date
+# in place (packages added through Audio Studio → Manage models survive); one
+# that does not run at all is rebuilt once.
 set -u
 
 PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,6 +27,9 @@ TORCH_CHANNEL="$("$BACKEND_PY" -m backend.services.hardware_policy torch_channel
 
 log() { echo "  [audio_foundry/setup_venv] $*"; }
 
+# shellcheck source=plugins/audio_foundry/scripts/venv_sync.sh
+. "$PLUGIN_DIR/scripts/venv_sync.sh"
+
 # verify_venv <venv_path> <verify_python_snippet> -> 0 ok / 1 fail
 verify_venv() {
     local venv="$1" snippet="$2"
@@ -42,20 +48,22 @@ sys.exit(0)
 PYEOF
 }
 
-# build_main_venv: create venv, install reqs, force hw torch, post-fixups, verify
+# build_main_venv: create an empty venv, then fill it the same way an
+# existing one is brought up to date.
 build_main_venv() {
     local venv="$PLUGIN_DIR/venv"
     log "Building main venv at $venv"
     rm -rf "$venv"
     "$PY" -m venv "$venv" || { log "venv create failed"; return 1; }
-    "$venv/bin/pip" install --upgrade pip >/dev/null 2>&1
-    "$venv/bin/pip" install -r "$PLUGIN_DIR/requirements.txt" || { log "requirements install failed"; return 1; }
-    # Force hardware-correct torch OVER chatterbox's torch==2.6.0 pin.
-    TARGET_VENV="$venv" GUAARDVARK_TORCH_CHANNEL="$TORCH_CHANNEL" bash "$INSTALL_PYTORCH" --venv "$venv" \
-        || log "install_pytorch returned non-zero (continuing to verify)"
-    # Documented post-torch fixups (see requirements.txt lines 32-43, 56-62).
-    "$venv/bin/pip" install --upgrade 'diffusers>=0.30,<0.40' >/dev/null 2>&1 || true
-    "$venv/bin/pip" install --no-deps --force-reinstall 'numpy<2.0,>=1.26.4' 'setuptools<81' >/dev/null 2>&1 || true
+    af_sync_main_venv "$venv" "$PLUGIN_DIR" "$REPO_ROOT" || { log "requirements install failed"; return 1; }
+}
+
+# main_venv_runs: torch + Chatterbox import, a GPU kernel where there is a GPU.
+# main_venv_current: the same, and every tracked requirement is satisfied.
+main_venv_runs() { verify_venv "$PLUGIN_DIR/venv" "$CHATTERBOX_SNIPPET"; }
+main_venv_current() {
+    main_venv_runs && af_requirements_ok "$PLUGIN_DIR/venv" \
+        "$PLUGIN_DIR/requirements.txt" "$PLUGIN_DIR/requirements-nodeps.txt"
 }
 
 # build_music_venv: ACE-Step sibling venv. Mirrors build_main_venv's explicit
@@ -84,14 +92,29 @@ ACE_SNIPPET='    print("venv-music torch OK", torch.__version__)'
 rc=0
 
 # --- main venv ---
-if verify_venv "$PLUGIN_DIR/venv" "$CHATTERBOX_SNIPPET"; then
+# start.sh re-syncs the main venv when these are older than the requirement files.
+stamp_main_venv() { touch "$PLUGIN_DIR/venv/.deps_installed" "$PLUGIN_DIR/venv/.torch_import_verified"; }
+
+if main_venv_current; then
     log "main venv healthy — skipping"
+    stamp_main_venv
 else
-    build_main_venv
-    if verify_venv "$PLUGIN_DIR/venv" "$CHATTERBOX_SNIPPET"; then
-        log "main venv rebuilt + verified"
+    if main_venv_runs; then
+        log "main venv is behind requirements.txt — updating in place"
+        af_sync_main_venv "$PLUGIN_DIR/venv" "$PLUGIN_DIR" "$REPO_ROOT" \
+            || log "in-place update returned non-zero (continuing to verify)"
     else
-        log "DEGRADED: Chatterbox failed to load on torch channel '$TORCH_CHANNEL'."
+        build_main_venv
+    fi
+    if main_venv_current; then
+        log "main venv up to date + verified"
+        stamp_main_venv
+    elif main_venv_runs; then
+        log "DEGRADED: main venv runs but does not satisfy requirements.txt (see REQUIREMENTS_FAIL above)."
+        log "  Fix: re-run this script with network access to PyPI and download.pytorch.org."
+        rc=1
+    else
+        log "DEGRADED: Chatterbox failed to load on this venv's torch (see VERIFY_FAIL above)."
         log "  Fix: confirm chatterbox-tts supports this torch, or rely on Kokoro fallback."
         rc=1
     fi
