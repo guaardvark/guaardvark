@@ -33,6 +33,12 @@ Python facts (all line numbers 1-based):
     routes       Flask routes [{path, methods, function, line, bp_var}]
     blueprint    whether the file constructs a Blueprint
     tasks        Celery tasks [{function, name, line}] (name None when implicit)
+    task_sends   places a Celery task is started, [[line, caller, target, how]]:
+                 how is "call" (target is the function in fn.delay(),
+                 fn.apply_async(), fn.s(), fn.si() or fn.signature()), "name"
+                 (send_task("x")), "prefix" (send_task(f"x.{y}"), target "x.")
+                 or "schedule" (a {"task": "x"} entry, as in a beat schedule).
+                 A send_task whose name is only known at run time is not seen
     tool_classes classes with a string ``name`` attribute
                  [{class, name, line, end, bases, attrs, description}]
 
@@ -71,7 +77,7 @@ from pathlib import Path
 from typing import Any
 
 # Bumped when the shape of the facts changes, so a stored cache is not reused.
-FACTS_VERSION = 10
+FACTS_VERSION = 11
 
 PY_SUFFIXES = (".py",)
 JS_SUFFIXES = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs")
@@ -119,6 +125,7 @@ def _dotted(node) -> str | None:
     return ".".join(reversed(parts))
 
 
+_TASK_SEND_ATTRS = ("delay", "apply_async", "s", "si", "signature")
 _ROUTE_DECORATORS = {"route", "get", "post", "put", "delete", "patch"}
 _TOOL_ATTRS = ("read_only", "plan_research", "requires_approval", "is_dangerous",
                "observation_chars", "destructive", "idempotent")
@@ -169,6 +176,7 @@ class _PyCollector(ast.NodeVisitor):
         self.bp_prefixes: dict[str, str] = {}
         self.blueprint = False
         self.tasks: list[dict] = []
+        self.task_sends: list[list] = []
         self.tool_classes: list[dict] = []
         # (kind, qualname) of the enclosing definitions; kind is "function",
         # "class" or "hidden" (a closure or a class inside a function).
@@ -382,6 +390,38 @@ class _PyCollector(ast.NodeVisitor):
             fn_name = target.id if isinstance(target, ast.Name) else None
             if _task_name_kw(func) or fn_name:
                 self.tasks.append({"function": fn_name, "name": _task_name_kw(func), "line": node.lineno})
+        # Direct registration: celery_app.task(fn, name="x")
+        elif (_is_task_decorator(node) and _task_name_kw(node) and node.args
+              and isinstance(node.args[0], ast.Name)):
+            self.tasks.append({"function": node.args[0].id, "name": _task_name_kw(node), "line": node.lineno})
+        self._task_send(node)
+        self.generic_visit(node)
+
+    def _task_send(self, node: ast.Call) -> None:
+        func = node.func
+        if not isinstance(func, ast.Attribute):
+            return
+        if func.attr in _TASK_SEND_ATTRS:
+            base = func.value
+            target = base.id if isinstance(base, ast.Name) else base.attr if isinstance(base, ast.Attribute) else None
+            if target:
+                self.task_sends.append([node.lineno, self._caller(), target, "call"])
+        elif func.attr == "send_task" and node.args:
+            arg = node.args[0]
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                self.task_sends.append([node.lineno, self._caller(), arg.value, "name"])
+            elif isinstance(arg, ast.Name) and arg.id in self._str_consts:
+                self.task_sends.append([node.lineno, self._caller(), self._str_consts[arg.id], "name"])
+            elif isinstance(arg, ast.JoinedStr) and arg.values:
+                lead = arg.values[0]
+                if isinstance(lead, ast.Constant) and isinstance(lead.value, str) and lead.value:
+                    self.task_sends.append([node.lineno, self._caller(), lead.value, "prefix"])
+
+    def visit_Dict(self, node: ast.Dict) -> None:
+        for key, value in zip(node.keys, node.values):
+            if (isinstance(key, ast.Constant) and key.value == "task"
+                    and isinstance(value, ast.Constant) and isinstance(value.value, str)):
+                self.task_sends.append([value.lineno, self._caller(), value.value, "schedule"])
         self.generic_visit(node)
 
     def _dynamic_import(self, arg, line: int) -> None:
@@ -483,7 +523,7 @@ def python_facts_from_text(text: str) -> dict:
         return {"lang": "py", "error": f"{type(exc).__name__}: {exc}", "lines": lines,
                 "doc": "", "imports": [], "defs": [], "calls": [], "refs": set(),
                 "strings": set(), "dotted": {}, "exports": set(), "routes": [], "blueprint": False,
-                "tasks": [], "tool_classes": [], "tokens": tokens_of(text)}
+                "tasks": [], "task_sends": [], "tool_classes": [], "tokens": tokens_of(text)}
     collector = _PyCollector()
     collector.visit(tree)
     routes = []
@@ -505,6 +545,7 @@ def python_facts_from_text(text: str) -> dict:
         "routes": routes,
         "blueprint": collector.blueprint,
         "tasks": collector.tasks,
+        "task_sends": collector.task_sends,
         "tool_classes": collector.tool_classes,
         "tokens": tokens_of(text),
     }

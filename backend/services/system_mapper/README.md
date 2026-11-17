@@ -17,7 +17,7 @@ or run.
 | `node_meta` | `dependency_graph.py`, `subsystems.py` | every module: path, language, lifecycle, importer counts (load time, inside functions, tests), lines, subsystem, the scripts that start it |
 | `reachability` | `reachability.py` | Flask routes, frontend HTTP calls with their URLs resolved, and `page_endpoints`: the endpoints each page reaches |
 | `tool_graph` | `tool_graph.py` | every registered tool: class, file and line, registering function and its conditions, how the chat reaches it, MCP exposure |
-| `celery_tasks` | `dispatch_graph.py` | name, module, file, function and line of every task |
+| `celery_tasks` | `dispatch_graph.py` | name, module, file, function and line of every task, plus what starts it (`started_by`: schedule, route, code) |
 | `subsystems` | `subsystems.py`, `subsystems.json` | the named areas and how many files and lines each holds |
 | `findings` | all of the above | flat, ranked list of `Finding` |
 | `stats` | all of the above | counts, and how long each analyzer took (`timings_s`) |
@@ -83,7 +83,7 @@ A module a script or manifest starts (`uvicorn service.app:app` in a plugin's
 | `backup-artifact` | `low` | `_BACK` / `.BACK` / `.bak` / `__BACKUP` / `/backs/` / `/_archive/` paths in the tree |
 | `dead-symbol` | `info`/`low` | A function referenced nowhere, not even in a string (100 listed, then one rollup) |
 | `no-subsystem` | `info` | Source files `subsystems.json` does not claim (one finding, with a sample) |
-| `runtime-zombie` / `contextual-discovery` / `hot-path-spike` | | Runtime liveness, from the 12-hour audit (`liveness.py`) |
+| `runtime-zombie` / `contextual-discovery` / `hot-path-spike` | | Runtime liveness, from the 12-hour audit (`liveness.py`). A zombie is high, or low when the task is started only from a route handler |
 
 A finding's `id` is a hash of its kind, its paths and `evidence["key"]`, the
 analyzer's name for the defect (a route, a tool, a module); counts in the
