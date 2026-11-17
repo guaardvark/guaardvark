@@ -123,8 +123,6 @@ AUDIO_FOUNDRY_MODELS: List[Dict[str, Any]] = [
         ),
         "group": "music",
         "license": "MIT",
-        # Measured 2026-10-04 on a 16 GB card: 30 s and 240 s renders.
-        "vram_note": "Takes the whole GPU while it runs: 14.4 GB at peak, measured on a 16 GB card.",
         "hf_repo": "ACE-Step/Ace-Step1.5",
         "probe_file": "acestep-v15-turbo/config.json",
         # The catalog names the files, the pinned Hugging Face revision, the folder
@@ -482,6 +480,17 @@ def _minimax_row() -> Dict[str, Any]:
     }
 
 
+def vram_note(entry: Dict[str, Any]) -> Optional[str]:
+    """What the model holds on the GPU, from the measurement its catalog records."""
+    vram = None
+    if entry.get("required_files_catalog"):
+        vram = load_voice_catalog(entry["required_files_catalog"]).get("vram")
+    if not vram:
+        return entry.get("vram_note")
+    return (f"Takes the whole GPU while it runs: {vram['reserve_mb'] / 1000:.1f} GB at peak, "
+            f"measured on a {vram['card']}.")
+
+
 def _hub_row(entry: Dict[str, Any]) -> Dict[str, Any]:
     missing = (missing_environment(entry) + missing_hub_files(entry)
                + [p["package"] for p in missing_venv_packages(entry)])
@@ -497,7 +506,7 @@ def _hub_row(entry: Dict[str, Any]) -> Dict[str, Any]:
         "gated": bool(entry.get("gated")),
         "terms_url": entry.get("terms_url"),
         "license": entry.get("license"),
-        "vram_note": entry.get("vram_note"),
+        "vram_note": vram_note(entry),
         "optional": bool(entry.get("optional")),
         "installed": installed,
         "delegate": None,

@@ -17,6 +17,13 @@
     "caption_tokens": 256,
     "lyrics_tokens": 2048
   },
+  "vram": {
+    "reserve_mb": 14400,
+    "measured": "2026-10-04",
+    "card": "16 GB card",
+    "method": "nvidia-smi peak of the ACE-Step 1.5 daemon process over 30 s and 240 s renders, with the DiT, VAE, text encoder and 1.7B planner all on the GPU (no CPU offload) and the planner on PyTorch",
+    "pending": "TO BE FILLED FROM measure.sh OUTPUT: replace reserve_mb, measured, card and method with the vram block it proposes (cold load, then 30, 120 and 240 s songs in Direct, sketch and planner modes), then delete this field"
+  },
   "files": [
     "Qwen3-Embedding-0.6B/added_tokens.json",
     "Qwen3-Embedding-0.6B/chat_template.jinja",

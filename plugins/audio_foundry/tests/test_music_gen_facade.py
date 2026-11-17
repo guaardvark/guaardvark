@@ -149,6 +149,14 @@ def test_the_15_backend_refuses_before_spawning_when_not_installed(tmp_path, mon
     assert spawned == []
 
 
+def test_the_15_backend_reserves_the_catalogs_measured_vram():
+    from backends import music_gen_acestep15 as m
+
+    cat = json.loads(m.CATALOG.read_text(encoding="utf-8"))
+    assert m.ACEStep15Backend.vram_mb_estimate == cat["vram"]["reserve_mb"]
+    assert m.ACEStep15Backend.requires_exclusive_vram is True
+
+
 def _fake_15_backend(tmp_path, monkeypatch):
     from backends import music_gen_acestep15 as m
 
