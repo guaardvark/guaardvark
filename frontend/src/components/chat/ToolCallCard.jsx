@@ -1,6 +1,7 @@
 /**
- * ToolCallCard - Inline collapsible card for a single tool call + result.
- * Displayed within a message bubble during unified chat streaming.
+ * ToolCallCard - Inline collapsible step for a single tool call + result:
+ * a title coloured by the call's state over plain text. Displayed within a
+ * message bubble during unified chat streaming.
  */
 import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
@@ -9,15 +10,10 @@ import {
   Typography,
   Collapse,
   IconButton,
-  Chip,
   CircularProgress,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import BuildIcon from "@mui/icons-material/Build";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import ErrorIcon from "@mui/icons-material/Error";
-import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import ThumbUpIcon from "@mui/icons-material/ThumbUp";
 import ThumbDownIcon from "@mui/icons-material/ThumbDown";
 import ThumbUpOutlinedIcon from "@mui/icons-material/ThumbUpOutlined";
@@ -33,6 +29,7 @@ import ArtifactCard, { CSVTable, artifactShape } from "./ArtifactCard";
 import SelfEditNotice from "./SelfEditNotice";
 import { consentImageSrc } from "./consentApproval";
 import { translate, useUiTranslation } from "../../i18n";
+import { STEP_COLORS, stepHeaderSx, stepTitleSx, stepBodySx } from "./stepText";
 
 // Tools that get thumbs up/down feedback — agent actions the user can judge
 const FEEDBACK_TOOLS = new Set(["agent_task_execute", "agent_screen_capture"]);
@@ -126,13 +123,13 @@ const ToolCallCard = ({
   // Waiting states (approval, running) use the theme's primary colour; red and
   // green are kept for a tool that actually failed or finished.
   const awaitingApproval = requiresApproval && !responded;
-  const borderColor = awaitingApproval || isPending
-    ? "primary.main"
+  const titleColor = awaitingApproval || isPending
+    ? STEP_COLORS.toolPending
     : isSuccess
-    ? "success.main"
+    ? STEP_COLORS.toolSuccess
     : isError
-    ? "error.main"
-    : "grey.500";
+    ? STEP_COLORS.toolError
+    : STEP_COLORS.toolIdle;
 
   // Summarize params for collapsed view
   const paramSummary = params
@@ -145,60 +142,32 @@ const ToolCallCard = ({
     : "";
 
   return (
-    <Box
-      sx={{
-        my: 0.5,
-        borderLeft: 3,
-        borderColor,
-        borderRadius: 1,
-        bgcolor: awaitingApproval ? "action.selected" : "action.hover",
-        overflow: "hidden",
-        opacity: requiresApproval && !responded ? 1 : 0.9,
-      }}
-    >
+    <Box sx={{ my: 0.5 }}>
       {/* Collapsed header */}
       <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 0.5,
-          px: 1,
-          py: 0.5,
-          cursor: "pointer",
-          "&:hover": { bgcolor: "action.selected" },
-        }}
+        sx={{ ...stepHeaderSx, color: titleColor }}
         onClick={() => setExpanded((prev) => !prev)}
       >
-        {requiresApproval && !responded ? (
-          <SecurityIcon sx={{ fontSize: 14, color: "primary.main" }} />
+        {awaitingApproval ? (
+          <SecurityIcon sx={{ fontSize: 14 }} />
         ) : isPending ? (
-          <CircularProgress size={14} color="primary" />
-        ) : (
-          <BuildIcon sx={{ fontSize: 14, color: borderColor }} />
-        )}
+          <CircularProgress size={12} color="inherit" />
+        ) : null}
 
-        <Typography
-          variant="caption"
-          sx={{ 
-            fontWeight: 600, 
-            fontFamily: "monospace",
-            color: "text.primary"
-          }}
-        >
-          {toolName} {requiresApproval && !responded && t("chat.toolCall.needsApproval")}
+        <Typography component="span" sx={{ ...stepTitleSx, flexShrink: 0 }}>
+          {toolName} {awaitingApproval && t("chat.toolCall.needsApproval")}
         </Typography>
 
         {paramSummary && (
           <Typography
-            variant="caption"
+            component="span"
             color="text.secondary"
             sx={{
-              flex: 1,
+              minWidth: 0,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
-              fontFamily: "monospace",
-              fontSize: "0.65rem",
+              fontSize: "0.75rem",
             }}
           >
             ({paramSummary})
@@ -206,25 +175,16 @@ const ToolCallCard = ({
         )}
 
         {durationMs != null && (
-          <Chip
-            label={`${durationMs}ms`}
-            size="small"
-            variant="outlined"
-            sx={{ height: 18, fontSize: "0.6rem" }}
-          />
+          <Typography component="span" color="text.secondary" sx={{ fontSize: "0.75rem", flexShrink: 0 }}>
+            {durationMs}ms
+          </Typography>
         )}
 
-        {!isPending && !requiresApproval && (
-          isSuccess ? (
-            <CheckCircleIcon sx={{ fontSize: 14, color: "success.main" }} />
-          ) : isError ? (
-            <ErrorIcon sx={{ fontSize: 14, color: "error.main" }} />
-          ) : (
-            <HourglassEmptyIcon sx={{ fontSize: 14, color: "grey.500" }} />
-          )
-        )}
-
-        <IconButton size="small" sx={{ p: 0 }}>
+        <IconButton
+          size="small"
+          disableRipple
+          sx={{ p: 0, color: "inherit", "&:hover": { bgcolor: "transparent" } }}
+        >
           {expanded ? (
             <ExpandLessIcon sx={{ fontSize: 16 }} />
           ) : (
@@ -235,7 +195,7 @@ const ToolCallCard = ({
 
       {/* Expanded details */}
       <Collapse in={expanded || (requiresApproval && !responded)}>
-        <Box sx={{ px: 1.5, pb: 1, fontSize: "0.7rem" }}>
+        <Box sx={{ pb: 0.5, fontSize: "0.75rem" }}>
           {/* Approval UI */}
           {requiresApproval && !responded && (
             consent ? (
@@ -318,25 +278,15 @@ const ToolCallCard = ({
           {params && Object.keys(params).length > 0 && (
             <Box sx={{ mb: 0.5 }}>
               <Typography
-                variant="caption"
-                sx={{ fontWeight: 600, display: "block", mb: 0.25 }}
+                component="div"
+                color="text.secondary"
+                sx={{ fontWeight: 600, fontSize: "0.75rem" }}
               >
                 {t("chat.toolCall.parameters")}:
               </Typography>
               <Box
                 component="pre"
-                sx={{
-                  m: 0,
-                  p: 0.5,
-                  bgcolor: "background.default",
-                  borderRadius: 0.5,
-                  fontSize: "0.65rem",
-                  fontFamily: "monospace",
-                  overflow: "auto",
-                  maxHeight: 120,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                }}
+                sx={{ ...stepBodySx, fontFamily: "monospace", overflow: "auto", maxHeight: 120 }}
               >
                 {JSON.stringify(params, null, 2)}
               </Box>
@@ -347,8 +297,9 @@ const ToolCallCard = ({
           {(outputChunks || result) && !artifact && (
             <Box>
               <Typography
-                variant="caption"
-                sx={{ fontWeight: 600, display: "block", mb: 0.25 }}
+                component="div"
+                color="text.secondary"
+                sx={{ fontWeight: 600, fontSize: "0.75rem" }}
               >
                 {isPending ? t("chat.toolCall.outputStreaming") : t("chat.toolCall.result")}:
               </Typography>
@@ -368,18 +319,11 @@ const ToolCallCard = ({
                 <Box
                   component="pre"
                   sx={{
-                    m: 0,
-                    p: 0.5,
-                    bgcolor: isPending ? "action.disabledBackground" : isSuccess ? "success.main" : "error.main",
-                    color: isPending ? "text.primary" : "white",
-                    borderRadius: 0.5,
-                    fontSize: "0.65rem",
+                    ...stepBodySx,
                     fontFamily: "monospace",
+                    color: isError ? "error.main" : "text.primary",
                     overflow: "auto",
                     maxHeight: 200,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                    opacity: 0.9,
                   }}
                 >
                   {isPending 
