@@ -1,9 +1,11 @@
 """Every request that loads the chat model ahead of a chat asks for the chat's own window."""
+import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from backend.services import brain_state as bs
 from backend.services import chat_keep_ready
 from backend.services.brain_state import BrainState, WarmUpStatus
 from backend.services.unified_chat_engine import UnifiedChatEngine
@@ -66,7 +68,8 @@ def test_the_startup_warm_up_asks_for_the_chat_window(ollama_post, monkeypatch):
     llm = _LLM(8192)
     state = BrainState.get_instance()
     state.llm, state.active_model = llm, MODEL
-    with patch("backend.utils.process_role.one_shot_command", return_value=False):
+    with patch("backend.utils.process_role.one_shot_command", return_value=False), \
+         patch.object(orm, "model_installed", return_value=True):
         state._start_warmup()
         state._warm_up_thread.join(5)
     assert state.health.warm_up_status == WarmUpStatus.READY
@@ -98,3 +101,69 @@ def test_the_model_switch_warms_through_the_helper():
     source = inspect.getsource(model_api)
     assert 'warm_chat_model(new_llm, keep_alive="30m")' in source
     assert '"options": {"num_predict": 1}' not in source
+
+
+class TestWaitingForTheModel:
+    @pytest.fixture(autouse=True)
+    def _fast_poll(self, monkeypatch):
+        monkeypatch.setattr(bs, "MODEL_POLL_S", 0.01)
+
+    def test_an_installed_model_loads_at_once_whatever_the_gpu_is_doing(self):
+        state = BrainState.get_instance()
+        with patch.object(orm, "model_installed", return_value=True), \
+             patch.object(chat_keep_ready, "_gpu_busy_reason", return_value="ComfyUI is rendering") as busy:
+            assert state._wait_for_model(MODEL, state._warm_up_generation) is True
+        busy.assert_not_called()
+
+    def test_a_model_pulled_later_is_picked_up(self):
+        state = BrainState.get_instance()
+        with patch.object(orm, "model_installed", side_effect=[False, False, True]) as installed, \
+             patch.object(chat_keep_ready, "_gpu_busy_reason", return_value=None):
+            assert state._wait_for_model(MODEL, state._warm_up_generation) is True
+        assert installed.call_count == 3
+        assert state.health.warm_up_status == WarmUpStatus.WARMING
+
+    def test_a_model_pulled_later_waits_for_a_free_gpu(self):
+        state = BrainState.get_instance()
+        with patch.object(orm, "model_installed", side_effect=[False, True, True, True]), \
+             patch.object(chat_keep_ready, "_gpu_busy_reason",
+                          side_effect=["ComfyUI is rendering", "GPU work just finished", None]) as busy:
+            assert state._wait_for_model(MODEL, state._warm_up_generation) is True
+        assert busy.call_count == 3
+
+    def test_a_newer_warm_up_ends_the_wait(self):
+        state = BrainState.get_instance()
+        generation = state._warm_up_generation
+        done = []
+        with patch.object(orm, "model_installed", return_value=False):
+            waiter = threading.Thread(target=lambda: done.append(state._wait_for_model(MODEL, generation)))
+            waiter.start()
+            state._warm_up_generation += 1
+            waiter.join(5)
+        assert done == [False]
+
+    def test_a_missing_model_is_not_requested(self, ollama_post, monkeypatch):
+        monkeypatch.delenv("CELERY_WORKER_MODE", raising=False)
+        state = BrainState.get_instance()
+        state.llm, state.active_model = _LLM(8192), MODEL
+        with patch("backend.utils.process_role.one_shot_command", return_value=False), \
+             patch.object(orm, "model_installed", return_value=False):
+            state._start_warmup()
+            state._warm_up_thread.join(0.2)
+            assert state.health.warm_up_status == WarmUpStatus.PENDING
+            ollama_post.assert_not_called()
+            state._warm_up_generation += 1
+            state._warm_up_thread.join(5)
+        assert not state._warm_up_thread.is_alive()
+
+
+def test_a_listed_model_drops_its_no_info_answer():
+    orm._unreachable_at[MODEL] = 1e18
+    try:
+        with patch.object(orm, "_ollama_tags", return_value=[{"name": MODEL}]):
+            assert orm.model_installed(MODEL) is True
+        assert MODEL not in orm._unreachable_at
+        with patch.object(orm, "_ollama_tags", return_value=[]):
+            assert orm.model_installed(MODEL) is False
+    finally:
+        orm._unreachable_at.pop(MODEL, None)
