@@ -71,19 +71,28 @@ def is_cached(repo_id: str, probe_file: str = "model_index.json",
     Diffusers pipelines carry model_index.json; transformers models carry
     config.json. Never touches the network.
     """
+    return cached_path(repo_id, probe_file, cache_dir=cache_dir) is not None
+
+
+def cached_path(repo_id: str, filename: str,
+                cache_dir: Optional[str | Path] = None) -> Optional[str]:
+    """Where `filename` of `repo_id` sits in the local HF cache, or None when it
+    is not cached. Never touches the network."""
     try:
         from huggingface_hub import try_to_load_from_cache
         from huggingface_hub.file_download import _CACHED_NO_EXIST
     except Exception:  # pragma: no cover - huggingface_hub always ships with diffusers
-        return False
+        return None
     try:
         hit = try_to_load_from_cache(
-            repo_id, probe_file, cache_dir=str(cache_dir) if cache_dir else None
+            repo_id, filename, cache_dir=str(cache_dir) if cache_dir else None
         )
     except Exception as e:  # noqa: BLE001
         logger.debug("cache probe for %s failed: %s", repo_id, e)
-        return False
-    return isinstance(hit, str) and hit is not _CACHED_NO_EXIST
+        return None
+    if isinstance(hit, str) and hit is not _CACHED_NO_EXIST:
+        return hit
+    return None
 
 
 def hf_repo_cache_dir(repo_id: str) -> Path:

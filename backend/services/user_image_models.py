@@ -39,6 +39,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from backend.services import text_encoder_check as te_check
+from backend.utils.model_file_integrity import file_complete, file_incomplete
 from backend.services.user_model_families import (
     DuplicateUserModel,
     comfy_graph_model,
@@ -698,8 +699,7 @@ def user_files_present(generator, sentinel: str) -> bool:
 def _entry_files_present(generator, uf: dict) -> bool:
     base = _user_dest_dir(generator, uf)
     for spec in uf.get("files") or []:
-        p = base / spec["dst"]
-        if not p.is_file() or p.stat().st_size == 0:
+        if not file_complete(base / spec["dst"]):
             return False
     return bool(uf.get("files"))
 
@@ -769,13 +769,31 @@ def user_missing_files(generator, key: str) -> list:
     missing = []
     base = _user_dest_dir(generator, uf)
     for spec in uf.get("files") or []:
-        p = base / spec["dst"]
-        if not p.is_file() or p.stat().st_size == 0:
+        if not file_complete(base / spec["dst"]):
             missing.append(f"{model_id}:{spec['dst']}")
     from backend.services.video_model_registry import missing_plan_files
     for eid in missing_companions(generator, key):
         missing.extend(missing_plan_files(eid))
     return missing
+
+
+def user_incomplete_files(generator, key: str) -> dict:
+    """``{"<id>:<file>": reason}`` for the user model's files, and its missing
+    companions', that are on disk but cut short or unreadable."""
+    uf = _user_file_entry_for(generator, key)
+    if not uf:
+        return {}
+    model_id = key if is_user_model_id(key) else (uf.get("dir") or key)
+    incomplete = {}
+    base = _user_dest_dir(generator, uf)
+    for spec in uf.get("files") or []:
+        reason = file_incomplete(base / spec["dst"])
+        if reason:
+            incomplete[f"{model_id}:{spec['dst']}"] = reason
+    from backend.services.video_model_registry import incomplete_plan_files
+    for eid in missing_companions(generator, key):
+        incomplete.update(incomplete_plan_files(eid))
+    return incomplete
 
 
 def user_model_ready(generator, sentinel: str) -> bool:
@@ -955,11 +973,15 @@ def download_user_files(generator, sentinel: str, stop=None) -> tuple[bool, str 
             if stop is not None and stop.is_set():
                 return False, "Download stalled"
             want = base / spec["dst"]
-            # A file already in place is kept. Install re-runs to fetch what is
-            # still missing (a base config, companions), and a file moved off its
-            # repo path would otherwise be fetched whole again.
-            if want.is_file() and want.stat().st_size > 0:
+            # A whole file already in place is kept. Install re-runs to fetch
+            # what is still missing (a base config, companions), and a file moved
+            # off its repo path would otherwise be fetched whole again.
+            if file_complete(want):
                 continue
+            cut_short = file_incomplete(want)
+            if cut_short:
+                logger.warning("Replacing %s (%s)", want, cut_short)
+                want.unlink()
             if uf.get("kind") == "encoder" and uf.get("shared_with"):
                 ok, err = _download_registry_entry(uf["shared_with"], stop)
                 if not ok:

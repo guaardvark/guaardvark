@@ -218,7 +218,11 @@ class ModelManager:
             logger.info(f"Model {name} already downloaded at {dest}")
             return dest
         logger.info(f"Downloading {name} from {entry['url']}...")
-        urlretrieve(entry["url"], dest)
+        # An interrupted fetch must not leave its front part under the final
+        # name, where it would read as an installed model.
+        part = dest + ".part"
+        urlretrieve(entry["url"], part)
+        os.replace(part, dest)
         logger.info(f"Downloaded {name} to {dest}")
         return dest
 

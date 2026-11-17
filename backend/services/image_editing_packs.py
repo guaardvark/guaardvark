@@ -139,6 +139,7 @@ def pack_rows() -> List[Dict]:
             "installed": installed,
             "is_downloaded": installed,
             "missing_files": [] if installed else api._missing_check_files(pack["id"]),
+            "incomplete_files": {} if installed else api._incomplete_check_files(pack["id"]),
             "tools": list(pack["tools"]),
             "entries": plan,
             "group": "editing",

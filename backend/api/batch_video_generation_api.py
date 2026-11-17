@@ -14,7 +14,7 @@ import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 from urllib.parse import quote
 
 from flask import Blueprint, request, send_file
@@ -1285,17 +1285,24 @@ _reconcile_download_status_on_load()
 
 
 def _check_model_downloaded(model_id: str) -> bool:
-    """Check if a video model's files exist and are non-empty (wherever the
+    """Check if a video model's files exist and are whole (wherever the
     entry's `dest` says they live; see video_model_registry.resolve_entry_dir)."""
     from backend.services.video_model_registry import entry_files_present
     return entry_files_present(VIDEO_MODEL_REGISTRY.get(model_id))
 
 
 def _missing_check_files(model_id: str) -> List[str]:
-    """The check_files (model + companions) absent on disk: the precise reason a
-    model is not ready (video_model_registry.missing_plan_files)."""
+    """The check_files (model + companions) absent or cut short on disk: the
+    precise reason a model is not ready (video_model_registry.missing_plan_files)."""
     from backend.services.video_model_registry import missing_plan_files
     return missing_plan_files(model_id)
+
+
+def _incomplete_check_files(model_id: str) -> Dict[str, str]:
+    """Of the missing files, those on disk but truncated or unreadable, with the
+    reason (video_model_registry.incomplete_plan_files)."""
+    from backend.services.video_model_registry import incomplete_plan_files
+    return incomplete_plan_files(model_id)
 
 
 def _resolve_download_plan(model_id: str) -> List[str]:
@@ -1344,6 +1351,9 @@ def list_video_models():
                 # The exact files still missing (model + companions) — empty when
                 # ready. Makes a partial/wrong-quant install diagnosable (issue #36).
                 "missing_files": _missing_check_files(model_id),
+                # Of those, the files that are on disk but cut short or
+                # unreadable, with the reason; Install fetches them again.
+                "incomplete_files": _incomplete_check_files(model_id),
                 "requires": requires,
                 # Total bytes an Install click will fetch (model + missing deps).
                 "install_size_gb": round(

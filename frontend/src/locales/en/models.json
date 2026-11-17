@@ -164,6 +164,8 @@
     "missingDependencies": "model present — missing dependencies",
     "filesMissing_one": "{{count}} file missing",
     "filesMissing_other": "{{count}} files missing",
+    "filesIncomplete_one": "{{count}} file on disk is incomplete; Install downloads it again",
+    "filesIncomplete_other": "{{count}} files on disk are incomplete; Install downloads them again",
     "title": "Manage Video Models",
     "noneInstalled": "No video model is installed yet. Install one below to enable video generation — each model's download size and VRAM requirement is shown so you can pick what fits your machine.",
     "generation": "Video generation",

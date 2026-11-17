@@ -9,6 +9,7 @@ import pytest
 
 from backend.services import user_video_models as uvm
 from backend.services import video_model_registry as vmr
+from backend.tests.fixtures.model_files import write_model_file
 
 
 @pytest.fixture
@@ -219,8 +220,7 @@ def test_resolve_text_encoder(catalog_dir, tmp_path, monkeypatch):
         filename, err = uvm.resolve_text_encoder("minimax-h3-int8", mid)
         assert filename is None and "not installed" in err
         target = models_dir / entry["local_subdir"] / "qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors"
-        target.parent.mkdir(parents=True)
-        target.write_bytes(b"x")
+        write_model_file(target)
         assert uvm.resolve_text_encoder("minimax-h3-int8", mid) == (
             "qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors", None,
         )
