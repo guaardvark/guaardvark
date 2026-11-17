@@ -123,6 +123,11 @@ def _ledger(repo: Path) -> Path:
 
 
 def _record(repo: Path, v: Verdict, **extra) -> None:
+    """Append a verdict to the ledger.
+
+    Git records carry ``old_sha`` and ``new_sha`` when both commits are known,
+    so a reader can list exactly what arrived with ``git log old_sha..new_sha``.
+    """
     data = v.to_dict()
     data["kind"] = "verdict"
     data.update(extra)
@@ -165,8 +170,19 @@ def _warn_if_engine_drifted(repo: Path) -> None:
 
 
 def _rev(repo: Path, rev: str) -> Optional[str]:
+    if not rev or rev.startswith("-"):
+        return None
     out = git(repo, "rev-parse", "--verify", "--quiet", rev, check=False).decode().strip()
     return out or None
+
+
+def _range_shas(repo: Path, revs: str) -> dict:
+    """``{"old_sha", "new_sha"}`` for an ``A..B`` or ``A...B`` range whose sides resolve, else {}."""
+    sides = revs.split("...", 1) if "..." in revs else revs.split("..", 1)
+    if len(sides) != 2:
+        return {}
+    old, new = _rev(repo, sides[0] or "HEAD"), _rev(repo, sides[1] or "HEAD")
+    return {"old_sha": old, "new_sha": new} if old and new else {}
 
 
 # -- commands ------------------------------------------------------------------
@@ -197,7 +213,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
         return 2
 
     if args.record:
-        _record(repo, v)
+        _record(repo, v, **(_range_shas(repo, args.range) if args.range else {}))
     if args.json:
         print(json.dumps(v.to_dict(), indent=2))
     elif args.github:
@@ -275,7 +291,8 @@ def hook_pre_merge_commit() -> int:
     subject = f"merge {incoming} into {branch}"
     v = scan_diff(repo, ["--cached"], source="git-merge", subject=subject, mode=mode)
     approval = ledger.approval_for(_ledger(repo), v.digest)
-    _record(repo, v, approved=bool(approval))
+    shas = {"old_sha": _rev(repo, "HEAD"), "new_sha": merge_head or _rev(repo, incoming)}
+    _record(repo, v, approved=bool(approval), **{k: sha for k, sha in shas.items() if sha})
 
     if v.verdict == "allow" and not v.findings:
         print(f"✓ inbound guard: {subject} — nothing to hold ({v.files} file(s))", file=sys.stderr)
@@ -343,7 +360,7 @@ def hook_reference_transaction(state: str, lines: Sequence[str]) -> int:
         v = scan_diff(repo, [old, new], source=source, subject=f"{short} {old[:9]}..{new[:9]}", mode=mode,
                       rules=rules, budget_seconds=budget)
         already_shown = v.digest in ledger.recent_digests(_ledger(repo))
-        _record(repo, v, ref=ref)
+        _record(repo, v, ref=ref, old_sha=old, new_sha=new)
         if v.verdict != "allow" and not already_shown:
             worst = v.findings[0]
             where = f"{worst.path}:{worst.line}" if worst.line else worst.path
