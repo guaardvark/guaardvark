@@ -39,6 +39,7 @@ import { isSynthesizedMessage, isSynthesizedStep } from "./synthesizedAnswer";
 import WebSearchOfferChip from "./WebSearchOfferChip";
 import { webSearchOfferOf } from "./webSearchOffer";
 import AgentThinkingTrail from "./AgentThinkingTrail";
+import { STEP_COLORS, stepBodySx } from "./stepText";
 import OrchestratorPlanView from "../orchestrator/OrchestratorPlanView";
 import ImageLightbox from "../images/ImageLightbox";
 import NarrateButton from "../common/NarrateButton";
@@ -634,10 +635,6 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
                     gap: 1,
                     mb: 0.75,
                     mt: stepIdx === 0 ? 0 : 0.5,
-                    pl: 1,
-                    borderLeft: 2,
-                    borderColor: "divider",
-                    opacity: 0.9,
                   }}
                 >
                   <Typography
@@ -659,18 +656,13 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
                       gap: 1,
                       mb: 0.75,
                       mt: stepIdx === 0 ? 0 : 0.5,
-                      pl: 1,
-                      borderLeft: 2,
-                      borderColor: "warning.main",
-                      opacity: 0.85,
                     }}
                   >
                     <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ fontStyle: "italic", whiteSpace: "pre-wrap", fontSize: "0.7rem" }}
+                      component="div"
+                      sx={{ ...stepBodySx, minWidth: 0 }}
                     >
-                      <Box component="span" sx={{ color: "warning.main", fontWeight: 600, mr: 0.5 }}>
+                      <Box component="span" sx={{ color: STEP_COLORS.step, fontWeight: 600, mr: 0.5 }}>
                         {t("chat.thinkingTrail.step", { step: step.iteration ?? stepIdx + 1 })}:
                       </Box>
                       {step.thoughts.trim()}
