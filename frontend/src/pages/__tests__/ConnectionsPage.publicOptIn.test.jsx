@@ -1,9 +1,24 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as renderInto, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 vi.mock("../../api/connectionsService");
 vi.mock("../../components/modals/ConnectionModal", () => ({ default: () => null }));
+vi.mock("../../contexts/LayoutContext", () => {
+  const layout = {
+    gridSettings: {
+      CONTAINER_PADDING_PX: 4,
+      CARD_MARGIN_PX: 8,
+      COLS_COUNT: 175,
+      ROW_HEIGHT_PX: 10,
+      cardGridW: 35,
+      cardGridH: 49,
+      cardMinGridW: 30,
+    },
+  };
+  return { useDashboardWidth: () => 1750, useLayout: () => layout };
+});
 
 import ConnectionsPage from "../ConnectionsPage";
 import * as connectionsService from "../../api/connectionsService";
@@ -18,11 +33,12 @@ const OPT_IN = {
 };
 
 const SPECS = [
-  { provider: "bluesky", label: "Bluesky", capabilities: { public_opt_in: null } },
-  { provider: "youtube", label: "YouTube", capabilities: { public_opt_in: OPT_IN } },
+  { provider: "bluesky", family: "social", label: "Bluesky", capabilities: { public_opt_in: null } },
+  { provider: "youtube", family: "social", label: "YouTube", capabilities: { public_opt_in: OPT_IN } },
 ];
 
 const account = (fields) => ({
+  family: "social",
   status: "connected",
   enabled: true,
   has_credentials: true,
@@ -35,11 +51,19 @@ const account = (fields) => ({
 const BLUESKY = account({ id: 1, provider: "bluesky", handle: "me.example", public_opt_in: null });
 const YOUTUBE = account({ id: 2, provider: "youtube", handle: "My channel", public_opt_in: { on: false, source: "default" } });
 
+const render = (page) => renderInto(<MemoryRouter>{page}</MemoryRouter>);
+
 const toggle = () => screen.findByRole("checkbox", { name: "Allow public uploads" });
 
 describe("ConnectionsPage: a provider's public opt-in", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    global.ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    };
+    // The board finds no saved arrangement and shows its default.
+    global.fetch = vi.fn(async () => ({ ok: false, status: 404, statusText: "NOT FOUND", json: async () => ({}) }));
     connectionsService.fetchConnections.mockResolvedValue([BLUESKY, YOUTUBE]);
     connectionsService.fetchProviders.mockResolvedValue(SPECS);
     connectionsService.fetchEnvironment.mockResolvedValue([]);
@@ -80,5 +104,21 @@ describe("ConnectionsPage: a provider's public opt-in", () => {
 
     expect(await toggle()).toBeChecked();
     expect(screen.getByText(/On through the install-wide setting youtube_allow_public_publish/)).toBeInTheDocument();
+  });
+
+  it("lists each family's connections in that family's card", async () => {
+    connectionsService.fetchConnections.mockResolvedValue([
+      BLUESKY,
+      account({ id: 3, family: "mcp_server", provider: "mcp", handle: "files server", public_opt_in: null }),
+    ]);
+    render(<ConnectionsPage />);
+
+    const card = (id) => document.querySelector(`[data-card-id="${id}"]`);
+    await screen.findByText("me.example");
+    expect(connectionsService.fetchConnections).toHaveBeenCalledWith();
+    expect(card("social")).toHaveTextContent("me.example");
+    expect(card("social")).not.toHaveTextContent("files server");
+    expect(card("mcp_server")).toHaveTextContent("files server");
+    expect(card("ai_provider")).toHaveTextContent("No connections in this category yet.");
   });
 });
