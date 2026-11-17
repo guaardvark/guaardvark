@@ -23,7 +23,7 @@ anthropic>=1.7.0
 python-dotenv==1.2.4
 
 # Background Tasks & Caching
-celery==5.6.3
+celery==5.7.0
 # kombu 5.7 refuses redis-py below 6.4 at run time, so the two move together.
 # redis-py 8 speaks RESP3 and needs a Redis server of 6.0 or newer.
 kombu==5.7.0
@@ -73,9 +73,9 @@ loguru==0.7.2
 
 # LLM/AI Dependencies
 ollama>=0.6.2
-llama-index-core>=0.13.0,<0.15.0  # Compatible with llama-index-embeddings-ollama
-llama-index-llms-ollama>=0.7.0  # Updated for llama-index-core 0.14.x
-llama-index-embeddings-ollama>=0.8.0
+llama-index-core>=0.14.26,<0.15.0
+llama-index-llms-ollama>=0.12.0
+llama-index-embeddings-ollama>=0.11.0
 llama-index-readers-file>=0.5.0  # Updated for llama-index-core 0.14.x
 llama-index-retrievers-bm25>=0.8.0  # Hybrid search: BM25 keyword retrieval
 # Retrieval storage and reranking. Both were silent missing deps: without the
@@ -83,7 +83,7 @@ llama-index-retrievers-bm25>=0.8.0  # Hybrid search: BM25 keyword retrieval
 # throughout — measured 0/7 needles retrieved on scripts/rag_validation, 6/7 at
 # rank 1 once installed. Without sentence-transformers the cross-encoder rerank
 # is skipped. Verified at 0.8.1 / 6.0.0 against llama-index-core 0.14.24.
-llama-index-vector-stores-postgres>=0.9.0
+llama-index-vector-stores-postgres>=0.10.0
 sentence-transformers>=6.0.1
 # Layout-aware parsing for .pdf/.docx/.pptx (backend/utils/docling_loader.py).
 # Without it those formats have no reader at all and fall through to a legacy
