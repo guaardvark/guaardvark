@@ -8,17 +8,12 @@ import {
   CardContent,
   Chip,
   CircularProgress,
-  Container,
-  Divider,
-  Grid,
   Link,
   Menu,
   MenuItem,
   Snackbar,
   Stack,
   Switch,
-  Tab,
-  Tabs,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -27,6 +22,8 @@ import LockIcon from "@mui/icons-material/Lock";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
 
 import ConnectionModal from "../components/modals/ConnectionModal";
+import PageLayout from "../components/layout/PageLayout";
+import { CardWorkspace } from "../components/board";
 import {
   deleteConnection,
   fetchConnections,
@@ -46,6 +43,14 @@ const families = () => [
   { key: "mcp_server", label: translate("connections.page.families.mcp") },
 ];
 
+// Where each family's card sits by default on the board.
+const FAMILY_CARD_LAYOUT = {
+  social: { x: 0, y: 0, w: 110, h: 62 },
+  ai_provider: { x: 110, y: 0, w: 65, h: 31 },
+  mcp_server: { x: 110, y: 31, w: 65, h: 31 },
+};
+const ENVIRONMENT_CARD_LAYOUT = { x: 0, y: 62, w: 175, h: 22 };
+
 const STATUS_COLOR = {
   connected: "success",
   error: "error",
@@ -64,7 +69,6 @@ const statusLabels = () => ({
 
 const ConnectionsPage = () => {
   const { t } = useUiTranslation();
-  const [family, setFamily] = useState("social");
   const [connections, setConnections] = useState([]);
   const [providers, setProviders] = useState([]);
   const [environment, setEnvironment] = useState([]);
@@ -73,6 +77,7 @@ const ConnectionsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [feedback, setFeedback] = useState({ open: false, message: "", severity: "info" });
+  // The Add connection menu that is open: { family, el }.
   const [addAnchor, setAddAnchor] = useState(null);
   const [modal, setModal] = useState({ open: false, connection: null, spec: null });
   const [testingId, setTestingId] = useState(null);
@@ -82,8 +87,8 @@ const ConnectionsPage = () => {
     setError(null);
     try {
       const [conns, specs, env, health, publishSettings] = await Promise.all([
-        fetchConnections(family),
-        fetchProviders(family),
+        fetchConnections(),
+        fetchProviders(),
         fetchEnvironment(),
         fetchStoreHealth(),
         fetchPublishSettings(),
@@ -98,7 +103,7 @@ const ConnectionsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [family]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -186,96 +191,80 @@ const ConnectionsPage = () => {
     }
   }, []);
 
-  return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        {t("connections.page.title")}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t("connections.page.intro")}
-      </Typography>
-
-      <Tabs value={family} onChange={(_e, v) => setFamily(v)} sx={{ mb: 2 }}>
-        {families().map((f) => (
-          <Tab key={f.key} value={f.key} label={f.label} />
-        ))}
-      </Tabs>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {family === "social" && settings && (
-        <Card variant="outlined" sx={{ mb: 2 }}>
-          <CardContent>
-            {settings.posting_stopped && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {settings.posting_stop_reason ||
-                  t("connections.page.postingStopped")}{" "}
-                {t("connections.page.queuedHeld")}
-              </Alert>
-            )}
-            <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap">
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <Switch
-                  checked={settings.publish_enabled}
-                  onChange={(e) => handleSettingChange("publish_enabled", e.target.checked)}
-                />
-                <Typography variant="body2">{t("connections.page.publishingEnabled")}</Typography>
-              </Stack>
-              <Typography variant="body2" color="text.secondary">
-                {t("connections.page.approvalNote")}
-              </Typography>
-            </Stack>
-          </CardContent>
-        </Card>
-      )}
-
-      <Box sx={{ mb: 2 }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={(e) => setAddAnchor(e.currentTarget)}
-          disabled={!providers.length}
-        >
-          {t("connections.page.addConnection")}
-        </Button>
-        <Menu
-          anchorEl={addAnchor}
-          open={Boolean(addAnchor)}
-          onClose={() => setAddAnchor(null)}
-        >
-          {providers.map((spec) => (
-            <MenuItem
-              key={spec.provider}
-              onClick={() => {
-                setModal({ open: true, connection: null, spec });
-                setAddAnchor(null);
-              }}
-            >
-              {spec.label}
-              {spec.review_required && (
-                <Chip label={t("connections.page.appReview")} size="small" sx={{ ml: 1 }} />
+  // One card per family: its connections, and Add connection for its providers.
+  const familyCard = (family) => {
+    const specs = providers.filter((spec) => spec.family === family);
+    const own = connections.filter((conn) => conn.family === family);
+    return (
+      <Box sx={{ p: 1.5 }}>
+        {family === "social" && settings && (
+          <Card variant="outlined" sx={{ mb: 2 }}>
+            <CardContent>
+              {settings.posting_stopped && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {settings.posting_stop_reason ||
+                    t("connections.page.postingStopped")}{" "}
+                  {t("connections.page.queuedHeld")}
+                </Alert>
               )}
-            </MenuItem>
-          ))}
-        </Menu>
-      </Box>
+              <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap">
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Switch
+                    checked={settings.publish_enabled}
+                    onChange={(e) => handleSettingChange("publish_enabled", e.target.checked)}
+                  />
+                  <Typography variant="body2">{t("connections.page.publishingEnabled")}</Typography>
+                </Stack>
+                <Typography variant="body2" color="text.secondary">
+                  {t("connections.page.approvalNote")}
+                </Typography>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
 
-      {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-          <CircularProgress />
+        <Box sx={{ mb: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={(e) => setAddAnchor({ family, el: e.currentTarget })}
+            disabled={!specs.length}
+          >
+            {t("connections.page.addConnection")}
+          </Button>
+          <Menu
+            anchorEl={addAnchor?.family === family ? addAnchor.el : null}
+            open={addAnchor?.family === family}
+            onClose={() => setAddAnchor(null)}
+          >
+            {specs.map((spec) => (
+              <MenuItem
+                key={spec.provider}
+                onClick={() => {
+                  setModal({ open: true, connection: null, spec });
+                  setAddAnchor(null);
+                }}
+              >
+                {spec.label}
+                {spec.review_required && (
+                  <Chip label={t("connections.page.appReview")} size="small" sx={{ ml: 1 }} />
+                )}
+              </MenuItem>
+            ))}
+          </Menu>
         </Box>
-      ) : (
-        <Grid container spacing={2}>
-          {connections.map((conn) => {
-            const spec = specByProvider[conn.provider];
-            const optIn = spec?.capabilities?.public_opt_in;
-            return (
-              <Grid item xs={12} sm={6} md={4} key={conn.id}>
-                <Card variant="outlined" sx={{ height: "100%" }}>
+
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : own.length ? (
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 2 }}>
+            {own.map((conn) => {
+              const spec = specByProvider[conn.provider];
+              const optIn = spec?.capabilities?.public_opt_in;
+              return (
+                <Card variant="outlined" key={conn.id}>
                   <CardContent>
                     <Stack
                       direction="row"
@@ -374,47 +363,73 @@ const ConnectionsPage = () => {
                     </Button>
                   </CardActions>
                 </Card>
-              </Grid>
-            );
-          })}
-          {!connections.length && (
-            <Grid item xs={12}>
-              <Alert severity="info">
-                {t("connections.page.empty")}
-              </Alert>
-            </Grid>
+
+              );
+            })}
+          </Box>
+        ) : (
+          <Alert severity="info">{t("connections.page.empty")}</Alert>
+        )}
+      </Box>
+    );
+  };
+
+  const cards = families().map((f) => ({
+    id: f.key,
+    title: f.label,
+    layout: FAMILY_CARD_LAYOUT[f.key],
+    body: familyCard(f.key),
+  }));
+  if (environment.length > 0 || storeHealth) {
+    cards.push({
+      id: "environment",
+      title: t("connections.page.environment"),
+      layout: ENVIRONMENT_CARD_LAYOUT,
+      body: (
+        <Box sx={{ p: 1.5 }}>
+          {environment.length > 0 && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t("connections.page.environmentNote")}
+              </Typography>
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                {environment.map((entry) => (
+                  <Chip
+                    key={entry.env_key}
+                    label={`${entry.env_key} · ${entry.hint}`}
+                    variant="outlined"
+                  />
+                ))}
+              </Stack>
+
+            </>
           )}
-        </Grid>
-      )}
+          {storeHealth && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: environment.length > 0 ? 2 : 0 }}>
+              {storeHealth.encrypted ? t("connections.page.encrypted") : t("connections.page.unencrypted")} ·{" "}
+              {t("connections.page.credentialCount", { count: storeHealth.record_count })} · {storeHealth.path}
+              {storeHealth.mode ? ` (${storeHealth.mode})` : ""}
+            </Typography>
 
-      {environment.length > 0 && (
-        <Box sx={{ mt: 4 }}>
-          <Divider sx={{ mb: 2 }} />
-          <Typography variant="h6" gutterBottom>
-            {t("connections.page.environment")}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {t("connections.page.environmentNote")}
-          </Typography>
-          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-            {environment.map((entry) => (
-              <Chip
-                key={entry.env_key}
-                label={`${entry.env_key} · ${entry.hint}`}
-                variant="outlined"
-              />
-            ))}
-          </Stack>
+          )}
         </Box>
+      ),
+    });
+  }
+
+  return (
+    <PageLayout title={t("connections.page.title")} variant="standard">
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        {t("connections.page.intro")}
+      </Typography>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
       )}
 
-      {storeHealth && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 3 }}>
-          {storeHealth.encrypted ? t("connections.page.encrypted") : t("connections.page.unencrypted")} ·{" "}
-          {t("connections.page.credentialCount", { count: storeHealth.record_count })} · {storeHealth.path}
-          {storeHealth.mode ? ` (${storeHealth.mode})` : ""}
-        </Typography>
-      )}
+      <CardWorkspace boardKey="connections" cards={cards} />
 
       <ConnectionModal
         open={modal.open}
@@ -437,7 +452,7 @@ const ConnectionsPage = () => {
           {feedback.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </PageLayout>
   );
 };
 
