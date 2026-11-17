@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 os.environ["GUAARDVARK_MODE"] = "test"
 
 from backend.services.offline_image_generator import OfflineImageGenerator  # noqa: E402
+from backend.tests.fixtures.model_files import write_model_file  # noqa: E402
 
 
 def _gen():
@@ -234,7 +235,7 @@ class TestPartialDownloadDetection(unittest.TestCase):
             (root / "model_index.json").write_text(json.dumps({
                 "vae": ["diffusers", "AutoencoderKL"],
             }))
-            (root / "vae" / "diffusion_pytorch_model.safetensors").write_text("w")
+            write_model_file(root / "vae" / "diffusion_pytorch_model.safetensors")
             with patch.object(g, "_get_model_path", return_value=root):
                 self.assertTrue(g._is_model_downloaded("x/y"))
 
@@ -268,14 +269,14 @@ class TestAbortedDownloadDetection(unittest.TestCase):
         }))
         (root / "scheduler" / "scheduler_config.json").write_text("{}")
         (root / "tokenizer" / "tokenizer.json").write_text("{}")
-        (root / "vae" / "diffusion_pytorch_model.safetensors").write_text("w")
+        write_model_file(root / "vae" / "diffusion_pytorch_model.safetensors")
         names = [f"diffusion_pytorch_model-0000{i}-of-00003.safetensors" for i in (1, 2, 3)]
         (root / "transformer" / "diffusion_pytorch_model.safetensors.index.json").write_text(
             json.dumps({"weight_map": {f"layer.{i}": n for i, n in enumerate(names)}})
         )
         if shards_present:
             for n in names:
-                (root / "transformer" / n).write_text("w")
+                write_model_file(root / "transformer" / n)
 
     def test_missing_shards_are_not_downloaded(self):
         import tempfile

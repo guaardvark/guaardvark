@@ -1070,8 +1070,8 @@ class ComfyUIImageGenerator:
             base = _comfy_models_dir() if _comfy_models_dir else (
                 Path(__file__).resolve().parents[3] / "plugins" / "comfyui" / "ComfyUI" / "models"
             )
-            f = base / "unet" / KONTEXT_UNET
-            return f.exists() and f.stat().st_size > 0
+            from backend.utils.model_file_integrity import file_complete
+            return file_complete(base / "unet" / KONTEXT_UNET)
         except Exception:
             return False
 

@@ -655,6 +655,7 @@ class OfflineImageGenerator:
         files, so they finish last. A sharded component also ships an index naming
         every piece, which makes "is this complete?" exactly checkable.
         """
+        from backend.utils.model_file_integrity import file_incomplete, file_problem
         try:
             import json
             with open(model_path / "model_index.json") as f:
@@ -684,16 +685,23 @@ class OfflineImageGenerator:
                 except Exception:
                     return False
                 for shard in set(weight_map.values()):
-                    if not (comp_dir / shard).is_file():
+                    problem = file_problem(comp_dir / shard)
+                    if problem:
                         logger.debug(
-                            f"{model_path.name}: '{component}' missing shard {shard}"
+                            f"{model_path.name}: '{component}' shard {shard}: {problem}"
                         )
                         return False
                 continue
 
-            if not any(comp_dir.glob("*.safetensors")) and not any(comp_dir.glob("*.bin")):
+            weights = [*comp_dir.glob("*.safetensors"), *comp_dir.glob("*.bin")]
+            if not weights:
                 logger.debug(f"{model_path.name}: '{component}' has no weight file")
                 return False
+            for weight in weights:
+                problem = file_incomplete(weight)
+                if problem:
+                    logger.debug(f"{model_path.name}: '{component}' {weight.name}: {problem}")
+                    return False
 
         return True
 
@@ -715,8 +723,9 @@ class OfflineImageGenerator:
             root / "clip" / "t5" / t5_name,
             root / "text_encoders" / t5_name,
         ]
-        t5_ok = any(p.is_file() and p.stat().st_size > 0 for p in t5_candidates)
-        return all(p.is_file() and p.stat().st_size > 0 for p in (unet, vae, clip)) and t5_ok
+        from backend.utils.model_file_integrity import file_complete
+        t5_ok = any(file_complete(p) for p in t5_candidates)
+        return all(file_complete(p) for p in (unet, vae, clip)) and t5_ok
 
     @staticmethod
     def _comfyui_assets_present() -> bool:
@@ -769,6 +778,24 @@ class OfflineImageGenerator:
         except Exception as e:  # noqa: BLE001 — a listing must not fail on one row
             logger.debug("missing_files_for(%s) failed: %s", model_key, e)
         return []
+
+    def incomplete_files_for(self, model_key: str) -> Dict[str, str]:
+        """``{"<entry>:<file>": reason}`` for the missing_files_for entries that
+        are on disk but cut short or unreadable."""
+        if not self.is_comfy_only_model(model_key):
+            return {}
+        try:
+            if self._user_file_entry(model_key) is not None:
+                from backend.services.user_image_models import user_incomplete_files
+                return user_incomplete_files(self, model_key)
+            mid = str(self.available_models.get(model_key) or model_key)
+            catalog_key = mid.split(":", 1)[1] if mid.startswith("comfy:") else model_key
+            from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY, incomplete_plan_files
+            if catalog_key in VIDEO_MODEL_REGISTRY:
+                return incomplete_plan_files(catalog_key)
+        except Exception as e:  # noqa: BLE001 — a listing must not fail on one row
+            logger.debug("incomplete_files_for(%s) failed: %s", model_key, e)
+        return {}
 
     # How long a repo-access verdict stays good. The menu asks per model, so without
     # a cache every dropdown open would fan out HTTP requests.
@@ -4266,6 +4293,8 @@ Negative Prompt: {negative_prompt}""",
                 # ComfyUI rows say which files are still missing (model + companions),
                 # the way the editing packs do; offline rows have no file list.
                 "missing_files": [] if downloaded else self.missing_files_for(model_key),
+                # Of those, the files that are on disk but cut short or unreadable.
+                "incomplete_files": {} if downloaded else self.incomplete_files_for(model_key),
                 "size_estimate": (
                     "28-36GB" if "krea" in model_id.lower()
                     else "23GB+Comfy" if "flux" in model_key or "flux" in model_id.lower()

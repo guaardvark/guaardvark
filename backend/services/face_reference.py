@@ -68,9 +68,10 @@ class FaceCheckUnavailable(RuntimeError):
 def detector_path() -> Optional[Path]:
     """The installed RetinaFace weights, from the folders the facexlib-face pack fills."""
     from backend.services.video_model_registry import facexlib_weight_dirs
+    from backend.utils.model_file_integrity import file_complete
     for folder in facexlib_weight_dirs():
         candidate = folder / DETECTOR_FILE
-        if candidate.is_file() and candidate.stat().st_size > 0:
+        if file_complete(candidate):
             return candidate
     return None
 

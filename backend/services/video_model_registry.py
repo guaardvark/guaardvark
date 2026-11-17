@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Optional
 
 from backend.services.job_types import RenderErrorKind, RenderFailure
+from backend.utils.model_file_integrity import file_complete, file_incomplete
 
 logger = logging.getLogger(__name__)
 
@@ -111,19 +112,29 @@ def _entry_check_dirs(entry: dict) -> list:
     return [resolve_entry_dir(entry)]
 
 
+def _entry_file_paths(entry: dict) -> list:
+    """``(name, path)`` for every file an entry needs; path is None for a
+    Hugging Face cache file that is not cached."""
+    if entry.get("dest") == "hf_cache":
+        from backend.services.local_weights import cached_path
+        return [
+            (f["src"], cached_path(entry["hf_repo"], f["src"]))
+            for f in entry.get("files", [])
+        ]
+    return [
+        (check_file, base / check_file)
+        for base in _entry_check_dirs(entry)
+        for check_file in entry.get("check_files", [])
+    ]
+
+
 def entry_files_present(entry: dict) -> bool:
-    """True when every file the entry declares is on this machine, non-empty."""
+    """True when every file the entry declares is on this machine and whole
+    (backend.utils.model_file_integrity)."""
     if not entry:
         return False
-    if entry.get("dest") == "hf_cache":
-        from backend.services.local_weights import is_cached
-        return all(is_cached(entry["hf_repo"], f["src"]) for f in entry.get("files", []))
-    for base in _entry_check_dirs(entry):
-        for check_file in entry.get("check_files", []):
-            fpath = base / check_file
-            if not fpath.exists() or fpath.stat().st_size == 0:
-                return False
-    return bool(entry.get("check_files"))
+    paths = _entry_file_paths(entry)
+    return bool(paths) and all(path is not None and file_complete(path) for _, path in paths)
 
 
 def is_model_installed(model_id: str) -> bool:
@@ -151,23 +162,40 @@ def install_plan(model_id: str) -> list:
 
 
 def missing_plan_files(model_id: str) -> list:
-    """``"<entry>:<file>"`` for every file of the plan that is absent on disk."""
-    from backend.services.local_weights import is_cached
-
+    """``"<entry>:<file>"`` for every file of the plan Install still has to
+    fetch: absent on disk, or there but not whole (see incomplete_plan_files)."""
     missing: list = []
     for eid in install_plan(model_id):
-        info = VIDEO_MODEL_REGISTRY.get(eid, {})
-        if info.get("dest") == "hf_cache":
-            for f in info.get("files", []):
-                if not is_cached(info["hf_repo"], f["src"]):
-                    missing.append(f"{eid}:{f['src']}")
-            continue
-        for base in _entry_check_dirs(info):
-            for cf in info.get("check_files", []):
-                fp = base / cf
-                if (not fp.exists() or fp.stat().st_size == 0) and f"{eid}:{cf}" not in missing:
-                    missing.append(f"{eid}:{cf}")
+        for name, path in _entry_file_paths(VIDEO_MODEL_REGISTRY.get(eid, {})):
+            label = f"{eid}:{name}"
+            if (path is None or not file_complete(path)) and label not in missing:
+                missing.append(label)
     return missing
+
+
+def incomplete_plan_files(model_id: str) -> dict:
+    """``{"<entry>:<file>": reason}`` for the plan's files that are on disk but
+    cut short or unreadable. A subset of missing_plan_files."""
+    incomplete: dict = {}
+    for eid in install_plan(model_id):
+        for name, path in _entry_file_paths(VIDEO_MODEL_REGISTRY.get(eid, {})):
+            reason = file_incomplete(path) if path is not None else None
+            if reason:
+                incomplete.setdefault(f"{eid}:{name}", reason)
+    return incomplete
+
+
+def _discard_incomplete(path: Path) -> None:
+    """Remove a file that is on disk but not whole, so a download replaces it
+    instead of taking it for the finished file."""
+    reason = file_incomplete(path)
+    if not reason:
+        return
+    logger.warning("Replacing %s (%s)", path, reason)
+    try:
+        path.unlink()
+    except OSError as e:
+        logger.warning("Could not remove %s: %s", path, e)
 
 
 def is_plan_installed(model_id: str) -> bool:
@@ -181,7 +209,8 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
     """Fetch one registry entry's files into ``local_dir`` at their ``dst`` names.
 
     ``check`` is called before each file and may raise to stop the pull (a stall
-    monitor or a newer download taking over). Files already present are kept.
+    monitor or a newer download taking over). Whole files already present are
+    kept; a truncated one is fetched again.
     """
     import shutil
     from huggingface_hub import hf_hub_download, snapshot_download
@@ -202,15 +231,20 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
         for spec in entry["direct_urls"]:
             _check()
             dst = local_dir / spec["dst"]
-            if not (dst.exists() and dst.stat().st_size > 0):
+            if not file_complete(dst):
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                urllib.request.urlretrieve(spec["url"], str(dst))
+                # An interrupted fetch must not leave its front part under the
+                # final name: these formats carry no length to check it against.
+                part = dst.with_name(dst.name + ".part")
+                urllib.request.urlretrieve(spec["url"], str(part))
+                os.replace(str(part), str(dst))
             # One download serves every facexlib on the machine.
             for other in _entry_check_dirs(entry):
                 copy = other / spec["dst"]
-                if other == local_dir or (copy.exists() and copy.stat().st_size > 0):
+                if other == local_dir or file_complete(copy):
                     continue
                 copy.parent.mkdir(parents=True, exist_ok=True)
+                _discard_incomplete(copy)
                 try:
                     os.link(str(dst), str(copy))
                 except OSError:
@@ -219,8 +253,10 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
         for spec in entry["files"]:
             _check()
             dst = local_dir / spec["dst"]
-            if not (dst.exists() and dst.stat().st_size > 0):
+            if not file_complete(dst):
                 dst.parent.mkdir(parents=True, exist_ok=True)
+                _discard_incomplete(dst)
+                _discard_incomplete(local_dir / spec["src"])
                 got = Path(hf_hub_download(
                     repo_id=entry["hf_repo"],
                     filename=spec["src"],
@@ -234,6 +270,7 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
             extra = spec.get("also_link")
             if extra and dst.exists():
                 link_dst = comfyui_models_dir() / extra / dst.name
+                _discard_incomplete(link_dst)
                 if not link_dst.exists():
                     link_dst.parent.mkdir(parents=True, exist_ok=True)
                     try:
@@ -241,6 +278,8 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
                     except OSError:
                         shutil.copy2(str(dst), str(link_dst))
     elif "hf_filename" in entry:
+        _discard_incomplete(local_dir / entry["hf_filename"])
+        _discard_incomplete(local_dir / entry["check_files"][0])
         hf_hub_download(
             repo_id=entry["hf_repo"],
             filename=entry["hf_filename"],
@@ -253,6 +292,8 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(str(src), str(dst))
     else:
+        for check_file in entry.get("check_files", []):
+            _discard_incomplete(local_dir / check_file)
         snapshot_download(repo_id=entry["hf_repo"], local_dir=str(local_dir))
 
 
