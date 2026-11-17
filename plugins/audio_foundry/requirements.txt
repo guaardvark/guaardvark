@@ -5,13 +5,17 @@
 #   - voice_gen  (Chatterbox primary, Kokoro fallback)
 #
 # ACE-Step lives in a SIBLING venv (plugins/audio_foundry/venv-music/) — see
-# requirements-music.txt — because it pins transformers==4.50.0 while
-# chatterbox-tts pins transformers==5.2.0. Two exact pins, can't coexist.
-# music_gen_acestep.py drives that venv via subprocess.
+# requirements-music.txt — because it pins transformers==4.50.0, which this
+# venv cannot run. music_gen_acestep.py drives that venv via subprocess.
+#
+# Install order (scripts/venv_sync.sh, used by setup_venv.sh and start.sh):
+#   1. scripts/install_pytorch.sh --venv <this venv>   torch for this machine's GPU
+#   2. pip install -r requirements.txt                 this file
+#   3. pip install --no-deps -r requirements-nodeps.txt   chatterbox-tts itself
+# torch goes in first so step 2 keeps that build instead of pulling the default
+# PyPI wheel and then swapping it.
 
-# Core service — fastapi/uvicorn left as floors, not exact pins, because
-# chatterbox-tts pulls gradio which requires fastapi>=0.130. Hard-pinning
-# 0.115.0 makes the resolver fail outright (saw this on first launch).
+# Core service
 fastapi>=0.115.0
 uvicorn>=0.30.0
 PyYAML>=6.0
@@ -25,54 +29,60 @@ pytest>=8.0.0
 # Audio I/O — used by every backend
 soundfile>=0.12
 
-# voice_gen — Chatterbox brings its own torch 2.6 / transformers 5.2 /
-# diffusers 0.29 / safetensors / numpy / librosa as transitive deps.
-chatterbox-tts==0.1.7
+# ── Security floors ──────────────────────────────────────────────────────────
+# torch below 2.10.0 carries CVE-2026-24747 (code execution from a crafted
+# checkpoint); transformers below 5.10.0 carries CVE-2026-4372, -5241 and -9856.
+# setup_venv.sh treats a venv that does not satisfy this file as unhealthy and
+# repairs it, so these floors are what keeps an old venv from staying old.
+torch>=2.10.0
+torchaudio
+transformers>=5.10.0
 
-# ── CUDA libs MUST match the torch that actually runs (2.11+cu128) ──────────
-# chatterbox (above) pulls torch==2.6.0 and its CUDA-12.4 transitive libs. This
-# venv then runs torch 2.11+cu128, but pip's resolver — held back by chatterbox's
-# torch==2.6 pin — leaves the OLD libs in place. The mismatch breaks `import torch`
-# with a moving target of symbol errors (missing libnvshmem_host.so.3 →
-# cuptiActivityEnableDriverApi → ncclCommShrink), which verify_gpu_stack.sh used
-# to report vaguely as "torch cannot run a GPU kernel".
+# ── voice_gen: Chatterbox ────────────────────────────────────────────────────
+# chatterbox-tts 0.1.7 (the newest release) pins torch==2.6.0, torchaudio==2.6.0,
+# transformers==5.2.0, diffusers==0.29.0 and safetensors==0.5.3 exactly. Installed
+# with its dependencies it drags the whole venv back to those versions, so the
+# package itself is in requirements-nodeps.txt and what it imports is listed
+# here without the exact pins. `pip check` reports the ignored pins; that is
+# expected.
 #
-# These are deliberately NOT pinned here: a hard nvidia-* pin next to
-# chatterbox==0.1.7 makes pip's resolver fail outright (same reason diffusers>=0.30
-# isn't pinned — see below). Fix it as a POST-install step, after this file installs:
+# Measured through the voice service on CPU, torch 2.14.1 + transformers 5.23.0
+# against the pinned torch 2.6.0 + transformers 5.2.0, 54 cloned Chatterbox
+# takes per stack: duration, loudness, pitch, speaker similarity to the
+# reference clip and Whisper word accuracy all match (53/54 against 54/54
+# takes transcribed exactly). Moving transformers alone leaves a seeded take
+# sample-identical. Moving torch changes which take a seed produces, so a seed
+# saved on torch 2.6.0 gives a different read of the same quality.
 #
-#   scripts/install_pytorch.sh --venv plugins/audio_foundry/venv
-#       # force-reinstalls torch 2.11+cu128 with a self-consistent CUDA set
-#
-# To repair an existing venv WITHOUT re-downloading torch, install just the libs
-# at the versions `torch` declares (verified 2026-06-19 on this box):
-#   plugins/audio_foundry/venv/bin/pip install \
-#     nvidia-nvshmem-cu12==3.4.5 nvidia-cudnn-cu12==9.19.0.56 \
-#     nvidia-cusparselt-cu12==0.7.1 nvidia-nccl-cu12==2.28.9 \
-#     nvidia-cuda-cupti-cu12==12.9.79 nvidia-cuda-nvrtc-cu12==12.9.86 \
-#     nvidia-nvjitlink-cu12==12.9.86 nvidia-nvtx-cu12==12.9.79
+# Left out on purpose: gradio. Upstream lists it for its demo apps; nothing in
+# the chatterbox package imports it.
+librosa==0.11.0
+s3tokenizer
+resemble-perth>=1.0.0
+conformer==0.3.2
+safetensors>=0.5.3
+einops>=0.6.1
+scipy
+tqdm
+omegaconf
+pyloudnorm
+# Imported only by the multilingual tokenizer (Japanese, Chinese).
+pykakasi==2.3.0
+spacy-pkuseg
+# Same split as chatterbox-tts declares: numpy 2 only on Python 3.13+.
+numpy>=1.26.4,<2.0; python_version < "3.13"
+numpy>=2.0.0; python_version >= "3.13"
 
-# audio_fx (Stable Audio Open) needs StableAudioPipeline, which was first
-# added in diffusers 0.30.0. Chatterbox-tts pins diffusers==0.29.0, but its
-# actual usage is limited to stable scheduler classes — verified to work
-# fine on diffusers 0.37+.
-#
-# The two pins (chatterbox==0.1.7 and diffusers>=0.30) are mutually
-# incompatible to pip's strict resolver, so we DON'T list diffusers>=0.30
-# here. Instead, scripts/start.sh runs a forced `pip install --upgrade
-# diffusers>=0.30,<0.40` AFTER this requirements.txt install, which pip
-# permits with a benign "dependency conflict" warning. This keeps the
-# requirements.txt resolver-friendly while still ending up with diffusers
-# 0.37+ at runtime.
+# audio_fx (Stable Audio Open) needs StableAudioPipeline, added in diffusers
+# 0.30.0. Chatterbox uses only scheduler, attention and activation classes
+# that are stable across this range.
+diffusers>=0.30,<0.40
 
 # Stable Audio Open's CosineDPMSolverMultistepScheduler requires torchsde.
-# Backend already pulls it, but audio_foundry runs in an isolated venv so
-# we list it explicitly here.
 torchsde>=0.2.6
 
 # diffusers emits a noisy LoRACompatibleLinear deprecation warning on every
-# Chatterbox load unless PEFT is installed. PEFT itself is small and brings
-# no conflicting pins; adding it just to silence the warning is a fair trade.
+# Chatterbox load unless PEFT is installed.
 peft>=0.10
 
 # Chatterbox depends on `resemble-perth`, which still uses the legacy
@@ -84,8 +94,7 @@ peft>=0.10
 # fix that drops pkg_resources, this pin can come off.
 setuptools<81
 
-# voice_gen fallback — Kokoro is unpinned (just `torch`, `transformers`,
-# `numpy`), so pip resolves it against whatever chatterbox installed.
+# voice_gen fallback — Kokoro.
 # Non-English Kokoro languages (e/f/h/i/p — Spanish, French, Hindi, Italian,
 # Portuguese) use `phonemizer-fork` + espeak-ng, both pulled transitively by
 # `kokoro` and already wired here. Requires `espeak-ng` on the host (Ubuntu
@@ -93,8 +102,5 @@ setuptools<81
 # misaki[ja]/misaki[zh] additionally — not wired today.
 kokoro>=0.7
 
-# audio_fx — Stable Audio Open uses diffusers' StableAudioPipeline. The
-# StableAudioPipeline class has been in diffusers since 0.27, so the 0.29
-# that chatterbox installs covers it. accelerate isn't pulled by chatterbox
-# but SAO needs it for fp16 device placement.
+# audio_fx — SAO needs accelerate for fp16 device placement.
 accelerate>=0.30

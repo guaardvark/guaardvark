@@ -31,12 +31,28 @@ if lsof -Pi :$SERVICE_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
     exit 1
 fi
 
-# Audio Foundry has TWO sibling venvs because chatterbox-tts and ACE-Step
-# pin mutually-incompatible transformers versions (5.2 vs 4.50). Both also
-# conflict with the main backend/venv (ComfyUI / vision_pipeline want
-# torch 2.11, transformers <5). Two-venv split keeps everyone honest:
+# Audio Foundry has TWO sibling venvs because ACE-Step pins transformers
+# 4.50, which the voice backends cannot run, and neither set fits the main
+# backend/venv. Two-venv split keeps everyone honest:
 #   venv/        -> FastAPI dispatcher + voice_gen (chatterbox+kokoro) + audio_fx (SAO)
 #   venv-music/  -> ACE-Step only; driven via subprocess from music_gen_acestep.py
+
+# ensure_venv_exists <venv dir> <label>: create the venv when it is missing or
+# does not run. Installs nothing into it.
+ensure_venv_exists() {
+    local venv_dir="$1"
+    local label="$2"
+    if [ -f "$venv_dir/bin/activate" ] && "$venv_dir/bin/python" -c 'import sys' >/dev/null 2>&1; then
+        return 0
+    fi
+    if [ -d "$venv_dir" ]; then
+        echo "$label venv damaged / from another machine (bad shebang or missing python) — removing..."
+        rm -rf "$venv_dir"
+    fi
+    echo "$label venv missing — bootstrapping at $venv_dir"
+    python3 -m venv "$venv_dir" || { echo "Error: failed to create $label venv"; exit 1; }
+}
+
 ensure_venv() {
     local venv_dir="$1"
     local reqs_file="$2"
@@ -98,39 +114,17 @@ print("ok")
 PLUGIN_VENV="$PLUGIN_ROOT/venv"
 MUSIC_VENV="$PLUGIN_ROOT/venv-music"
 
-ensure_venv "$PLUGIN_VENV"  "$PLUGIN_ROOT/requirements.txt"        "audio_foundry"
 ensure_venv "$MUSIC_VENV"   "$PLUGIN_ROOT/requirements-music.txt"  "audio_foundry-music"
 
-# audio_fx (Stable Audio Open) needs diffusers >= 0.30, but chatterbox-tts
-# pins diffusers == 0.29.0 in its setup.py. Listing both pins together in
-# requirements.txt makes pip's strict resolver fail with ResolutionImpossible.
-# So requirements.txt only has chatterbox; we do a forced upgrade pass here.
-# pip prints a "dependency conflict" warning that is benign — chatterbox's
-# actual usage is limited to scheduler classes that have been stable across
-# diffusers 0.29 → 0.37.
-DIFFUSERS_UPGRADE_SENTINEL="$PLUGIN_VENV/.diffusers_upgraded"
-DIFFUSERS_REQUIRED='diffusers>=0.30,<0.40'
-# Re-run the upgrade whenever requirements.txt has been edited (which would
-# have just triggered a `pip install -r` that downgrades diffusers back to
-# chatterbox's 0.29.0 pin). The sentinel lets idempotent restarts skip the
-# step on cold-cache cases.
-if [ ! -f "$DIFFUSERS_UPGRADE_SENTINEL" ] || [ "$PLUGIN_ROOT/requirements.txt" -nt "$DIFFUSERS_UPGRADE_SENTINEL" ]; then
-    echo "Forcing diffusers upgrade for Stable Audio Open compatibility..."
-    # shellcheck disable=SC1091
-    source "$PLUGIN_VENV/bin/activate"
-    pip install --upgrade "$DIFFUSERS_REQUIRED" || { echo "Error: diffusers upgrade failed"; exit 1; }
-    touch "$DIFFUSERS_UPGRADE_SENTINEL"
-    deactivate
-fi
+# Main venv. torch goes in first (install_pytorch.sh, the channel that fits
+# this GPU), then requirements.txt, then chatterbox-tts without its
+# dependencies: see requirements.txt for why. install_pytorch.sh returns at
+# once when the right build is already there, so re-running this after a
+# requirements edit costs a version check, not a download.
+# shellcheck source=plugins/audio_foundry/scripts/venv_sync.sh
+. "$SCRIPT_DIR/venv_sync.sh"
 
-# Post-install torch: chatterbox pins torch 2.6/cu124; GPU hosts need the
-# hardware_policy channel (cu128 on Blackwell). start.sh used to force torch
-# with --no-deps and only 4 nvidia-* wheels, leaving stale cupti →
-#   cuptiActivityEnableDriverApi undefined symbol
-# Use the same install_pytorch.sh path as setup_venv.sh (full nvidia-* set).
-INSTALL_PYTORCH="$PROJECT_ROOT/scripts/install_pytorch.sh"
-BACKEND_PY="$PROJECT_ROOT/backend/venv/bin/python"
-TORCH_CHANNEL="$("$BACKEND_PY" -m backend.services.hardware_policy torch_channel 2>/dev/null || echo "")"
+ensure_venv_exists "$PLUGIN_VENV" "audio_foundry"
 
 torch_import_ok() {
     "$PLUGIN_VENV/bin/python" -c '
@@ -142,34 +136,31 @@ else:
 ' 2>/dev/null
 }
 
+DEPS_SENTINEL="$PLUGIN_VENV/.deps_installed"
 TORCH_VERIFY_SENTINEL="$PLUGIN_VENV/.torch_import_verified"
-NEED_TORCH_SYNC=0
-if command -v nvidia-smi >/dev/null 2>&1; then
-    if ! torch_import_ok; then
-        NEED_TORCH_SYNC=1
-    fi
+NEED_VENV_SYNC=0
+if [ ! -f "$DEPS_SENTINEL" ] || [ ! -f "$TORCH_VERIFY_SENTINEL" ] \
+   || [ "$PLUGIN_ROOT/requirements.txt" -nt "$DEPS_SENTINEL" ] \
+   || [ "$PLUGIN_ROOT/requirements-nodeps.txt" -nt "$DEPS_SENTINEL" ]; then
+    NEED_VENV_SYNC=1
+elif command -v nvidia-smi >/dev/null 2>&1 && ! torch_import_ok; then
+    NEED_VENV_SYNC=1
 fi
-if [ "$NEED_TORCH_SYNC" = "1" ] || [ ! -f "$TORCH_VERIFY_SENTINEL" ]; then
-    echo "Syncing audio_foundry venv torch + CUDA companion libs..."
-    if [ -x "$INSTALL_PYTORCH" ]; then
-        TARGET_VENV="$PLUGIN_VENV" GUAARDVARK_TORCH_CHANNEL="$TORCH_CHANNEL" \
-            bash "$INSTALL_PYTORCH" --venv "$PLUGIN_VENV" \
-            || echo "Warning: install_pytorch.sh returned non-zero (continuing to verify)"
-    else
-        echo "Warning: $INSTALL_PYTORCH missing — cannot repair torch/CUDA mismatch"
-    fi
-    # shellcheck disable=SC1091
-    source "$PLUGIN_VENV/bin/activate"
-    pip install --upgrade "$DIFFUSERS_REQUIRED" 2>/dev/null || true
-    pip install --no-deps --force-reinstall 'numpy<2.0,>=1.26.4' 'setuptools<81' 2>/dev/null || true
-    deactivate
+if [ "$NEED_VENV_SYNC" = "1" ]; then
+    echo "Syncing audio_foundry venv: torch, requirements, chatterbox-tts..."
+    af_sync_main_venv "$PLUGIN_VENV" "$PLUGIN_ROOT" "$PROJECT_ROOT" \
+        || { echo "Error: audio_foundry requirements install failed"; exit 1; }
     if command -v nvidia-smi >/dev/null 2>&1 && ! torch_import_ok; then
         echo "Error: audio_foundry venv torch import still failing after install_pytorch."
         echo "  Run: plugins/audio_foundry/scripts/setup_venv.sh"
         exit 1
     fi
-    touch "$TORCH_VERIFY_SENTINEL"
+    touch "$DEPS_SENTINEL" "$TORCH_VERIFY_SENTINEL"
 fi
+
+INSTALL_PYTORCH="$PROJECT_ROOT/scripts/install_pytorch.sh"
+BACKEND_PY="$PROJECT_ROOT/backend/venv/bin/python"
+TORCH_CHANNEL="$("$BACKEND_PY" -m backend.services.hardware_policy torch_channel 2>/dev/null || echo "")"
 
 # Same repair for the ACE-Step sibling venv on GPU hosts.
 MUSIC_TORCH_SENTINEL="$MUSIC_VENV/.torch_import_verified"
