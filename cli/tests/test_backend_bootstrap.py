@@ -100,3 +100,48 @@ class TestEnsureBackendRunning:
                 args = mock_run.call_args[0][0]
                 assert "--backend-only" in args
                 assert "--fast" in args
+
+
+class TestEnsureBackendRunningInDocker:
+    def test_backend_container_points_at_compose_not_start_sh(self, monkeypatch, tmp_path):
+        # /app in the backend image has no start.sh; the API is the container's own process.
+        root = tmp_path / "app"
+        root.mkdir()
+        monkeypatch.setattr("llx.backend_bootstrap.resolve_guaardvark_root", lambda: root)
+        monkeypatch.setattr("llx.backend_bootstrap.RUNTIME_FILE", tmp_path / "absent-runtime.json")
+        monkeypatch.setenv("GUAARDVARK_DOCKER", "1")
+
+        with patch("llx.backend_bootstrap.is_backend_healthy", return_value=False):
+            from llx.backend_bootstrap import ensure_backend_running
+
+            with pytest.raises(RuntimeError) as exc:
+                ensure_backend_running(quiet=True)
+        assert "docker compose logs backend" in str(exc.value)
+        assert "start.sh not found" not in str(exc.value)
+
+    def test_docker_checkout_on_the_host_is_not_started_natively(self, monkeypatch, tmp_path):
+        # A checkout start-docker.sh set up: its .env has the database password,
+        # and start.sh never built backend/venv there.
+        root = tmp_path / "guaardvark"
+        root.mkdir()
+        (root / "start.sh").write_text("#!/bin/bash\nexit 0\n")
+        (root / ".env").write_text("GUAARDVARK_API_KEY=k\nGUAARDVARK_POSTGRES_PASSWORD=p\n")
+        monkeypatch.setattr("llx.backend_bootstrap.resolve_guaardvark_root", lambda: root)
+        monkeypatch.setattr("llx.backend_bootstrap.RUNTIME_FILE", tmp_path / "absent-runtime.json")
+        monkeypatch.delenv("GUAARDVARK_DOCKER", raising=False)
+        run = MagicMock()
+        monkeypatch.setattr("llx.backend_bootstrap.subprocess.run", run)
+
+        with patch("llx.backend_bootstrap.is_backend_healthy", return_value=False):
+            from llx.backend_bootstrap import ensure_backend_running
+
+            with pytest.raises(RuntimeError) as exc:
+                ensure_backend_running(quiet=True)
+        assert "./start-docker.sh" in str(exc.value)
+        run.assert_not_called()
+
+        # The same checkout once start.sh has built its venv is a native install.
+        (root / "backend" / "venv").mkdir(parents=True)
+        from llx.backend_bootstrap import is_docker_checkout
+
+        assert is_docker_checkout(root) is False

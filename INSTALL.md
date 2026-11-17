@@ -156,6 +156,10 @@ docker compose exec ollama ollama pull nomic-embed-text
 
 `gemma4:12b` is the pick for a graphics card with 12 GB or more; smaller machines get `qwen3.5:4b`.
 
+**The `guaardvark` command.** It is installed in the backend container: `docker compose exec backend guaardvark status`. From this machine's own shell, `pip install guaardvark` reaches the container on port 5000; for the actions that need the API key, set `GUAARDVARK_ROOT` to this folder (the CLI then reads the key from `.env` here) or export `GUAARDVARK_API_KEY`.
+
+**Extensions.** The `extensions/` folder next to `docker-compose.yml` is mounted into the backend read-only: copy an extension there (see `extensions/README.md`), then `docker compose restart backend`. Its backend part loads; pages it adds to the web UI do not, since the UI image is built without them, and its `requirements.txt` is not installed.
+
 **What is kept.** Models, the plugins' apps and Python environments, uploads, generated media, the database and your settings live in Docker volumes, so restarts, `docker compose down` and image rebuilds keep them; `docker compose down -v` deletes them. Leave room on the disk Docker uses: Audio Foundry's three Python environments come to about 23 GB, built on its first start (several minutes), and the models are several GB each (Wan 2.2 5B with its encoders is 17 GB).
 
 **Before the first start (Ubuntu).** A fresh Ubuntu has no Docker, and Ubuntu's `docker.io` does not bring Compose or buildx with it:

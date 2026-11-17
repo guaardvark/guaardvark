@@ -153,6 +153,11 @@ services:
       - app_home:/root/.guaardvark
       # The .env the app writes its own settings to.
       - app_state:/app/state
+      # Extensions (extensions/README.md): the extensions/ folder next to this
+      # file, so one copied there loads when the backend restarts. Read-only, so the
+      # container never writes into this checkout. The backend half only; the
+      # web UI image is built without extension pages.
+      - ./extensions:/app/extensions:ro
     depends_on:
       postgres:
         condition: service_healthy

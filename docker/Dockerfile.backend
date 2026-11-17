@@ -85,6 +85,15 @@ RUN chmod +x /app/docker/entrypoint.sh
 RUN python -m venv --system-site-packages /app/backend/venv
 # app.py reads the version from here; without it /api/health reports a stale fallback.
 COPY VERSION /app/VERSION
+# The `guaardvark` command, for `docker compose exec backend guaardvark ...`. Its
+# dependencies are already in backend/requirements.txt; setup.py reads cli/VERSION.
+COPY cli/ /tmp/cli/
+RUN cp /app/VERSION /tmp/cli/VERSION \
+    && pip install --no-cache-dir -c /tmp/torch-pins.txt /tmp/cli \
+    && rm -rf /tmp/cli
+# Extensions load from /app/extensions. docker-compose.yml mounts the extensions/
+# folder next to it here; the image itself carries only that folder's README.
+COPY extensions/ /app/extensions/
 
 # Create data directories
 RUN mkdir -p /app/data/uploads /app/data/outputs/narrations /app/data/cache \
