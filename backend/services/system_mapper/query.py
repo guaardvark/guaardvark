@@ -479,7 +479,12 @@ def q_route(v: View, arg: str) -> str:
         norm, pre = _caller_key(c)
         if norm in keys or (pre and any(k.startswith(norm + "/") or k == norm for k in keys)):
             callers.append(c)
-    out.add(f"Frontend callers ({len(callers)}):" if callers else "Frontend callers: none found (it may be called by scripts, MCP, the CLI or another service)")
+    if callers:
+        out.add(f"Frontend callers ({len(callers)}):")
+    elif reach.get("frontend_sources") is False:
+        out.add("Frontend callers: not checked, this tree has no frontend/src (a Docker backend container carries none)")
+    else:
+        out.add("Frontend callers: none found (it may be called by scripts, MCP, the CLI or another service)")
     for c in callers[:12]:
         out.add(f"  {c['file']}:{c['line']}  {_short(c['raw'], 80)}")
     pages = sorted(p for p, eps in reach.get("page_endpoints", {}).items() if any(e["path"] in keys for e in eps))

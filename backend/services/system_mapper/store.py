@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 # Bumped when what the mapper produces changes, so maps built by older code
 # are rebuilt rather than served.
-MAPPER_VERSION = f"3.{facts_mod.FACTS_VERSION}.{index_mod.INDEX_VERSION}"
+MAPPER_VERSION = f"4.{facts_mod.FACTS_VERSION}.{index_mod.INDEX_VERSION}"
 
 LIVENESS_KINDS = frozenset({"runtime-zombie", "contextual-discovery", "hot-path-spike"})
 
