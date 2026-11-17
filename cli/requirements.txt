@@ -1,5 +1,5 @@
 # typer installs rich and shellingham itself since 0.12; its "all" extra is gone.
-typer>=0.27.3
+typer>=0.29.1
 rich>=15.0.0
 python-socketio>=5.17.0
 httpx>=0.28.1
