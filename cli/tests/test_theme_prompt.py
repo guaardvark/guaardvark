@@ -47,6 +47,17 @@ class TestBanner:
         panel = get_banner("2.8.1", "online", "model", compact=True)
         assert panel is not None
 
+    def test_full_banner_is_the_dot_mark(self):
+        from rich.console import Console
+
+        console = Console(
+            force_terminal=True, width=100, color_system="truecolor", record=True
+        )
+        console.print(get_banner("3.1.0", "online", "gemma", compact=False))
+        text = console.export_text()
+        assert "G U A A R D V A R K" in text
+        assert any(0x2800 <= ord(ch) <= 0x28FF for ch in text)
+
 
 class TestLightDetection:
     def test_colorfgbg_light(self, monkeypatch):
