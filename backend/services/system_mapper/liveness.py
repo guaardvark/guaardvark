@@ -19,6 +19,9 @@ Findings:
                           but NOT fired within N days. "The map says it's wired,
                           the runtime says it never runs." Advisory: a human
                           decides whether it's dead or just a rare handler.
+                          LOW when the task is started only from a route
+                          handler (dispatch_graph's ``started_by``): a task a
+                          person starts by hand is idle until someone asks.
     CONTEXTUAL_DISCOVERY  (INFO) — fired at runtime but has no static importer.
                           The dispatch layer reached it; the static map missed it.
     HOT_PATH_SPIKE        (INFO, optional) — fired far more than its peers in the
@@ -99,6 +102,20 @@ def _static_modules(system_map: dict | Any) -> set[str]:
     return out
 
 
+def _hand_started_tasks(system_map: dict | Any) -> dict[str, list[str]]:
+    """Task name -> the routes that start it, for tasks nothing else starts.
+
+    A task on a schedule, started by other code, or with no start found is
+    left out: going quiet means something there."""
+    if hasattr(system_map, "to_dict"):
+        system_map = system_map.to_dict()
+    out: dict[str, list[str]] = {}
+    for t in (system_map or {}).get("celery_tasks") or []:
+        if isinstance(t, dict) and t.get("name") and t.get("started_by") == ["route"]:
+            out[str(t["name"])] = list(t.get("start_routes") or [])
+    return out
+
+
 def compute_consensus(hit, registry_names: set[str], static_modules: set[str],
                       now: datetime, window_days: int) -> dict[str, Any]:
     """Compute the three-signal consensus for a single SymbolHit-like row.
@@ -152,6 +169,7 @@ def analyze(hits: Iterable, system_map: dict | Any,
         "window_days": window_days,
         "symbols_examined": 0,
         "runtime_zombies": 0,
+        "hand_started_idle": 0,
         "contextual_discoveries": 0,
         "hot_path_spikes": 0,
     }
@@ -159,6 +177,7 @@ def analyze(hits: Iterable, system_map: dict | Any,
     try:
         registry_names = _registry_names(system_map)
         static_modules = _static_modules(system_map)
+        hand_started = _hand_started_tasks(system_map)
 
         hits = list(hits)
         # Hot-path baseline: median hit_count across the window.
@@ -179,7 +198,21 @@ def analyze(hits: Iterable, system_map: dict | Any,
             # RUNTIME_ZOMBIE: static map says reachable, runtime says never fired
             # in the window. HIGH-ish severity (worth a human look) but ADVISORY —
             # NOT dispatchable (a missed-window rare handler must not auto-delete).
-            if static_reach is True and consensus["runtime"] == 0.0:
+            task_name = symbol_id[5:] if isinstance(symbol_id, str) and symbol_id.startswith("task:") else None
+            if static_reach is True and consensus["runtime"] == 0.0 and task_name in hand_started:
+                stats["hand_started_idle"] += 1
+                start_routes = hand_started[task_name]
+                via = f" ({', '.join(start_routes)})" if start_routes else ""
+                findings.append(Finding(
+                    kind=FindingKind.RUNTIME_ZOMBIE,
+                    severity=Severity.LOW,
+                    summary=(f"Started by hand{via} and not run in {window_days}d: "
+                             f"{display_name}. Expected for a task that waits for a person"),
+                    paths=paths,
+                    evidence={"symbol_id": symbol_id, "started_by": "route",
+                              "start_routes": start_routes, **consensus},
+                ))
+            elif static_reach is True and consensus["runtime"] == 0.0:
                 stats["runtime_zombies"] += 1
                 findings.append(Finding(
                     kind=FindingKind.RUNTIME_ZOMBIE,

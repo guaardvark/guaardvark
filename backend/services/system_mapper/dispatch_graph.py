@@ -61,12 +61,15 @@ def _python_facts(root: Path, extra_excludes: frozenset[str], corpus=None, under
 # ── Celery task-name strings ─────────────────────────────────────────────────
 
 def celery_tasks(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=None) -> list[dict]:
-    """Every Celery task the source defines: {name, module, file, function, line}.
+    """Every Celery task the source defines:
+    {name, module, file, function, line, started_by, start_routes}.
 
     ``name`` is the explicit ``name=`` when given, else Celery's default,
-    ``<module>.<function>``."""
+    ``<module>.<function>``. ``started_by`` and ``start_routes`` say what
+    starts the task (see ``_mark_starts``)."""
     out: list[dict] = []
-    for rel, f in _python_facts(root, extra_excludes, corpus):
+    all_facts = list(_python_facts(root, extra_excludes, corpus))
+    for rel, f in all_facts:
         mod = _module_name(rel)
         for t in f.get("tasks", []):
             name = t.get("name") or (f"{mod}.{t['function']}" if t.get("function") else None)
@@ -74,7 +77,62 @@ def celery_tasks(root: Path, extra_excludes: frozenset[str] = frozenset(), corpu
                 continue
             out.append({"name": name, "module": mod, "file": rel.as_posix(),
                         "function": t.get("function"), "line": t.get("line")})
+    _mark_starts(out, all_facts)
     return out
+
+
+def _mark_starts(tasks: list[dict], all_facts) -> None:
+    """Set ``started_by`` and ``start_routes`` on each task from the places
+    the source starts it (the ``task_sends`` facts).
+
+    ``started_by`` is a sorted subset of:
+      "schedule"  named in a {"task": ...} schedule entry (Celery beat)
+      "route"     started inside a Flask route handler: a person or a client
+                  asked for it
+      "code"      started anywhere else (another task, a service, a signal)
+    Empty means no start was found. ``start_routes`` lists the routes, as
+    "POST /api/x". A function name two tasks share counts as "code", since
+    the call cannot be pinned to one of them, and a task re-queuing itself
+    is not a start."""
+    by_function: dict[str, set[str]] = {}
+    own: dict[str, set[tuple[str, str]]] = {}       # task name -> {(file, function)}
+    for t in tasks:
+        if t.get("function"):
+            by_function.setdefault(t["function"], set()).add(t["name"])
+            own.setdefault(t["name"], set()).add((t["file"], t["function"]))
+    started: dict[str, set[str]] = {t["name"]: set() for t in tasks}
+    routes: dict[str, set[str]] = {t["name"]: set() for t in tasks}
+
+    for rel, f in all_facts:
+        file = rel.as_posix()
+        handlers: dict[str, list[str]] = {}
+        for r in f.get("routes", []):
+            handlers.setdefault(r["function"], []).append(
+                f"{'/'.join(r.get('methods') or ['GET'])} {r.get('path', '')}")
+        for _line, caller, target, how in f.get("task_sends", []):
+            if how == "schedule":
+                if target in started:
+                    started[target].add("schedule")
+                continue
+            if how == "call":
+                names = by_function.get(target, set())
+                pinned = len(names) == 1
+            elif how == "prefix":
+                names, pinned = {n for n in started if n.startswith(target)}, True
+            else:
+                names, pinned = ({target} if target in started else set()), True
+            for name in names:
+                if (file, caller) in own.get(name, ()):
+                    continue
+                if pinned and caller in handlers:
+                    started[name].add("route")
+                    routes[name].update(handlers[caller])
+                else:
+                    started[name].add("code")
+
+    for t in tasks:
+        t["started_by"] = sorted(started[t["name"]])
+        t["start_routes"] = sorted(routes[t["name"]])
 
 
 def _celery_task_modules(root: Path, extra_excludes: frozenset[str], corpus=None) -> set[str]:

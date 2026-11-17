@@ -94,7 +94,7 @@ class SystemMap:
     node_meta: dict = field(default_factory=dict)   # module -> {path, lang, lifecycle, importers, subsystem, ...}
     reachability: dict = field(default_factory=dict)
     tool_graph: dict = field(default_factory=dict)
-    celery_tasks: list = field(default_factory=list)      # [{name, module, file, function, line}]
+    celery_tasks: list = field(default_factory=list)      # see dispatch_graph.celery_tasks
     subsystems: dict = field(default_factory=dict)        # {name: {description, files, ...}}
 
     # Flat findings — the bridge to self-improvement
