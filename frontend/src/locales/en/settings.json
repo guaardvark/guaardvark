@@ -419,6 +419,8 @@
     "pending": "Index pending",
     "reranker": "Search reranker",
     "rerankerHelp": "A second model that rereads the passages a search found and puts the most relevant first. Searches work without it.",
+    "doclingModels": "PDF layout models",
+    "doclingModelsHelp": "Read a PDF's headings, reading order and tables so a passage can cite its section and page. Without them PDFs are indexed as plain text.",
     "autoresearch": "Autoresearch",
     "autoresearchHelp": "Overnight tests that tune how chat searches your documents. Its settings and history are on the Autoresearch page.",
     "nightly": "Nightly auto-start",

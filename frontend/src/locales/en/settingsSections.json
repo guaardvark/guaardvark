@@ -78,6 +78,21 @@
     "install": "Install",
     "installFailed": "Install failed: {{error}}"
   },
+  "doclingModels": {
+    "installStartFailed": "Could not start the install: {{error}}",
+    "size": "{{size}} GB",
+    "off": "Off",
+    "offTooltip": "GUAARDVARK_DOCLING_ENABLED is false in .env",
+    "installed": "Installed",
+    "installingPercent": "Installing {{percent}}%",
+    "installingGb": "Installing {{size}} GB",
+    "notInstalled": "Not installed",
+    "downloadTooltipWithSize": "Downloads {{model}} ({{size}}) from Hugging Face. Without them PDFs are indexed as plain text, without sections or page numbers.",
+    "downloadTooltip": "Downloads {{model}} from Hugging Face. Without them PDFs are indexed as plain text, without sections or page numbers.",
+    "installWithSize": "Install ({{size}})",
+    "install": "Install",
+    "installFailed": "Install failed: {{error}}"
+  },
   "units": {
     "b": "{{size}} B",
     "kb": "{{size}} KB",

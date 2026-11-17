@@ -228,6 +228,18 @@ export const installReranker = async () => {
   return await handleResponse(response);
 };
 
+/** The PDF layout models Docling reads: enabled, installed, size, and any install in progress. */
+export const getDoclingModelsStatus = async () => {
+  const response = await fetch(`${BASE_URL}/meta/docling`);
+  return await handleResponse(response, { quiet: true });
+};
+
+/** Start downloading the PDF layout models (the only path that fetches them). */
+export const installDoclingModels = async () => {
+  const response = await fetch(`${BASE_URL}/meta/docling/install`, { method: "POST" });
+  return await handleResponse(response);
+};
+
 export const optimizeIndex = async () => {
   const endpoint = `${BASE_URL}/meta/optimize-index`;
   try {

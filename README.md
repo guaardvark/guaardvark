@@ -83,7 +83,7 @@ Upload documents, build a knowledge base per project, and ask questions. Answers
 
 - **Hybrid retrieval.** Postgres full-text keyword search and vector search, fused with a per-query weighting that leans toward keywords for identifier-like queries and toward meaning for prose.
 - **Cross-encoder reranking.** A reranker (one Install in Settings) reads the query and passage together and reorders the candidates. It is admitted against free VRAM and falls back to CPU rather than competing with image or video generation.
-- **Layout-aware parsing.** PDF, DOCX and PPTX are parsed for reading order and section headers, and PDF passages carry the page they came from. (Scanned documents need OCR, which is not installed by default; they say so rather than indexing as empty.)
+- **Layout-aware parsing.** PDF, DOCX and PPTX are parsed for reading order and section headers, and PDF passages carry the page they came from. PDF layout needs its models (one Install in Settings); until then PDFs are indexed as plain text, without sections or page numbers. (Scanned documents need OCR, which is not installed by default; they say so rather than indexing as empty.)
 - **Grounded citations.** Every chunk carries its source file and section breadcrumb (and, for PDFs, the page), written into the embedded text as well, so a passage lifted from the middle of a document still says where it came from.
 - **Smart chunking.** Code gets AST-informed chunks, so a function stays one chunk; prose gets semantic splitting.
 - **Postgres-backed vector store.** Embeddings live in pgvector next to the rest of your data, with an ANN index and a persisted full-text index, covered by the same backups.
