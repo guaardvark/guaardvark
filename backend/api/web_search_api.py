@@ -360,8 +360,8 @@ def enhanced_web_search(query: str, max_results: int = DEFAULT_SEARCH_RESULTS) -
     logger.info(f"Performing web search for: {query}")
     search = perform_duckduckgo_search(query, max_results=max_results)
 
-    # strategy_used "duckduckgo_search" is named after the client package and
-    # is matched on by callers; data["source"] is what names the engine.
+    # strategy_used "duckduckgo_search" is an older name that callers match
+    # on; data["source"] is what names the engine.
     if search["success"]:
         results.update({
             "strategy_used": "duckduckgo_search",
@@ -613,60 +613,60 @@ def search_result_count(value: Any) -> int:
     return max(1, min(count, MAX_SEARCH_RESULTS))
 
 
-# A search that fails or comes back empty is asked once more, with a new
-# client; one the engine refused is not. With the pinned client every attempt
-# goes to SEARCH_ENGINE (see backend/utils/web_search_sources.py).
-_SEARCH_ATTEMPTS = 2
+# How many times one search is asked before it is given up; each ask is a new
+# browser session at SEARCH_ENGINE. A search the engine refused is not asked
+# again. Measured 2026-11-16 on 30 queries the engine had not seen (see
+# backend/utils/bing_search.py for why a page can miss the query): 16 were
+# answered on the first ask, 10 on the second, 1 on the third, and 3 ended
+# with the reason; a search took 1.4 s on average and 4.6 s at most.
+_SEARCH_ATTEMPTS = 3
 
 
 def _search_failure(exc: BaseException) -> tuple[str, bool]:
     """Why asking the search engine failed, in words a person or a model can act
     on, and whether the engine refused the search (so asking again at once is
-    pointless).
+    pointless). The query is never part of the reason."""
+    from backend.utils import bing_search
 
-    The client wraps the error of its last backend in a plain
-    DuckDuckGoSearchException, so the original exception is looked for in its
-    arguments.
-    """
-    inner = exc.args[0] if exc.args and isinstance(exc.args[0], BaseException) else exc
-    text = str(inner)
-    try:
-        from duckduckgo_search.exceptions import RatelimitException, TimeoutException
-    except ImportError:
-        RatelimitException = TimeoutException = ()
-    # The client reports every refusal status (403, 429 and a few others) as
-    # "<url> <status> Ratelimit".
-    refused = re.search(r"\b(\d{3}) Ratelimit\b", text)
-    if refused or isinstance(inner, RatelimitException):
-        status = f" (HTTP {refused.group(1)})" if refused else ""
-        return (f"{SEARCH_ENGINE} refused the search{status}; it limits automated searches. "
-                "Try again in a few minutes."), True
-    if isinstance(inner, TimeoutException):
+    if isinstance(exc, bing_search.BingRefused):
+        return (f"{SEARCH_ENGINE} refused the search (HTTP {exc.status}); it limits automated "
+                "searches. Try again in a few minutes."), True
+    if isinstance(exc, bing_search.BingTimeout):
         return f"{SEARCH_ENGINE} did not answer in time.", False
-    if " return None." in text:
-        # Any other status that is not 200, a server error say; the client's
-        # message repeats the query and not the status, so it is not passed on.
-        return f"{SEARCH_ENGINE} answered the search with an error.", False
-    return f"The search could not be completed at {SEARCH_ENGINE}: {text[:300]}", False
+    if isinstance(exc, bing_search.BingUnreachable):
+        return f"{SEARCH_ENGINE} could not be reached; check the network connection.", False
+    if isinstance(exc, bing_search.BingNoResultList):
+        return (f"{SEARCH_ENGINE} did not answer the search: it sent a page with no result list, "
+                "as it does when it challenges an automated search. Try again in a few minutes."), False
+    if isinstance(exc, bing_search.BingOffQuery):
+        return (f"{SEARCH_ENGINE} did not answer this search: the results it sent were for a "
+                "different one, as it sometimes does with a query it has not seen. Ask again, "
+                "or use fewer, plainer words."), False
+    if isinstance(exc, bing_search.BingError):
+        return f"{SEARCH_ENGINE} answered the search with an error ({exc}).", False
+    return f"The search could not be completed at {SEARCH_ENGINE}: {type(exc).__name__}.", False
 
 
 def perform_duckduckgo_search(query: str, max_results: int = DEFAULT_SEARCH_RESULTS) -> Dict[str, Any]:
-    """Search SEARCH_ENGINE for ``query``. The name is the client package's
-    (duckduckgo-search), not the engine's; see web_search_sources.py.
+    """Search SEARCH_ENGINE for ``query``. The name is from an earlier search
+    client and is kept for the callers that import it.
 
-    ``success`` is True when the engine returned results. Otherwise ``error``
-    says why there are none: ``no_results`` is True when the engine answered
-    with nothing, and absent when it could not be asked (refused, timed out,
-    unreachable, or the client is not installed). The query goes nowhere else
-    either way. ``source`` names the engine.
+    ``success`` is True when the engine returned results for the query.
+    Otherwise ``error`` says why there are none: ``no_results`` is True when
+    the engine said it found nothing, and absent when it could not be asked or
+    did not answer the query (refused, timed out, unreachable, a challenge
+    page, results for a different search, or the HTTP client is not
+    installed). The query goes nowhere else either way. ``source`` names the
+    engine.
     """
     max_results = search_result_count(max_results)
     try:
-        from duckduckgo_search import DDGS
+        import primp  # noqa: F401
+        from backend.utils import bing_search
     except ImportError:
         return {
             "success": False,
-            "error": "Web search is not available: the duckduckgo-search package is not installed.",
+            "error": "Web search is not available: the primp package is not installed.",
             "results": [],
             "snippet": "",
             "source": SEARCH_ENGINE,
@@ -678,11 +678,11 @@ def perform_duckduckgo_search(query: str, max_results: int = DEFAULT_SEARCH_RESU
     failure = None
     for _attempt in range(_SEARCH_ATTEMPTS):
         try:
-            with DDGS() as ddgs:
-                search_rows = ddgs.text(query, max_results=max_results) or []
+            search_rows = bing_search.search(query, max_results=max_results)
         except Exception as search_error:
             failure, refused = _search_failure(search_error)
-            logger.warning(f"Web search ({SEARCH_ENGINE}) failed: {search_error}")
+            # The reason only: the exception text can carry the query.
+            logger.warning(f"Web search ({SEARCH_ENGINE}) failed: {type(search_error).__name__}")
             if refused:
                 break
             continue
@@ -690,7 +690,7 @@ def perform_duckduckgo_search(query: str, max_results: int = DEFAULT_SEARCH_RESU
         for row in search_rows:
             title = (row.get("title") or "").strip()
             url = row.get("href", "")
-            snippet = (row.get("body") or row.get("snippet") or "").strip()
+            snippet = (row.get("body") or "").strip()
 
             if title and (url or snippet):
                 results.append({
@@ -716,11 +716,15 @@ def perform_duckduckgo_search(query: str, max_results: int = DEFAULT_SEARCH_RESU
         }
 
     outcome = {"success": False, "results": [], "snippet": "", "source": SEARCH_ENGINE}
-    if answered_empty:
+    if failure:
+        # Any ask that failed outranks an ask that came back empty: "no
+        # results" is said only when every answer was the engine's own.
+        outcome["error"] = failure
+    elif answered_empty:
         outcome["no_results"] = True
         outcome["error"] = f"{SEARCH_ENGINE} returned no results for this query."
     else:
-        outcome["error"] = failure or f"The search could not be completed at {SEARCH_ENGINE}."
+        outcome["error"] = f"The search could not be completed at {SEARCH_ENGINE}."
     return outcome
 
 @web_search_bp.route("/quick-search", methods=["POST"])
@@ -830,8 +834,8 @@ def search_status():
         # Probe the REAL building blocks — import + callable only, NO network I/O
         # (a status poll must never hammer the search engine or the weather
         # service; see SSRF/DOS trap). Each of these is a module-level function
-        # in this file. The "duckduckgo_search" keys are named after the client
-        # package and kept for callers that read them.
+        # in this file. The "duckduckgo_search" keys are an older name, kept
+        # for callers that read them.
         probes = {
             "website_scraping": callable(globals().get("extract_website_content")),
             "duckduckgo_search": callable(globals().get("perform_duckduckgo_search")),
@@ -875,8 +879,8 @@ def search_status():
             "reliability_notes": {
                 "direct_website": "Reliable for specific URLs",
                 "duckduckgo_search": (
-                    f"General search: {SEARCH_ENGINE} through the duckduckgo-search client. "
-                    "When it finds nothing or cannot be reached the search says so; "
+                    f"General search: {SEARCH_ENGINE}'s public result page. "
+                    "When it finds nothing, cannot be reached or does not answer the query the search says so; "
                     "the query is not sent anywhere else"
                 )
             }
