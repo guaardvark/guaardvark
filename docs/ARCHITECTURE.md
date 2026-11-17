@@ -153,6 +153,13 @@ Per-format dispatch in `get_documents_from_file()`: **Docling** for `.pdf`/`.doc
 markdown, existing readers for the rest. Docling returns `None` rather than raising when it cannot
 help, so the legacy readers remain the fallback chain.
 
+Docling's PDF pipeline needs a layout model and a table-structure model. They are read only from
+this machine: Install in Settings > Knowledge puts them in the Hugging Face cache, and
+`docling_loader` hands every converter an artifacts folder linking to them, so building a
+converter never asks huggingface.co anything. Without them Docling skips a PDF with the reason
+logged, and the next reader in the chain (the EnhancedFileProcessor adapter) indexes it as flat
+text, without sections or page numbers. DOCX and PPTX need no models.
+
 OCR is switched **off** in the Docling pipeline options: the `docling` package brings RapidOCR
 with it and would otherwise run OCR on every PDF page by default. Born-digital PDFs are read from
 the text layer and unaffected; a scanned PDF yields no text and says so rather than indexing an

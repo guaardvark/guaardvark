@@ -81,6 +81,7 @@ import {
 } from "../components/settings/ui";
 import IndexProfileChips from "../components/settings/IndexProfileChips";
 import RerankerControl from "../components/settings/RerankerControl";
+import DoclingModelsControl from "../components/settings/DoclingModelsControl";
 import IdentityCheckControl from "../components/settings/IdentityCheckControl";
 import RebuildIndexDialog from "../components/settings/RebuildIndexDialog";
 import IndexProfileEditDialog from "../components/settings/IndexProfileEditDialog";
@@ -3562,6 +3563,12 @@ const SettingsPage = () => {
         help={t("settings.knowledgePanel.rerankerHelp")}
       >
         <RerankerControl showMessage={showMessage} />
+      </Cluster>
+      <Cluster
+        label={t("settings.knowledgePanel.doclingModels")}
+        help={t("settings.knowledgePanel.doclingModelsHelp")}
+      >
+        <DoclingModelsControl showMessage={showMessage} />
       </Cluster>
       <Cluster
         label={t("settings.knowledgePanel.autoresearch")}
