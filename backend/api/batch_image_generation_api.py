@@ -794,6 +794,8 @@ def list_models():
                 # ComfyUI models: the files (model + companions) Install still has
                 # to fetch, in the editing packs' "<entry>:<file>" shape.
                 "missing_files": list(info.get("missing_files") or []),
+                # Of those, the files on disk but cut short or unreadable.
+                "incomplete_files": dict(info.get("incomplete_files") or {}),
                 # "natural": an LLM text encoder that reads prompts as prose, so
                 # the page's content-type tags and anatomy phrasing are not
                 # applied (offline_image_generator.enhance_prompt_for_quality).

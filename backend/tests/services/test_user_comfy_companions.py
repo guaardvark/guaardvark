@@ -15,6 +15,7 @@ import pytest
 
 from backend.services import user_image_models as uim
 from backend.services import video_model_registry as vmr
+from backend.tests.fixtures.model_files import write_model_file
 
 
 def _generator(tmp_path):
@@ -51,8 +52,7 @@ def _add_qwen(gen):
 
 
 def _write(path: Path):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(b"x")
+    write_model_file(path)
 
 
 def test_companions_follow_the_graph_the_model_renders_on(catalog_dir, tmp_path, comfy_models):

@@ -105,3 +105,20 @@ def test_download_model_is_the_install_path(tmp_path, monkeypatch):
     assert fetched and fetched[0].endswith("RealESRGAN_x2plus.pth")
     assert os.path.isfile(path)
     assert mm.missing_model_message("RealESRGAN_x2plus") is None
+
+
+def test_interrupted_download_leaves_no_model_file(tmp_path, monkeypatch):
+    """A fetch that dies part-way must not read as an installed model."""
+    def _dies_part_way(url, dest):
+        with open(dest, "wb") as f:
+            f.write(b"front part")
+        raise OSError("connection reset")
+
+    monkeypatch.setattr(model_manager_module, "urlretrieve", _dies_part_way)
+    mm = ModelManager(models_dir=str(tmp_path), precision="fp32", compile_enabled=False)
+
+    with pytest.raises(OSError):
+        mm.download_model("RealESRGAN_x2plus")
+
+    assert not mm.is_downloaded("RealESRGAN_x2plus")
+    assert mm.missing_model_message("RealESRGAN_x2plus")

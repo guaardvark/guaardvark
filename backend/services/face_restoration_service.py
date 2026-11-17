@@ -55,7 +55,8 @@ except ImportError:
 
 
 def _present(path: Path) -> bool:
-    return path.is_file() and path.stat().st_size > 0
+    from backend.utils.model_file_integrity import file_complete
+    return file_complete(path)
 
 
 def _gfpganer_reading_helper_from(helper_dir: Optional[Path], **kwargs):

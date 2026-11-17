@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from backend.services import user_image_models as uim
+from backend.tests.fixtures.model_files import safetensors_bytes, write_model_file
 
 
 def _generator(tmp_path):
@@ -80,8 +81,7 @@ def test_single_file_only_for_sd_families(catalog_dir, tmp_path):
     ]
     assert uim.user_files_present(gen, sentinel) is False
     target = gen.models_dir / mid / "merged.safetensors"
-    target.parent.mkdir(parents=True)
-    target.write_bytes(b"x")
+    write_model_file(target)
     assert uim.user_files_present(gen, sentinel) is True
 
 
@@ -102,7 +102,7 @@ def test_lora_entry_is_hidden_from_the_picker_and_resolves_to_a_path(catalog_dir
     assert paths == [] and "not installed" in err
     target = gen.models_dir / mid / "l.safetensors"
     target.parent.mkdir(parents=True)
-    target.write_bytes(b"x")
+    target.write_bytes(safetensors_bytes(2, name="layers.0.attention.to_q.lora_A.weight"))
     paths, scale, err = uim.resolve_user_loras(gen, "zimage-turbo", [{"id": mid, "strength": 0.6}])
     assert err is None and paths == [str(target)] and scale == 0.6
     paths, scale, err = uim.resolve_user_loras(gen, "sd-xl", [mid])

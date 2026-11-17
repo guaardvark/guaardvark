@@ -357,6 +357,20 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                   {t("models.videoModels.filesMissing", { count: model.missing_files.length })}
                 </Typography>
               )}
+              {Object.keys(model.incomplete_files || {}).length > 0 && (
+                <Typography
+                  variant="caption"
+                  color="warning.main"
+                  noWrap
+                  title={Object.entries(model.incomplete_files)
+                    .map(([file, reason]) => `${file}: ${reason}`)
+                    .join("\n")}
+                >
+                  {t("models.videoModels.filesIncomplete", {
+                    count: Object.keys(model.incomplete_files).length,
+                  })}
+                </Typography>
+              )}
             </Box>
           )}
         </Box>
