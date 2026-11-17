@@ -165,3 +165,39 @@ def test_check_available_raises_NotWired_for_unwired_intent():
     d = Dispatcher(orchestrator=_make_orch_mock())
     with pytest.raises(NotWired):
         d.check_available(Intent.FX)
+
+
+def test_no_cuda_device_loads_without_the_orchestrator(monkeypatch):
+    """A CPU-only machine has no VRAM to reserve: nothing is requested, marked or released."""
+    import service.dispatcher as dispatcher
+
+    monkeypatch.setattr(dispatcher, "_cuda_available", lambda: False)
+    orch = _make_orch_mock()
+    backend = _StubBackend()
+    d = Dispatcher(orchestrator=orch)
+    d.register(Intent.VOICE, backend)
+
+    d.generate(Intent.VOICE, text="hello")
+    d.generate(Intent.VOICE, text="again")
+
+    assert backend.load_calls == 1 and backend.generate_calls == 2
+    assert orch.method_calls == []
+
+
+def test_request_names_the_engine_before_a_cold_load():
+    """select_for_request runs before load, so a facade can load the engine the request routes to."""
+    seen = []
+
+    class _Selecting(_StubBackend):
+        def select_for_request(self, params):
+            seen.append(("select", params.get("voice_id")))
+            return False
+
+        def load(self):
+            seen.append(("load", None))
+            super().load()
+
+    d = Dispatcher(orchestrator=_make_orch_mock())
+    d.register(Intent.VOICE, _Selecting())
+    d.generate(Intent.VOICE, text="hi", voice_id="af_heart")
+    assert seen == [("select", "af_heart"), ("load", None)]

@@ -23,10 +23,14 @@ named voice or clip is either honoured or refused, never swapped for another
 voice.
 
 vram_mb_estimate is the *max* of the inner backends, not the sum — both are
-never expected to be loaded simultaneously in steady state. The dispatcher's
-orchestrator request uses this number; if both happen to be loaded briefly
-during a fallback, the orchestrator's eviction logic will catch up next
-request.
+never expected to be loaded simultaneously in steady state. If both happen to
+be loaded briefly during a fallback, the orchestrator's eviction logic will
+catch up next request.
+
+A cold load brings up the engine the request routes to: a request for a
+built-in voice loads Kokoro alone, so narration on a machine with no GPU
+never loads Chatterbox first. The orchestrator request stays the max above,
+since Chatterbox may still load into the same slot on a later request.
 """
 from __future__ import annotations
 
@@ -67,6 +71,8 @@ class VoiceGenBackend(AudioBackend):
     ) -> None:
         self._chatterbox = ChatterboxBackend(output_root, **(chatterbox_kwargs or {}))
         self._kokoro = KokoroBackend(output_root, **(kokoro_kwargs or {}))
+        # route() of the request the dispatcher is about to load for.
+        self._requested = AUTO
 
     # AudioBackend interface ------------------------------------------------
 
@@ -78,13 +84,23 @@ class VoiceGenBackend(AudioBackend):
     def is_loaded(self) -> bool:
         return self._chatterbox.is_loaded or self._kokoro.is_loaded
 
+    def select_for_request(self, params: dict[str, Any]) -> bool:
+        """Note the engine this request speaks with, for load(). Nothing is
+        unloaded, so the slot stays as recorded."""
+        self._requested = route(params)
+        return False
+
     def load(self) -> None:
-        """Pre-load the primary (Chatterbox). Falls back to Kokoro on OOM/import-failure.
+        """Load the engine the request routes to: Kokoro for a built-in voice,
+        otherwise Chatterbox, falling back to Kokoro on OOM/import-failure.
 
         Called once by the dispatcher when the voice intent is first hit cold.
         Per-call routing in generate() can lazily load the other backend on
         demand; this just gets *something* warm so the first call is fast.
         """
+        if self._requested == "kokoro":
+            self._kokoro.load()
+            return
         try:
             self._chatterbox.load()
         except Exception as e:
