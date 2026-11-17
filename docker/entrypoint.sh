@@ -6,6 +6,9 @@ set -e
 # Plugin sources from this image onto the plugins volume (see sync_plugins.py).
 python /app/docker/sync_plugins.py || echo "sync_plugins failed; plugins left as they were" >&2
 
+# Default data files from this image onto the data volume (see seed_data.py).
+python /app/docker/seed_data.py || echo "seed_data failed; data left as it was" >&2
+
 # Settings the app writes to its .env (plugin switches, Keep ready, network
 # access, ...) live on the state volume so a recreated container keeps them.
 # Variables set by compose still win: the app loads .env without overriding.

@@ -81,6 +81,42 @@ def test_preflight_names_the_failing_reconciler(monkeypatch, tmp_path, capsys):
     assert "Full log: logs/dep_reconciler/20260824.log" in msg
 
 
+def test_preflight_frontend_check_passes_in_the_docker_backend_image(monkeypatch, tmp_path):
+    sys.path.insert(0, str(Path("scripts").resolve()))
+    import preflight_check as pc
+
+    monkeypatch.setattr(pc, "PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setattr(pc, "errors", [])
+    monkeypatch.setattr(pc, "warnings", [])
+    monkeypatch.setenv("GUAARDVARK_DOCKER", "1")
+    assert pc.check_frontend() is True
+    assert pc.errors == [] and pc.warnings == []
+
+    monkeypatch.delenv("GUAARDVARK_DOCKER")
+    pc.check_frontend()
+    assert pc.errors == ["package.json exists failed"]
+
+
+def test_preflight_survives_a_service_that_exits_on_import(monkeypatch, tmp_path):
+    sys.path.insert(0, str(Path("scripts").resolve()))
+    import preflight_check as pc
+
+    services = tmp_path / "backend" / "services"
+    services.mkdir(parents=True)
+    (services / "standalone_tool.py").write_text("")
+    monkeypatch.setattr(pc, "BACKEND_DIR", str(tmp_path / "backend"))
+    monkeypatch.setattr(pc, "errors", [])
+    monkeypatch.setattr(pc, "warnings", [])
+
+    def fake_import(name):
+        raise SystemExit(3)
+
+    monkeypatch.setattr(pc.importlib, "import_module", fake_import)
+    assert pc.check_service_modules() is True
+    assert pc.errors == []
+    assert pc.warnings == ["exited on import (status 3); it runs as its own program"]
+
+
 def test_screen_agent_explains_itself_on_macos(monkeypatch):
     from backend.tools import agent_control_tools as act
 

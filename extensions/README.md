@@ -34,6 +34,10 @@ What core guarantees:
   `ALTER TABLE t ADD COLUMN c TYPE` is enough and works on every database.
 - Nothing here is loaded when `GUAARDVARK_EXTENSIONS` names other extensions.
 
+Under Docker, `docker-compose.yml` mounts this folder into the backend container
+read-only, so the loader binds an extension without writing into it. The backend
+part loads; the web UI image is built without extension pages.
+
 What it does not do (yet): install an extension's npm packages or system packages —
 those are declared and reported, not installed; start an extension's sidecar from
 `start.sh`'s boot pass (start it from the Plugins page or the API).

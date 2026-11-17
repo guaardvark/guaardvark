@@ -142,6 +142,10 @@ def check_service_modules():
         try:
             importlib.import_module(mod_name)
             print(f"  {PASS} {mod_name}")
+        except SystemExit as e:
+            # A standalone program kept beside the services (wayland_bridge_server
+            # runs under the system Python) exits when its packages are missing.
+            warn(mod_name, f"exited on import (status {e.code}); it runs as its own program")
         except Exception as e:
             short_err = str(e).split("\n")[0][:80]
             # Some services need GPU/optional deps - downgrade to warning
@@ -323,6 +327,12 @@ def check_frontend():
     node_modules = os.path.join(frontend_dir, "node_modules")
     dist_dir = os.path.join(frontend_dir, "dist")
     package_json = os.path.join(frontend_dir, "package.json")
+
+    # The Docker backend image carries no frontend: the web UI is built into the
+    # frontend image and served from that container.
+    if os.environ.get("GUAARDVARK_DOCKER") == "1" and not os.path.isdir(frontend_dir):
+        print(f"  {PASS} Web UI is served by the frontend container (not part of this image)")
+        return True
 
     check("package.json exists", os.path.isfile(package_json))
 
