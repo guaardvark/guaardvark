@@ -108,7 +108,8 @@
     "pickPrevious": "...or pick a previously imported clip",
     "needsConsent": "needs consent",
     "synthesizing": "Synthesizing...",
-    "generate": "Generate Voiceover"
+    "generate": "Generate Voiceover",
+    "installLanguageFirst": "Install {{language}} first"
   },
   "music": {
     "title": "Music Composer",

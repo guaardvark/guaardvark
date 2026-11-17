@@ -17,7 +17,7 @@ Piper works without it. `B=${GUAARDVARK_URL:-http://localhost:5000}`.
 | engine | route | when |
 |---|---|---|
 | Chatterbox | Audio Foundry `backend: "chatterbox"` | expressive, emotion presets, **cloning** |
-| Kokoro | Audio Foundry `backend: "kokoro"` | fast, clean, 10+ built-in voices (`af_heart` default) |
+| Kokoro | Audio Foundry `backend: "kokoro"` | fast, clean, 53 built-in voices in 9 languages (`af_heart` default); runs on the CPU without a GPU |
 | Piper | `/api/voice/text-to-speech` | offline fallback, no GPU |
 
 `GET $B/api/audio-foundry/voices` lists what is installed. `GET $B/api/voice/voices` lists Piper voices.
