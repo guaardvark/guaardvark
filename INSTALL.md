@@ -117,6 +117,8 @@ It sets `instanceIdleTimeout=-1` and `vmIdleTimeout=-1` in your Windows `.wslcon
 
 **More memory.** A `memory=` line under `[wsl2]` in the same `.wslconfig` sets how much of the PC's RAM Ubuntu may use; the default is half.
 
+**Or in containers.** Docker Desktop runs the same studio from the images on Docker Hub; its steps are under [On Windows 11 (Docker Desktop)](#alternative-docker-linux) below. Both ways run on WSL2, so `wsl --install` comes first either way. Pictures and clips from each are at [guaardvark.com/windows](https://guaardvark.com/windows/).
+
 ## Alternative: Docker (Linux)
 
 To run Guaardvark without a native Python install:

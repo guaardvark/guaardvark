@@ -55,7 +55,7 @@ Then open **http://localhost:5173**. The script is [install.sh](install.sh) from
 /plugin install guaardvark@guaardvark
 ```
 
-Other ways in: [Windows 11 through WSL2](INSTALL.md#install-windows-11-through-wsl2) · [Docker](INSTALL.md#alternative-docker-linux) · [macOS on Apple Silicon](INSTALL.md#install-macos-apple-silicon) · [the CLI from PyPI](#cli) · [the full install guide](INSTALL.md). The current release is in the [VERSION](VERSION) file.
+Other ways in: [Windows 11 through WSL2](INSTALL.md#install-windows-11-through-wsl2) · [Docker, on Linux or Docker Desktop for Windows 11](INSTALL.md#alternative-docker-linux) · [macOS on Apple Silicon](INSTALL.md#install-macos-apple-silicon) · [the CLI from PyPI](#cli) · [the full install guide](INSTALL.md). The current release is in the [VERSION](VERSION) file.
 
 ## Features
 
@@ -545,7 +545,7 @@ Yes, once the models you use are downloaded. Only features that reach other serv
 Linux with one NVIDIA GPU. Chat, RAG, voice and the coding swarm run CPU-only; 8–12 GB adds vector RAG, screen agents, images, upscaling and music; video generation needs a 16 GB-class card. Details in [docs/HARDWARE.md](docs/HARDWARE.md).
 
 **Does it run on macOS or Windows?**
-Apple Silicon is supported, with GPU features arriving through Metal; see [INSTALL.md](INSTALL.md#install-macos-apple-silicon). Windows 11 runs it through WSL2 on an NVIDIA card; see [INSTALL.md](INSTALL.md#install-windows-11-through-wsl2).
+Apple Silicon is supported, with GPU features arriving through Metal; see [INSTALL.md](INSTALL.md#install-macos-apple-silicon). Windows 11 runs it on an NVIDIA card two ways, both on WSL2, the Linux system Windows 11 includes: the one-line installer in Ubuntu ([INSTALL.md](INSTALL.md#install-windows-11-through-wsl2)), or Docker Desktop with the images from Docker Hub ([INSTALL.md](INSTALL.md#alternative-docker-linux)). On Windows 11 Home with an RTX 5060 Ti 16 GB, both ran chat on Gemma 4, Z-Image Turbo pictures and Wan 2.2 5B video on the card.
 
 **Can I use it from Claude Code, Cursor or Codex?**
 Yes. Install the Claude Code plugin with the two lines in [Quick start](#quick-start), or run `python -m backend.mcp install` to wire the MCP server into every agent client it finds. See [MCP server, agent skills and agent plugins](#mcp-server-agent-skills-and-agent-plugins).
