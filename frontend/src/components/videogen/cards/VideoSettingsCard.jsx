@@ -242,7 +242,9 @@ function VideoSettingsCard({
 
     <SettingsPanel id="videogen-clip" title={t("videoGenerator.clip.title")}>
       <Cluster label={t("videoGenerator.clip.model")}>
-        <Line nowrap>
+        {/* The buttons keep their full labels: when the card is too narrow for
+            one row they move under the model field as a pair. */}
+        <Line>
           <FormControl size="small" className="grow">
             <InputLabel>{t("videoGenerator.clip.model")}</InputLabel>
             <Select value={model} onChange={(e) => setModel(e.target.value)} label={t("videoGenerator.clip.model")}>
@@ -253,14 +255,16 @@ function VideoSettingsCard({
               ))}
             </Select>
           </FormControl>
-          <ActionButton onClick={() => setVideoModelsModalOpen(true)}>{t("videoGenerator.clip.manageModels")}</ActionButton>
-          <ActionButton
-            kind="link"
-            tooltip={t("videoGenerator.clip.comfyTooltip", { url: comfyUiLink(window.location.hostname, comfyUiUrl) })}
-            onClick={() => window.open(comfyUiLink(window.location.hostname, comfyUiUrl), "_blank", "noopener")}
-          >
-            ComfyUI
-          </ActionButton>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, minWidth: 0, "& .MuiButton-root": { flexShrink: 0 } }}>
+            <ActionButton onClick={() => setVideoModelsModalOpen(true)}>{t("videoGenerator.clip.manageModels")}</ActionButton>
+            <ActionButton
+              kind="link"
+              tooltip={t("videoGenerator.clip.comfyTooltip", { url: comfyUiLink(window.location.hostname, comfyUiUrl) })}
+              onClick={() => window.open(comfyUiLink(window.location.hostname, comfyUiUrl), "_blank", "noopener")}
+            >
+              ComfyUI
+            </ActionButton>
+          </Box>
         </Line>
         {applicableAdapters.length > 0 && (
           <>
