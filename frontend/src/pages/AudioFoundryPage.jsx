@@ -114,6 +114,50 @@ const FALLBACK_VOICES = [
     { id: "em_alex",    label: "Alex" },
     { id: "em_santa",   label: "Santa" },
   ]},
+  { label: "French Female", voices: [
+    { id: "ff_siwis",   label: "Siwis" },
+  ]},
+  { label: "Hindi Female", voices: [
+    { id: "hf_alpha",   label: "Alpha" },
+    { id: "hf_beta",    label: "Beta" },
+  ]},
+  { label: "Hindi Male", voices: [
+    { id: "hm_omega",   label: "Omega" },
+    { id: "hm_psi",     label: "Psi" },
+  ]},
+  { label: "Italian Female", voices: [
+    { id: "if_sara",    label: "Sara" },
+  ]},
+  { label: "Italian Male", voices: [
+    { id: "im_nicola",  label: "Nicola" },
+  ]},
+  { label: "Japanese Female", voices: [
+    { id: "jf_alpha",      label: "Alpha" },
+    { id: "jf_gongitsune", label: "Gongitsune" },
+    { id: "jf_nezumi",     label: "Nezumi" },
+    { id: "jf_tebukuro",   label: "Tebukuro" },
+  ]},
+  { label: "Japanese Male", voices: [
+    { id: "jm_kumo",    label: "Kumo" },
+  ]},
+  { label: "Mandarin Chinese Female", voices: [
+    { id: "zf_xiaobei",  label: "Xiaobei" },
+    { id: "zf_xiaoxiao", label: "Xiaoxiao" },
+    { id: "zf_xiaoyi",   label: "Xiaoyi" },
+  ]},
+  { label: "Mandarin Chinese Male", voices: [
+    { id: "zm_yunjian", label: "Yunjian" },
+    { id: "zm_yunxi",   label: "Yunxi" },
+    { id: "zm_yunxia",  label: "Yunxia" },
+    { id: "zm_yunyang", label: "Yunyang" },
+  ]},
+  { label: "Brazilian Portuguese Female", voices: [
+    { id: "pf_dora",    label: "Dora" },
+  ]},
+  { label: "Brazilian Portuguese Male", voices: [
+    { id: "pm_alex",    label: "Alex" },
+    { id: "pm_santa",   label: "Santa" },
+  ]},
 ];
 
 // Suno-style tag palette for the Music tab. These are also the vocabulary
@@ -183,10 +227,12 @@ const voiceEngine = (voiceBackend, voiceId, referenceClip) => {
 // Compose chip selections + free text into the LLM rewriter's input. The
 // rewriter expects natural-ish input (it was trained on prose-to-tags), so
 // we just join with commas and let it sort the vocabulary out.
-const idsForTab = (tab, voiceBackend, musicModel, voiceId, referenceClip) => {
+// `languageRow`: the Manage-models row a picked voice's language still needs
+// (Japanese and Mandarin are their own Install), or null.
+const idsForTab = (tab, voiceBackend, musicModel, voiceId, referenceClip, languageRow) => {
   if (tab === 0) {
     const engine = voiceEngine(voiceBackend, voiceId, referenceClip);
-    if (engine === "kokoro") return { ids: ["kokoro"], any: false };
+    if (engine === "kokoro") return { ids: languageRow ? ["kokoro", languageRow] : ["kokoro"], any: false };
     if (engine === "chatterbox") return { ids: ["chatterbox"], any: false };
     return { ids: ["chatterbox", "kokoro"], any: true };
   }
@@ -690,7 +736,10 @@ const AudioFoundryPage = () => {
     // The poll loop will observe status === "cancelled" and reset.
   };
 
-  const tabNeed = idsForTab(activeTab, voiceBackend, musicModel, voiceId, referenceClip);
+  const voiceLanguageRow = voiceGroups.find(
+    (group) => group.language_installed === false && group.voices.some((v) => v.id === voiceId),
+  )?.install?.id || null;
+  const tabNeed = idsForTab(activeTab, voiceBackend, musicModel, voiceId, referenceClip, voiceLanguageRow);
   const missingRows = missingCatalogRows(catalog, tabNeed.ids, tabNeed.any);
   const openModels = (modelId) => {
     setHighlightModelId(modelId || missingRows[0]?.id || null);
@@ -1153,7 +1202,9 @@ const AudioFoundryPage = () => {
   );
 
   const installedCount = catalog.filter((m) => m.installed).length;
-  const missingCount = catalog.filter((m) => !m.installed).length;
+  // A language add-on that is not installed is not a missing model: the tile
+  // stays "ready" on an install that speaks the built-in languages.
+  const missingCount = catalog.filter((m) => !m.installed && !m.language_pack).length;
 
   const startButton = (
     <Button
@@ -1315,6 +1366,11 @@ const AudioFoundryPage = () => {
                             ...group.voices.map((v) => (
                               <MenuItem key={v.id} value={v.id}>
                                 {v.label} <Typography component="span" variant="caption" sx={{ ml: 1, opacity: 0.6 }}>{v.id}</Typography>
+                                {group.language_installed === false && (
+                                  <Typography component="span" variant="caption" color="warning.main" sx={{ ml: "auto", pl: 2 }}>
+                                    {t("audio.voice.installLanguageFirst", { language: group.language })}
+                                  </Typography>
+                                )}
                               </MenuItem>
                             )),
                           ])}

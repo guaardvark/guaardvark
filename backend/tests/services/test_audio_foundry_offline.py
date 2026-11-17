@@ -161,6 +161,8 @@ def _run(monkeypatch, tmp_path, entry, *, cached, pkg_present, pip=None):
     monkeypatch.setattr(afm, "venv_has_package", lambda name: state["pkg"])
     monkeypatch.setattr(afm, "_dir_bytes", lambda d: 0)
     monkeypatch.setattr(afm, "_hf_repo_cache_dir", lambda repo: tmp_path / "hf-cache")
+    # The fake snapshot writes no files; the checksum check has its own tests.
+    monkeypatch.setattr(afm, "checksum_mismatches", lambda entry: [])
 
     def fake_snapshot(**kw):
         calls.append(("snapshot", kw["repo_id"]))
@@ -232,3 +234,111 @@ def test_pip_runs_in_the_plugin_venv_without_dependencies(tmp_path, monkeypatch)
                         lambda argv, **kw: SimpleNamespace(returncode=1, stdout="", stderr="HTTP 404"))
     with pytest.raises(afm.VenvInstallFailed, match="HTTP 404"):
         afm.pip_install_into_plugin_venv(wheel)
+
+
+# ---- Kokoro's languages ----------------------------------------------------------------
+def _pack_names(pack_id):
+    return json.loads(CATALOG.read_text())["language_packs"][pack_id]["packages"]
+
+
+def test_language_packs_are_optional_rows_of_their_own(monkeypatch):
+    monkeypatch.setattr(afm, "venv_has_package", lambda name: False)
+    for pack_id, language in (("kokoro-japanese", "Japanese"), ("kokoro-mandarin", "Mandarin Chinese")):
+        row = afm._hub_row(_entry(pack_id))
+        assert row["optional"] is True and row["installed"] is False and row["group"] == "voice"
+        assert row["language_pack"] is True
+        assert row["missing_files"] == _pack_names(pack_id)
+        assert language in row["description"] and "MB download" in row["description"]
+    # Not part of Kokoro itself: a stock install is complete without them.
+    monkeypatch.setattr(afm, "is_hub_cached", lambda repo, f: True)
+    monkeypatch.setattr(afm, "venv_has_package", lambda name: name == "en_core_web_sm")
+    assert afm._hub_row(_entry("kokoro"))["installed"] is True
+
+
+def test_a_language_pack_is_missing_until_it_is_seen_in_the_venv(monkeypatch):
+    entry = _entry("kokoro-japanese")
+    # No venv yet: unlike spaCy's model, which every start installs, a pack is never assumed.
+    monkeypatch.setattr(afm, "venv_has_package", lambda name: None)
+    assert afm._hub_row(entry)["installed"] is False
+    monkeypatch.setattr(afm, "venv_has_package", lambda name: True)
+    assert afm._hub_row(entry)["installed"] is True
+
+
+def test_voices_are_listed_with_the_language_they_still_need(monkeypatch):
+    monkeypatch.setattr(afm, "is_hub_cached", lambda repo, f: True)
+    have = {"en_core_web_sm", *_pack_names("kokoro-mandarin")}
+    monkeypatch.setattr(afm, "venv_has_package", lambda name: name in have)
+
+    groups = {g["label"]: g for g in afm.kokoro_voice_groups()}
+    japanese = groups["Japanese Male"]
+    assert japanese["language_installed"] is False
+    assert japanese["install"] == {"id": "kokoro-japanese", "name": "Kokoro Japanese"}
+    assert japanese["voices"] == [{"id": "jm_kumo", "label": "Kumo", "installed": True,
+                                   "language_installed": False}]
+    for label in ("Mandarin Chinese Female", "French Female", "Hindi Male", "American Female"):
+        assert groups[label]["language_installed"] is True and groups[label]["install"] is None
+
+    offered = {c["id"] for c in afm.kokoro_voice_choices(installed_only=True)}
+    assert "zf_xiaoxiao" in offered and "ff_siwis" in offered
+    assert not any(v.startswith(("jf_", "jm_")) for v in offered)
+
+
+def test_language_pack_install_is_one_hash_checked_pip_run(tmp_path, monkeypatch):
+    monkeypatch.setattr(afm, "PLUGIN_DIR", tmp_path)
+    py = tmp_path / "venv" / "bin" / "python"
+    py.parent.mkdir(parents=True)
+    py.write_text("")
+    present = set()
+    monkeypatch.setattr(afm, "venv_has_package", lambda name: name in present)
+    seen = []
+
+    def fake_run(argv, **kw):
+        seen.append(argv)
+        present.update(_pack_names("kokoro-mandarin"))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(afm.subprocess, "run", fake_run)
+    with afm._download_lock:
+        afm._download_state.update({"epoch": 3, "is_downloading": True})
+    afm._run_install(_entry("kokoro-mandarin"), 3)
+
+    requirements = PLUGIN / "language_packs" / "kokoro-mandarin.txt"
+    assert seen == [[str(py), "-m", "pip", "install", "--no-deps", "--require-hashes",
+                     "--disable-pip-version-check", "-r", str(requirements)]]
+    assert afm._download_state["status"] == "completed"
+    assert afm._download_state["is_downloading"] is False
+
+
+def test_language_pack_install_failure_shows_pips_reason(tmp_path, monkeypatch):
+    monkeypatch.setattr(afm, "PLUGIN_DIR", tmp_path)
+    py = tmp_path / "venv" / "bin" / "python"
+    py.parent.mkdir(parents=True)
+    py.write_text("")
+    monkeypatch.setattr(afm, "venv_has_package", lambda name: False)
+    monkeypatch.setattr(afm.subprocess, "run", lambda argv, **kw: SimpleNamespace(
+        returncode=1, stdout="", stderr="error: command 'cmake' failed"))
+    with afm._download_lock:
+        afm._download_state.update({"epoch": 4, "is_downloading": True})
+    afm._run_install(_entry("kokoro-japanese"), 4)
+    st = afm._download_state
+    assert st["status"] == "failed" and st["is_downloading"] is False
+    assert "cmake" in st["error"] and "kokoro-japanese.txt" in st["error"]
+
+
+def test_a_downloaded_file_that_differs_from_its_checksum_is_reported(tmp_path, monkeypatch):
+    from backend.services import local_weights
+
+    good = tmp_path / "good.pt"
+    good.write_bytes(b"voice")
+    cat = json.loads(CATALOG.read_text())
+    voice = cat["groups"][0]["voices"][0]
+    import hashlib
+    monkeypatch.setitem(voice, "sha256", hashlib.sha256(b"voice").hexdigest())
+    monkeypatch.setattr(afm, "load_voice_catalog", lambda rel: cat)
+    wanted = cat["voice_file"].format(voice=voice["id"])
+    monkeypatch.setattr(local_weights, "cached_path",
+                        lambda repo, name: str(good) if name == wanted else None)
+    assert afm.checksum_mismatches(_entry("kokoro")) == []
+    good.write_bytes(b"truncated")
+    assert afm.checksum_mismatches(_entry("kokoro")) == [wanted]
+    assert afm.checksum_mismatches(_entry("chatterbox")) == []

@@ -12,6 +12,21 @@ pack is on disk, which is the point: Install fetches it, generation never does.
 ``spacy.cli.download`` when it is absent, which pip-installs from GitHub in the
 middle of a generation request. The Manage-models Install puts the pinned
 wheel into this plugin's venv instead.
+
+Each group names its language (``lang``, Kokoro's lang_code). ``languages``
+gives the label, and for a language whose phonemizer is not part of the base
+install (Japanese, Mandarin Chinese: misaki's ``ja`` and ``zh`` extras) the
+``language_packs`` entry Install adds: a requirements file with pinned hashes
+and the distributions it provides. The other languages speak through the
+espeak-ng library that comes with kokoro. A voice whose pack is missing stays
+listed and is refused with the Install hint.
+
+``max_phonemes`` is the longest phoneme string the model reads in one pass
+(kokoro's KPipeline truncates at 510). ``pack_phonemes`` is how much text the
+non-English languages are given per pass: sentences are joined up to it, and
+the entry beside it records what longer passes measured. ``withheld`` lists
+upstream voices left out, each with the reason and the measurement. ``sha256``
+values are the Hugging Face LFS digests of the files at ``hf_revision``.
 """
 
 from __future__ import annotations
@@ -66,6 +81,93 @@ def voice_file(voice_id: str) -> str:
 
 def english_g2p() -> dict[str, Any]:
     return dict(load_catalog()["english_g2p"])
+
+
+def max_phonemes() -> int:
+    return int(load_catalog()["max_phonemes"])
+
+
+def pack_phonemes() -> int:
+    return int(load_catalog()["pack_phonemes"])
+
+
+def voice_language(voice_id: str) -> str:
+    """Kokoro lang_code of a catalog voice (its group's ``lang``)."""
+    for group in load_catalog()["groups"]:
+        if any(v["id"] == voice_id for v in group["voices"]):
+            return group["lang"]
+    raise UnknownVoice(f"unknown Kokoro voice {voice_id!r}")
+
+
+def language_label(lang_code: str) -> str:
+    return load_catalog()["languages"][lang_code]["label"]
+
+
+def language_pack(lang_code: str) -> dict[str, Any] | None:
+    """The pack a language needs beyond the base install, with its ``id``; None
+    when the base install speaks it."""
+    cat = load_catalog()
+    pack_id = cat["languages"][lang_code].get("pack")
+    if not pack_id:
+        return None
+    return {"id": pack_id, **cat["language_packs"][pack_id]}
+
+
+def language_packages(lang_code: str) -> list[str]:
+    """Distributions the language's phonemizer imports that Install provides."""
+    g2p = english_g2p()
+    if lang_code in g2p["lang_codes"]:
+        return [g2p["package"]]
+    pack = language_pack(lang_code)
+    return list(pack["packages"]) if pack else []
+
+
+def missing_language_packages(lang_code: str) -> list[str]:
+    """Those of ``language_packages`` this interpreter cannot find.
+
+    importlib.metadata is the lookup spaCy's is_package uses before misaki
+    falls back to a pip download.
+    """
+    from importlib import metadata
+
+    missing = []
+    for package in language_packages(lang_code):
+        try:
+            metadata.distribution(package)
+        except metadata.PackageNotFoundError:
+            missing.append(package)
+    return missing
+
+
+def voice_groups(pack_installed, missing_packages=missing_language_packages) -> list[dict[str, Any]]:
+    """The catalog's groups as GET /voices lists them.
+
+    ``pack_installed(voice_id)`` says whether a voice pack is on this machine.
+    Each voice carries ``installed`` and ``language_installed``; each group the
+    language's name and, when its phonemizer is missing, the Manage-models row
+    that installs it (``install``: ``{id, name}``). The main backend answers
+    for a stopped plugin and passes its own ``missing_packages``, which looks
+    in the plugin venv from outside.
+    """
+    groups = []
+    for group in load_catalog()["groups"]:
+        lang = group["lang"]
+        ready = not missing_packages(lang)
+        pack = language_pack(lang)
+        groups.append({
+            "label": group["label"],
+            "lang": lang,
+            "language": language_label(lang),
+            "language_installed": ready,
+            "install": None if ready or not pack else {"id": pack["id"], "name": pack["name"]},
+            "voices": [
+                {"id": v["id"], "label": v["label"],
+                 "installed": bool(pack_installed(v["id"])),
+                 "language_installed": ready}
+                for v in group["voices"]
+            ],
+        })
+    return groups
 
 
 class UnknownVoice(ValueError):
