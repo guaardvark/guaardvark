@@ -609,6 +609,18 @@ def installed_name_for(model_name: str, tags: Optional[list] = None) -> Optional
     return same_build[0] if same_build else None
 
 
+def model_installed(model_name: str) -> bool:
+    """Whether Ollama lists ``model_name`` now.
+
+    A listed model can be described, so a recent "no model info" answer for
+    it is dropped: sizing right after a pull then uses the real model.
+    """
+    if not installed_name_for(model_name):
+        return False
+    _unreachable_at.pop(model_name, None)
+    return True
+
+
 def is_llamacpp_alias(model_name: str) -> bool:
     """Whether ``model_name`` is a ``llamacpp:<digest>`` build alias."""
     return bool(_LLAMACPP_ALIAS.match((model_name or "").strip().lower()))
