@@ -1,0 +1,6 @@
+# Audio Foundry — packages installed with `pip install --no-deps`.
+#
+# Each of these pins exact versions of torch or transformers that have known
+# vulnerabilities. Their real imports are listed in requirements.txt; see the
+# Chatterbox section there before adding a package here or bumping one.
+chatterbox-tts==0.1.7

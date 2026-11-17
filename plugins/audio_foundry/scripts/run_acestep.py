@@ -2,7 +2,7 @@
 
 Runs INSIDE plugins/audio_foundry/venv-music/ — that venv has ACE-Step's
 incompatible deps (transformers==4.50, accelerate==1.6, pytorch_lightning).
-The main audio_foundry venv has chatterbox-tts pulling transformers==5.2,
+The main audio_foundry venv runs the voice backends on transformers 5.x,
 which can't coexist. Subprocess isolation lets both live in the same plugin.
 
 Protocol: JSON-line over stdin/stdout. One command per line in, one response
