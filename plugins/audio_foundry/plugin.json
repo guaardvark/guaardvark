@@ -2,7 +2,7 @@
   "id": "audio_foundry",
   "name": "Audio Foundry",
   "version": "0.2.0",
-  "description": "Local audio generation. Voiceover (Chatterbox + Kokoro TTS), SFX/ambience/music-beds (Stable Audio Open), full-song generation (ACE-Step) \u2014 single service, lazy model loading, one toggle. Part of the Guaardvark Media Foundry.",
+  "description": "Local audio generation. Voiceover (Chatterbox + Kokoro TTS; Kokoro narrates on the CPU when there is no NVIDIA GPU), SFX/ambience/music-beds (Stable Audio Open) and full-song generation (ACE-Step) on an NVIDIA GPU \u2014 single service, lazy model loading, one toggle. Part of the Guaardvark Media Foundry.",
   "author": "Guaardvark",
   "type": "service",
   "category": "generation",
@@ -22,8 +22,8 @@
     "output_dir": "data/outputs/audio"
   },
   "requirements": {
-    "gpu": true,
-    "cuda": true
+    "gpu": false,
+    "cuda": false
   },
   "endpoints": {
     "health": "/health",
