@@ -271,10 +271,13 @@ class GenerateSpeechTool(BaseTool):
         ),
         "voice": ToolParameter(
             name="voice", type="string", required=False,
-            description="A Kokoro voice id: accent and gender prefix plus a name, e.g. 'af_heart' "
+            description="A Kokoro voice id: language and gender prefix plus a name, e.g. 'af_heart' "
                         "(American female, the default), 'am_michael', 'bf_emma', 'bm_george', "
-                        "'ef_dora' (Spanish). Naming one selects Kokoro. An unknown id is refused "
-                        "with the full list. Omit for the engine's default voice.",
+                        "'ef_dora' (Spanish), 'ff_siwis' (French), 'if_sara' (Italian), 'pf_dora' "
+                        "(Brazilian Portuguese), 'hf_alpha' (Hindi), 'jf_alpha' (Japanese), "
+                        "'zf_xiaoxiao' (Mandarin). The text is read in the voice's language, so "
+                        "write it in that language. Naming one selects Kokoro. An unknown id is "
+                        "refused with the full list. Omit for the engine's default voice.",
         ),
         "engine": ToolParameter(
             name="engine", type="string", required=False, default="auto",

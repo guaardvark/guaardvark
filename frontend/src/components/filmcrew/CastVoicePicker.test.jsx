@@ -18,6 +18,13 @@ const CATALOG = {
         { id: "af_heart", label: "Heart (default)", installed: true },
         { id: "af_bella", label: "Bella", installed: false },
       ] },
+      {
+        label: "Japanese Female",
+        language: "Japanese",
+        language_installed: false,
+        install: { id: "kokoro-japanese", name: "Kokoro Japanese" },
+        voices: [{ id: "jf_alpha", label: "Alpha", installed: true, language_installed: false }],
+      },
     ],
   },
 };
@@ -67,6 +74,19 @@ describe("CastVoicePicker", () => {
     getVoiceCatalog.mockResolvedValue(CATALOG);
     renderPicker("af_bella");
     expect(await screen.findByText(/Bella is not installed on this machine/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Manage models/ }));
+    expect(await screen.findByText("Audio Studio page")).toBeInTheDocument();
+  });
+
+  it("lists a voice whose language is not installed and says to install it first", async () => {
+    getVoiceCatalog.mockResolvedValue(CATALOG);
+    renderPicker("jf_alpha");
+    expect(await screen.findByText(/Alpha speaks Japanese, which is not installed/)).toBeInTheDocument();
+    expect(screen.getByText(/Install Kokoro Japanese in Audio Studio/)).toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toHaveTextContent("Alpha (jf_alpha) · Install Japanese first");
+    fireEvent.mouseDown(screen.getByRole("combobox"));
+    expect(await screen.findByRole("option", { name: /Alpha.*Install Japanese first/ })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
     fireEvent.click(screen.getByRole("button", { name: /Manage models/ }));
     expect(await screen.findByText("Audio Studio page")).toBeInTheDocument();
   });

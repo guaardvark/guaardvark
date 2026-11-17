@@ -92,6 +92,23 @@ def test_load_pre_warms_chatterbox_only(voice_gen_with_stubs):
     assert koko.load_calls == 0
 
 
+@pytest.mark.parametrize("params", [{"voice_id": "af_heart"}, {"backend": "kokoro"}])
+def test_cold_load_for_a_built_in_voice_loads_kokoro_alone(voice_gen_with_stubs, params):
+    """Narration with a built-in voice never brings Chatterbox up first."""
+    vg, chat, koko = voice_gen_with_stubs
+    assert vg.select_for_request({"text": "hi", **params}) is False
+    vg.load()
+    assert koko.load_calls == 1
+    assert chat.load_calls == 0
+
+
+def test_cold_load_with_nothing_named_still_warms_chatterbox(voice_gen_with_stubs):
+    vg, chat, koko = voice_gen_with_stubs
+    vg.select_for_request({"text": "hi"})
+    vg.load()
+    assert chat.load_calls == 1 and koko.load_calls == 0
+
+
 def test_load_falls_back_to_kokoro_when_chatterbox_fails(tmp_path):
     """Chatterbox OOM at load -> Kokoro picks up the cold-start."""
     vg = VoiceGenBackend(output_root=tmp_path)

@@ -12,6 +12,10 @@ HTTP (see service/orchestrator_client.py). The pre-load handshake is:
   3. orchestrator.mark_loaded(slot_id)             — registry transitions LOADING -> LOADED
 On load() failure we call orchestrator.evict(slot_id) so the LOADING slot
 doesn't dangle in the registry.
+
+On a machine with no CUDA device there is no VRAM to arbitrate: a backend that
+runs on the CPU (Kokoro, Chatterbox) loads without the handshake, and nothing
+is reserved, released or evicted from other services on its behalf.
 """
 from __future__ import annotations
 
@@ -39,6 +43,14 @@ _SLOT_PREFIX = "audio_foundry"
 _DEFAULT_PRIORITY = 70
 # Room left above a backend's estimate before this plugin unloads its own others.
 _HEADROOM_MB = 512
+
+
+def _cuda_available() -> bool:
+    try:
+        import torch
+        return bool(torch.cuda.is_available())
+    except Exception:
+        return False
 
 
 def _free_vram_mb() -> Optional[int]:
@@ -89,6 +101,8 @@ class Dispatcher:
             Intent.MUSIC: threading.Lock(),
         }
         self._last_used: dict[Intent, float] = {}
+        # Intents whose slot this process reserved with the orchestrator.
+        self._claimed: set[Intent] = set()
 
         # If no client passed, we still construct a disabled one so the call
         # sites can stay branch-free. enabled=False means every method is a no-op.
@@ -196,7 +210,7 @@ class Dispatcher:
                 )
                 self._last_used[intent] = time.monotonic()
                 # Signal success to orchestrator so eviction timer can reset
-                self._orch.release(f"{_SLOT_PREFIX}:{intent.value}")
+                self._release(intent)
                 
                 # Update dynamic VRAM estimate if possible
                 try:
@@ -247,7 +261,7 @@ class Dispatcher:
             try:
                 result = backend.plan(**params)
                 self._last_used[intent] = time.monotonic()
-                self._orch.release(f"{_SLOT_PREFIX}:{intent.value}")
+                self._release(intent)
                 return result
             except Exception:
                 raise
@@ -273,6 +287,10 @@ class Dispatcher:
                         reason or f"Backend {backend.name} is unavailable on this machine"
                     )
 
+                select = getattr(backend, "select_for_request", None)
+                if select is not None and select(params):
+                    self._orch.evict(f"{_SLOT_PREFIX}:{intent.value}")
+
                 if not backend.is_loaded:
                     self._load_with_orchestrator(intent, backend)
 
@@ -288,7 +306,7 @@ class Dispatcher:
 
             # Fallback: full generate, yield the whole file as one "chunk"
             result = backend.generate(**params)
-            self._orch.release(f"{_SLOT_PREFIX}:{intent.value}")
+            self._release(intent)
             def _one_chunk():
                 with open(result.path, "rb") as f:
                     yield f.read(), True
@@ -318,6 +336,7 @@ class Dispatcher:
                     
                     backend.unload()
                     slot_id = f"{_SLOT_PREFIX}:{intent.value}"
+                    self._claimed.discard(intent)
                     self._orch.evict(slot_id)
                     return True
                 return False
@@ -325,6 +344,11 @@ class Dispatcher:
             self._intent_locks[intent].release()
 
     # ------------------------------------------------------------------
+
+    def _release(self, intent: Intent) -> None:
+        """Tell the orchestrator a generation finished, for a slot it holds."""
+        if intent in self._claimed:
+            self._orch.release(f"{_SLOT_PREFIX}:{intent.value}")
 
     def _make_room(self, intent: Intent, vram_req: int) -> None:
         """Unload this plugin's other idle backends while the card is short.
@@ -357,10 +381,11 @@ class Dispatcher:
         """For a loaded backend that needs the whole card (ACE-Step): ask for it
         again before running. A chat model loaded between two songs would
         otherwise leave this one out of memory. Voice and effects share."""
-        if not getattr(backend, "requires_exclusive_vram", False):
+        if not getattr(backend, "requires_exclusive_vram", False) or not _cuda_available():
             return
         slot_id = f"{_SLOT_PREFIX}:{intent.value}"
         vram_req = max(backend.vram_mb_estimate, backend.last_vram_mb)
+        self._claimed.add(intent)
         self._orch.request_vram(slot_id, vram_req, _DEFAULT_PRIORITY, exclusive=True)
         # The orchestrator may have forgotten an idle slot; a re-registered one
         # starts as loading, and the model is already in memory.
@@ -390,6 +415,13 @@ class Dispatcher:
     def _load_with_orchestrator(self, intent: Intent, backend: AudioBackend) -> None:
         """Request VRAM, run load(), report load completion. Cleans up on failure."""
         slot_id = f"{_SLOT_PREFIX}:{intent.value}"
+        if not _cuda_available():
+            logger.info(
+                "Cold backend for %s — no CUDA device, loading on the CPU with no VRAM request",
+                intent.value,
+            )
+            backend.load()
+            return
         # Use the higher of hardcoded estimate vs actually observed peak.
         vram_req = max(backend.vram_mb_estimate, backend.last_vram_mb)
         # Backends that need the whole GPU (ACE-Step at 10 GB) ask the
@@ -404,6 +436,7 @@ class Dispatcher:
         )
         # Best-effort eviction. If the orchestrator is unreachable we still try
         # the load — it might just OOM, which the caller will see as a 500.
+        self._claimed.add(intent)
         self._orch.request_vram(slot_id, vram_req, _DEFAULT_PRIORITY, exclusive=exclusive)
         self._make_room(intent, vram_req)
 
@@ -414,6 +447,7 @@ class Dispatcher:
             backend.load()
         except Exception:
             # Don't leave a LOADING slot dangling in the orchestrator's registry.
+            self._claimed.discard(intent)
             self._orch.evict(slot_id)
             raise
 

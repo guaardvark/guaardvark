@@ -380,7 +380,7 @@ Local audio generation for voiceover, music, ambience, and effects. Shipped as t
 
 ### Voiceover
 - **Chatterbox** — expressive neural TTS with style/emotion control
-- **Kokoro-82M** — fast, light, multilingual TTS (English + Spanish voices, more languages on the model side)
+- **Kokoro-82M** — fast, light TTS with 53 built-in voices in nine languages (American and British English, Spanish, French, Hindi, Italian, Brazilian Portuguese, Japanese, Mandarin Chinese); narrates on the CPU when there is no NVIDIA GPU
 - **Piper** — local neural TTS fallback for environments where the heavier engines aren't appropriate
 - **Streaming output** — audio chunks stream to the browser as the engine produces them
 - **Speech in chat** — "say this out loud" makes `generate_speech` speak the line and plays it in the reply (music stays on the Audio Studio page)
