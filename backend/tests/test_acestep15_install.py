@@ -91,6 +91,14 @@ def test_installed_only_with_the_environment_and_every_weight(install_root):
     assert row["license"] == "MIT" and row["vram_note"]
 
 
+def test_the_vram_note_states_the_catalogs_measured_reserve():
+    vram = CATALOG["vram"]
+    assert isinstance(vram["reserve_mb"], int) and vram["reserve_mb"] > 0
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", vram["measured"]) and vram["method"]
+    note = afm._hub_row(_entry())["vram_note"]
+    assert f"{vram['reserve_mb'] / 1000:.1f} GB" in note and vram["card"] in note
+
+
 def test_v1_is_unaffected_by_the_15_helpers():
     v1 = next(e for e in afm.AUDIO_FOUNDRY_MODELS if e["id"] == "ace-step")
     assert afm.local_weights_dir(v1) is None
