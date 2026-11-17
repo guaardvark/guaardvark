@@ -152,7 +152,7 @@ soundfile>=0.14.0  # WAV/FLAC IO for voice_api + audio_foundry backends
 pytest==9.0.3
 pytest-timeout==2.4.0
 pytest-playwright==0.8.0  # 0.7.0 caps pytest<9.0.0; 0.8.0 supports pytest 9.x
-playwright==1.52.0
+playwright==1.65.2
 
 # Desktop Automation Dependencies
 pyautogui>=0.9.54      # GUI automation (mouse, keyboard)
