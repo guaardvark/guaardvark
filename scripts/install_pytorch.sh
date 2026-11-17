@@ -140,6 +140,18 @@ else
     vader_info "Using active virtualenv: $VIRTUAL_ENV"
 fi
 
+# Uninstalls the CUDA runtime wheels a previous torch build pulled in, through
+# the pip chosen above. Piping the names to `xargs pip` would start whichever
+# pip is first on PATH: none at all, or an activated venv that is not the
+# --venv target.
+_pt_purge_cuda_libs() {
+    local pkgs
+    pkgs="$(pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' || true)"
+    [ -n "$pkgs" ] || return 0
+    # shellcheck disable=SC2086
+    pip uninstall -y $pkgs 2>/dev/null | tail -3 || true
+}
+
 # --- fast path: skip the swap when the right build is already in place -------
 # Every branch below force-reinstalls, because pip treats +cu128 / +cpu / +rocm
 # as the SAME version and a plain install cannot fix a wrong variant. Right
@@ -377,7 +389,7 @@ if command -v rocm-smi &> /dev/null || _hardware_json_says_amd; then
     _pt_skip_if_current "$ROCM_WHL" cuda "$PT_ROCM_CODEC"
     _pt_stage_wheels "https://download.pytorch.org/whl/${ROCM_WHL}" torch torchvision torchaudio || exit 1
     pip uninstall -y torch torchvision torchaudio torchcodec 2>/dev/null | tail -3 || true
-    pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
+    _pt_purge_cuda_libs
     # Purge flash-attn/xformers/pynvml for the same reasons as CUDA/CPU paths (shared
     # backend/venv contract; custom nodes and some plugin reqs inject incompatible
     # versions leading to diffusers import crashes with aten schema errors).
@@ -519,7 +531,7 @@ if command -v nvidia-smi &> /dev/null; then
             _pt_stage_wheels "https://download.pytorch.org/whl/cpu" $PT_PKGS || exit 1
         fi
         pip uninstall -y torch torchvision torchaudio torchcodec 2>/dev/null | tail -3 || true
-        pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
+        _pt_purge_cuda_libs
         # Purge flash-attn / xformers (the #1 source of "Current Torch with Flash-Attention 2.5.7
         # doesnt have a compatible aten::_flash_attention_forward schema (philox_seed vs rng_state)"
         # errors on diffusers import in batch_image_generation_api / offline_image_generator).
@@ -621,7 +633,7 @@ else
     _pt_skip_if_current cpu none "$(_pt_pins cpu)"
     _pt_stage_wheels "https://download.pytorch.org/whl/cpu" $(_pt_pins cpu) || exit 1
     pip uninstall -y torch torchvision torchaudio torchcodec 2>/dev/null | tail -3 || true
-    pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
+    _pt_purge_cuda_libs
     # Also purge flash/xformers/pynvml here (see main CUDA clean comment for rationale:
     # prevents schema mismatch on diffusers import + repeated FutureWarnings from plugins).
     pip uninstall -y flash-attn flash_attn xformers pynvml nvidia-ml-py 2>/dev/null | tail -3 || true
