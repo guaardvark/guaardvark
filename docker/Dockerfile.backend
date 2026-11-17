@@ -74,7 +74,11 @@ COPY scripts/ /app/scripts/
 # app and its models, plugin environments) survives an image update. The image keeps its
 # copy here, and docker/entrypoint.sh brings it onto the volume at every start.
 COPY plugins/ /app/.plugins-dist/
-COPY docker/entrypoint.sh docker/sync_plugins.py /app/docker/
+# The tracked default data files (agent knowledge, recipes, style recipes, trainer pages).
+# /app/data is a volume, so docker/entrypoint.sh seeds them from here at every start and
+# leaves any file the install has changed. .dockerignore lists exactly which files come in.
+COPY data/ /app/.data-dist/
+COPY docker/entrypoint.sh docker/sync_plugins.py docker/seed_data.py /app/docker/
 RUN chmod +x /app/docker/entrypoint.sh
 # The plugin start scripts and the ComfyUI update service expect /app/backend/venv. The
 # packages are installed system-wide in this image, so the venv only has to see them.

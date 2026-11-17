@@ -13,8 +13,41 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 
-# Data (mounted as volumes)
-data/
+# Data (mounted as volumes). The tracked defaults below go into the image as
+# /app/.data-dist and docker/seed_data.py copies them onto the data volume. One
+# line per tracked file, so nothing a machine wrote under data/ can enter an image
+# built from a used checkout (backend/tests/test_docker_seed_data.py checks the list).
+data/**
+!data/agent/LEARNING_PRINCIPLES.md
+!data/agent/configs/agent.tint2rc
+!data/agent/example_traces.json
+!data/agent/files/agent-drawing.png
+!data/agent/files/agent_course.html
+!data/agent/files/calibration.png
+!data/agent/files/calibration_blind.png
+!data/agent/files/calibration_blind_1024.png
+!data/agent/files/calibration_blind_1024sq.png
+!data/agent/files/comments_trainer.html
+!data/agent/files/paint_trainer.html
+!data/agent/files/vision_trainer.html
+!data/agent/files/vision_trainer_grid.html
+!data/agent/files/watch_page_trainer.html
+!data/agent/recipes.json
+!data/agent/self_knowledge.md
+!data/agent/self_knowledge_compact.md
+!data/agent/style_recipes/README.md
+!data/agent/style_recipes/cinematic.json
+!data/agent/style_recipes/dark.json
+!data/agent/style_recipes/default.json
+!data/agent/style_recipes/grunge.json
+!data/agent/style_recipes/music-video.json
+!data/agent/wallpapers/default.jpg
+!data/config/mcp_servers.json.example
+!data/conversations/README.md
+!data/logos/README.md
+!data/quality/baseline.json
+!data/rag_research_program.md
+!data/system/README.md
 logs/
 pids/
 
