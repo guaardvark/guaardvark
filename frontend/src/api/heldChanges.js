@@ -11,7 +11,7 @@ export const isActionable = (scan) =>
 
 export const approveHeldChange = (entry, { note = "", overrideBlock = false } = {}) =>
   entry.kind === "git"
-    ? inboundGuardService.approveGit(entry.item.digest, note)
+    ? inboundGuardService.approveGit(entry.item.digest, note, { overrideBlock })
     : inboundGuardService.approveScan(entry.item.id, { note, overrideBlock });
 
 export const rejectHeldChange = (entry, { note = "" } = {}) => {
