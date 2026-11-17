@@ -249,3 +249,97 @@ def test_window_boundary_exact_edge_counts_as_live():
 def test_liveness_never_raises_on_garbage():
     res = liveness.analyze([{"bogus": 1}], {"not": "a map"}, window_days=30)
     assert "findings" in res and "stats" in res
+
+
+# ============================================================================
+# What starts a task, and how an idle hand-started task is rated
+# ============================================================================
+
+def _task_tree(root: Path):
+    _write(root / "backend" / "celery_app.py", (
+        "from celery import Celery\n"
+        "celery_app = Celery('x')\n"
+        "celery_app.conf.update(\n"
+        "    task_routes={'jobs.import_folder': {'queue': 'indexing'}},\n"
+        "    beat_schedule={'nightly': {'task': 'jobs.nightly', 'schedule': 60.0}},\n"
+        ")\n"
+        "from backend.jobs import import_folder\n"
+        "celery_app.task(import_folder, name='jobs.import_folder')\n"
+    ))
+    _write(root / "backend" / "jobs.py", (
+        "from celery import shared_task\n"
+        "def import_folder(path):\n"
+        "    return path\n"
+        "@shared_task(name='jobs.nightly')\n"
+        "def nightly():\n"
+        "    return 1\n"
+        "@shared_task(name='jobs.followup')\n"
+        "def followup():\n"
+        "    return 1\n"
+        "@shared_task(name='jobs.both')\n"
+        "def both():\n"
+        "    followup.delay()\n"
+        "@shared_task(name='jobs.orphan')\n"
+        "def orphan():\n"
+        "    orphan.apply_async(countdown=5)\n"
+    ))
+    _write(root / "backend" / "api" / "files_api.py", (
+        "from flask import Blueprint\n"
+        "from backend.celery_app import celery_app\n"
+        "files_bp = Blueprint('files', __name__, url_prefix='/api/files')\n"
+        "@files_bp.route('/bulk-import', methods=['POST'])\n"
+        "def bulk_import():\n"
+        "    from backend.jobs import import_folder, both\n"
+        "    import_folder.apply_async(args=['x'], queue='indexing')\n"
+        "    both.delay()\n"
+        "    return 'ok'\n"
+        "def helper():\n"
+        "    celery_app.send_task('jobs.both')\n"
+    ))
+
+
+def test_task_starts_are_classified(tmp_path):
+    _task_tree(tmp_path)
+    tasks = {t["name"]: t for t in dispatch_graph.celery_tasks(tmp_path)}
+    assert tasks["jobs.import_folder"]["started_by"] == ["route"]
+    assert tasks["jobs.import_folder"]["start_routes"] == ["POST /api/files/bulk-import"]
+    assert tasks["jobs.nightly"]["started_by"] == ["schedule"]
+    assert tasks["jobs.followup"]["started_by"] == ["code"]
+    assert tasks["jobs.both"]["started_by"] == ["code", "route"]
+    # A queue routing entry is not a start, and neither is a task re-queuing itself.
+    assert tasks["jobs.orphan"]["started_by"] == []
+
+
+def test_idle_hand_started_task_is_low_and_real_zombies_stay_high(tmp_path):
+    _task_tree(tmp_path)
+    smap = {**_fake_map(), "celery_tasks": dispatch_graph.celery_tasks(tmp_path)}
+    now = _dt.datetime(2026, 11, 17, 12, 0, 0)
+    old = now - _dt.timedelta(days=35)
+    names = ["jobs.import_folder", "jobs.nightly", "jobs.followup", "jobs.both", "jobs.orphan"]
+    hits = [_hit(f"task:{n}", "backend.services.live_mod", n, old, static_reach=True) for n in names]
+    hits.append(_hit("route:bulk_import", "backend.services.live_mod", "bulk_import", old, static_reach=True))
+
+    res = liveness.analyze(hits, smap, window_days=30, now=now)
+    severity = {f.evidence["symbol_id"]: f.severity for f in res["findings"]
+                if f.kind == FindingKind.RUNTIME_ZOMBIE}
+
+    assert severity["task:jobs.import_folder"] == Severity.LOW
+    for name in ("jobs.nightly", "jobs.followup", "jobs.both", "jobs.orphan"):
+        assert severity[f"task:{name}"] == Severity.HIGH, name
+    assert severity["route:bulk_import"] == Severity.HIGH
+    assert res["stats"]["hand_started_idle"] == 1
+    assert res["stats"]["runtime_zombies"] == 5
+
+    low = next(f for f in res["findings"] if f.evidence["symbol_id"] == "task:jobs.import_folder")
+    assert "POST /api/files/bulk-import" in low.summary
+    assert low.evidence["start_routes"] == ["POST /api/files/bulk-import"]
+    assert FindingKind.RUNTIME_ZOMBIE.value not in DISPATCHABLE_KINDS
+
+
+def test_a_map_without_task_starts_keeps_zombies_high():
+    now = _dt.datetime(2026, 11, 17, 12, 0, 0)
+    smap = {**_fake_map(), "celery_tasks": [{"name": "jobs.import_folder"}]}
+    hits = [_hit("task:jobs.import_folder", "backend.services.live_mod", "x",
+                 now - _dt.timedelta(days=35), static_reach=True)]
+    res = liveness.analyze(hits, smap, window_days=30, now=now)
+    assert [f.severity for f in res["findings"]] == [Severity.HIGH]
