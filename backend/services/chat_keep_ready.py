@@ -225,7 +225,7 @@ def _chat_num_ctx(model: str) -> Optional[int]:
     manager's sizing for the model.
     """
     from backend.services.brain_state import BrainState
-    from backend.utils.ollama_resource_manager import refresh_context_window, resolve_num_ctx
+    from backend.utils.ollama_resource_manager import chat_num_ctx, resolve_num_ctx
 
     state = BrainState.existing()
     candidates = []
@@ -238,12 +238,7 @@ def _chat_num_ctx(model: str) -> Optional[int]:
         name = getattr(llm, "model", None)
         if not name or not (same_model(name, model) or _same_build(name, model)):
             continue
-        try:
-            window = refresh_context_window(llm)
-        except Exception:
-            window = getattr(llm, "context_window", 0)
-        if window and window > 0:
-            return int(window)
+        return chat_num_ctx(llm)
     try:
         return resolve_num_ctx(model)
     except Exception:

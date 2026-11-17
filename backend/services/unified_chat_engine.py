@@ -6115,14 +6115,13 @@ class UnifiedChatEngine:
                 time.sleep(1.5)
                 # Same window the chat will ask for, or the runner loads at the
                 # Modelfile's size here and reloads seconds later for the answer.
-                from backend.utils.ollama_resource_manager import refresh_context_window, request_options
                 requests.post(
                     f"{OLLAMA_BASE_URL}/api/generate",
                     json={
                         "model": model,
                         "prompt": " ",
                         "stream": False,
-                        "options": request_options(model, num_predict=1, num_ctx=refresh_context_window(self.llm) or None),
+                        "options": {"num_predict": 1, "num_ctx": self._chat_context_window()},
                         "keep_alive": get_chat_keep_alive(),
                     },
                     timeout=(8.0, 90.0),
@@ -6731,18 +6730,8 @@ You are a private, local AI assistant running on the user's own hardware. There 
         The model's resolved window (refresh_context_window re-resolves a boot
         placeholder), else the resource manager's computed size, else 8192.
         """
-        try:
-            from backend.utils.ollama_resource_manager import refresh_context_window
-            ctx_window = refresh_context_window(self.llm)
-        except Exception:
-            ctx_window = getattr(self.llm, "context_window", None)
-        if not ctx_window or ctx_window <= 0:
-            try:
-                from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
-                ctx_window = compute_optimal_num_ctx(getattr(self.llm, "model", "gemma4:e4b"))
-            except Exception:
-                ctx_window = 8192
-        return ctx_window
+        from backend.utils.ollama_resource_manager import chat_num_ctx
+        return chat_num_ctx(self.llm)
 
     @staticmethod
     def _compact_to_model_window() -> bool:
