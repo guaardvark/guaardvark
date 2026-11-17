@@ -89,8 +89,8 @@ sentence-transformers>=6.0.1
 # Without it those formats have no reader at all and fall through to a legacy
 # path that raises. Pulls rapidocr, which requires opencv-python>=4.5 with no
 # upper bound, so install under backend/constraints.txt (PIP_CONSTRAINT) to keep
-# numpy<2.0. Verified at 2.123.0: numpy 1.26.4 and opencv-python 4.8.1.78 held.
-docling>=2.126.0
+# numpy<2.0. Verified at 2.150.1: numpy 1.26.4 and opencv-python 4.11.0.86 held.
+docling>=2.142.0  # first release whose parser and layout models accept Pillow 13
 # PyTorch is installed by scripts/install_pytorch.sh (smart installer) - do not pin versions here
 # torch, torchvision, torchaudio versions are auto-detected based on GPU hardware
 
@@ -113,7 +113,7 @@ transformers>=5.2.0,<6.0  # Krea2/Qwen3-VL needs 5.2+ (rope_parameters); was <5.
 accelerate>=1.2.1,<2
 peft>=0.20.0  # Z-Image LoRA training runs in this venv (plugins/lora_trainer/scripts/run_zimage_trainer.py); without it training stops at "train deps missing: No module named 'peft'"
 safetensors>=0.8.0
-Pillow>=12.3.0
+Pillow>=13.0.0
 pillow-heif>=1.7.0  # AVIF/HEIF image support for vision analysis
 mss>=10.2.0  # Fast screenshot capture for agent virtual display
 
