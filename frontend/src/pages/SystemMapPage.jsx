@@ -5,18 +5,16 @@
 // links, occasional pulses) but the data is real: system_mapper analyzes
 // ~715 modules + their import edges + findings, the canvas paints them.
 //
-// Right-side panel toggles between:
-//   - Activity log (default): shows live tool calls flowing through chat
-//   - Detail view: when hovering or selecting a node
-//
-// Section-color legend lives in the top HUD strip.
-// Bottom-left card has a one-line cheat sheet for the mouse controls.
+// The map, the ranked findings and the live tool activity are cards on the
+// shared board. A hovered or selected module shows over the map's corner.
+// The section legend and the search sit above the canvas in the map card;
+// the page header carries the counts and the rebuild buttons.
 
 /* eslint-env browser */
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import {
   Box,
-  Paper,
+  Snackbar,
   Typography,
   Chip,
   IconButton,
@@ -31,7 +29,6 @@ import {
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
 import CloseIcon from "@mui/icons-material/Close";
-import BubbleChartIcon from "@mui/icons-material/BubbleChart";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import BoltIcon from "@mui/icons-material/Bolt";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
@@ -42,6 +39,8 @@ import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import { io } from "socket.io-client";
 
 import PageLayout from "../components/layout/PageLayout";
+import PageStatus, { StatusChip } from "../components/layout/PageStatus";
+import { CardWorkspace } from "../components/board";
 import { SystemMapCanvas } from "../components/systemmap";
 import { pathToSection, moduleNameToPath } from "../components/systemmap/pathUtils";
 import { useMapPalette } from "../components/systemmap/palette";
@@ -229,7 +228,6 @@ export default function SystemMapPage() {
 
   // Findings panel state
   const [findings, setFindings] = useState([]);
-  const [panelTab, setPanelTab] = useState("findings"); // 'findings' | 'activity'
   const [sevFilter, setSevFilter] = useState("high,medium"); // default to actionable
   const [dispatchingId, setDispatchingId] = useState(null);
   const [toast, setToast] = useState(null);
@@ -556,399 +554,210 @@ export default function SystemMapPage() {
   const activeNodeId = activeNode?.id;
   const activeFindings = activeNodeId ? findingsByModule.get(activeNodeId) || [] : [];
 
-  // Right panel content — detail view if hovering/selecting, otherwise activity log
-  const showDetailPanel = !!activeNode;
+  const findingCounts = [
+    sev.high > 0 && t("systemMap.severity.critical", { count: sev.high }),
+    sev.medium > 0 && t("systemMap.severity.medium", { count: sev.medium }),
+    t("systemMap.severity.hygiene", { count: sev.low }),
+  ].filter(Boolean);
 
-  return (
-    <PageLayout>
-      <Box
-        sx={{
-          height: "calc(100vh - 64px)",
-          display: "flex",
-          flexDirection: "column",
-          bgcolor: "background.default", // inherits the active theme
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        {/* Top HUD strip */}
-        <Box
-          sx={{
-            position: "absolute",
-            top: 16,
-            left: 16,
-            right: 16,
-            zIndex: 10,
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            pointerEvents: "none",
-            flexWrap: "wrap",
-          }}
-        >
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ pointerEvents: "auto" }}>
-            <BubbleChartIcon sx={{ color: P.ink(0.85), fontSize: 28 }} />
-            <Typography
-              variant="h6"
-              sx={{
-                color: P.ink(0.95),
-                fontWeight: 300,
-                letterSpacing: 1.5,
-              }}
-            >
-              {t("systemMap.title")}
-            </Typography>
-            {map && (
-              <Typography variant="caption" sx={{ color: P.ink(0.55), ml: 1 }}>
-                {t("systemMap.stats", {
-                  modules: map.file_count,
-                  edges: map.dependency_graph
-                    ? Object.values(map.dependency_graph).reduce(
-                        (a, b) => a + (b?.length || 0),
-                        0,
-                      )
-                    : 0,
-                })}
-              </Typography>
-            )}
-          </Stack>
-          <Box sx={{ flex: 1 }} />
-          {/* Severity HUD */}
-          {map && (
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ pointerEvents: "auto" }}>
-              {sev.high > 0 && (
-                <Chip
-                  size="small"
-                  label={t("systemMap.severity.critical", { count: sev.high })}
-                  sx={{
-                    bgcolor: P.danger(0.18),
-                    color: SEVERITY_COLOR.high,
-                    border: `1px solid ${P.danger(0.4)}`,
-                  }}
-                />
-              )}
-              {sev.medium > 0 && (
-                <Chip
-                  size="small"
-                  label={t("systemMap.severity.medium", { count: sev.medium })}
-                  sx={{
-                    bgcolor: P.warn(0.15),
-                    color: SEVERITY_COLOR.medium,
-                    border: `1px solid ${P.warn(0.35)}`,
-                  }}
-                />
-              )}
-              <Chip
-                size="small"
-                label={t("systemMap.severity.hygiene", { count: sev.low })}
-                sx={{
-                  bgcolor: P.ink(0.10),
-                  color: SEVERITY_COLOR.low,
-                  border: `1px solid ${P.ink(0.25)}`,
-                }}
-              />
-            </Stack>
-          )}
-          {/* Search */}
-          <Box
-            component="form"
-            onSubmit={onSearchSubmit}
-            sx={{ pointerEvents: "auto", width: 240 }}
-          >
-            <TextField
-              size="small"
-              placeholder={t("systemMap.searchPlaceholder")}
-              fullWidth
-              value={search}
-              inputRef={searchRef}
-              onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: P.ink(0.5), fontSize: 18 }} />
-                  </InputAdornment>
-                ),
-                endAdornment: search && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setSearch("")}>
-                      <CloseIcon sx={{ color: P.ink(0.5), fontSize: 16 }} />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-                sx: {
-                  bgcolor: P.fieldBg,
-                  color: P.ink(0.85),
-                  "& fieldset": { borderColor: P.ink(0.2) },
-                  "&:hover fieldset": { borderColor: P.ink(0.4) },
-                  fontFamily: "monospace",
-                  fontSize: "0.8rem",
-                },
-              }}
-            />
-          </Box>
-          {/* Reset view (R) */}
-          <Tooltip title={t("systemMap.resetView")}>
-            <IconButton
-              onClick={() => canvasRef.current?.resetView()}
-              sx={{
-                color: P.ink(0.7),
-                pointerEvents: "auto",
-                "&:hover": { color: P.ink(1) },
-              }}
-            >
-              <RestartAltIcon />
-            </IconButton>
-          </Tooltip>
-          {/* Refresh */}
-          {/* Code search index (zvec_grep) */}
-          <Tooltip
-            title={
-              codeIndexError
-                ? t("systemMap.codeIndex.failed", { reason: codeIndexError })
-                : codeIndex?.running
-                  ? t("systemMap.codeIndex.building")
-                  : codeIndex?.indexed
-                    ? t("systemMap.codeIndex.ready")
-                    : codeIndex?.installed
-                      ? t("systemMap.codeIndex.missing")
-                      : t("systemMap.codeIndex.notInstalled")
-            }
-          >
-            <span>
-              <IconButton
-                aria-label={codeIndex?.indexed ? t("systemMap.codeIndex.rebuild") : t("systemMap.codeIndex.build")}
-                onClick={handleBuildCodeIndex}
-                disabled={!codeIndex?.installed || codeIndex?.running}
-                sx={{
-                  color: codeIndex?.indexed ? P.ink(0.7) : P.ink(0.45),
-                  pointerEvents: "auto",
-                  "&:hover": { color: P.ink(1) },
-                }}
-              >
-                {codeIndex?.running ? (
-                  <CircularProgress size={20} sx={{ color: P.ink(0.7) }} />
-                ) : (
-                  <ManageSearchIcon />
-                )}
-              </IconButton>
-            </span>
-          </Tooltip>
-          {/* Refresh */}
-          <Tooltip
-            title={
-              rebuilding
-                ? t("systemMap.refresh.building")
-                : cacheInfo?.stale
-                  ? t("systemMap.refresh.stale")
-                  : cacheInfo?.hit
-                    ? t("systemMap.refresh.cached", { seconds: cacheInfo.age_seconds })
-                    : t("systemMap.refresh.computed", { seconds: cacheInfo?.computed_in_seconds || "?" })
-            }
-          >
-            <span>
-              <IconButton
-                aria-label={t("systemMap.refresh.button")}
-                onClick={handleRefresh}
-                disabled={loading || rebuilding}
-                sx={{
-                  color: P.ink(0.7),
-                  pointerEvents: "auto",
-                  "&:hover": { color: P.ink(1) },
-                }}
-              >
-                {loading || rebuilding ? (
-                  <CircularProgress size={20} sx={{ color: P.ink(0.7) }} />
-                ) : (
-                  <RefreshIcon />
-                )}
-              </IconButton>
-            </span>
-          </Tooltip>
-        </Box>
-
-        {/* Section legend — clickable. Each chip toggles a prefix in
-            highlightedPrefixes. When at least one prefix is active, matching
-            nodes glow + non-matching nodes fade in the canvas. Multiple chips
-            stay active simultaneously. Click again to remove from selection. */}
-        <Box
-          sx={{
-            position: "absolute",
-            top: 64,
-            left: 16,
-            right: 16,
-            zIndex: 9,
-            display: "flex",
-            gap: 1,
-            flexWrap: "wrap",
-          }}
-        >
-          {legend().map((s) => {
-            const active = highlightedPrefixes.has(s.prefix);
-            return (
-              <Box
-                key={s.prefix}
-                role="button"
-                tabIndex={0}
-                onClick={() => toggleSectionHighlight(s.prefix)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    toggleSectionHighlight(s.prefix);
-                  }
-                }}
-                sx={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 0.7,
-                  px: 0.9,
-                  py: 0.4,
-                  borderRadius: "999px",
-                  cursor: "pointer",
-                  userSelect: "none",
-                  border: active
-                    ? `1px solid ${P.hue(s.hue, 80, 78, 0.85)}`
-                    : `1px solid ${P.ink(0.12)}`,
-                  bgcolor: active
-                    ? P.hue(s.hue, 70, 70, 0.18)
-                    : P.ink(0.04),
-                  transition: "all 160ms ease",
-                  "&:hover": {
-                    bgcolor: active
-                      ? P.hue(s.hue, 70, 72, 0.26)
-                      : P.ink(0.10),
-                    borderColor: P.hue(s.hue, 80, 78, 0.55),
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    bgcolor: P.hue(s.hue, 75, 78, active ? 1 : 0.85),
-                    boxShadow: `0 0 ${active ? 12 : 8}px ${P.hue(
-                      s.hue, 75, 78, active ? 0.7 : 0.45,
-                    )}`,
-                  }}
-                />
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: active
-                      ? P.hue(s.hue, 90, 90, 0.95)
-                      : P.ink(0.55),
-                    fontSize: "0.65rem",
-                    letterSpacing: 0.5,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {s.label}
-                </Typography>
-              </Box>
-            );
-          })}
-          {highlightedPrefixes.size > 0 && (
+  const mapCard = (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
+        bgcolor: "background.default", // inherits the active theme
+        overflow: "hidden",
+      }}
+    >
+      {/* Section legend: each chip toggles a prefix in highlightedPrefixes.
+          With any active, matching nodes glow and the rest fade; several can
+          be active at once. The overlay toggles follow, then the search. */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", p: 1.5, flexShrink: 0 }}>
+        {legend().map((s) => {
+          const active = highlightedPrefixes.has(s.prefix);
+          return (
             <Box
+              key={s.prefix}
               role="button"
               tabIndex={0}
-              onClick={() => setHighlightedPrefixes(new Set())}
+              onClick={() => toggleSectionHighlight(s.prefix)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggleSectionHighlight(s.prefix);
+                }
+              }}
               sx={{
                 display: "inline-flex",
                 alignItems: "center",
+                gap: 0.7,
                 px: 0.9,
                 py: 0.4,
                 borderRadius: "999px",
                 cursor: "pointer",
                 userSelect: "none",
-                color: P.ink(0.55),
-                fontSize: "0.65rem",
-                letterSpacing: 0.5,
-                textTransform: "uppercase",
-                "&:hover": { color: P.ink(0.9) },
+                border: active
+                  ? `1px solid ${P.hue(s.hue, 80, 78, 0.85)}`
+                  : `1px solid ${P.ink(0.12)}`,
+                bgcolor: active
+                  ? P.hue(s.hue, 70, 70, 0.18)
+                  : P.ink(0.04),
+                transition: "all 160ms ease",
+                "&:hover": {
+                  bgcolor: active
+                    ? P.hue(s.hue, 70, 72, 0.26)
+                    : P.ink(0.10),
+                  borderColor: P.hue(s.hue, 80, 78, 0.55),
+                },
               }}
             >
-              {t("systemMap.legend.clear")}
-            </Box>
-          )}
-
-          {/* Overlay toggles — distinct from the section chips. Both default OFF
-              so the baseline constellation is unchanged until the user opts in.
-              Reuses the same chip primitive as the section legend above. */}
-          {map && (
-            <>
               <Box
                 sx={{
-                  width: "1px",
-                  alignSelf: "stretch",
-                  bgcolor: P.ink(0.15),
-                  mx: 0.5,
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  bgcolor: P.hue(s.hue, 75, 78, active ? 1 : 0.85),
+                  boxShadow: `0 0 ${active ? 12 : 8}px ${P.hue(
+                    s.hue, 75, 78, active ? 0.7 : 0.45,
+                  )}`,
                 }}
               />
-              <OverlayChip
-                label={
-                  ghostEndpointCount
-                    ? t("systemMap.overlays.ghostEndpointsCount", { count: ghostEndpointCount })
-                    : t("systemMap.overlays.ghostEndpoints")
-                }
-                active={showGhostEndpoints}
-                activeColor={P.warnRGB}
-                onToggle={() => setShowGhostEndpoints((v) => !v)}
-              />
-              <OverlayChip
-                label={
-                  toolCount
-                    ? t("systemMap.overlays.toolGraphCount", { count: toolCount })
-                    : t("systemMap.overlays.toolGraph")
-                }
-                active={showToolGraph}
-                activeColor={P.ghostRGB}
-                onToggle={() => setShowToolGraph((v) => !v)}
-              />
-            </>
-          )}
-        </Box>
-
-        {error && (
-          <Alert
-            severity="error"
+              <Typography
+                variant="caption"
+                sx={{
+                  color: active
+                    ? P.hue(s.hue, 90, 90, 0.95)
+                    : P.ink(0.55),
+                  fontSize: "0.65rem",
+                  letterSpacing: 0.5,
+                  textTransform: "uppercase",
+                }}
+              >
+                {s.label}
+              </Typography>
+            </Box>
+          );
+        })}
+        {highlightedPrefixes.size > 0 && (
+          <Box
+            role="button"
+            tabIndex={0}
+            onClick={() => setHighlightedPrefixes(new Set())}
             sx={{
-              position: "absolute",
-              top: 100,
-              left: 16,
-              right: 16,
-              zIndex: 10,
-              bgcolor: P.errorBg,
-              color: P.errorInk,
-              border: `1px solid ${P.errorBorder}`,
+              display: "inline-flex",
+              alignItems: "center",
+              px: 0.9,
+              py: 0.4,
+              borderRadius: "999px",
+              cursor: "pointer",
+              userSelect: "none",
+              color: P.ink(0.55),
+              fontSize: "0.65rem",
+              letterSpacing: 0.5,
+              textTransform: "uppercase",
+              "&:hover": { color: P.ink(0.9) },
             }}
           >
-            {error === SNAPSHOT_FAILED ? t("systemMap.errors.snapshotFailed") : error}
-          </Alert>
+            {t("systemMap.legend.clear")}
+          </Box>
         )}
 
-        {/* Canvas */}
-        <Box sx={{ flex: 1, position: "relative" }}>
-          {map && (
-            <SystemMapCanvas
-              ref={canvasRef}
-              systemMap={map}
-              onNodeHover={setHovered}
-              onNodeClick={(n) => setSelected(n?.id || null)}
-              selectedNodeId={selected}
-              searchQuery={search}
-              highlightedPrefixes={highlightedPrefixes}
-              showGhostEndpoints={showGhostEndpoints}
-              showToolGraph={showToolGraph}
+        {/* Overlay toggles — distinct from the section chips. Both default OFF
+            so the baseline constellation is unchanged until the user opts in.
+            Reuses the same chip primitive as the section legend above. */}
+        {map && (
+          <>
+            <Box
+              sx={{
+                width: "1px",
+                alignSelf: "stretch",
+                bgcolor: P.ink(0.15),
+                mx: 0.5,
+              }}
             />
-          )}
+            <OverlayChip
+              label={
+                ghostEndpointCount
+                  ? t("systemMap.overlays.ghostEndpointsCount", { count: ghostEndpointCount })
+                  : t("systemMap.overlays.ghostEndpoints")
+              }
+              active={showGhostEndpoints}
+              activeColor={P.warnRGB}
+              onToggle={() => setShowGhostEndpoints((v) => !v)}
+            />
+            <OverlayChip
+              label={
+                toolCount
+                  ? t("systemMap.overlays.toolGraphCount", { count: toolCount })
+                  : t("systemMap.overlays.toolGraph")
+              }
+              active={showToolGraph}
+              activeColor={P.ghostRGB}
+              onToggle={() => setShowToolGraph((v) => !v)}
+            />
+          </>
+        )}
+        <Box
+          component="form"
+          onSubmit={onSearchSubmit}
+          sx={{ width: 240, ml: "auto" }}
+        >
+          <TextField
+            size="small"
+            placeholder={t("systemMap.searchPlaceholder")}
+            fullWidth
+            value={search}
+            inputRef={searchRef}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: P.ink(0.5), fontSize: 18 }} />
+                </InputAdornment>
+              ),
+              endAdornment: search && (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearch("")}>
+                    <CloseIcon sx={{ color: P.ink(0.5), fontSize: 16 }} />
+                  </IconButton>
+                </InputAdornment>
+              ),
+              sx: {
+                bgcolor: P.fieldBg,
+                color: P.ink(0.85),
+                "& fieldset": { borderColor: P.ink(0.2) },
+                "&:hover fieldset": { borderColor: P.ink(0.4) },
+                fontFamily: "monospace",
+                fontSize: "0.8rem",
+              },
+            }}
+          />
         </Box>
+      </Box>
 
-        {/* Bottom-left controls cheat sheet */}
+      <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
+        {map && (
+          <SystemMapCanvas
+            ref={canvasRef}
+            systemMap={map}
+            onNodeHover={setHovered}
+            onNodeClick={(n) => setSelected(n?.id || null)}
+            selectedNodeId={selected}
+            searchQuery={search}
+            highlightedPrefixes={highlightedPrefixes}
+            showGhostEndpoints={showGhostEndpoints}
+            showToolGraph={showToolGraph}
+          />
+        )}
+
+        {/* Controls cheat sheet */}
         <Box
           sx={{
             position: "absolute",
-            bottom: 16,
-            left: 16,
+            bottom: 12,
+            left: 12,
             zIndex: 8,
             color: P.ink(0.45),
             fontSize: "0.7rem",
@@ -960,30 +769,30 @@ export default function SystemMapPage() {
           {t("systemMap.controlsHint")}
         </Box>
 
-        {/* Right side: detail panel OR activity log */}
-        <Paper
-          elevation={0}
-          sx={{
-            position: "absolute",
-            right: 16,
-            top: 100,
-            bottom: 40,
-            width: 320,
-            p: 0,
-            // 90% transparent, glass effect via heavier blur + saturate.
-            // Text inside stays opaque (set on individual elements).
-            bgcolor: P.panelBg,
-            backdropFilter: "blur(20px) saturate(1.4)",
-            WebkitBackdropFilter: "blur(20px) saturate(1.4)",
-            border: `1px solid ${P.ink(0.15)}`,
-            color: P.ink(0.85),
-            zIndex: 9,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          {showDetailPanel ? (
+        {/* The hovered or selected module, over the map's corner */}
+        {activeNode && (
+          <Box
+            sx={{
+              position: "absolute",
+              borderRadius: 1,
+              right: 12,
+              top: 12,
+              width: 320,
+              maxWidth: "calc(100% - 24px)",
+              maxHeight: "calc(100% - 24px)",
+              bgcolor: P.panelBg,
+              backdropFilter: "blur(20px) saturate(1.4)",
+              WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+              border: `1px solid ${P.ink(0.15)}`,
+              color: P.ink(0.85),
+              zIndex: 9,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              // A hover must not put the panel between the pointer and the map.
+              pointerEvents: hovered ? "none" : "auto",
+            }}
+          >
             <Box sx={{ p: 2, overflowY: "auto", flex: 1 }}>
               <Stack direction="row" alignItems="flex-start" spacing={1}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -1138,47 +947,7 @@ export default function SystemMapPage() {
                 </Typography>
               )}
             </Box>
-          ) : panelTab === "findings" ? (
-            <FindingsView
-              findings={findings}
-              openCount={sev.high + sev.medium + sev.low}
-              sevFilter={sevFilter}
-              onSevFilter={setSevFilter}
-              onSelect={flyToFinding}
-              onDispatch={handleDispatch}
-              onPlanFix={handlePlanFix}
-              onDismiss={handleDismiss}
-              dispatchingId={dispatchingId}
-              activeTab={panelTab}
-              onTab={setPanelTab}
-            />
-          ) : (
-            <ActivityLogView
-              activity={activity}
-              activeTab={panelTab}
-              onTab={setPanelTab}
-            />
-          )}
-        </Paper>
-
-        {/* Transient toast for dispatch results */}
-        {toast && (
-          <Alert
-            severity="info"
-            onClose={() => setToast(null)}
-            sx={{
-              position: "absolute",
-              bottom: 16,
-              right: 16,
-              zIndex: 12,
-              maxWidth: 360,
-              bgcolor: P.tooltipBg,
-              color: P.tooltipInk,
-              border: `1px solid ${P.ink(0.3)}`,
-            }}
-          >
-            {dispatchToastText(toast)}
-          </Alert>
+          </Box>
         )}
 
         {/* Loading overlay (initial only, and while the first map is built) */}
@@ -1208,74 +977,172 @@ export default function SystemMapPage() {
           </Box>
         )}
       </Box>
+    </Box>
+  );
+
+  return (
+    <PageLayout
+      title={t("systemMap.title")}
+      variant="standard"
+      actions={
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Tooltip title={t("systemMap.resetView")}>
+            <IconButton
+              onClick={() => canvasRef.current?.resetView()}
+              sx={{
+                color: P.ink(0.7),
+                "&:hover": { color: P.ink(1) },
+              }}
+            >
+              <RestartAltIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip
+            title={
+              codeIndexError
+                ? t("systemMap.codeIndex.failed", { reason: codeIndexError })
+                : codeIndex?.running
+                  ? t("systemMap.codeIndex.building")
+                  : codeIndex?.indexed
+                    ? t("systemMap.codeIndex.ready")
+                    : codeIndex?.installed
+                      ? t("systemMap.codeIndex.missing")
+                      : t("systemMap.codeIndex.notInstalled")
+            }
+          >
+            <span>
+              <IconButton
+                aria-label={codeIndex?.indexed ? t("systemMap.codeIndex.rebuild") : t("systemMap.codeIndex.build")}
+                onClick={handleBuildCodeIndex}
+                disabled={!codeIndex?.installed || codeIndex?.running}
+                sx={{
+                  color: codeIndex?.indexed ? P.ink(0.7) : P.ink(0.45),
+                  "&:hover": { color: P.ink(1) },
+                }}
+              >
+                {codeIndex?.running ? (
+                  <CircularProgress size={20} sx={{ color: P.ink(0.7) }} />
+                ) : (
+                  <ManageSearchIcon />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip
+            title={
+              rebuilding
+                ? t("systemMap.refresh.building")
+                : cacheInfo?.stale
+                  ? t("systemMap.refresh.stale")
+                  : cacheInfo?.hit
+                    ? t("systemMap.refresh.cached", { seconds: cacheInfo.age_seconds })
+                    : t("systemMap.refresh.computed", { seconds: cacheInfo?.computed_in_seconds || "?" })
+            }
+          >
+            <span>
+              <IconButton
+                aria-label={t("systemMap.refresh.button")}
+                onClick={handleRefresh}
+                disabled={loading || rebuilding}
+                sx={{
+                  color: P.ink(0.7),
+                  "&:hover": { color: P.ink(1) },
+                }}
+              >
+                {loading || rebuilding ? (
+                  <CircularProgress size={20} sx={{ color: P.ink(0.7) }} />
+                ) : (
+                  <RefreshIcon />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
+      }
+    >
+      {map && (
+        <PageStatus>
+          <StatusChip
+            label={t("systemMap.title")}
+            value={t("systemMap.stats", {
+              modules: map.file_count,
+              edges: map.dependency_graph
+                ? Object.values(map.dependency_graph).reduce((a, b) => a + (b?.length || 0), 0)
+                : 0,
+            })}
+          />
+          <StatusChip
+            label={t("systemMap.panel.findings")}
+            value={findingCounts.join(" · ")}
+            tone={sev.high > 0 ? "error" : sev.medium > 0 ? "warn" : "ok"}
+          />
+        </PageStatus>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error === SNAPSHOT_FAILED ? t("systemMap.errors.snapshotFailed") : error}
+        </Alert>
+      )}
+
+      <CardWorkspace
+        boardKey="system-map"
+        cards={[
+          {
+            id: "map",
+            title: t("systemMap.title"),
+            layout: { x: 0, y: 0, w: 125, h: 92, minW: 50, minH: 30 },
+            body: mapCard,
+          },
+          {
+            id: "findings",
+            title: t("systemMap.panel.findings"),
+            layout: { x: 125, y: 0, w: 50, h: 56 },
+            body: (
+              <FindingsView
+                findings={findings}
+                sevFilter={sevFilter}
+                onSevFilter={setSevFilter}
+                onSelect={flyToFinding}
+                onDispatch={handleDispatch}
+                onPlanFix={handlePlanFix}
+                onDismiss={handleDismiss}
+                dispatchingId={dispatchingId}
+              />
+            ),
+          },
+          {
+            id: "activity",
+            title: t("systemMap.panel.activity"),
+            layout: { x: 125, y: 56, w: 50, h: 36 },
+            body: <ActivityLogView activity={activity} />,
+          },
+        ]}
+      />
+
+      {/* A dispatch result, shown until closed whichever cards are open */}
+      <Snackbar open={Boolean(toast)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }}>
+        <Alert
+          severity="info"
+          onClose={() => setToast(null)}
+          sx={{
+            maxWidth: 360,
+            bgcolor: P.tooltipBg,
+            color: P.tooltipInk,
+            border: `1px solid ${P.ink(0.3)}`,
+          }}
+        >
+          {toast ? dispatchToastText(toast) : ""}
+        </Alert>
+      </Snackbar>
     </PageLayout>
   );
 }
 
 // ────────────────────────────────────────────────────────────────────────
 
-// Shared tab header for the right-side panel base views.
-function PanelTabs({ activeTab, onTab, badge }) {
-  const { t } = useUiTranslation();
-  const P = useMapPalette();
-  const tab = (key, label) => (
-    <Box
-      role="button"
-      tabIndex={0}
-      onClick={() => onTab(key)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onTab(key);
-        }
-      }}
-      sx={{
-        cursor: "pointer",
-        userSelect: "none",
-        px: 1,
-        py: 0.5,
-        borderBottom:
-          activeTab === key
-            ? `2px solid ${P.ink(0.85)}`
-            : "2px solid transparent",
-        color:
-          activeTab === key ? P.ink(0.95) : P.ink(0.45),
-        fontSize: "0.7rem",
-        letterSpacing: 1.2,
-        textTransform: "uppercase",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 0.5,
-      }}
-    >
-      {label}
-      {key === "findings" && badge > 0 && (
-        <Box
-          component="span"
-          sx={{
-            fontSize: "0.6rem",
-            px: 0.6,
-            borderRadius: "999px",
-            bgcolor: P.warn(0.2),
-            color: P.severity.medium,
-          }}
-        >
-          {badge}
-        </Box>
-      )}
-    </Box>
-  );
-  return (
-    <Stack direction="row" spacing={1} sx={{ px: 1.5, pt: 1.5, pb: 0.5 }}>
-      {tab("findings", t("systemMap.panel.findings"))}
-      {tab("activity", t("systemMap.panel.activity"))}
-    </Stack>
-  );
-}
-
 function FindingsView({
   findings,
-  openCount,
   sevFilter,
   onSevFilter,
   onSelect,
@@ -1283,8 +1150,6 @@ function FindingsView({
   onPlanFix,
   onDismiss,
   dispatchingId,
-  activeTab,
-  onTab,
 }) {
   const { t } = useUiTranslation();
   const P = useMapPalette();
@@ -1296,8 +1161,7 @@ function FindingsView({
   ];
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <PanelTabs activeTab={activeTab} onTab={onTab} badge={openCount} />
-      <Box sx={{ px: 1.5, pb: 1 }}>
+      <Box sx={{ px: 1.5, pt: 1.5, pb: 1 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <WarningAmberIcon sx={{ color: P.warn(0.7), fontSize: 16 }} />
           <Typography variant="caption" sx={{ color: P.ink(0.55), fontSize: "0.7rem" }}>
@@ -1462,12 +1326,11 @@ function FindingsView({
   );
 }
 
-function ActivityLogView({ activity, activeTab, onTab }) {
+function ActivityLogView({ activity }) {
   const { t } = useUiTranslation();
   const P = useMapPalette();
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {onTab && <PanelTabs activeTab={activeTab} onTab={onTab} />}
       <Box sx={{ p: 2, pb: 1.5 }}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <BoltIcon sx={{ color: P.ink(0.7), fontSize: 18 }} />
