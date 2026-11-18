@@ -2,17 +2,32 @@
 
 Runs the stack as systemd user services: PostgreSQL (pgvector), Redis, Ollama,
 backend and frontend. Tested on a Fedora-based distro with Podman 5.8 and an
-AMD RX 7900 XTX (ROCm). NVIDIA is untested, see "GPU" below.
+AMD RX 7900 XTX (ROCm); "GPU" below covers AMD and NVIDIA.
 
-## 1. Build the images (from the repo root)
+## 1. Get the images
+
+The published images are ready to use. For an AMD Radeon card, point the two
+units at them:
+
+```
+# guaardvark-backend.container
+Image=docker.io/guaardvark/guaardvark:latest-rocm
+# guaardvark-frontend.container
+Image=docker.io/guaardvark/guaardvark-web:latest
+```
+
+For an NVIDIA card use `docker.io/guaardvark/guaardvark:latest` for the backend.
+Version tags pin a release: `<version>-rocm` for AMD, `<version>` for NVIDIA.
+
+Or build them yourself, from the repo root:
 
 ```
 podman build -f docker/Dockerfile.frontend -t guaardvark-frontend .
 podman build -f docker/Dockerfile.backend --build-arg TORCH_CHANNEL=rocm6.3 -t guaardvark-backend .
 ```
 
-`TORCH_CHANNEL` picks the PyTorch wheels: `rocm6.3` for AMD, `cu132` and so on
-for NVIDIA (INSTALL.md lists which card and driver takes which). The backend image is large (about 27 GB with ROCm).
+`TORCH_CHANNEL` picks the PyTorch wheels: `rocm7.2` (what the published image
+uses) or `rocm6.3` for AMD, `cu132` and so on for NVIDIA (INSTALL.md lists which card and driver takes which). The backend image is large (about 27 GB with ROCm).
 
 ## 2. Create the secrets file
 
