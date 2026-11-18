@@ -901,24 +901,25 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       }
     }
 
-    // Low VRAM safe preset for Wan 2.2 on 16GB GPUs
-    // GGUF Q5 is already memory-efficient; moderate clamping
+    // Low VRAM for Wan 2.2: the clip gets shorter, the frame never gets smaller
+    // than the model's native size. Below it Wan stops resolving its subject:
+    // 480x256 (a 480 px long side at 16:9) came out unusable on an RX 7900 XTX
+    // (#378, 2026-11-17), and the 5B smeared at 736x416 against its 1280x704
+    // (see the wan22-5b entry). Anything larger is brought down to the native
+    // pixel area, aspect kept.
     if (lowVramMode && isWanModel(model, modelMeta[model])) {
-      // Clamp frames to short duration to reduce memory
-      if (effectiveDurationFrames > 33) {
-        effectiveDurationFrames = 33;
+      const shortFrames = durationPresetsFor(model, modelMeta[model])?.short?.duration_frames || 33;
+      if (effectiveDurationFrames > shortFrames) {
+        effectiveDurationFrames = shortFrames;
       }
 
-      // Reduce resolution — max 480px on longest side
-      const maxSafeSide = 480;
-      const longestSide = Math.max(width, height);
-      if (longestSide > maxSafeSide) {
-        const scale = maxSafeSide / longestSide;
+      const [nativeW, nativeH] = modelConfig.resolution || [832, 480];
+      const nativeArea = nativeW * nativeH;
+      if (width * height > nativeArea) {
+        const scale = Math.sqrt(nativeArea / (width * height));
         width = width * scale;
         height = height * scale;
       }
-      if (width < 256) width = 256;
-      if (height < 256) height = 256;
       ({ width, height } = snapDimensions(width, height, effectiveModel, modelMeta[effectiveModel]));
 
       // Moderate step reduction
