@@ -1,5 +1,5 @@
-// The Image Gen Settings card: how to make it. Model, style, quality, size
-// and the advanced controls.
+// The Image Gen Advanced Settings card: model, style, quality, size and the
+// rest of the generation controls.
 
 import React, { memo } from "react";
 import {
@@ -10,9 +10,6 @@ import {
   Grid,
   Chip,
   Alert,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   FormControl,
   InputLabel,
   Select,
@@ -23,9 +20,6 @@ import {
   Stack,
   Tooltip,
 } from '@mui/material';
-import {
-  ExpandMore,
-} from '@mui/icons-material';
 import { ActionButton } from '../../settings/ui';
 import {
   QWEN_IMAGE_21_GUIDANCE_MAX,
@@ -56,7 +50,6 @@ function ImageSettingsCard({
   handleQualityPresetChange,
   highResOkPixels,
   inputMode,
-  installBlocksStart,
   installButton,
   installName,
   installNeed,
@@ -69,7 +62,6 @@ function ImageSettingsCard({
   isQwenImage21,
   isZimage,
   lookAndFeel,
-  modelLabel,
   modelOptions,
   oneAtATime,
   oneAtATimeNote,
@@ -103,62 +95,8 @@ function ImageSettingsCard({
     {inputMode !== 'blueprint' && (
       <>
 
-        {/* Current Settings Display */}
-        <Box sx={{ mt: 3, p: 2, backgroundColor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>{t('imagesBatch.current.title')}</Typography>
-            <ActionButton onClick={() => openModels()}>{t('imagesBatch.current.manageModels')}</ActionButton>
-          </Box>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <Chip
-              label={installBlocksStart ? t('imagesBatch.current.modelNotInstalled', { model: modelLabel }) : t('imagesBatch.current.model', { model: modelLabel })}
-              size="small"
-              variant="outlined"
-              color={installBlocksStart ? 'warning' : 'default'}
-            />
-            <Chip
-              label={t('imagesBatch.current.style', { style: params.style })}
-              size="small"
-              variant="outlined"
-            />
-            <Chip
-              label={t('imagesBatch.current.quality', { quality: params.quality_preset })}
-              size="small"
-              variant="outlined"
-            />
-            <Chip
-              label={t('imagesBatch.current.size', { width: params.width, height: params.height })}
-              size="small"
-              variant="outlined"
-            />
-            <Chip
-              label={castLocked ? t('imagesBatch.current.stepsCast') : t('imagesBatch.current.steps', { steps: params.steps })}
-              size="small"
-              variant="outlined"
-            />
-            <Chip
-              label={oneAtATime ? t('imagesBatch.current.oneAtATime') : t('imagesBatch.current.workers', { count: effectiveWorkers })}
-              size="small"
-              variant="outlined"
-              title={oneAtATime ? oneAtATimeNote : undefined}
-            />
-          </Box>
-        </Box>
-
         {/* Generation Settings */}
-        <Accordion sx={{ mt: 3, borderRadius: 1 }}>
-          <AccordionSummary
-            expandIcon={<ExpandMore />}
-            sx={{
-              borderRadius: 1,
-              '&.Mui-expanded': {
-                borderRadius: '8px 8px 0 0'
-              }
-            }}
-          >
-            <Typography sx={{ fontWeight: 500 }}>{t('imagesBatch.advanced.title')}</Typography>
-          </AccordionSummary>
-          <AccordionDetails sx={{ pt: 2 }}>
+        <Box>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6} md={4}>
                 <FormControl fullWidth>
@@ -179,6 +117,7 @@ function ImageSettingsCard({
                     ))}
                   </Select>
                 </FormControl>
+                <ActionButton onClick={() => openModels()} sx={{ mt: 1 }}>{t('imagesBatch.current.manageModels')}</ActionButton>
                 {installNeed && (
                   <Alert severity={installNeed.blocks ? 'warning' : 'info'} action={installButton} sx={{ mt: 1, borderRadius: 1 }}>
                     {installNeed.blocks
@@ -552,8 +491,7 @@ function ImageSettingsCard({
                 />
               </Grid>
             </Grid>
-          </AccordionDetails>
-        </Accordion>
+        </Box>
       </>
     )}
 
