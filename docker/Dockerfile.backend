@@ -34,7 +34,8 @@ WORKDIR /app
 # PyTorch for the card this image will run on. start-docker.sh --gpu passes
 # the channel backend/services/hardware_policy.torch_channel gives for the host
 # GPU (cu132 with driver 580+, cu126 for older drivers and Pascal/Volta, cu118
-# below driver 525, cu128 for Blackwell below 580). The pins match
+# below driver 525, cu128 for Blackwell below 580). rocm7.2 is the AMD build the
+# published -rocm image carries, on the same torch as cu132. The pins match
 # scripts/install_pytorch.sh: 2.14.1 is the newest torch Unsloth accepts, and
 # TorchCodec (with the ffmpeg libraries above) gives torchaudio its file I/O.
 # Empty installs the PyPI build, which has no kernels below sm_75.
@@ -44,6 +45,7 @@ RUN codec="" && case "$TORCH_CHANNEL" in \
         cu126) pins="torch==2.14.1 torchvision==0.29.1 torchaudio==2.11.0 torchcodec==0.17.0" ;; \
         cu128) pins="torch==2.11.0 torchvision==0.26.0 torchaudio==2.11.0 torchcodec==0.11.1" ;; \
         cu118) pins="torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 torchcodec==0.5" ;; \
+        rocm7.2) pins="torch==2.14.1 torchvision==0.29.1 torchaudio==2.11.0"; codec="torchcodec==0.17.0" ;; \
         rocm6.3) pins="torch torchvision torchaudio"; codec="torchcodec==0.9.1" ;; \
         *) pins="torch torchvision torchaudio" ;; \
     esac \
@@ -57,7 +59,8 @@ RUN codec="" && case "$TORCH_CHANNEL" in \
 # are unchanged.
 RUN case "$TORCH_CHANNEL" in \
         rocm*) apt-get update && apt-get install -y --no-install-recommends rocm-smi \
-               && rm -rf /var/lib/apt/lists/* ;; \
+               && rm -rf /var/lib/apt/lists/* \
+               && python -c "import torch, torchvision, torchaudio; assert torch.version.hip, 'not a ROCm build of torch'" ;; \
     esac
 
 # Install Python dependencies (cached layer). The pins keep the channel build:
