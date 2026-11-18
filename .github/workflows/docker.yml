@@ -1,7 +1,9 @@
 # Build the two Docker images from this repository and publish them to Docker Hub.
 #
 #   guaardvark/guaardvark       the backend (API, Celery, plugins), PyTorch on CUDA
-#   guaardvark/guaardvark-web   the web UI
+#   guaardvark/guaardvark       with a -rocm suffix: the same backend, PyTorch on ROCm
+#                               for AMD Radeon cards (X.Y.Z-rocm, X.Y-rocm, latest-rocm)
+#   guaardvark/guaardvark-web   the web UI, shared by both
 #
 # Images are built here, from the public source at the tagged commit, and nowhere
 # else: a build on a developer machine can carry local files the repository
@@ -12,7 +14,8 @@
 # which publishes X.Y.Z, X.Y and latest.
 #
 # Or run it from the Actions tab: that builds the chosen branch and publishes it
-# under the tag given (default "edge"), and never moves "latest".
+# under the tag given (default "edge", and "edge-rocm" for AMD), and never moves
+# "latest".
 name: Docker images
 
 on:
@@ -32,18 +35,30 @@ concurrency:
   group: docker-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  # The CUDA build of PyTorch baked into the backend image: cu132 (PyTorch
-  # 2.14.1) covers GTX 16 and RTX 20 through RTX 50 cards on an NVIDIA driver
-  # 580 or newer. start-docker.sh --pull builds locally for anything else.
-  TORCH_CHANNEL: cu132
-
 jobs:
   publish:
-    name: Build and publish
+    name: Build and publish (${{ matrix.gpu }})
     # Pinned: the backend image needs the disk freed below, and a new runner
     # image changes what is there to remove.
     runs-on: ubuntu-24.04
+    strategy:
+      # One variant failing never holds back the other.
+      fail-fast: false
+      matrix:
+        include:
+          # cu132 (PyTorch 2.14.1) covers GTX 16 and RTX 20 through RTX 50 cards
+          # on an NVIDIA driver 580 or newer. start-docker.sh --pull builds
+          # locally for anything else. This variant also publishes the web image.
+          - gpu: nvidia
+            torch_channel: cu132
+            suffix: ""
+            web: true
+          # rocm7.2 (PyTorch 2.14.1) for AMD Radeon cards; run it with
+          # /dev/kfd and /dev/dri (docker/quadlet/README.md).
+          - gpu: amd
+            torch_channel: rocm7.2
+            suffix: "-rocm"
+            web: false
     steps:
       - uses: actions/checkout@v7
 
@@ -92,7 +107,9 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: guaardvark/guaardvark
-          flavor: latest=false
+          flavor: |
+            latest=false
+            suffix=${{ matrix.suffix }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -100,6 +117,7 @@ jobs:
             type=raw,value=${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Tags for the web image
+        if: matrix.web
         id: web
         uses: docker/metadata-action@v6
         with:
@@ -112,6 +130,7 @@ jobs:
             type=raw,value=${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Build and push the web image
+        if: matrix.web
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -128,7 +147,7 @@ jobs:
           context: .
           file: docker/Dockerfile.backend
           build-args: |
-            TORCH_CHANNEL=${{ env.TORCH_CHANNEL }}
+            TORCH_CHANNEL=${{ matrix.torch_channel }}
           push: true
           tags: ${{ steps.backend.outputs.tags }}
           labels: ${{ steps.backend.outputs.labels }}
