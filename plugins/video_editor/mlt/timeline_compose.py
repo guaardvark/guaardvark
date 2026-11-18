@@ -561,6 +561,12 @@ def _assign_tracks_and_timing(
         timeline_end_f = seconds_to_absolute_frame(c["timeline_end"], fps)
         source_in_f = seconds_to_absolute_frame(c["source_in"], fps)
         source_out_f = seconds_to_absolute_frame(c["source_out"], fps)
+        # Start, end and source length round to frames independently, so a source that
+        # covers its slot can come out one frame shorter than the slot; MLT renders that
+        # frame as a transparent hole at the cut. Within one frame, the slot decides.
+        slot_f = timeline_end_f - timeline_start_f
+        if abs((source_out_f - source_in_f) - slot_f) <= 1:
+            source_out_f = source_in_f + slot_f
         # A clip starts early to overlap the previous one only as far as its source has
         # frames before source_in. Pulling the track start back further than the source
         # makes the entry shorter than its slot, and every later clip on the track then
