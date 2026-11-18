@@ -294,12 +294,16 @@ function VideoQueueCard({
           )}
 
           {(batchStatus.status === 'completed' || batchStatus.status === 'error' || batchStatus.status === 'cancelled') && (
-            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            // Buttons start at their label's width and share what is left. A
+            // button that does not fit moves to the next row, and a label wider
+            // than the whole card wraps inside its button, so labels never
+            // spill onto a neighbour.
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, '& > .MuiButton-root': { maxWidth: '100%' } }}>
               {batchStatus.status === 'completed' && (
                 <Button
                   startIcon={<DownloadIcon />}
                   variant="contained"
-                  sx={{ flex: 2 }}
+                  sx={{ flex: '2 1 auto' }}
                   onClick={() => handleDownloadBatch(batchStatus.batch_id)}
                 >
                   {t("videoGenerator.menu.downloadAll")}
@@ -308,7 +312,7 @@ function VideoQueueCard({
               <Button
                 startIcon={<SettingsIcon />}
                 variant="outlined"
-                sx={{ flex: 1, whiteSpace: 'nowrap' }}
+                sx={{ flex: '1 1 auto' }}
                 onClick={() => handleAdjustRetry(batchStatus.batch_id)}
               >
                 {t("videoGenerator.menu.adjustRetry")}
@@ -317,7 +321,7 @@ function VideoQueueCard({
                 startIcon={<CloseIcon />}
                 variant="outlined"
                 color="error"
-                sx={{ flex: 1, whiteSpace: 'nowrap' }}
+                sx={{ flex: '1 1 auto' }}
                 onClick={() => setConfirmAction({
                   title: t("videoGenerator.confirm.deleteBatchTitle", { name: batchStatus.display_name || batchStatus.batch_id.slice(0, 8) }),
                   description: t("videoGenerator.confirm.deleteBatchText"),
