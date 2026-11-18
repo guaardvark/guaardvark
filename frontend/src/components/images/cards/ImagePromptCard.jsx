@@ -360,48 +360,33 @@ function ImagePromptCard({
             {t('imagesBatch.look.preview')}
           </Button>
         </Box>
-        <TextField
-          fullWidth
-          multiline
-          minRows={2}
-          maxRows={4}
-          label={t('imagesBatch.negative.label')}
-          placeholder="blurry, distorted hands, extra fingers"
-          value={negativePrompt}
-          disabled={unusedNegAnat}
-          onChange={(e) => setNegativePrompt(e.target.value)}
-          helperText={
-            unusedNegAnat
-              ? t('imagesBatch.negative.unused')
-              : undefined
-          }
-          sx={{ mt: 2 }}
-        />
-        <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-          {/* The backend adds the anatomy phrasing only on the tag path
-              (offline_image_generator.enhance_prompt_for_quality); a prose
-              model, and Auto while it resolves to one, skips it. */}
-          <SettingChip
-            label={t('imagesBatch.anatomy.label')}
-            on={enhanceAnatomy}
-            disabled={prosePrompts}
-            tooltip={
-              prosePrompts
-                ? t('imagesBatch.anatomy.unusedTooltip')
-                : t('imagesBatch.anatomy.tooltip')
-            }
-            onToggle={setEnhanceAnatomy}
+        {/* Shown only for models that read a negative prompt. */}
+        {!unusedNegAnat && (
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            maxRows={4}
+            label={t('imagesBatch.negative.label')}
+            placeholder="blurry, distorted hands, extra fingers"
+            value={negativePrompt}
+            onChange={(e) => setNegativePrompt(e.target.value)}
+            sx={{ mt: 2 }}
           />
-          {(prosePrompts || unusedNegAnat) && (
-            <Hint>
-              {prosePrompts && unusedNegAnat
-                ? t('imagesBatch.anatomy.unusedBoth')
-                : prosePrompts
-                  ? t('imagesBatch.anatomy.unused')
-                  : t('imagesBatch.negative.unused')}
-            </Hint>
-          )}
-        </Box>
+        )}
+        {/* The backend adds the anatomy phrasing only on the tag path
+            (offline_image_generator.enhance_prompt_for_quality), so the
+            switch appears only for tag-style models. */}
+        {!prosePrompts && (
+          <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+            <SettingChip
+              label={t('imagesBatch.anatomy.label')}
+              on={enhanceAnatomy}
+              tooltip={t('imagesBatch.anatomy.tooltip')}
+              onToggle={setEnhanceAnatomy}
+            />
+          </Box>
+        )}
       </Box>
     )}
 

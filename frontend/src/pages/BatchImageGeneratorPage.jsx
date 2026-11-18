@@ -1593,7 +1593,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           },
           {
             id: "settings",
-            title: t("layout.board.cards.settings"),
+            title: t("imagesBatch.advanced.title"),
             layout: { x: 60, y: 0, w: 55, h: 86 },
             body: (
               <ImageSettingsCard
