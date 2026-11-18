@@ -161,11 +161,12 @@ backend unit as environment variables. The "I run Ollama / ComfyUI myself" switc
 the UI write a `.env` file inside the container, which is gone when the container is
 recreated; the variables are read when there is no `.env`.
 
+```
 Environment=OLLAMA_BASE_URL=http://host.containers.internal:11434
 Environment=GUAARDVARK_OLLAMA_EXTERNAL=1
 Environment=GUAARDVARK_COMFYUI_URL=http://host.containers.internal:8188
 Environment=GUAARDVARK_COMFYUI_EXTERNAL=1
-
+```
 
 - The plugin cards probe these addresses, so no `plugin.local.json` overlay is needed.
 - Video generation checks for model files under `GUAARDVARK_COMFYUI_DIR/models`, so
