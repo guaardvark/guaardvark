@@ -169,6 +169,36 @@ Pull the embedding model that RAG needs into that Ollama
 (`ollama pull nomic-embed-text`). Tested rootful with Ollama running in another
 container on the same host.
 
+## Using an existing ComfyUI (and Ollama) in another container
+
+When Ollama and ComfyUI run outside the Guaardvark units, put the settings in the
+backend unit as environment variables. The "I run Ollama / ComfyUI myself" switches in
+the UI write a `.env` file inside the container, which is gone when the container is
+recreated; the variables are read when there is no `.env`.
+
+```
+Environment=OLLAMA_BASE_URL=http://host.containers.internal:11434
+Environment=GUAARDVARK_OLLAMA_EXTERNAL=1
+Environment=GUAARDVARK_COMFYUI_URL=http://host.containers.internal:8188
+Environment=GUAARDVARK_COMFYUI_EXTERNAL=1
+```
+
+- The plugin cards probe these addresses, so no `plugin.local.json` overlay is needed.
+- Video generation checks for model files under `GUAARDVARK_COMFYUI_DIR/models`, so
+  that folder has to be the same files your ComfyUI loads. Set
+  `GUAARDVARK_COMFYUI_DIR` to a folder whose `models/` is mounted from your ComfyUI's
+  models directory. A rootful ComfyUI volume cannot be mounted into a rootless unit;
+  share a host directory instead. Mounted read-only, the Install buttons cannot write:
+  download models on the ComfyUI side then.
+- Custom nodes the workflows use (for example `ComfyUI-Frame-Interpolation` for RIFE,
+  `facerestore_cf` for Fix Anatomy) are not installed for an external ComfyUI; install
+  them there, with their Python dependencies.
+- The ComfyUI button on the Video page opens the page's host with the port from
+  `GUAARDVARK_COMFYUI_URL`.
+
+Tested with a rootless backend and a rootful ComfyUI container (RX 7900 XTX, Wan 2.2
+TI2V-5B and 14B Q5_K).
+
 ## Screen agent (optional)
 
 The agent desktop (Settings -> Agents) needs Xvfb, x11vnc, an XFCE session, dbus,
