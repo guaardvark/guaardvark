@@ -28,7 +28,6 @@ import { useUiTranslation } from '../../../i18n';
 
 function ImagePromptCard({
   activeBatch,
-  autoModelLabel,
   batchItems,
   blockDetail,
   blockReason,
@@ -39,7 +38,6 @@ function ImagePromptCard({
   csvFile,
   downloadTemplate,
   enhanceAnatomy,
-  family,
   fileInputRef,
   finalPrompts,
   gpuBusy,
@@ -53,7 +51,6 @@ function ImagePromptCard({
   installNeed,
   loading,
   lookAndFeel,
-  modelLabel,
   negativePrompt,
   params,
   promptFlushRef,
@@ -74,20 +71,9 @@ function ImagePromptCard({
   const { t } = useUiTranslation();
   return (
     <Box sx={{ p: 1.5 }}>
-    {/* Content Preset Selector. Only tag-style models take it; a prose
-        model gets a one-line note instead of a control that does nothing. */}
-    {prosePrompts ? (
-      <Box sx={{ mb: 3 }}>
-        <Hint>
-          {family === 'auto'
-            ? (autoModelLabel
-              ? t('imagesBatch.contentType.unusedAutoModel', { model: autoModelLabel })
-              : t('imagesBatch.contentType.unusedAuto'))
-            : t('imagesBatch.contentType.unusedModel', { model: modelLabel })}
-          {' '}{t('imagesBatch.contentType.describeHint')}
-        </Hint>
-      </Box>
-    ) : (
+    {/* Content Preset Selector. Only tag-style models take it, so it
+        appears when one is chosen. */}
+    {prosePrompts ? null : (
     <Box sx={{ mb: 3, p: 2, bgcolor: 'primary.50', borderRadius: 2, border: '1px solid', borderColor: 'primary.200' }}>
       <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600, color: 'primary.main' }}>
         {t('imagesBatch.contentType.title')}
