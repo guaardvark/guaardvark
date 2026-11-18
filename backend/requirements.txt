@@ -79,7 +79,7 @@ python-slugify==8.0.4
 loguru==0.7.2
 
 # LLM/AI Dependencies
-ollama>=0.6.2
+ollama>=0.6.3
 llama-index-core>=0.14.26,<0.15.0
 llama-index-llms-ollama>=0.12.0
 llama-index-embeddings-ollama>=0.11.0
