@@ -1951,8 +1951,8 @@ _ffmpeg_libs_missing() {
     [ -x "$ldc" ] && ! "$ldc" -p 2>/dev/null | grep -q 'libavcodec\.so\.'
 }
 if ! command_exists ffmpeg || _ffmpeg_libs_missing; then
-    vader_warn "FFmpeg or its shared libraries not found. Voice features and audio file I/O require them."
     if command_exists apt-get && [ "$FAST_START" -ne 1 ]; then
+        vader_info "Installing FFmpeg (voice features and audio file I/O need it)"
         _vader_sudo_v "install ffmpeg" || true
         if _vader_run "$SETUP_LOG" -- sudo apt-get update && _vader_run "$SETUP_LOG" -- sudo apt-get install -y ffmpeg; then
             vader_success "FFmpeg installed successfully"
@@ -1961,7 +1961,7 @@ if ! command_exists ffmpeg || _ffmpeg_libs_missing; then
             VOICE_AVAILABLE=0
         fi
     else
-        vader_warn "FFmpeg not available. Voice features will be unavailable. Install FFmpeg to enable voice."
+        vader_warn "FFmpeg or its shared libraries not found. Voice features and audio file I/O will be unavailable until FFmpeg is installed."
         VOICE_AVAILABLE=0
     fi
 fi
@@ -3589,12 +3589,24 @@ else
     fi
 fi
 
+# Under WSL's default NAT networking that address is internal to Windows.
+WSL_UNREACHABLE_LAN=""
+if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && [ -n "$LAN_IPS_PRINTED" ] \
+    && declare -F wsl_lan_reachable >/dev/null && ! wsl_lan_reachable; then
+    WSL_UNREACHABLE_LAN="${LAN_IPS_PRINTED#http://}"
+    WSL_UNREACHABLE_LAN="${WSL_UNREACHABLE_LAN%:*}"
+    LAN_IPS_PRINTED=""
+fi
+
 vader_ready_card "$DURATION" \
     "http://localhost:$VITE_PORT" \
     "http://localhost:$FLASK_PORT" \
     "$LAN_IPS_PRINTED" \
     "$BACKEND_STARTUP_LOG_FILE"
 
+if [ -n "$WSL_UNREACHABLE_LAN" ]; then
+    wsl_network_note "$WSL_UNREACHABLE_LAN" "$VITE_PORT"
+fi
 if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && declare -F wsl_keep_alive_note >/dev/null; then
     wsl_keep_alive_note
 fi

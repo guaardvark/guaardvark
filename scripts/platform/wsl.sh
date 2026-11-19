@@ -44,6 +44,24 @@ sys.exit(0 if negative(("general", "instanceidletimeout")) and negative(("wsl2",
 PY
 }
 
+# 0 when WSL mirrors the Windows network interfaces (networkingMode=mirrored),
+# so this system's LAN address is the PC's own. Under the default NAT mode the
+# address is on a virtual network only this PC can reach.
+wsl_lan_reachable() {
+    command -v wslinfo >/dev/null 2>&1 || return 1
+    [ "$(wslinfo --networking-mode 2>/dev/null | tr -d '\r')" = "mirrored" ]
+}
+
+# Printed under the ready card in place of a LAN address no other device can
+# reach. wsl_network_note ADDRESS PORT
+wsl_network_note() {
+    local addr="$1" port="$2"
+    echo "  WSL: on this PC, open the studio at the localhost address above. Other devices"
+    echo "  cannot reach this Linux system's own address${addr:+ ($addr)}; it is internal to Windows."
+    echo "  To open the studio from another device, forward port ${port} from Windows or"
+    echo "  switch WSL to mirrored networking: https://learn.microsoft.com/windows/wsl/networking"
+}
+
 # Printed under the ready card. Silent once keep-alive is configured.
 wsl_keep_alive_note() {
     local cfg

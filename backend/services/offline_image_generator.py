@@ -969,13 +969,45 @@ class OfflineImageGenerator:
         GPU admission, which would evict the chat model for a request about to
         be refused.
         """
-        if not model_key or model_key == "auto" or self.is_comfy_only_model(model_key):
+        if not model_key or model_key == "auto":
+            return None if self._auto_has_model() else self._no_model_failure()
+        if self.is_comfy_only_model(model_key):
             return None
         model_id = self.available_models.get(model_key)
         if not model_id or self._is_model_downloaded(model_id):
             return None
         self._install_needed = model_id
         return self._load_failure_reason(model_key, model_id)
+
+    def _auto_has_model(self) -> bool:
+        """Whether Auto has anything to render with: an offline model on disk, or
+        a Stills default from Settings that can run here (ComfyUI ones included)."""
+        for key, model_id in self.available_models.items():
+            if key in self.comfy_only_models:
+                continue
+            if self._is_model_downloaded(model_id):
+                return True
+        return bool(self.configured_default_for_auto())
+
+    def _no_model_failure(self):
+        """The typed failure for an Auto request on a machine with no image model."""
+        from backend.services.job_types import RenderErrorKind, RenderFailure
+        if self._device not in ("cuda", "mps"):
+            # The recommended models refuse to run on the processor (see the
+            # family guard in _generate), so suggesting one here would waste
+            # the download.
+            message = (
+                "No image model is downloaded, and image generation has no GPU "
+                "to use on this machine (no working NVIDIA or Apple silicon "
+                "device). The recommended models, Z-Image Turbo and Krea 2, "
+                "do not run on the processor. See docs/HARDWARE.md."
+            )
+        else:
+            message = (
+                "No image model is downloaded yet. Open Settings → Image Models "
+                "and download one (Z-Image Turbo is the recommended default)."
+            )
+        return RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, message)
 
     def _resolve_model_ref(self, model_ref: str) -> str:
         """Catalog key (e.g. krea2-turbo) → HF repo id; pass through HF ids and auto."""
@@ -1672,6 +1704,29 @@ class OfflineImageGenerator:
             f for f in files
             if "/" not in f and f.endswith((".safetensors", ".ckpt", ".pt", ".bin"))
         ]
+
+    def snapshot_download_bytes(self, model_id: str) -> int:
+        """Bytes ``_snapshot_with_retry`` fetches for a repo, from the Hub's file listing.
+
+        Applies the same filters as the download (ignore patterns, redundant root
+        checkpoints). Returns 0 when the listing cannot be read.
+        """
+        try:
+            from huggingface_hub import HfApi
+            from huggingface_hub.utils import filter_repo_objects
+            # The install thread waits on this before its stall monitor starts.
+            info = HfApi().model_info(model_id, files_metadata=True, timeout=15, token=self._hf_token())
+            sizes = {s.rfilename: int(s.size or 0) for s in (info.siblings or [])}
+        except Exception as e:
+            logger.debug(f"Could not read file sizes for {model_id}: {e}")
+            return 0
+        ignore = list(self._SNAPSHOT_IGNORE_PATTERNS)
+        if "model_index.json" in sizes:
+            ignore.extend(
+                f for f in sizes
+                if "/" not in f and f.endswith((".safetensors", ".ckpt", ".pt", ".bin"))
+            )
+        return sum(sizes[f] for f in filter_repo_objects(sizes, ignore_patterns=ignore))
 
     def _snapshot_with_retry(self, model_id: str, model_path: Path) -> tuple[bool, str | None]:
         """snapshot_download with weight-only filtering and resume-on-failure.
@@ -2814,21 +2869,7 @@ Negative Prompt: {negative_prompt}""",
             if request.model in (None, "", "auto"):
                 request.model = self._auto_select_model(request.prompt, request.style)
                 if not request.model:
-                    if self._device not in ("cuda", "mps"):
-                        # The recommended models refuse to run on the processor
-                        # (see the family guard in _generate), so suggesting a
-                        # download here would only waste it.
-                        result.error = (
-                            "No image model is downloaded, and image generation has no GPU "
-                            "to use on this machine (no working NVIDIA or Apple silicon "
-                            "device). The recommended models, Z-Image Turbo and Krea 2, "
-                            "do not run on the processor. See docs/HARDWARE.md."
-                        )
-                    else:
-                        result.error = (
-                            "No image model is downloaded yet. Open Settings → Image Models "
-                            "and download one (Z-Image Turbo is the recommended default)."
-                        )
+                    result.error = self._no_model_failure()
                     return result
             if (
                 self._has_text_intent(request.prompt)
@@ -4301,7 +4342,7 @@ Negative Prompt: {negative_prompt}""",
                     else "17GB+Comfy" if "qwen-image-21" in model_key
                     else "13GB+Comfy" if "moss-image" in model_key
                     else "18GB+Comfy" if "flux3" in model_key
-                    else "16GB" if "z-image" in model_id.lower() or "zimage" in model_key
+                    else "31GB" if "z-image" in model_id.lower() or "zimage" in model_key
                     else "Comfy backend" if model_key == "comfyui"
                     else "12-15GB" if "xl" in model_id.lower()
                     else "4-7GB"

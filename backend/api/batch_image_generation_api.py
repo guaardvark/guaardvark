@@ -158,6 +158,27 @@ def _image_download_watch_dirs(img, catalog_key: str, hf_model_id: str) -> List[
     return dirs
 
 
+def _snapshot_bytes_to_fetch(img, hf_model_id: str, dests: List[Path]) -> int:
+    """Bytes a snapshot install still has to transfer, or 0 when unknown.
+
+    Covers the families installed with snapshot_download (Krea 2, Z-Image, Sana),
+    whose size comes from the Hub's file listing; files already in the install
+    folder from an interrupted run are subtracted.
+    """
+    try:
+        if img._user_file_entry(hf_model_id) is not None:
+            return 0
+        if img._model_family(hf_model_id) not in ("krea2", "zimage", "sana"):
+            return 0
+        total = img.snapshot_download_bytes(hf_model_id)
+        if not total:
+            return 0
+        return max(total - sum(_dir_bytes(d) for d in dests), 1)
+    except Exception as e:  # noqa: BLE001 — the figure only shapes the progress bar
+        logger.debug("snapshot size for %s skipped: %s", hf_model_id, e)
+        return 0
+
+
 def _reconcile_image_download_status_on_load() -> None:
     global model_download_status, _IMAGE_DOWNLOAD_EPOCH
     try:
@@ -192,14 +213,15 @@ _reconcile_image_download_status_on_load()
 # downloader; the status route mirrors that run under the pack's id.
 _DELEGATED_PACK: str | None = None
 
-# Approximate model sizes in GB (HuggingFace repo total). Curated set only —
+# Download sizes in GiB: the files Install fetches from each repo (gallery
+# images, PDFs and redundant root checkpoints are skipped). Curated set only —
 # matches offline_image_generator.available_models after the 2026-05-29 cull.
 IMAGE_MODEL_SIZES = {
-    "Tongyi-MAI/Z-Image-Turbo": 16.0,
-    "krea/Krea-2-Turbo": 28.0,
-    "krea/Krea-2-Raw": 28.0,
-    "krea2-turbo": 28.0,
-    "krea2-raw": 28.0,
+    "Tongyi-MAI/Z-Image-Turbo": 30.6,
+    "krea/Krea-2-Turbo": 33.2,
+    "krea/Krea-2-Raw": 33.2,
+    "krea2-turbo": 33.2,
+    "krea2-raw": 33.2,
     "stabilityai/stable-diffusion-xl-base-1.0": 6.9,
     "stabilityai/sdxl-turbo": 6.9,
     "SG161222/Realistic_Vision_V5.1_noVAE": 2.1,
@@ -965,9 +987,14 @@ def _start_image_model_download(model_path: str):
             stalled = threading.Event()
 
             try:
+                remaining = _snapshot_bytes_to_fetch(generator.image_generator, hf_model_id, dests)
+                if remaining:
+                    total_bytes = remaining
+                    total_gb = round(remaining / 1024**3, 2)
                 with model_download_lock:
                     if model_download_status.get("epoch") == epoch:
                         model_download_status["status"] = "downloading"
+                        model_download_status["total_gb"] = total_gb
                         model_download_status["updated_at"] = time.time()
                         _persist_image_download_status()
 
@@ -999,7 +1026,10 @@ def _start_image_model_download(model_path: str):
                                 return
                             elapsed = now_m - _start_time
                             speed = (downloaded / (1024 * 1024)) / max(elapsed, 0.1)
-                            pct = min(int((downloaded / max(total_bytes, 1)) * 100), 99)
+                            # An estimate the transfer has outgrown follows the bytes
+                            # on disk, so the two figures never contradict each other.
+                            shown_total = max(total_bytes, downloaded, 1)
+                            pct = min(int((downloaded / shown_total) * 100), 99)
                             with model_download_lock:
                                 if model_download_status.get("epoch") != epoch:
                                     return
@@ -1007,6 +1037,7 @@ def _start_image_model_download(model_path: str):
                                     "progress": pct,
                                     "speed_mbps": round(speed, 1),
                                     "downloaded_gb": round(downloaded / 1024**3, 2),
+                                    "total_gb": round(shown_total / 1024**3, 2),
                                     "updated_at": now_m,
                                 })
                                 _persist_image_download_status()
@@ -1031,6 +1062,7 @@ def _start_image_model_download(model_path: str):
                     if stalled.is_set():
                         return
                     if success:
+                        total_gb = model_download_status.get("total_gb") or total_gb
                         model_download_status.update({
                             "status": "completed",
                             "progress": 100,
@@ -1717,11 +1749,42 @@ def generate_from_csv():
         return error_response(str(e), 500)
 
 class BatchRequestError(ValueError):
-    """A prompts batch the caller has to change; ``status`` is the HTTP code."""
+    """A prompts batch the caller has to change; ``status`` is the HTTP code and
+    ``failure`` the describe_failure record when the refusal has a kind."""
 
-    def __init__(self, message: str, status: int = 400):
+    def __init__(self, message: str, status: int = 400, failure: Optional[dict] = None):
         super().__init__(message)
         self.status = status
+        self.failure = failure
+
+
+def _refuse_uninstalled_model(prompt: str, params: dict) -> None:
+    """Raise when the batch's model is not installed, so nothing is queued.
+
+    Every prompt of a prompts batch shares ``params``, so one probe answers for
+    all of them. A probe that cannot run leaves the decision to the batch
+    worker, which asks again before its GPU session.
+    """
+    if params.get("allow_model_download"):
+        return
+    try:
+        from backend.services.batch_image_generator import BatchPrompt
+        probe = BatchPrompt(
+            id="preflight", prompt=prompt, model=params.get("model") or "auto",
+            loras=list(params.get("loras") or []),
+            subject_ids=list(params.get("subject_ids") or []),
+            adapter_loras=list(params.get("adapter_loras") or []),
+        )
+        refusal = get_batch_image_generator().refusal_before_start([probe])
+    except Exception as e:  # noqa: BLE001
+        logger.debug("model preflight skipped: %s", e)
+        return
+    if refusal:
+        from backend.services.job_types import RenderErrorKind
+        raise BatchRequestError(
+            str(refusal), 409,
+            failure=describe_failure(RenderErrorKind.MODEL_NOT_INSTALLED, refusal, "image"),
+        )
 
 
 def queue_prompts_batch(data: dict) -> dict:
@@ -1802,6 +1865,7 @@ def queue_prompts_batch(data: dict) -> dict:
         else:
             params["text_encoders"] = chosen
 
+    _refuse_uninstalled_model(validated_prompts[0], params)
     batch_id = start_batch_from_prompts(validated_prompts, **params)
 
     response_data = {
@@ -1835,6 +1899,9 @@ def generate_from_prompts():
         return success_response(queue_prompts_batch(data), status_code=201)
 
     except BatchRequestError as e:
+        if e.failure:
+            return error_response(str(e), e.status, error_code="MODEL_NOT_INSTALLED",
+                                  data={"failure": e.failure})
         return error_response(str(e), e.status)
     except ValueError as e:
         logger.warning(f"Invalid batch image request: {e}")
