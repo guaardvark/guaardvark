@@ -15,8 +15,11 @@ Training notes / anticipated fails handled here:
     grads/Adam states stay smaller. unwrap PeftModel before every train (and on
     OOM) so a failed run cannot double-wrap on retry.
   - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True reduces fragmentation OOMs.
-  - Turbo distillation: training on Turbo is imperfect; we use moderate steps/rank
-    and document adapter path via ZIMAGE_TURBO_TRAIN_ADAPTER if present later.
+  - Turbo distillation: training straight on Turbo erodes it. Measured 2026-11-19
+    (31 images, 1024 px, rank 32, attention_ffn, 1500 steps, trigger-only renders):
+    without the adapter the LoRA rendered soft and kept only hair and lip colour;
+    with ZIMAGE_TURBO_TRAIN_ADAPTER (v2) fused it rendered sharp and kept hair
+    streaks, piercings and an arm sleeve.
   - CUDA_VISIBLE_DEVICES='' poison: parent RealLoraTrainer forces a real device.
   - Save format: pipeline.save_lora_weights (diffusers/peft) so
     ZImagePipeline.load_lora_weights works at inference.
@@ -246,11 +249,15 @@ def _do_load(cmd: dict) -> dict:
         _model_id = None
         return {"ok": False, "error": f"failed to load Z-Image: {e}\n{traceback.format_exc()}"}
 
-    # Optional turbo training adapter (Ostris) if operator placed it on disk
+    # Optional turbo training adapter (Ostris) if operator placed it on disk.
+    # Fused into the frozen base so the trained LoRA is the only adapter saved;
+    # renders then run on plain Turbo without it.
     adapter = os.environ.get("ZIMAGE_TURBO_TRAIN_ADAPTER", "").strip()
     if adapter and Path(adapter).exists():
         try:
             _pipeline.load_lora_weights(adapter, adapter_name="turbo_train_adapter")
+            _pipeline.fuse_lora(adapter_names=["turbo_train_adapter"])
+            _pipeline.unload_lora_weights()
             _eprint(f"[run_zimage_trainer] loaded turbo train adapter: {adapter}")
         except Exception as e:
             _eprint(f"[run_zimage_trainer] turbo adapter load failed (continuing): {e}")
