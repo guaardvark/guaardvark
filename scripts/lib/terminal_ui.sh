@@ -615,7 +615,12 @@ _vader_play_dot_plate() {
     printf '\033[?25h'
 }
 
-vader_boot_banner() {
+# The dot mark, wordmark, tagline and rule, shared by start.sh and stop.sh.
+# Full plate when its 24 rows fit on screen (the stroke animation moves the
+# cursor up over them); otherwise the compact plate, which prints once and may
+# scroll into the scrollback under the board. Text only when the pane is too
+# narrow for either plate, or there is no color.
+_vader_mark_banner() {
     local mode="text" cols lines ver tag plain colored rulepad
     echo ""
     if [ "$_VADER_COLOR" != 1 ]; then
@@ -623,19 +628,17 @@ vader_boot_banner() {
         echo "  Guaardvark"
         echo "  local AI studio  ·  v${ver}"
         echo ""
-        return
+        return 1
     fi
     _vader_read_winsize
     cols=$_VADER_COLS
     lines=$_VADER_ROWS
     _VADER_PLATE_ON=0
-    # Caption is 7 lines and the start rail is 18. Three lines of slack
-    # keeps the board on screen: plate rows + 22. Side margin is +6 / +8.
     if _vader_load_mark; then
         _vader_mark_colors
-        if [ "$cols" -ge $((_GV_PLATE_COLS + 6)) ] && [ "$lines" -ge $((_GV_PLATE_ROWS + 22)) ]; then
+        if [ "$cols" -ge $((_GV_PLATE_COLS + 6)) ] && [ "$lines" -ge $((_GV_PLATE_ROWS + 2)) ]; then
             mode="full"
-        elif [ "$cols" -ge $((_GV_COMPACT_COLS + 8)) ] && [ "$lines" -ge $((_GV_COMPACT_ROWS + 22)) ]; then
+        elif [ "$cols" -ge $((_GV_COMPACT_COLS + 8)) ]; then
             mode="compact"
         fi
         if [ "$mode" != "text" ]; then
@@ -668,6 +671,11 @@ vader_boot_banner() {
         printf '%s' "$rulepad"
         _vader_rule "$(_vader_rule_width)"
     fi
+    return 0
+}
+
+vader_boot_banner() {
+    _vader_mark_banner || return 0
     echo ""
     if [ "$_VADER_TTY" = 1 ]; then
         local root
@@ -1697,6 +1705,7 @@ vader_stop_begin() {
         echo "  stopping"
         return 0
     fi
+    _vader_mark_banner && echo ""
     _vader_board_open
     _vader_status_write
 }
