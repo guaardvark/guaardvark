@@ -289,12 +289,15 @@ const lightTheme = createFullTheme({
   secondary: "#7e57c2",
   secondaryDark: "#512da8",
   secondaryLight: "#9575cd",
-  bg: "#fafafa",
+  // A cool grey page under white cards, so a card's edge reads against the
+  // page (white on #fafafa measured 1.04:1 and the cards ran together).
+  bg: "#eef0f3",
   bgPaper: "#ffffff",
   textPrimary: "#212121",
-  // #757575 measured 4.41:1 on the #fafafa page; #707070 is the lightest grey
-  // that clears 4.5:1 on #fafafa, #ffffff and #f5f5f5 (4.74 / 4.95 / 4.54).
-  textSecondary: "#707070",
+  // #666666 clears 4.5:1 on the #eef0f3 page, on #ffffff and on #f5f5f5
+  // (5.03 / 5.74 / 5.26); #707070 measures 4.34 on the page.
+  textSecondary: "#666666",
+  boardCardInset: 4,
   divider: "rgba(0, 0, 0, 0.08)",
   // The shared status defaults (#4caf50, #ff9800, #f44336) are bright tones
   // for dark backgrounds; as text on white they measure about 2.8, 2.2 and
@@ -309,6 +312,12 @@ const lightTheme = createFullTheme({
         root: {
           backgroundImage: "none",
           backgroundColor: "#ffffff",
+          // Board cards: a hairline edge and a soft shadow that fits inside
+          // boardCardInset, since the grid cell clips what falls outside it.
+          "&.draggable-card": {
+            border: "1px solid rgba(15, 23, 42, 0.08)",
+            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.10)",
+          },
         },
       },
     },
@@ -584,7 +593,11 @@ const guaardvarkTheme = createFullTheme({
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          scrollbarColor: "rgba(255, 255, 255, 0.08) transparent",
+          // Firefox only: in Chromium a scrollbar-color replaces the
+          // ::-webkit-scrollbar rules and its hover thumb turns near-black.
+          "@supports not selector(::-webkit-scrollbar)": {
+            scrollbarColor: "rgba(255, 255, 255, 0.08) transparent",
+          },
           "&::-webkit-scrollbar": { width: 6, height: 6 },
           "&::-webkit-scrollbar-thumb": {
             backgroundColor: "rgba(255, 255, 255, 0.08)",
