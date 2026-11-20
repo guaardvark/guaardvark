@@ -517,7 +517,7 @@ def tick(now: Optional[datetime.datetime] = None) -> dict:
     if decision["may_start"] and release(decision["next"]):
         result["night_started"] = decision["next"]
         logger.info("night shift: started job %s", decision["next"])
-    elif decision.get("hold"):
+    elif decision.get("hold") and decision["queue"]:
         logger.info("night shift: holding (%s)", decision["hold"])
     return result
 
