@@ -19,6 +19,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 from typing import Any, Optional
@@ -194,10 +195,10 @@ def desktop_idle() -> dict:
         "org.gnome.Mutter.IdleMonitor.GetIdletime",
     )
     seconds = None
-    if raw:
-        digits = "".join(c for c in raw if c.isdigit())
-        if digits:
-            seconds = int(digits) / 1000.0
+    # The reply reads "(uint64 4842,)": milliseconds after the type name.
+    match = re.search(r"uint64\s+(\d+)", raw or "")
+    if match:
+        seconds = int(match.group(1)) / 1000.0
     if seconds is None:
         return {"seconds": None, "inhibited": False, "source": None}
     # 8 is GNOME's "inhibit the session being marked idle" flag.
