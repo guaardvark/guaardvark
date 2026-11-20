@@ -244,6 +244,28 @@ def _ollama_has_loaded_model() -> bool:
         return False
 
 
+def gpu_holder_now() -> Optional[str]:
+    """The job holding the GPU exclusively right now ("video_render:VideoBatch_x"),
+    or None. Reads the in-process job gate, then the cross-process lease file,
+    the two places a render or training run claims the card. Never raises."""
+    try:
+        from backend.services.job_operation_gate import get_gate
+        held = get_gate().snapshot().get("gpu_holder")
+        if held:
+            return f"{held.get('kind')}:{held.get('native_id')}"
+    except Exception as e:  # noqa: BLE001
+        log.debug("gpu holder: gate unreadable (%s)", e)
+    try:
+        from backend.services.gpu_resource_coordinator import get_gpu_coordinator
+        coord = get_gpu_coordinator()
+        if coord.lock_held():
+            info = coord.get_gpu_status().get("lock_info") or {}
+            return str(info.get("owner") or "another job")
+    except Exception as e:  # noqa: BLE001
+        log.debug("gpu holder: lease unreadable (%s)", e)
+    return None
+
+
 def vram_holders_text(*, limit: int = 6) -> str:
     """Processes holding VRAM right now, largest first, as one readable line.
 

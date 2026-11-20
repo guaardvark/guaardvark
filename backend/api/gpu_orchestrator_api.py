@@ -50,24 +50,8 @@ def gpu_holder():
     process (Audio Foundry) asks before loading a model, so it waits for the
     job instead of loading beside it and running out of memory.
     """
-    holder = None
-    try:
-        from backend.services.job_operation_gate import get_gate
-        snap = get_gate().snapshot()
-        held = snap.get("gpu_holder")
-        if held:
-            holder = f"{held.get('kind')}:{held.get('native_id')}"
-    except Exception as e:  # noqa: BLE001
-        logger.debug("gpu holder: gate unreadable (%s)", e)
-    if holder is None:
-        try:
-            from backend.services.gpu_resource_coordinator import get_gpu_coordinator
-            coord = get_gpu_coordinator()
-            if coord.lock_held():
-                info = coord.get_gpu_status().get("lock_info") or {}
-                holder = str(info.get("owner") or "another job")
-        except Exception as e:  # noqa: BLE001
-            logger.debug("gpu holder: lease unreadable (%s)", e)
+    from backend.services.gpu_resource_policy import gpu_holder_now
+    holder = gpu_holder_now()
     return jsonify({"held": holder is not None, "holder": holder}), 200
 
 

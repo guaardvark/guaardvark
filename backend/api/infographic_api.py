@@ -6,8 +6,13 @@
 #              raw_prompt?, seed?, model?}
 #       returns: {filename, image_url, prompt, model, model_name, width, height,
 #                 seed, duration_s, document_id}
-#       Synchronous: waits for the GPU if another render holds it, then blocks
-#       until the PNG is saved under uploads/Images/Infographics.
+#       Synchronous when the GPU is free: blocks until the PNG is saved under
+#       uploads/Images/Infographics. When another job (a video render,
+#       training, an image batch) holds the GPU, the render goes on the image
+#       batch queue instead and the reply is 202 {queued: true, batch_id,
+#       total_images, model, holder, status_url}; the batch starts when that
+#       job finishes. queue_if_busy: false keeps the old behaviour (wait up to
+#       10 minutes in the request, then 503).
 #
 #   POST /api/infographic/batch
 #       body: the /generate fields plus quantity (1 or more), seed? and
@@ -127,6 +132,26 @@ def generate():
     model = str(body.get("model") or "").strip() or None
 
     gen = get_infographic_generator()
+    if body.get("queue_if_busy", True) is not False:
+        # A job holding the GPU can run for hours; an HTTP request should not.
+        from backend.services.gpu_resource_policy import gpu_holder_now
+        holder = gpu_holder_now()
+        if holder:
+            try:
+                queued = gen.queue_batch([spec], model=model, quantity=1, seed=seed)
+            except ValueError as e:
+                return jsonify({"success": False, "error": str(e)}), 400
+            except InfographicModelMissing as e:
+                return jsonify({"success": False, "error": str(e)}), 409
+            except Exception as e:
+                logger.exception("Infographic was not queued")
+                return jsonify({"success": False, "error": str(e)}), 500
+            return jsonify({
+                "success": True, "queued": True, "holder": holder,
+                "status_url": f"/api/batch-image/status/{queued['batch_id']}",
+                "message": f"The GPU is busy ({holder}); the infographic is queued and starts when it is free.",
+                **queued,
+            }), 202
     try:
         result = gen.generate(spec, seed=seed, model=model)
     except ValueError as e:

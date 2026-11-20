@@ -2,7 +2,8 @@
 // Thin fetch wrappers for the infographic backend.
 // /api/infographic/batch queues on the image batch queue and returns at once;
 // the page follows the batch through /api/batch-image. /api/infographic/generate
-// is the synchronous single render: it blocks until the PNG is saved.
+// is the synchronous single render: it blocks until the PNG is saved, or
+// queues it and answers 202 with a batch_id when another job holds the GPU.
 
 import { BASE_URL } from './apiClient';
 import { translate } from '../i18n';
