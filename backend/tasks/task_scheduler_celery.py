@@ -111,7 +111,7 @@ def get_stuck_tasks() -> List[Dict[str, Any]]:
         ).isoformat()
 
         result = session.execute(text("""
-            SELECT id, name, status, job_id, retry_count, updated_at, type
+            SELECT id, name, status, job_id, retry_count, updated_at, type, max_retries
             FROM tasks
             WHERE status IN ('in-progress', 'queued')
               AND updated_at < :threshold_time
@@ -127,7 +127,8 @@ def get_stuck_tasks() -> List[Dict[str, Any]]:
                 'job_id': row[3],
                 'retry_count': row[4] or 0,
                 'updated_at': row[5],
-                'type': row[6]
+                'type': row[6],
+                'max_retries': row[7],
             })
 
         return tasks
@@ -239,6 +240,14 @@ def check_scheduled_tasks(self):
     Returns dict with stats about processed tasks.
     """
     logger.info("Running scheduled task check...")
+
+    # Jobs a person scheduled (night shift, at a time) are held in 'waiting'
+    # and released here; this pass makes its own idle test, so it runs first.
+    try:
+        from backend.services import night_shift
+        night_shift.tick()
+    except Exception as e:
+        logger.error(f"Night shift pass failed: {e}", exc_info=True)
 
     # Job order on: scheduled work is background; while a chat or voice turn
     # runs the due rows stay pending for the next pass.
@@ -382,7 +391,9 @@ def recover_stuck_tasks(self):
 
             logger.warning(f"Task {task_id} ({task['name']}) appears stuck, last update: {task['updated_at']}")
 
-            if retry_count < MAX_RETRY_COUNT:
+            # A row saved with max_retries 0 (a night-shift job) is not re-run.
+            retry_limit = 0 if task.get('max_retries') == 0 else MAX_RETRY_COUNT
+            if retry_count < retry_limit:
                 # Reset for retry
                 new_retry_count = retry_count + 1
                 error_message = f"Auto-recovered from stuck state (attempt {new_retry_count}/{MAX_RETRY_COUNT})"
@@ -402,7 +413,10 @@ def recover_stuck_tasks(self):
 
             else:
                 # Max retries exceeded, mark as failed
-                error_message = f"Task failed after {MAX_RETRY_COUNT} automatic recovery attempts"
+                error_message = (
+                    f"Task failed after {MAX_RETRY_COUNT} automatic recovery attempts" if retry_limit
+                    else "The job stopped reporting progress and was not re-run"
+                )
                 if mark_task_failed(task_id, error_message):
                     logger.warning(f"Task {task_id} marked as failed after max retries")
                     failed_count += 1

@@ -449,6 +449,8 @@ class Task(db.Model):
     task_handler = db.Column(db.String(100), nullable=True, index=True)
     handler_config = db.Column(db.JSON, nullable=True)
     progress = db.Column(db.Integer, nullable=True, default=0)  # 0-100
+    # Place in the night shift's line, set by dragging; lowest runs first.
+    queue_rank = db.Column(db.Float, nullable=True)
     # Generated output from the task handler — LLM reply, tool output, etc.
     # Written by unified_task_executor.update_task_result() on successful runs.
     result = db.Column(db.Text, nullable=True)
@@ -505,6 +507,7 @@ class Task(db.Model):
             "competitor_url": self.competitor_url,
             # Scheduler fields
             "schedule_type": self.schedule_type,
+            "queue_rank": self.queue_rank,
             "cron_expression": self.cron_expression,
             "next_run_at": self.next_run_at.isoformat() if self.next_run_at else None,
             "last_run_at": self.last_run_at.isoformat() if self.last_run_at else None,

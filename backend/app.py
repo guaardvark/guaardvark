@@ -1413,6 +1413,8 @@ try:
                 ("projects", "root_path", "ALTER TABLE projects ADD COLUMN IF NOT EXISTS root_path VARCHAR(2048)"),
                 # Plan mode (2026-10-26): research first, act after an approved plan.
                 ("llm_sessions", "plan_mode", "ALTER TABLE llm_sessions ADD COLUMN IF NOT EXISTS plan_mode BOOLEAN NOT NULL DEFAULT FALSE"),
+                # The night shift's drag order for jobs scheduled for later.
+                ("tasks", "queue_rank", "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS queue_rank DOUBLE PRECISION"),
                 # Autoresearch 2.0 (2026-08-10): honest eval pairs + experiment
                 # provenance + candidate/promoted config lifecycle.
                 ("eval_pairs", "is_active", "ALTER TABLE eval_pairs ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE"),
