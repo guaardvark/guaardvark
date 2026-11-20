@@ -91,3 +91,22 @@ def test_gpu_gate_rejects_different_holder_same_kind():
     # same kind, SAME id → idempotent True
     ok3, _ = gate.try_claim_gpu_exclusive(kind, "id-A")
     assert ok3 is True
+
+
+# ---- rows with their own runner are left to the unified executor ----
+def test_pending_loop_leaves_typed_rows_to_the_executor(app, monkeypatch):
+    import backend.services.task_scheduler as ts
+    prompt = Task(name="prompt", status="pending", type="content_generation", priority=1)
+    crawl = Task(name="crawl", status="pending", type="website_crawl", priority=1)
+    outreach = Task(name="outreach", status="pending", type="social_outreach_reddit", priority=1)
+    publish = Task(name="publish", status="pending", type="connection_publish", priority=1)
+    batch = Task(name="batch", status="pending", type="image_batch", priority=1)
+    db.session.add_all([prompt, crawl, outreach, publish, batch])
+    db.session.commit()
+    prompt_id = prompt.id
+
+    ran = []
+    monkeypatch.setattr(ts, "_execute_task", lambda app, tid: ran.append(tid))
+    ts.process_pending_tasks(app)
+
+    assert ran == [prompt_id]
