@@ -1,10 +1,65 @@
 # Changelog
 
+## 3.6.0 — Card workspaces on every page, AMD Radeon cards, your own ComfyUI, every Kokoro voice
+
+- **Every studio page is a card workspace.** Video Gen, Image Gen, Image Edit, Music Video, Film Crew, Cast Library,
+  Agents, Jobs, Plugins and the rest are boards of cards you arrange, hide and restore, with ready-made layouts
+  behind a Layout button in each page header. The dashboard shows recent media and pending approvals, its header
+  opens the Sticky Notes board in one click, and the top bar has a full screen button. The frontend now runs on
+  React 19.
+- **AMD Radeon cards.** The GPU coordinator, metrics and video preflight read AMD cards through rocm-smi, so Radeon
+  cards render video the way NVIDIA cards do.
+- **Run ComfyUI yourself.** A switch on the ComfyUI card points Guaardvark at a ComfyUI you already run, as the
+  Ollama card already does, and the Docker guide covers ComfyUI and Ollama in their own containers.
+- **Voices and upscaling.** Every Kokoro voice and language is offered, and narration runs on machines with no
+  GPU. Images and videos in the library have an Upscale action.
+- **Video.** Music videos and multi-clip edits fill every cut exactly, with no blank frame between clips; Wan keeps
+  its native size under Low VRAM; music videos estimate their render time for the chosen model on this machine.
+- **Search and chat.** Web search reads Bing's results page directly, Settings offers a re-index for better search,
+  and the chat model keeps the context window it was loaded with on the GPU. The MCP server has named toolsets
+  and `guaardvark mcp list-tools --json`.
+- **Safer by default.** The inbound guard's review dialog shows dates, selection and Approve all; credential-file
+  reads through command options are closed; API key changes, swarm launches and output registrations take this
+  machine or a key holder only; aiohttp, urllib3, Werkzeug, mcp and Pillow are past their published advisories.
+
+## 3.5.2 — PyTorch 2.14.1 on NVIDIA cards, in native installs and the Docker image
+
+- **PyTorch 2.14.1.** The backend now picks its PyTorch build from your card and your driver, and on a current
+  driver every NVIDIA card from the GTX 10 series up lands on 2.14.1: RTX 30 and 40 cards move up from 2.6.0, GTX 10,
+  GTX 16 and RTX 20 cards from 2.7.1, RTX 50 cards from 2.11.0. On a 16 GB RTX 40 series card, Z-Image LoRA
+  training, upscaling and Z-Image pictures came out the same as on 2.6.0, with the same memory. RTX 30 and 40 cards now meet the PyTorch 2.7 floor
+  FLUX 3 Image Klein needs in the ComfyUI that shares the backend's environment.
+- **The Docker image carries it too.** `guaardvark/guaardvark` is built on PyTorch 2.14.1 for CUDA 13.2.
+  `./start-docker.sh --gpu --pull` uses it on GTX 16 and RTX 20 series cards and newer with an NVIDIA driver 580 or
+  later, and builds a matching image on the machine for any other card or driver.
+- **Audio files through TorchCodec.** torchaudio 2.11 reads and writes WAV, FLAC and MP3 through TorchCodec, and
+  `start.sh` installs FFmpeg's shared libraries when they are missing.
+- **Before you update:** the next `./start.sh` downloads the new PyTorch once, about 3 GB. A driver older than 525
+  gets 2.7.1, and an RTX 50 card on a driver older than 580 stays on 2.11.0. CPU and Apple Silicon installs use
+  2.14.1 as well, the newest release the training libraries accept.
+
+## 3.5.1 — Windows 11 through WSL2 and Docker Desktop, and images on Docker Hub
+
+- **Windows 11 through WSL2.** The one-line installer runs inside WSL2 Ubuntu, and the studio opens in your Windows
+  browser at `http://localhost:5173`. Chat on Gemma 4, Z-Image Turbo pictures, the ComfyUI plugin and Wan 2.2 5B
+  video ran on an RTX 5060 Ti 16 GB under Windows 11 Home, with no NVIDIA driver inside Ubuntu.
+  `./start.sh --wsl-keep-alive` keeps Guaardvark running after the Ubuntu window closes. The steps are in
+  [INSTALL.md](INSTALL.md#install-windows-11-through-wsl2).
+- **Docker Desktop on Windows.** The same five containers run on Docker Desktop's WSL 2 backend and reach an NVIDIA
+  card with no Container Toolkit step; chat, pictures and video ran there on the same machine.
+- **Images on Docker Hub.** `guaardvark/guaardvark` and `guaardvark/guaardvark-web` are built from each tagged
+  release. `./start-docker.sh --gpu --pull` downloads them and starts the stack without building anything; the
+  backend image carries PyTorch for GTX 16 and RTX 20 series cards onward, and the launcher still builds for older
+  cards.
+- **Under Docker the chat model follows your card.** A new install picks its chat model from a live hardware check,
+  so chat answers as soon as the two first models are pulled, and a model that is not installed yet is named with
+  the `docker compose` command that pulls it.
+
 ## 3.5.0 — Image Edit, one desktop for Files and Media, Docker runs the Studio plugins, installs without NVIDIA
 
 - **Before you update:** Redis 6.0 or newer is now required (redis-py 8.1 and kombu 5.7); the Docker image's Redis 7,
   Ubuntu 22.04 and later, and Homebrew all qualify. The video style measure moved to `/api/video-style/*` and
-  `llx style`, and its old routes and command are gone.
+  `guaardvark style`, and its old routes and command are gone.
 - **ONNX Runtime's usage telemetry is off, and the trainer check stays offline.** ONNX Runtime, a dependency, sends
   usage events to Microsoft unless told not to: a device id, the interpreter's path, the CPU and OS, and the file
   names of the models it loads. Every Guaardvark process now sets the switch that turns this off. Installs from
@@ -53,7 +108,7 @@
 - **Chat plays the video it made** in the reply that asked for it, instead of only in the Studio.
 - **Chat answers from your documents more carefully.** Without the optional reranker, passages far off the message's
   topic are left out, so one indexed note no longer turns up in every answer; on a large library the
-  reranker still filters best. When Ollama refuses a document question sent through `llx chat` or the REST chat
+  reranker still filters best. When Ollama refuses a document question sent through `guaardvark chat` or the REST chat
   API as too long, it is answered again from fewer passages instead of failing. Context windows are sized from
   measured costs for Qwen 3.5 models, and a model's window can be set by hand, e.g.
   `GUAARDVARK_NUM_CTX=gemma4:12b=32768` (thanks @patmansk, #383).
@@ -416,7 +471,7 @@ on a freshly installed Ubuntu and fixed where a new user would have stopped.
 - **`GET /api/generate/status?job_id=…` works.** It called a progress method that did not exist and
   answered 500 every time. It now answers the job's status, progress and message (live while the
   backend tracks the job, from its progress record otherwise) and 404 for an id nothing knows.
-  `GET /api/jobs/unified:<id>`, which `llx job status` uses, also never found a live progress job;
+  `GET /api/jobs/unified:<id>`, which `guaardvark job status` uses, also never found a live progress job;
   it does now.
 - **A failed background task now shows its reason instead of sitting at 0 %.** An earlier release
   said so, but the worker's handler for it was connected in a way Python discarded at once, so it
@@ -438,7 +493,7 @@ on a freshly installed Ubuntu and fixed where a new user would have stopped.
   re-pointed at 127.0.0.1 could drive the plugin ports directly: queue ComfyUI workflows and read
   its outputs, turn on the Vision Pipeline's camera, run Audio Foundry, Video Editor or upscaling
   jobs. Audio Foundry, upscaling, swarm, Video Editor, Vision Pipeline, GPU Embedding, the Discord
-  bot's health port, the MCP server's HTTP transport, the reboot log and `llx`'s lite server now
+  bot's health port, the MCP server's HTTP transport, the reboot log and the CLI's lite server now
   apply the backend's Host rule (421 `host_not_allowed`), with the same settings. ComfyUI gets it
   from a Guaardvark extension in `plugins/comfyui/guaardvark_nodes/`, loaded through
   `guaardvark_model_paths.yaml`; ComfyUI itself is unchanged and the ComfyUI link on the video
@@ -478,7 +533,7 @@ on a freshly installed Ubuntu and fixed where a new user would have stopped.
 - **A GET or HEAD request no longer changes anything.** Any web page can make a browser send
   either without asking, and both are let through by design. `HEAD /api/enhanced-chat/history/all`
   deleted all chat history; only `DELETE` does now. Settings → Test LLM
-  (`/api/meta/test-llm`), the diagnostics export, the quality scorecard (`llx quality scorecard`,
+  (`/api/meta/test-llm`), the diagnostics export, the quality scorecard (`guaardvark quality scorecard`,
   `scripts/quality_gate.py --mode full`) and `/api/simple-chat/health` ran the model on a GET and now
   take POST. The three under `/api/meta` then need the Guaardvark machine or the API key, like other
   `/api/meta` actions; the script sends `GUAARDVARK_API_KEY` from its environment. The
@@ -670,7 +725,7 @@ on a freshly installed Ubuntu and fixed where a new user would have stopped.
   project path to the server.
 - **Managing MCP servers.** A new MCP Servers page, linked from Settings → Agents, shows each
   server's status, its tools and their policy, its stderr and recent activity, and adds, edits or
-  removes local servers. REST routes under `/api/automation/mcp/` and a `llx mcp client` command
+  removes local servers. REST routes under `/api/automation/mcp/` and a `guaardvark mcp client` command
   group do the same; writes to the server config answer localhost or the API key only.
 - **Tool fixes and containment.** generate_bulk_csv uses the topic, row count and client it is
   given and reports a failure instead of "queued"; media volume 0 sets the volume; gui_hotkey

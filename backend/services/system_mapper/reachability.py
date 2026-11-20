@@ -31,6 +31,11 @@ matched as written.
 
 Each page under frontend/src/pages is linked to the endpoints its own code and
 the modules it imports call (`page_endpoints`).
+
+A tree without frontend/src (the backend container of a Docker install, which
+carries no frontend sources, or a backend-only repository) has no callers to
+match, so the two ghost checks are skipped and one FRONTEND_NOT_MAPPED note
+says so, instead of every route being reported as uncalled.
 """
 from __future__ import annotations
 
@@ -492,6 +497,7 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
     if corpus is None and (root / "frontend" / "src").is_dir():
         corpus = Corpus.build(root, extra_excludes)
     routes = _backend_routes(root, extra_excludes, corpus)
+    frontend_sources = (root / "frontend" / "src").is_dir()
     callers = _frontend_callers(root, extra_excludes, corpus)
 
     # Index routes by normalized path
@@ -578,7 +584,17 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
     called_prefixes = sorted(prefix_calls)
     passed_parts = [p.split("/") for p in passed_calls]
     ghost_candidates: list[tuple[str, list[str], list[str]]] = []
-    for norm_path, route_list in norm_routes.items():
+    if not frontend_sources:
+        findings.append(Finding(
+            kind=FindingKind.FRONTEND_NOT_MAPPED,
+            severity=Severity.INFO,
+            summary=("frontend/src is not in this tree, so backend routes were not matched "
+                     "against frontend callers (a Docker install's backend container has no "
+                     "frontend sources; the web UI is built into its own image)"),
+            paths=[],
+            evidence={"key": "frontend-not-mapped", "routes": len(routes)},
+        ))
+    for norm_path, route_list in (norm_routes.items() if frontend_sources else ()):
         if norm_path in called_paths:
             continue
         route_parts = norm_path.split("/")
@@ -661,6 +677,7 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
                 for p, rs in norm_routes.items()
             ],
             "page_endpoints": page_endpoints,
+            "frontend_sources": frontend_sources,
         },
         "findings": findings,
         "stats": {
@@ -670,6 +687,7 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
             "unique_called_paths": len(norm_calls),
             "prefix_callers": len(prefix_calls),
             "unresolved_callers": unresolved,
+            "frontend_sources": frontend_sources,
             "pages_linked": len(page_endpoints),
             "ghost_endpoints": sum(1 for f in findings if f.kind == FindingKind.GHOST_ENDPOINT),
             "ghost_endpoints_total": ghost_total,

@@ -61,11 +61,15 @@ def test_a_second_claim_is_refused_quietly(bridge, caplog):
     assert len([r for r in caplog.records if "marked external" in r.getMessage()]) == 1
 
 
-def test_is_external_is_ollama_only(monkeypatch):
+def test_is_external_follows_each_cards_switch(monkeypatch):
     from backend.plugins import plugin_manager as pm
 
     monkeypatch.setattr(pm, "ollama_is_external", lambda: True)
+    monkeypatch.setattr(pm, "comfyui_is_external", lambda: False)
     assert pb._is_external("ollama") is True
     assert pb._is_external("comfyui") is False
+    assert pb._is_external("audio_foundry") is False
     monkeypatch.setattr(pm, "ollama_is_external", lambda: False)
+    monkeypatch.setattr(pm, "comfyui_is_external", lambda: True)
     assert pb._is_external("ollama") is False
+    assert pb._is_external("comfyui") is True

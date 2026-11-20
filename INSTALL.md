@@ -93,16 +93,60 @@ A fresh Apple Silicon runner installs and imports the backend in CI on every pus
 regression in the above shows up before a person hits it. Report anything else under the
 `mac` label — the install thread is issue #41.
 
+## Install (Windows 11, through WSL2)
+
+Guaardvark runs on Windows 11 inside WSL2, the Linux system Microsoft ships with Windows. On Windows 11 Home with an RTX 5060 Ti 16 GB and the default Ubuntu, chat on Gemma 4, Z-Image Turbo pictures, the ComfyUI plugin and Wan 2.2 5B video all run on the card.
+
+1. Put a current NVIDIA driver on Windows. WSL passes the card through to Ubuntu, so Ubuntu needs no driver of its own.
+2. In PowerShell run `wsl --install` and restart when Windows asks. Ubuntu then opens and asks you to pick a username and password.
+3. In the Ubuntu window:
+
+   ```bash
+   curl -fsSL https://guaardvark.com/install.sh | bash
+   ```
+
+4. Open `http://localhost:5173` in your Windows browser.
+
+**Run it in the background.** Run this once from `~/guaardvark` and Guaardvark keeps running after the Ubuntu window closes:
+
+```bash
+./start.sh --wsl-keep-alive
+```
+
+It sets `instanceIdleTimeout=-1` and `vmIdleTimeout=-1` in your Windows `.wslconfig` and saves the file it found as `.wslconfig.before-guaardvark`. Then run `wsl --shutdown` in PowerShell, open Ubuntu again and run `./start.sh`. From then on `./stop.sh` stops Guaardvark and `wsl --shutdown` stops Ubuntu.
+
+**More memory.** A `memory=` line under `[wsl2]` in the same `.wslconfig` sets how much of the PC's RAM Ubuntu may use; the default is half.
+
+**Or in containers.** Docker Desktop runs the same studio from the images on Docker Hub; its steps are under [On Windows 11 (Docker Desktop)](#alternative-docker-linux) below. Both ways run on WSL2, so `wsl --install` comes first either way. Pictures and clips from each are at [guaardvark.com/windows](https://guaardvark.com/windows/).
+
 ## Alternative: Docker (Linux)
 
 To run Guaardvark without a native Python install:
 
 ```bash
-./start-docker.sh          # CPU
-./start-docker.sh --gpu    # NVIDIA GPU (requires nvidia-container-toolkit)
+./start-docker.sh --gpu --pull   # NVIDIA GPU, images downloaded from Docker Hub
+./start-docker.sh --pull         # CPU
 ```
 
+`--pull` downloads [guaardvark/guaardvark](https://hub.docker.com/r/guaardvark/guaardvark) and its web UI image, built from each release with PyTorch 2.14.1 for GTX 16 and RTX 20 series cards onward on an NVIDIA driver 580 or newer. Leave it off to build the images on your machine, which also covers older cards and drivers; `--pull` does that by itself when it finds one. On Linux `--gpu` needs NVIDIA Container Toolkit (below).
+
 Docker runs five containers: the backend (the API, Celery and its scheduler), the UI, PostgreSQL with pgvector, Redis and Ollama. ComfyUI (the image and video models), Audio Foundry and Upscaling run inside the backend container: install and start them from their cards on the **Plugins** page, and each model from its own Install button, as in a native install. The screen agent's desktop is not in the default image; use `./start.sh` for it.
+
+**AMD Radeon (Linux).** Each release also publishes `guaardvark/guaardvark:latest-rocm` (and `<version>-rocm`, such as `3.6.0-rocm`): PyTorch 2.14.1 on ROCm 7.2, with `rocm-smi` for the card's VRAM and metrics. It runs with rootless Podman and the systemd units in [docker/quadlet/](docker/quadlet/README.md), which pass the card through (`/dev/kfd`, `/dev/dri`). What has run on an RX 7900 XTX is in [docs/HARDWARE.md](docs/HARDWARE.md#amd-rocm).
+
+**On Windows 11 (Docker Desktop).** The same containers run on Docker Desktop with its WSL 2 backend, and they reach an NVIDIA card with no Container Toolkit step:
+
+1. Install a current NVIDIA driver and [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) on Windows, with Ubuntu from `wsl --install`.
+2. In Docker Desktop open Settings > Resources > WSL integration and switch on your Ubuntu.
+3. In the Ubuntu window:
+
+   ```bash
+   git clone https://github.com/guaardvark/guaardvark.git
+   cd guaardvark
+   ./start-docker.sh --gpu --pull
+   ```
+
+4. Pull the two first models (below), then open `http://localhost:5173` in your Windows browser.
 
 **First models.** Ollama starts empty under Docker. Pull a chat model and the embedding model document search uses, once:
 
@@ -113,6 +157,10 @@ docker compose exec ollama ollama pull nomic-embed-text
 ```
 
 `gemma4:12b` is the pick for a graphics card with 12 GB or more; smaller machines get `qwen3.5:4b`.
+
+**The `guaardvark` command.** It is installed in the backend container: `docker compose exec backend guaardvark status`. From this machine's own shell, `pip install guaardvark` reaches the container on port 5000; for the actions that need the API key, set `GUAARDVARK_ROOT` to this folder (the CLI then reads the key from `.env` here) or export `GUAARDVARK_API_KEY`.
+
+**Extensions.** The `extensions/` folder next to `docker-compose.yml` is mounted into the backend read-only: copy an extension there (see `extensions/README.md`), then `docker compose restart backend`. Its backend part loads; pages it adds to the web UI do not, since the UI image is built without them, and its `requirements.txt` is not installed.
 
 **What is kept.** Models, the plugins' apps and Python environments, uploads, generated media, the database and your settings live in Docker volumes, so restarts, `docker compose down` and image rebuilds keep them; `docker compose down -v` deletes them. Leave room on the disk Docker uses: Audio Foundry's three Python environments come to about 23 GB, built on its first start (several minutes), and the models are several GB each (Wan 2.2 5B with its encoders is 17 GB).
 
@@ -135,6 +183,15 @@ sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart doc
 ```
 
 `./start-docker.sh` checks each of these before it builds anything and says which one is missing. With `--gpu` it also builds PyTorch for your card and driver: `cu132` (PyTorch 2.14.1) for GTX 16, RTX 20 and newer on driver 580 or later, `cu126` (2.14.1) for GTX 10 and Volta cards or a driver from 525 to 579, `cu128` (2.11) for RTX 50 cards on a driver below 580, and `cu118` (2.7.1) for a driver older than 525. Set `GUAARDVARK_TORCH_CHANNEL` to pick one yourself.
+
+**Updating.** In the folder you cloned, bring the code up to date and start again:
+
+```bash
+git pull
+./start-docker.sh --gpu --pull     # leave out --gpu on a CPU install
+```
+
+`--pull` downloads the newest release's images and recreates the containers on the same volumes, so everything under **What is kept** carries over. To pin one release instead, check out its tag and name it: `git checkout v3.5.2`, then `./start-docker.sh --gpu --pull=3.5.2`. An install on Windows 11 with Docker Desktop went from 3.5.1 to 3.5.2 with `git checkout v3.5.2` and `./start-docker.sh --gpu --pull`, and came back with its chat models, its indexed documents, its pictures and video, and ComfyUI running.
 
 **Restarts.** The containers start again on their own after a reboot or a crash. `docker compose down` stops them until the next `./start-docker.sh`.
 

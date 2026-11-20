@@ -13,7 +13,8 @@ import re
 import threading
 import time
 import weakref
-from typing import Dict, NamedTuple, Optional, Tuple
+from contextlib import contextmanager
+from typing import Dict, Iterator, List, NamedTuple, Optional, Tuple
 
 import requests
 
@@ -63,6 +64,10 @@ _unreachable_ttl = 15  # seconds
 # instances from different threads.
 _provisional_llms: "weakref.WeakValueDictionary[int, object]" = weakref.WeakValueDictionary()
 _provisional_lock = threading.Lock()
+
+# Windows of model loads still under way in this process (full model name -> num_ctx list).
+_loads_in_flight: Dict[str, List[int]] = {}
+_loads_lock = threading.Lock()
 
 
 class OverheadProfile(NamedTuple):
@@ -155,10 +160,11 @@ def missing_model_user_message(error_str: str) -> Optional[str]:
     if not match:
         return None
     name = match.group(1)
-    return (
-        f"The model {name} is not installed in Ollama yet, so this can't be answered. "
-        f"Run ./start.sh again to download the models this machine needs, or run: ollama pull {name}"
-    )
+    if os.environ.get("GUAARDVARK_DOCKER") == "1":
+        how = f"Run: docker compose exec ollama ollama pull {name}"
+    else:
+        how = f"Run ./start.sh again to download the models this machine needs, or run: ollama pull {name}"
+    return f"The model {name} is not installed in Ollama yet, so this can't be answered. {how}"
 
 
 def is_vision_model(model_name: str) -> bool:
@@ -603,6 +609,18 @@ def installed_name_for(model_name: str, tags: Optional[list] = None) -> Optional
     return same_build[0] if same_build else None
 
 
+def model_installed(model_name: str) -> bool:
+    """Whether Ollama lists ``model_name`` now.
+
+    A listed model can be described, so a recent "no model info" answer for
+    it is dropped: sizing right after a pull then uses the real model.
+    """
+    if not installed_name_for(model_name):
+        return False
+    _unreachable_at.pop(model_name, None)
+    return True
+
+
 def is_llamacpp_alias(model_name: str) -> bool:
     """Whether ``model_name`` is a ``llamacpp:<digest>`` build alias."""
     return bool(_LLAMACPP_ALIAS.match((model_name or "").strip().lower()))
@@ -896,6 +914,44 @@ def compute_optimal_num_ctx(model_name: str) -> int:
     return decide_num_ctx(model_name).num_ctx
 
 
+@contextmanager
+def load_in_flight(model_name: str, num_ctx: Optional[int]) -> Iterator[None]:
+    """Mark a request that may load ``model_name`` at ``num_ctx`` for as long as it runs.
+
+    Mid-load a model already holds most of its memory but is not yet in
+    /api/ps, so sizing it then counts that memory as someone else's: gemma4:12b
+    on a 16 GB card was sized 8,192 while a warm-up loaded it at 32,768. A
+    request with the other window makes Ollama reload the model, and a
+    keep_alive -1 pin on the loaded copy cancels that unload, so the request
+    waits until its client gives up (Ollama 0.40.16, Keep ready on: every chat
+    timed out; 2026-11-13). While a load is marked here, sizing that model
+    returns the window being loaded.
+    """
+    key = _full_model_name(model_name) if model_name else ""
+    if not key or not num_ctx or int(num_ctx) <= 0:
+        yield
+        return
+    with _loads_lock:
+        _loads_in_flight.setdefault(key, []).append(int(num_ctx))
+    try:
+        yield
+    finally:
+        with _loads_lock:
+            windows = _loads_in_flight.get(key, [])
+            if int(num_ctx) in windows:
+                windows.remove(int(num_ctx))
+            if not windows:
+                _loads_in_flight.pop(key, None)
+
+
+def _window_in_flight(model_name: str) -> int:
+    """The window of a load of ``model_name`` this process has under way, else 0."""
+    key = _full_model_name(model_name) if model_name else ""
+    with _loads_lock:
+        windows = _loads_in_flight.get(key)
+        return windows[0] if windows else 0
+
+
 def decide_num_ctx(model_name: str) -> NumCtxDecision:
     """
     Compute the optimal num_ctx for a model based on available system resources.
@@ -922,6 +978,11 @@ def decide_num_ctx(model_name: str) -> NumCtxDecision:
         logger.info("No model info for '%s', using default num_ctx=%d", model_name, default)
         return NumCtxDecision(default, resolved=False)
 
+    loading_at = _window_in_flight(model_name)
+    if loading_at:
+        logger.info("Adaptive context for '%s': num_ctx=%d, the window it is being loaded with", model_name, loading_at)
+        return NumCtxDecision(loading_at, resolved=True)
+
     entry = loaded_entry(model_name)
     own_ram_mb = _own_ram_mb(entry)
     resources = _sizing_resources(model_name)
@@ -946,7 +1007,42 @@ def decide_num_ctx(model_name: str) -> NumCtxDecision:
             model_name, max(num_ctx, kept), entry.get("context_length"), num_ctx, own_ram_mb, with_own,
         )
         num_ctx = max(num_ctx, kept)
+    on_gpu = _gpu_loaded_window(entry, model_info)
+    if on_gpu > num_ctx:
+        logger.info(
+            "Adaptive context for '%s': num_ctx=%d, the window it is loaded with on the GPU "
+            "(%d sized against the memory left beside it)",
+            model_name, on_gpu, num_ctx,
+        )
+        num_ctx = on_gpu
     return NumCtxDecision(num_ctx, resolved=True)
+
+
+def _gpu_loaded_window(entry: Optional[dict], model_info: dict) -> int:
+    """The window a model loaded entirely on the GPU runs at, capped at
+    MAX_NUM_CTX and its native window; 0 when it is not loaded that way.
+
+    Free GPU memory read while the model is loaded counts its own share as
+    used, so the same model sized before and after its load got two windows
+    (gemma4:12b on a 16 GB card: 32,768 on the empty card, 8,192 once loaded),
+    and the request with the second one reloaded it. That it is loaded on the
+    GPU at this window is the proof it fits. Its share cannot be added back
+    from /api/ps instead: Ollama 0.40's llamacpp runner reports 1.4 GB for a
+    gemma4:12b that holds 7.8 GiB.
+    """
+    if not entry:
+        return 0
+    try:
+        size = int(entry.get("size") or 0)
+        size_vram = int(entry.get("size_vram") or 0)
+        loaded_ctx = int(entry.get("context_length") or 0)
+    except (TypeError, ValueError):
+        return 0
+    if size <= 0 or size_vram < size or loaded_ctx <= 0:
+        return 0
+    native_ctx = model_info.get("native_context", 0)
+    ceiling = min(native_ctx, MAX_NUM_CTX) if native_ctx > 0 else MAX_NUM_CTX
+    return min(loaded_ctx, ceiling)
 
 
 def _own_ram_mb(entry: Optional[dict]) -> float:
@@ -1141,7 +1237,17 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
     if not model_info:
         return True, "Model info unavailable — proceeding with defaults", override or _fallback_num_ctx(model_name)
 
-    resources = _sizing_resources(model_name, _own_ram_mb(loaded_entry(model_name)))
+    loading_at = _window_in_flight(model_name)
+    if loading_at:
+        return True, f"OK — being loaded, num_ctx={loading_at}", loading_at
+
+    entry = loaded_entry(model_name)
+    if _gpu_loaded_window(entry, model_info):
+        # Already on the GPU: the memory checks below would count it against itself.
+        recommended_ctx = compute_optimal_num_ctx(model_name)
+        return True, f"OK — loaded on the GPU, recommended num_ctx={recommended_ctx}", recommended_ctx
+
+    resources = _sizing_resources(model_name, _own_ram_mb(entry))
     total_available_mb = (
         max(0, resources["gpu_free_mb"] - GPU_RESERVE_MB) +
         max(0, resources["ram_free_mb"] - ram_reserve_mb(resources.get("ram_total_mb", 0.0)))
@@ -1271,6 +1377,90 @@ def refresh_context_window(llm) -> int:
         getattr(llm, "model", ""), decision.num_ctx, current,
     )
     return decision.num_ctx
+
+
+def chat_num_ctx(llm) -> int:
+    """The ``num_ctx`` a chat call through ``llm`` sends.
+
+    Ollama reloads a loaded model when a request asks for another window, so
+    the chat engine and every request that loads the model ahead of a chat
+    (startup warm-up, model switch, Keep ready) take the window from here.
+    """
+    try:
+        window = refresh_context_window(llm)
+    except Exception:
+        window = getattr(llm, "context_window", None)
+    if not window or window <= 0:
+        try:
+            window = compute_optimal_num_ctx(getattr(llm, "model", "gemma4:e4b"))
+        except Exception:
+            window = FALLBACK_NUM_CTX
+    return int(window)
+
+
+def warm_chat_model(llm, keep_alive, timeout=(10.0, 900.0)) -> dict:
+    """Load ``llm``'s model at the window its first chat asks for; returns Ollama's reply.
+
+    One generated token through /api/generate, so the load and the first
+    generation are both paid here. The read timeout covers a cold load on a
+    CPU-only machine with a spinning disk. Raises when the request fails.
+    """
+    model = llm.model
+    num_ctx = chat_num_ctx(llm)
+    with load_in_flight(model, num_ctx):
+        resp = requests.post(
+            f"{get_ollama_base_url()}/api/generate",
+            json={
+                "model": model,
+                "prompt": "ok",
+                "stream": False,
+                "options": {"num_predict": 1, "num_ctx": num_ctx},
+                "keep_alive": keep_alive,
+            },
+            timeout=timeout,
+        )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def follow_loaded_window(llm) -> int:
+    """Set ``llm`` to the window its model is loaded with on the GPU; returns the window in force.
+
+    For a long-lived instance in a process that does not own the chat model's
+    load (the Celery worker's startup LLM). Loads under way are known per
+    process, so an instance built while another process loads the model is
+    sized against a card that looks half full, and that size sticks: the
+    worker got 8,192 beside a 32,768 load. Its next request then reloads the
+    model, and with Keep ready pinning the loaded copy the request never runs
+    (see :func:`load_in_flight`). Following the loaded copy costs one cached
+    /api/ps read per request. Not loaded on the GPU, or sized by
+    GUAARDVARK_NUM_CTX: the instance keeps its own window.
+    """
+    current = int(getattr(llm, "context_window", 0) or 0)
+    model = getattr(llm, "model", "") or ""
+    if not model:
+        return current
+    try:
+        if num_ctx_override(model):
+            return current
+        entry = loaded_entry(model)
+        if not entry:
+            return current
+        model_info = get_model_info(model)
+        loaded = _gpu_loaded_window(entry, model_info) if model_info else 0
+    except Exception as e:  # noqa: BLE001
+        logger.debug("Could not read the loaded window of '%s': %s", model, e)
+        return current
+    if not loaded or loaded == current:
+        return current
+    llm.context_window = loaded
+    extra = getattr(llm, "additional_kwargs", None)
+    if isinstance(extra, dict):
+        extra["num_ctx"] = loaded
+    with _provisional_lock:
+        _provisional_llms.pop(id(llm), None)
+    logger.info("num_ctx for '%s': %d, the window it is loaded with (was %d)", model, loaded, current)
+    return loaded
 
 
 def _refresh_provisional_instances(model_name: str) -> None:

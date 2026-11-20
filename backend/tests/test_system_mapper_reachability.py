@@ -110,3 +110,28 @@ def test_a_path_tail_route_collides_with_deeper_paths_in_another_file(tmp_path):
     _result, found = _prefix_findings(tmp_path)
     assert len(found) == 1 and len(found[0].evidence["pairs"]) == 1
 
+
+def test_tree_without_frontend_sources_reports_no_ghosts(tmp_path):
+    # The backend container of a Docker install: routes, no frontend/src.
+    _write(
+        tmp_path / "backend" / "api" / "widgets_api.py",
+        "from flask import Blueprint\n"
+        "bp = Blueprint('widgets', __name__, url_prefix='/api')\n"
+        "@bp.route('/widgets', methods=['GET'])\n"
+        "def list_widgets():\n    return {}\n",
+    )
+    result = reachability.analyze(tmp_path)
+    kinds = [f.kind for f in result["findings"]]
+    assert FindingKind.GHOST_ENDPOINT not in kinds
+    assert FindingKind.GHOST_API_CALLER not in kinds
+    assert kinds.count(FindingKind.FRONTEND_NOT_MAPPED) == 1
+    assert result["stats"]["frontend_sources"] is False
+    assert result["stats"]["ghost_endpoints_total"] == 0
+    assert result["stats"]["backend_routes"] == 1
+    assert result["graph"]["frontend_sources"] is False
+
+
+def test_tree_with_frontend_sources_has_no_not_mapped_note(tmp_path):
+    result = reachability.analyze(_fake_repo(tmp_path))
+    assert result["stats"]["frontend_sources"] is True
+    assert not [f for f in result["findings"] if f.kind == FindingKind.FRONTEND_NOT_MAPPED]

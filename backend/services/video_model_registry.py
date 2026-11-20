@@ -2211,16 +2211,18 @@ def prepare_video_model(model_id: str) -> tuple[bool, str]:
     (no persisted preference, an explicit user-disable still wins, GPU
     conflicts resolved there); GUAARDVARK_PLUGIN_AUTO_ORCHESTRATOR=0 turns it
     off and the error names the model's requirement and how to start ComfyUI
-    (comfyui_down_failure).
+    (comfyui_down_failure). A ComfyUI the user runs themselves (the card's
+    GUAARDVARK_COMFYUI_EXTERNAL switch) is never started here either.
     """
     ready, err = preflight_video_model(model_id)
     if ready or "ComfyUI" not in (err or ""):
         return ready, err
     try:
         from backend.services import plugin_bridge
+        from backend.plugins.plugin_manager import comfyui_is_external
     except Exception:
         return ready, err
-    if not plugin_bridge.auto_orchestrator_enabled():
+    if not plugin_bridge.auto_orchestrator_enabled() or comfyui_is_external():
         return ready, comfyui_down_failure(err, "video")
 
     logger.info("Video model %s needs ComfyUI; starting it", model_id)
@@ -2715,7 +2717,7 @@ def _video_setting(key: str) -> str:
         return ""
 
 
-NO_VIDEO_GPU_MESSAGE = "GPU required for video generation: no NVIDIA GPU detected on this host."
+NO_VIDEO_GPU_MESSAGE = "GPU required for video generation: no supported GPU (NVIDIA, AMD or Apple) detected on this host."
 
 
 def _probe_total_vram_mb():

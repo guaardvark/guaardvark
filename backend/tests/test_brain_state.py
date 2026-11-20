@@ -256,6 +256,36 @@ class TestInitializationDegradation:
         assert "TOOLS:" not in out
 
 
+class TestWarmUpSkipped:
+    """Processes that must not start loading the chat model."""
+
+    def test_a_one_shot_flask_command_starts_no_warm_up(self, monkeypatch):
+        monkeypatch.delenv("CELERY_WORKER_MODE", raising=False)
+        state = BrainState.get_instance()
+        with patch("backend.utils.process_role.one_shot_command", return_value=True), \
+             patch("backend.services.brain_state.threading.Thread") as thread:
+            state._start_warmup()
+        thread.assert_not_called()
+        assert state.health.warm_up_status == WarmUpStatus.READY
+
+    def test_the_celery_worker_starts_no_warm_up(self, monkeypatch):
+        monkeypatch.setenv("CELERY_WORKER_MODE", "true")
+        state = BrainState.get_instance()
+        with patch("backend.services.brain_state.threading.Thread") as thread:
+            state._start_warmup()
+        thread.assert_not_called()
+        assert state.health.warm_up_status == WarmUpStatus.READY
+
+    def test_the_server_starts_the_warm_up(self, monkeypatch):
+        monkeypatch.delenv("CELERY_WORKER_MODE", raising=False)
+        state = BrainState.get_instance()
+        with patch("backend.utils.process_role.one_shot_command", return_value=False), \
+             patch("backend.services.brain_state.threading.Thread") as thread:
+            state._start_warmup()
+        thread.return_value.start.assert_called_once()
+        assert state.health.warm_up_status == WarmUpStatus.WARMING
+
+
 # ---------------------------------------------------------------------------
 # StepBudget (pure accounting)
 # ---------------------------------------------------------------------------

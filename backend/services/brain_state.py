@@ -24,6 +24,9 @@ from .step_budget import StepBudget, TierTelemetry
 
 logger = logging.getLogger(__name__)
 
+# How often a warm-up waiting for its model asks Ollama whether it is installed.
+MODEL_POLL_S = 15
+
 # Re-export for backwards compatibility
 __all__ = [
     "BrainState",
@@ -278,6 +281,8 @@ class BrainState:
         # Internal
         self._initialized = False
         self._warm_up_thread: Optional[threading.Thread] = None
+        # Bumped by each warm-up so one still waiting for its model stops.
+        self._warm_up_generation = 0
         # Flask app handle for live DB reads from worker threads that
         # don't inherit a request context. Captured during initialize().
         self._app = None
@@ -695,40 +700,58 @@ class BrainState:
             logger.info("BrainState: skipping warm-up in the Celery worker")
             self.health.warm_up_status = WarmUpStatus.READY
             return
+        from backend.utils.process_role import one_shot_command
+        if one_shot_command():
+            logger.info("BrainState: skipping warm-up in a one-shot command")
+            self.health.warm_up_status = WarmUpStatus.READY
+            return
         self.health.warm_up_status = WarmUpStatus.WARMING
+        self._warm_up_generation += 1
+        generation = self._warm_up_generation
+        llm, model = self.llm, self.active_model
 
         def _ping():
             try:
-                import requests
-                from backend.config import OLLAMA_BASE_URL
-                from backend.utils.ollama_resource_manager import request_options
-                # Use Ollama's canonical warmup primitive instead of llama_index
-                # chat(): the latter's httpx stack silently timed out on slow
-                # hardware even though Ollama itself was making progress. 15-min
-                # read deadline covers cold-load on pre-AVX2 CPUs with HDDs.
-                resp = requests.post(
-                    f"{OLLAMA_BASE_URL}/api/generate",
-                    json={
-                        "model": self.active_model,
-                        "prompt": "ok",
-                        "stream": False,
-                        # Sized like the chat that follows, so this load is the one that serves it.
-                        "options": request_options(self.active_model, num_predict=1),
-                        "keep_alive": "30m",
-                    },
-                    timeout=(10.0, 900.0),
-                )
-                resp.raise_for_status()
-                self.health.warm_up_status = WarmUpStatus.READY
-                logger.info(f"Model warm-up complete: {self.active_model} is hot")
+                from backend.utils.ollama_resource_manager import warm_chat_model
+                if not self._wait_for_model(model, generation):
+                    return
+                warm_chat_model(llm, keep_alive="30m")
+                if generation == self._warm_up_generation:
+                    self.health.warm_up_status = WarmUpStatus.READY
+                logger.info(f"Model warm-up complete: {model} is hot")
             except Exception as e:
-                self.health.warm_up_status = WarmUpStatus.FAILED
+                if generation == self._warm_up_generation:
+                    self.health.warm_up_status = WarmUpStatus.FAILED
                 logger.warning(f"Model warm-up failed (non-blocking): {e}")
 
         self._warm_up_thread = threading.Thread(
             target=_ping, daemon=True, name="brain-warmup"
         )
         self._warm_up_thread.start()
+
+    def _wait_for_model(self, model: str, generation: int) -> bool:
+        """Return once Ollama lists ``model``; False when a newer warm-up took over.
+
+        Under Docker the backend starts with Ollama empty and the chat model
+        is pulled afterwards, so the warm-up waits for it instead of failing
+        once. A model that arrives after a wait loads only while the GPU is
+        free: by then a render may be running.
+        """
+        from backend.services.chat_keep_ready import _gpu_busy_reason
+        from backend.utils.ollama_resource_manager import model_installed
+
+        waited = False
+        while generation == self._warm_up_generation:
+            if model_installed(model) and not (waited and _gpu_busy_reason()):
+                if waited:
+                    self.health.warm_up_status = WarmUpStatus.WARMING
+                return True
+            if not waited:
+                waited = True
+                self.health.warm_up_status = WarmUpStatus.PENDING
+                logger.info(f"Model warm-up: waiting for Ollama to list {model}")
+            time.sleep(MODEL_POLL_S)
+        return False
 
     # -- Refresh ------------------------------------------------------------
 

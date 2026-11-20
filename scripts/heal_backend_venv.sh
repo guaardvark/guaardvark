@@ -25,6 +25,8 @@ LOG_FILE="$LOG_DIR/heal_backend_venv.log"
 
 # shellcheck source=lib/venv_pins.sh
 . "$SCRIPT_DIR/lib/venv_pins.sh"
+# shellcheck source=lib/ollama_lifecycle.sh
+. "$SCRIPT_DIR/lib/ollama_lifecycle.sh"   # ollama_flag_on
 
 SKIP_CV=0
 COMFYUI_ONLY=0
@@ -274,11 +276,19 @@ strip_appledouble_sidecars() {
 
 verify_heal() {
     log "=== Step 6: verification ==="
-    local failed=0
+    local failed=0 bad
+    # scripts/lib/venv_pins.sh is the one place the ML-stack pins are written.
+    bad="$(venv_pins_violated "$VENV_PYTHON" "${GV_ML_PINS[@]}")" || true
+    if [ -n "$bad" ]; then
+        log "  FAIL pins: ${bad//$'\n'/ }"
+        failed=1
+    else
+        log "  OK  pins (${GV_ML_PINS[*]})"
+    fi
     "$VENV_PYTHON" -c "
 import sys
 checks = [
-    ('numpy 1.x', 'import numpy; assert numpy.__version__.startswith(\"1.\")'),
+    ('numpy', 'import numpy'),
     ('torch', 'import torch'),
     ('flask', 'import flask'),
     ('celery', 'import celery'),
@@ -324,6 +334,18 @@ restart_comfyui_if_requested() {
         return 0
     fi
     log "=== Step 7: restart ComfyUI ==="
+    # The ComfyUI card's switch, read as stop.sh reads it: .env wins over the environment.
+    local external="${GUAARDVARK_COMFYUI_EXTERNAL:-}" line=""
+    if [ -f "$REPO_ROOT/.env" ]; then
+        line=$(grep -E '^GUAARDVARK_COMFYUI_EXTERNAL=' "$REPO_ROOT/.env" | tail -1 || true)
+    fi
+    if [ -n "$line" ]; then
+        external="${line#*=}"
+    fi
+    if ollama_flag_on "$external"; then
+        log "Skipping ComfyUI restart: you run ComfyUI yourself (GUAARDVARK_COMFYUI_EXTERNAL)"
+        return 0
+    fi
     if [ -x "$REPO_ROOT/plugins/comfyui/scripts/stop.sh" ]; then
         bash "$REPO_ROOT/plugins/comfyui/scripts/stop.sh" || true
         sleep 2

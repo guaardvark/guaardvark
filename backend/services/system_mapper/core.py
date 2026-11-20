@@ -45,6 +45,7 @@ class FindingKind(str, Enum):
     HOT_PATH_SPIKE = "hot-path-spike"          # unusually high recent hit rate
     CONTEXTUAL_DISCOVERY = "contextual-discovery"  # fired at runtime but no static importer
     NO_SUBSYSTEM = "no-subsystem"              # source files subsystems.json does not claim
+    FRONTEND_NOT_MAPPED = "frontend-not-mapped"  # no frontend/src, route callers not checked
 
 
 @dataclass

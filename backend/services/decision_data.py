@@ -430,7 +430,7 @@ DECISIONS: dict = {
         },
         "state": {"request": ("user", 500)},
         "anchor": "backend/services/social_outreach/intent.py classify_outreach_utterance",
-        "precheck": "an outreach command arrived (HTTP /intent, chat tool, slash freeform, llx outreach)",
+        "precheck": "an outreach command arrived (HTTP /intent, chat tool, slash freeform, guaardvark outreach)",
         "fallback": "the existing JSON classification through nl_control_plane.json_chat",
         "safe_side": "refuse",
         "unlocks": ("approve", "scout_and_draft"),

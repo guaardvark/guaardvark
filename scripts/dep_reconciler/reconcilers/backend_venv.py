@@ -18,9 +18,9 @@ from scripts.dep_reconciler.base import Reconciler
 CRITICAL_PACKAGES = {
     "primp": "primp==2.0.1",  # web search HTTP client
     "flask": "Flask==3.1.3",
-    "celery": "celery==5.4.0",
-    "redis": "redis==5.0.4",
-    "llama_index": "llama-index-core>=0.13.0,<0.15.0",
+    "celery": "celery==5.7.0",
+    "redis": "redis==8.1.0",
+    "llama_index": "llama-index-core>=0.14.26,<0.15.0",
     "lxml": "lxml==6.1.1",
     "websocket": "websocket-client==1.8.0",  # ComfyUI ws progress bridge + outreach scrapers
     "alembic": "alembic",  # Not in legacy list but needed by the Alembic reconciler

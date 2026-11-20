@@ -59,12 +59,15 @@ for arg in "$@"; do
       echo "  --plugins          Start all enabled plugins after backend is up"
       echo "  --profile NAME     Select a profile (workstation, creator, or an extension's);"
       echo "                     written to .env so it persists. See backend/profiles/README.md"
+      echo "  --wsl-keep-alive   WSL only: keep Guaardvark running after the terminal closes"
+      echo "                     (writes two idle timeouts to your Windows .wslconfig, then exits)"
       echo "  --help, -h         Show this help"
       exit 0
       ;;
     --fast) FAST_START=1 ;;
     --clean) FORCE_CLEAN=1 ;;
     --external-ollama) EXTERNAL_OLLAMA_FLAG=1 ;;
+    --wsl-keep-alive) WSL_KEEP_ALIVE_FLAG=1 ;;
     --test) TEST_MODE=1 ;;
     --no-voice) VOICE_CHECK=0; VOICE_FLAG_GIVEN=1 ;;
     --profile) EXPECT_PROFILE=1 ;;
@@ -153,6 +156,19 @@ if [ -f "$SCRIPT_DIR/scripts/platform/detect.sh" ]; then
     source "$SCRIPT_DIR/scripts/platform/detect.sh"
     detect_platform
     [ -f "$GUAARDVARK_PLATFORM_BACKEND" ] && source "$GUAARDVARK_PLATFORM_BACKEND"
+fi
+
+# WSL stops the distribution when its last terminal closes; see scripts/platform/wsl.sh.
+if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && [ -f "$SCRIPT_DIR/scripts/platform/wsl.sh" ]; then
+    source "$SCRIPT_DIR/scripts/platform/wsl.sh"
+fi
+if [ "${WSL_KEEP_ALIVE_FLAG:-0}" = 1 ]; then
+    if [ "${GUAARDVARK_IS_WSL:-0}" != 1 ]; then
+        echo "--wsl-keep-alive only applies inside WSL; nothing changed."
+        exit 0
+    fi
+    wsl_keep_alive_enable
+    exit $?
 fi
 
 # is_macos - single source of truth for "are we on Darwin?". Prefers the
@@ -1935,8 +1951,8 @@ _ffmpeg_libs_missing() {
     [ -x "$ldc" ] && ! "$ldc" -p 2>/dev/null | grep -q 'libavcodec\.so\.'
 }
 if ! command_exists ffmpeg || _ffmpeg_libs_missing; then
-    vader_warn "FFmpeg or its shared libraries not found. Voice features and audio file I/O require them."
     if command_exists apt-get && [ "$FAST_START" -ne 1 ]; then
+        vader_info "Installing FFmpeg (voice features and audio file I/O need it)"
         _vader_sudo_v "install ffmpeg" || true
         if _vader_run "$SETUP_LOG" -- sudo apt-get update && _vader_run "$SETUP_LOG" -- sudo apt-get install -y ffmpeg; then
             vader_success "FFmpeg installed successfully"
@@ -1945,7 +1961,7 @@ if ! command_exists ffmpeg || _ffmpeg_libs_missing; then
             VOICE_AVAILABLE=0
         fi
     else
-        vader_warn "FFmpeg not available. Voice features will be unavailable. Install FFmpeg to enable voice."
+        vader_warn "FFmpeg or its shared libraries not found. Voice features and audio file I/O will be unavailable until FFmpeg is installed."
         VOICE_AVAILABLE=0
     fi
 fi
@@ -2583,7 +2599,16 @@ vader_separator
 
 # ── ComfyUI detection (on-demand start for video generation) ──
 COMFYUI_DIR="${GUAARDVARK_COMFYUI_DIR:-$GUAARDVARK_ROOT/plugins/comfyui/ComfyUI}"
-if [ -d "$COMFYUI_DIR" ]; then
+if ollama_flag_on "${GUAARDVARK_COMFYUI_EXTERNAL:-}"; then
+    # External ComfyUI: the user runs it; start.sh only checks that it answers.
+    _comfy_url="${GUAARDVARK_COMFYUI_URL:-http://127.0.0.1:8188}"
+    _comfy_url="${_comfy_url%/}"
+    if curl -sf --max-time 3 -o /dev/null "$_comfy_url/" 2>/dev/null; then
+        vader_success "Using external ComfyUI at $_comfy_url (GUAARDVARK_COMFYUI_EXTERNAL=1; never started or stopped by these scripts)"
+    else
+        vader_warn "GUAARDVARK_COMFYUI_EXTERNAL=1 but nothing answers at $_comfy_url. Start your ComfyUI; Guaardvark will not start one."
+    fi
+elif [ -d "$COMFYUI_DIR" ]; then
     if curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:8188" 2>/dev/null | grep -q "200"; then
         vader_success "ComfyUI detected and running (port 8188)"
     else
@@ -3246,7 +3271,15 @@ if [ "$FRONTEND_CAN_SERVE" -eq 1 ]; then
     # vite.config had only the dev `server:` block). The build above is kept as a
     # belt-and-suspenders correctness check, but the dev server serves src/ directly.
     vader_info "Launching frontend (Vite dev server, reliable WS proxy) in background..."
-    nohup $NPM_CMD run dev -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 &
+    # Vite's dev server exits when its terminal hangs up or its stdin closes, and
+    # npm does not pass nohup's ignore on to it. On WSL that takes the studio down
+    # with the window, so there it runs in its own session with stdin detached;
+    # CI=true is Vite's own switch for "do not watch stdin".
+    if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && command -v setsid >/dev/null 2>&1; then
+        setsid nohup env CI=true $NPM_CMD run dev -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 < /dev/null &
+    else
+        nohup $NPM_CMD run dev -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 &
+    fi
     FRONTEND_PID=$!
     echo "$FRONTEND_PID" > "$SCRIPT_DIR/pids/frontend.pid"
     _vader_sleep 3 "starting the frontend"
@@ -3312,6 +3345,10 @@ vader_separator
 DISPLAY_PLUGINS="vision_pipeline"
 # Plugins managed elsewhere in start.sh (skip in the loop)
 SKIP_PLUGINS="ollama gpu_embedding"
+# A ComfyUI the user runs themselves is never started here (the ComfyUI card's switch).
+if ollama_flag_on "${GUAARDVARK_COMFYUI_EXTERNAL:-}"; then
+    SKIP_PLUGINS="$SKIP_PLUGINS comfyui"
+fi
 
 AGENT_DISPLAY_STARTED=0
 
@@ -3557,11 +3594,27 @@ else
     fi
 fi
 
+# Under WSL's default NAT networking that address is internal to Windows.
+WSL_UNREACHABLE_LAN=""
+if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && [ -n "$LAN_IPS_PRINTED" ] \
+    && declare -F wsl_lan_reachable >/dev/null && ! wsl_lan_reachable; then
+    WSL_UNREACHABLE_LAN="${LAN_IPS_PRINTED#http://}"
+    WSL_UNREACHABLE_LAN="${WSL_UNREACHABLE_LAN%:*}"
+    LAN_IPS_PRINTED=""
+fi
+
 vader_ready_card "$DURATION" \
     "http://localhost:$VITE_PORT" \
     "http://localhost:$FLASK_PORT" \
     "$LAN_IPS_PRINTED" \
     "$BACKEND_STARTUP_LOG_FILE"
+
+if [ -n "$WSL_UNREACHABLE_LAN" ]; then
+    wsl_network_note "$WSL_UNREACHABLE_LAN" "$VITE_PORT"
+fi
+if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && declare -F wsl_keep_alive_note >/dev/null; then
+    wsl_keep_alive_note
+fi
 
 # The ready card alone reads as "everything works". When the Ollama these
 # scripts manage has no chat model, chat cannot answer, so say that under it.

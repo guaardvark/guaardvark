@@ -41,6 +41,21 @@ def read_flask_port_from_env(root: Path | None = None) -> int | None:
     return None
 
 
+def _env_file_has(root: Path, key: str) -> bool:
+    try:
+        return any(line.strip().startswith(f"{key}=") for line in (root / ".env").read_text().splitlines())
+    except OSError:
+        return False
+
+
+def is_docker_checkout(root: Path) -> bool:
+    """A checkout that runs Guaardvark with ./start-docker.sh: its .env holds the
+    database password start-docker.sh writes, and start.sh has never built
+    backend/venv there. Starting start.sh in it would set up a second, native
+    install next to the containers."""
+    return _env_file_has(root, "GUAARDVARK_POSTGRES_PASSWORD") and not (root / "backend" / "venv").exists()
+
+
 def resolve_flask_port(root: Path | None = None) -> int:
     """Resolution order: env → repo .env → runtime.json → default 5000."""
     env_port = os.environ.get("FLASK_PORT") or os.environ.get("FLASK_RUN_PORT")
@@ -140,7 +155,20 @@ def ensure_backend_running(console=None, quiet: bool = False) -> tuple[str, bool
 
     start_script = root / "start.sh"
     if not start_script.is_file():
+        if os.environ.get("GUAARDVARK_DOCKER") == "1":
+            # Inside the backend container: the API is this container's own
+            # process and Docker restarts it, so there is nothing to start here.
+            raise RuntimeError(
+                f"The backend is not answering at {server_url}. It runs in this container; "
+                "on the host, `docker compose logs backend` shows why, and ./start-docker.sh starts it again."
+            )
         raise RuntimeError(f"start.sh not found at {root}")
+    if is_docker_checkout(root):
+        raise RuntimeError(
+            f"The backend is not answering at {server_url}. {root} runs Guaardvark in Docker: "
+            "start it with ./start-docker.sh there, and if its API is published on another "
+            "port, set GUAARDVARK_SERVER to it."
+        )
 
     if console and not quiet:
         console.print(f"[llx.dim]Starting backend (Postgres, Redis, Flask) on port {port}...[/llx.dim]")

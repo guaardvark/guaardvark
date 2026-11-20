@@ -225,7 +225,7 @@ def _chat_num_ctx(model: str) -> Optional[int]:
     manager's sizing for the model.
     """
     from backend.services.brain_state import BrainState
-    from backend.utils.ollama_resource_manager import refresh_context_window, resolve_num_ctx
+    from backend.utils.ollama_resource_manager import chat_num_ctx, resolve_num_ctx
 
     state = BrainState.existing()
     candidates = []
@@ -238,12 +238,7 @@ def _chat_num_ctx(model: str) -> Optional[int]:
         name = getattr(llm, "model", None)
         if not name or not (same_model(name, model) or _same_build(name, model)):
             continue
-        try:
-            window = refresh_context_window(llm)
-        except Exception:
-            window = getattr(llm, "context_window", 0)
-        if window and window > 0:
-            return int(window)
+        return chat_num_ctx(llm)
     try:
         return resolve_num_ctx(model)
     except Exception:
@@ -271,9 +266,11 @@ def _load(model: str) -> None:
     num_ctx = _chat_num_ctx(model)
     if num_ctx:
         body["options"] = {"num_ctx": num_ctx}
+    from backend.utils.ollama_resource_manager import load_in_flight
     try:
         # An empty prompt loads the model and returns; keep_alive -1 keeps it.
-        response = requests.post(f"{_ollama_url()}/api/generate", json=body, timeout=300)
+        with load_in_flight(model, num_ctx):
+            response = requests.post(f"{_ollama_url()}/api/generate", json=body, timeout=300)
         response.raise_for_status()
         _set_status("ready", model=model)
         logger.info("Keep ready: %s loaded at num_ctx %s in %.1f s", model, num_ctx, time.monotonic() - started)

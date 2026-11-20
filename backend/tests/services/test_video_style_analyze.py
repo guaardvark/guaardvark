@@ -32,7 +32,8 @@ def clip(tmp_path_factory):
         for i, (src, dur) in enumerate(zip(SOURCES, DURATIONS)):
             seg = d / f"seg{i}.mp4"
             subprocess.run([
-                "ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", f"{src}:size=320x180:rate=24:duration={dur}",
+                "ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+                f"{src}{':' if '=' in src else '='}size=320x180:rate=24:duration={dur}",
                 "-f", "lavfi", "-i", f"sine=frequency={220 * (i + 1)}:duration={dur}",
                 "-c:v", "libx264", "-pix_fmt", "yuv420p", "-g", "12", "-c:a", "aac", "-shortest", str(seg),
             ], check=True, timeout=120)

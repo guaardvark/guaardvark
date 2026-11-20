@@ -134,8 +134,13 @@ export const useComfyUpdate = (plugin, showMessage) => {
 
   const result = status && RESULT[status.state] && resultKey(status) !== dismissed ? status : null;
 
+  // With "I run ComfyUI myself" on, this checkout's tree is not the ComfyUI in
+  // use and the backend refuses every job on it, so none is offered.
+  const external = Boolean(check?.external);
+
   // A crash mid-update left ComfyUI half switched; only Repair is offered until it is put back.
-  const needsRepair = !running && (Boolean(check?.needs_repair) || status?.state === 'needs_repair');
+  const needsRepair =
+    !running && !external && (Boolean(check?.needs_repair) || status?.state === 'needs_repair');
   const repair = needsRepair
     ? {
         paths: check?.repair?.paths || [],
@@ -152,12 +157,13 @@ export const useComfyUpdate = (plugin, showMessage) => {
     result,
     dialog,
     busy,
-    installed: check?.installed || null,
-    installable: Boolean(check?.installable) && !running && !needsRepair,
-    available: Boolean(check?.available) && !running && !needsRepair,
-    previous: (!running && !needsRepair && check?.previous) || null,
+    installed: (!external && check?.installed) || null,
+    installable: Boolean(check?.installable) && !running && !needsRepair && !external,
+    available: Boolean(check?.available) && !running && !needsRepair && !external,
+    previous: (!running && !needsRepair && !external && check?.previous) || null,
     blocked: check?.busy || null,
     repair,
+    refresh: refreshCheck,
     openInstall: () => setDialog('install'),
     openUpdate: () => setDialog('update'),
     openRestore: () => setDialog('restore'),

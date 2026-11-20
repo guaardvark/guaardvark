@@ -1,4 +1,3 @@
-import os
 import typer
 
 from llx import __version__
@@ -104,7 +103,9 @@ def _maybe_bootstrap_backend() -> None:
             pass
         if console:
             console.print(f"[llx.warning]Could not auto-start backend: {e}[/llx.warning]")
-            console.print("[llx.dim]Try: guaardvark start --backend-only or ./start.sh[/llx.dim]")
+            # A Docker install's message already says how to start it.
+            if "start-docker.sh" not in str(e):
+                console.print("[llx.dim]Try: guaardvark start --backend-only or ./start.sh[/llx.dim]")
 
 
 app.command("health")(health)
@@ -249,9 +250,6 @@ def main(
 
 
 def run():
-    import sys as _sys
-    if _sys.argv and os.path.basename(_sys.argv[0]) == "llx":
-        print("Warning: 'llx' is deprecated. Use 'guaardvark' instead.", file=_sys.stderr)
     app()
 
 

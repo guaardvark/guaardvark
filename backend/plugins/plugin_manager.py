@@ -51,14 +51,23 @@ GLOBAL_COOLDOWN_AFTER_GPU_S = 8.0  # global cooldown after a GPU op (CUDA needs 
 # page and the gate agree on which plugins contend for the GPU.
 GPU_EXCLUSIVE_PLUGIN_IDS = {'ollama', 'comfyui'}
 
-# The Ollama card's "I run Ollama myself: never start or stop it" switch. The
-# settings API writes it to .env; start.sh and stop.sh read it from there.
+# The "I run it myself: never start or stop it" switches on the Ollama and
+# ComfyUI cards. The settings API writes them to .env; start.sh and stop.sh
+# read them from there.
 OLLAMA_EXTERNAL_ENV = "GUAARDVARK_OLLAMA_EXTERNAL"
 OLLAMA_EXTERNAL_SWITCH = "I run Ollama myself: never start or stop it"
+COMFYUI_EXTERNAL_ENV = "GUAARDVARK_COMFYUI_EXTERNAL"
+COMFYUI_EXTERNAL_SWITCH = "I run ComfyUI myself: never start or stop it"
+
+# plugin id -> (name on the card, switch label)
+_EXTERNAL_SWITCHES = {
+    'ollama': ('Ollama', OLLAMA_EXTERNAL_SWITCH),
+    'comfyui': ('ComfyUI', COMFYUI_EXTERNAL_SWITCH),
+}
 
 
-def ollama_is_external() -> bool:
-    """True when the user runs Ollama themselves.
+def _external_switch_on(env_name: str) -> bool:
+    """Read one of the switches.
 
     .env is what the card's switch writes and what the next start.sh reads,
     so it wins while the backend runs; the exported variable only counts when
@@ -67,23 +76,55 @@ def ollama_is_external() -> bool:
     try:
         from backend.profiles import env_file, read_env_value
         if env_file().is_file():
-            value = read_env_value(OLLAMA_EXTERNAL_ENV)
+            value = read_env_value(env_name)
         else:
-            value = os.environ.get(OLLAMA_EXTERNAL_ENV)
+            value = os.environ.get(env_name)
     except Exception:
-        value = os.environ.get(OLLAMA_EXTERNAL_ENV)
+        value = os.environ.get(env_name)
     return str(value or "").strip().lower() in ("1", "true", "yes", "on")
 
 
-def _ollama_external_refusal(verb: str) -> Dict[str, Any]:
+def ollama_is_external() -> bool:
+    """True when the user runs Ollama themselves."""
+    return _external_switch_on(OLLAMA_EXTERNAL_ENV)
+
+
+def comfyui_is_external() -> bool:
+    """True when the user runs ComfyUI themselves (another container, Comfy
+    Desktop). Guaardvark then only talks to it at its address."""
+    return _external_switch_on(COMFYUI_EXTERNAL_ENV)
+
+
+def plugin_is_external(plugin_id: Optional[str]) -> bool:
+    """True when ``plugin_id``'s card says the user runs that service."""
+    if plugin_id == 'ollama':
+        return ollama_is_external()
+    if plugin_id == 'comfyui':
+        return comfyui_is_external()
+    return False
+
+
+def external_refusal(plugin_id: str, verb: str) -> Dict[str, Any]:
+    """The manager's result for an action the plugin's switch forbids."""
+    name, switch = _EXTERNAL_SWITCHES[plugin_id]
     return {
         'success': False,
         'error': (
-            f'Not {verb}: the Ollama card has "{OLLAMA_EXTERNAL_SWITCH}" on, so '
-            f'Guaardvark leaves it alone. Turn that switch off to manage Ollama here.'
+            f'Not {verb}: the {name} card has "{switch}" on, so '
+            f'Guaardvark leaves it alone. Turn that switch off to manage {name} here.'
         ),
         'external': True,
     }
+
+
+def external_down_message(plugin_id: str, url: Optional[str]) -> str:
+    """Why a service the user runs cannot be used: nothing answers at ``url``
+    and Guaardvark may not start it."""
+    name, switch = _EXTERNAL_SWITCHES[plugin_id]
+    return (
+        f'Nothing answers at {url} and the {name} card has "{switch}" on. '
+        f'Start your {name}, or turn that switch off to let Guaardvark start it.'
+    )
 
 
 # A service does not always answer at ``localhost:<port>``. When the backend
@@ -395,6 +436,8 @@ class PluginManager:
                 if kill_orphans and metadata.type == 'service' and self._check_service_running(metadata):
                     if metadata.core:
                         logger.info(f"Core plugin '{plugin_id}' is disabled but running on port {metadata.port} — leaving it alone")
+                    elif plugin_is_external(plugin_id):
+                        logger.info(f"Disabled plugin '{plugin_id}' is one the user runs themselves (port {metadata.port}) — leaving it alone")
                     elif self._has_enabled_dependents(plugin_id):
                         dependents = self._get_enabled_dependents(plugin_id)
                         logger.info(f"Disabled plugin '{plugin_id}' running on port {metadata.port} — keeping it (needed by {dependents})")
@@ -561,6 +604,12 @@ class PluginManager:
             # "health check failed (timeout)" and, when the error escaped
             # start_plugin, the 500-on-relaunch. Let non-network errors propagate.
             return False
+
+        # The user's own server loads its own models folder, so comparing its
+        # model lists with this checkout's tree would call it a stranger.
+        if getattr(metadata, 'instance_check', None) and plugin_is_external(getattr(metadata, 'id', None)):
+            self._note_instance_problem(getattr(metadata, 'id', None), None)
+            return True
 
         ours, problem = self._instance_check(metadata, service_url)
         self._note_instance_problem(getattr(metadata, 'id', None), problem)
@@ -1023,28 +1072,28 @@ class PluginManager:
             logger.info(f"Plugin '{plugin_id}' (type={metadata.type}) marked ready — no service to start")
             return {'success': True, 'message': 'Enabled — runs on demand via the task queue (no server to start).'}
 
-        # The user's own Ollama is never started by Guaardvark. start.sh only
-        # checks that it answers; the card does the same instead of running
-        # plugins/ollama/scripts/start.sh (sudo systemctl start, ollama serve).
-        if plugin_id == 'ollama' and ollama_is_external():
+        # A service the user runs themselves is never started by Guaardvark.
+        # start.sh only checks that it answers; the card does the same instead
+        # of running the plugin's start script (systemctl or ollama serve for
+        # Ollama, this checkout's ComfyUI tree for ComfyUI).
+        if plugin_is_external(plugin_id):
             if self._check_service_running(metadata):
                 self._plugin_status[plugin_id] = PluginStatus.RUNNING
                 self._save_running()
                 self._broadcast_plugins_status(f"start:{plugin_id}:external")
                 return {
                     'success': True,
-                    'message': 'Using the Ollama you run yourself (Guaardvark never starts or stops it)',
+                    'message': (
+                        f'Using the {_EXTERNAL_SWITCHES[plugin_id][0]} you run yourself '
+                        f'(Guaardvark never starts or stops it)'
+                    ),
                     'external': True,
                 }
             self._plugin_status[plugin_id] = PluginStatus.STOPPED
             self._broadcast_plugins_status(f"start:{plugin_id}:external")
             return {
                 'success': False,
-                'error': (
-                    f'Nothing answers at {self._service_url(metadata)} and the Ollama card has '
-                    f'"{OLLAMA_EXTERNAL_SWITCH}" on. Start your Ollama, or turn that switch off '
-                    f'to let Guaardvark start it.'
-                ),
+                'error': external_down_message(plugin_id, self._service_url(metadata)),
                 'external': True,
             }
 
@@ -1217,13 +1266,13 @@ class PluginManager:
             self._broadcast_plugins_status(f"stop:{plugin_id}:disabled")
             return {'success': True, 'message': 'Plugin is disabled'}
 
-        # The user's own Ollama is never stopped by Guaardvark: the top-level
-        # stop.sh honours the switch, and so does the card. Without this the
-        # card's Off ran plugins/ollama/scripts/stop.sh (sudo systemctl stop,
-        # kill by port) against a daemon the switch promised to leave alone.
-        if plugin_id == 'ollama' and ollama_is_external():
+        # A service the user runs themselves is never stopped by Guaardvark:
+        # the top-level stop.sh honours the switch, and so does the card. The
+        # plugin's stop script and the kill by port below would otherwise reach
+        # a server the switch promised to leave alone.
+        if plugin_is_external(plugin_id):
             self._broadcast_plugins_status(f"stop:{plugin_id}:external")
-            return _ollama_external_refusal('stopped')
+            return external_refusal(plugin_id, 'stopped')
 
         # ── Traffic light: rate-limit rapid clicks and enforce GPU exclusivity ──
         acquired, cooldown, reason = self._gate.try_acquire(plugin_id)
@@ -1396,13 +1445,13 @@ class PluginManager:
         if not self.registry.is_registered(plugin_id):
             return {'success': False, 'error': f'Plugin not found: {plugin_id}'}
 
-        # Off on the Ollama card unloads its models and stops the daemon. With
-        # "I run Ollama myself" on, neither is Guaardvark's to do, and a card
-        # reading Disabled over a daemon still serving would be a lie, so the
-        # toggle is refused with the reason instead.
-        if plugin_id == "ollama" and ollama_is_external():
+        # Off stops the service (and, for Ollama, unloads its models). With the
+        # card's "I run it myself" switch on, neither is Guaardvark's to do, and
+        # a card reading Disabled over a server still serving would be a lie,
+        # so the toggle is refused with the reason instead.
+        if plugin_is_external(plugin_id):
             self._broadcast_plugins_status(f"disable:{plugin_id}:external")
-            return _ollama_external_refusal('turned off')
+            return external_refusal(plugin_id, 'turned off')
 
         # ComfyUI disable must also kill in-flight VideoGen batches even when the
         # sidecar is already stopped — the backend worker can still be spinning.

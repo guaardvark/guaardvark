@@ -9,14 +9,19 @@ cd "$SCRIPT_DIR"
 
 GPU_PROFILE=0
 DETACH=1
+USE_PUBLISHED=0
 for arg in "$@"; do
     case "$arg" in
         --gpu) GPU_PROFILE=1 ;;
+        --pull) USE_PUBLISHED=1 ;;
+        --pull=*) USE_PUBLISHED=1; export GUAARDVARK_IMAGE_TAG="${arg#--pull=}" ;;
         --foreground|-f) DETACH=0 ;;
         -h|--help)
-            echo "Usage: ./start-docker.sh [--gpu] [--foreground]"
+            echo "Usage: ./start-docker.sh [--gpu] [--pull[=TAG]] [--foreground]"
             echo ""
             echo "  --gpu          Enable NVIDIA GPU profile for Ollama/backend (requires nvidia-container-toolkit)"
+            echo "  --pull[=TAG]   Download the published images from Docker Hub instead of building"
+            echo "                 them here (TAG defaults to latest; RTX 20 series or newer with --gpu)"
             echo "  --foreground   Run in foreground (default: detached -d)"
             echo ""
             echo "Runs the API, UI, workers, PostgreSQL, Redis and Ollama. ComfyUI, Audio"
@@ -56,7 +61,12 @@ if ! DOCKER_INFO_ERR="$(docker info 2>&1 >/dev/null)"; then
     else
         echo "Error: the Docker daemon is not answering:" >&2
         printf '  %s\n' "$DOCKER_INFO_ERR" | head -n 3 >&2
-        echo "  Start it with: sudo systemctl enable --now docker" >&2
+        if grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
+            echo "  On Windows: start Docker Desktop, and in its Settings > Resources > WSL integration" >&2
+            echo "  switch on this Ubuntu. Then re-run ./start-docker.sh." >&2
+        else
+            echo "  Start it with: sudo systemctl enable --now docker" >&2
+        fi
     fi
     exit 1
 fi
@@ -113,6 +123,16 @@ if [ "$GPU_PROFILE" -eq 1 ]; then
         fi
     fi
     export GUAARDVARK_TORCH_CHANNEL="${GUAARDVARK_TORCH_CHANNEL:-}"
+    # The published backend image carries one PyTorch build: cu132, for GTX 16
+    # and RTX 20 series cards and newer on driver 580 or later. Any other card
+    # or driver gets a build made for it here instead.
+    if [ "$USE_PUBLISHED" -eq 1 ] && [ -n "${COMPUTE_MAJOR:-}" ] && [ "$GUAARDVARK_TORCH_CHANNEL" != cu132 ]; then
+        echo "This GPU and driver need the ${GUAARDVARK_TORCH_CHANNEL} PyTorch build, which the published image does not carry; building here instead."
+        if [ $((COMPUTE_MAJOR * 10 + ${COMPUTE_MINOR:-0})) -ge 75 ] && [ -n "${DRIVER_MAJOR:-}" ] && [ "$DRIVER_MAJOR" -lt 580 ]; then
+            echo "  An NVIDIA driver 580 or newer lets this card use the published image."
+        fi
+        USE_PUBLISHED=0
+    fi
 fi
 
 # ── API key ────────────────────────────────────────────────────────────────
@@ -212,6 +232,12 @@ if ! "${COMPOSE[@]}" "${COMPOSE_FILES[@]}" exec -T -u postgres postgres sh -c '
 fi
 
 UP_ARGS=(up --build)
+if [ "$USE_PUBLISHED" -eq 1 ]; then
+    COMPOSE_FILES+=(-f docker-compose.images.yml)
+    echo "Downloading the Guaardvark images (tag ${GUAARDVARK_IMAGE_TAG:-latest})..."
+    "${COMPOSE[@]}" "${COMPOSE_FILES[@]}" pull backend frontend
+    UP_ARGS=(up --no-build)
+fi
 if [ "$DETACH" -eq 1 ]; then
     UP_ARGS+=(-d)
 fi

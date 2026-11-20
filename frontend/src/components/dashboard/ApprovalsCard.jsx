@@ -245,7 +245,16 @@ const ApprovalsCard = React.forwardRef(
                       {draft.target_url}
                     </Link>
                   )}
-                  <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }} alignItems="center">
+                  {/* On a narrow card the buttons keep their label's width and the
+                      row wraps; shrinking them let "Approve" run into Reject. */}
+                  <Stack
+                    direction="row"
+                    spacing={0.5}
+                    useFlexGap
+                    flexWrap="wrap"
+                    alignItems="center"
+                    sx={{ mt: 0.5, "& > .MuiButton-root": { flexShrink: 0, maxWidth: "100%" } }}
+                  >
                     <Button
                       size="small"
                       variant="contained"

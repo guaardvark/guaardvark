@@ -3,7 +3,7 @@
 Memory tiers in this app are intentionally separate:
 
 - Turn context: current request text, attachments, RAG snippets, and tool state.
-- CLI working memory: structured active-file/recent-file hints from `llx`.
+- CLI working memory: structured active-file/recent-file hints from the `guaardvark` CLI.
 - Session history: `LLMSession` / `LLMMessage` chat records and summaries.
 - Durable memory: scoped `AgentMemory` rows for reusable facts/preferences/notes.
 - Lessons: validated structured procedures stored as durable memories.

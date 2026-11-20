@@ -1,7 +1,7 @@
 """Natural-language outreach intent → classify then dispatch.
 
 Single entry used by HTTP /intent, chat tool outreach_execute_intent,
-GUI slash freeform, and `llx outreach`.
+GUI slash freeform, and `guaardvark outreach`.
 
 The LLM classifies; a scout is queued only for a scout_and_draft or
 reply_comments intent with sufficient confidence. Topics are the ones the

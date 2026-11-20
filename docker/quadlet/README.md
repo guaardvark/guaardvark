@@ -2,17 +2,32 @@
 
 Runs the stack as systemd user services: PostgreSQL (pgvector), Redis, Ollama,
 backend and frontend. Tested on a Fedora-based distro with Podman 5.8 and an
-AMD RX 7900 XTX (ROCm). NVIDIA is untested, see "GPU" below.
+AMD RX 7900 XTX (ROCm); "GPU" below covers AMD and NVIDIA.
 
-## 1. Build the images (from the repo root)
+## 1. Get the images
+
+The published images are ready to use. For an AMD Radeon card, point the two
+units at them:
+
+```
+# guaardvark-backend.container
+Image=docker.io/guaardvark/guaardvark:latest-rocm
+# guaardvark-frontend.container
+Image=docker.io/guaardvark/guaardvark-web:latest
+```
+
+For an NVIDIA card use `docker.io/guaardvark/guaardvark:latest` for the backend.
+Version tags pin a release: `<version>-rocm` for AMD, `<version>` for NVIDIA.
+
+Or build them yourself, from the repo root:
 
 ```
 podman build -f docker/Dockerfile.frontend -t guaardvark-frontend .
 podman build -f docker/Dockerfile.backend --build-arg TORCH_CHANNEL=rocm6.3 -t guaardvark-backend .
 ```
 
-`TORCH_CHANNEL` picks the PyTorch wheels: `rocm6.3` for AMD, `cu132` and so on
-for NVIDIA (INSTALL.md lists which card and driver takes which). The backend image is large (about 27 GB with ROCm).
+`TORCH_CHANNEL` picks the PyTorch wheels: `rocm7.2` (what the published image
+uses) or `rocm6.3` for AMD, `cu132` and so on for NVIDIA (INSTALL.md lists which card and driver takes which). The backend image is large (about 27 GB with ROCm).
 
 ## 2. Create the secrets file
 
@@ -154,6 +169,36 @@ Pull the embedding model that RAG needs into that Ollama
 (`ollama pull nomic-embed-text`). Tested rootful with Ollama running in another
 container on the same host.
 
+## Using an existing ComfyUI (and Ollama) in another container
+
+When Ollama and ComfyUI run outside the Guaardvark units, put the settings in the
+backend unit as environment variables. The "I run Ollama / ComfyUI myself" switches in
+the UI write a `.env` file inside the container, which is gone when the container is
+recreated; the variables are read when there is no `.env`.
+
+```
+Environment=OLLAMA_BASE_URL=http://host.containers.internal:11434
+Environment=GUAARDVARK_OLLAMA_EXTERNAL=1
+Environment=GUAARDVARK_COMFYUI_URL=http://host.containers.internal:8188
+Environment=GUAARDVARK_COMFYUI_EXTERNAL=1
+```
+
+- The plugin cards probe these addresses, so no `plugin.local.json` overlay is needed.
+- Video generation checks for model files under `GUAARDVARK_COMFYUI_DIR/models`, so
+  that folder has to be the same files your ComfyUI loads. Set
+  `GUAARDVARK_COMFYUI_DIR` to a folder whose `models/` is mounted from your ComfyUI's
+  models directory. A rootful ComfyUI volume cannot be mounted into a rootless unit;
+  share a host directory instead. Mounted read-only, the Install buttons cannot write:
+  download models on the ComfyUI side then.
+- Custom nodes the workflows use (for example `ComfyUI-Frame-Interpolation` for RIFE,
+  `facerestore_cf` for Fix Anatomy) are not installed for an external ComfyUI; install
+  them there, with their Python dependencies.
+- The ComfyUI button on the Video page opens the page's host with the port from
+  `GUAARDVARK_COMFYUI_URL`.
+
+Tested with a rootless backend and a rootful ComfyUI container (RX 7900 XTX, Wan 2.2
+TI2V-5B and 14B Q5_K).
+
 ## Screen agent (optional)
 
 The agent desktop (Settings -> Agents) needs Xvfb, x11vnc, an XFCE session, dbus,
@@ -166,6 +211,13 @@ podman build -f docker/Dockerfile.backend --build-arg TORCH_CHANNEL=rocm6.3 --bu
 
 Tested with `gemma4:e2b` as the vision model: the agent opened Firefox in the
 container. A 27B model was too slow for the agent's 45 s step timeout.
+
+## AMD (ROCm) builds
+
+With `--build-arg TORCH_CHANNEL=rocm6.3` (any `rocm*` channel) the image also installs
+`rocm-smi`. The backend reads the card's VRAM through it for the load gate, the hardware
+profile, the GPU coordinator and the video preflight; without it the container sees no
+AMD card. NVIDIA and CPU builds do not change.
 
 ## Limitations
 
