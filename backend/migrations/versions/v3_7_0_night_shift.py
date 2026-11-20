@@ -4,13 +4,13 @@ The add-column list in backend/app.py adds the column on boot; ``IF NOT
 EXISTS`` keeps this revision safe where that ran.
 
 Revision ID: v3_7_0_night_shift
-Revises: v3_5_0_plan_mode
+Revises: v3_5_2_outreach_media
 Create Date: 2026-11-19
 """
 from alembic import op
 
 revision = "v3_7_0_night_shift"
-down_revision = "v3_5_0_plan_mode"
+down_revision = "v3_5_2_outreach_media"
 branch_labels = None
 depends_on = None
 
