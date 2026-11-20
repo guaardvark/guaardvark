@@ -482,11 +482,17 @@ _PAN2_COMMON = {
     "comfyui_reserve_vram_gb": 1.0,
     "dimension_alignment": 32,
     "max_pixel_area": 1248 * 704,
+    # The measured canvas: the short side is fixed and the long side follows
+    # the aspect, so a caller that sends no size gets 1248x704, not a 16:9 fit
+    # of the pixel budget (1248x672).
+    "short_side": 704,
+    "max_long_side": 1248,
     "aspect_ratios": ["16:9", "9:16"],
     "audio_out": False,
     "native_fps": 24,
     "frame_rule": "4n+1",
     "max_frames": 121,
+    "frames_when_unset": 121,
     "min_clip_s": 1.0,
     "max_clip_s": 5.04,
     "min_steps": 50,
