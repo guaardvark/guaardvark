@@ -182,8 +182,8 @@ Partial, actively improving — tracked in
 Partial. Detection installs the ROCm PyTorch build and reads VRAM through
 `rocm-smi` (one shared probe for the load gate, the hardware profile, the GPU
 coordinator, the video preflight and the system metrics). The published image
-`docker.io/guaardvark/guaardvark:edge-rocm` (`latest-rocm` and `<version>-rocm`
-once released) is PyTorch 2.14.1 on ROCm 7.2 and includes `rocm-smi`; a local
+`docker.io/guaardvark/guaardvark:latest-rocm` (and `<version>-rocm` from 3.6.0
+on) is PyTorch 2.14.1 on ROCm 7.2 and includes `rocm-smi`; a local
 build with `--build-arg TORCH_CHANNEL=rocm6.3` includes it too.
 
 **Checked on an RX 7900 XTX (24 GB) with a Radeon 780M iGPU**, Nobara 44 (Fedora
