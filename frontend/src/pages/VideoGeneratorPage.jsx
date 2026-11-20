@@ -30,6 +30,8 @@ import useStableCallbacks from "../hooks/useStableCallbacks";
 import VideoPromptCard from "../components/videogen/cards/VideoPromptCard";
 import VideoSettingsCard from "../components/videogen/cards/VideoSettingsCard";
 import VideoQueueCard from "../components/videogen/cards/VideoQueueCard";
+import ScheduleButton from "../components/jobs/ScheduleButton";
+import { createScheduledBatch, WHEN } from "../api/nightShiftService";
 import VideoLibraryCard from "../components/videogen/cards/VideoLibraryCard";
 import { API_BASE, stripGlyph, batchStatusLabel, PathFromUrl, encodePathSegments } from "../components/videogen/videoGenPage";
 import {
@@ -94,7 +96,7 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import lazyWithReload from "../utils/lazyWithReload";
 import PageStatus, { PagePrimaryAction, StatusChip } from "../components/layout/PageStatus";
 import { useSnackbar } from "../components/common/SnackbarProvider";
-import { useUiTranslation,  Trans } from "../i18n";
+import { useUiTranslation, uiLocale, Trans } from "../i18n";
 
 // Lazy import for VideoModelsModal
 const VideoModelsModal = lazyWithReload(() => import("../components/modals/VideoModelsModal"));
@@ -1330,7 +1332,12 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     setGalleryOpen(false);
   }, [batchImages, gallerySelectedImages]);
 
-  const handleGenerate = async () => {
+  // `schedule` ({ when, at }) saves the batch for the night shift or a time
+  // instead of queueing it now; the body is the one that would be sent now.
+  const handleGenerate = () => submitBatch(null);
+  const handleSchedule = (schedule) => submitBatch(schedule);
+
+  const submitBatch = async (schedule) => {
     setError("");
     setSuccess("");
     setBatchStatus(null);
@@ -1466,6 +1473,27 @@ const VideoGeneratorPage = ({ embedded = false }) => {
           : inputMode === "text" || lastFrameOnly
           ? `${API_BASE}/batch-video/generate/text`
           : `${API_BASE}/batch-video/generate/image`;
+
+      if (schedule) {
+        const variant = inputMode === "references" ? "references" : inputMode === "text" || lastFrameOnly ? "text" : "image";
+        const firstLine = (motionPrompt || finalPrompts[0] || "").split("\n")[0].slice(0, 80);
+        try {
+          await createScheduledBatch(
+            { type: "video_batch", variant, name: t("videoGenerator.scheduledName", { prompt: firstLine }), request: body },
+            schedule,
+          );
+        } catch (e) {
+          setError(t("jobs.nightShift.addFailed", { error: e.message }));
+          return;
+        }
+        setSuccess(
+          schedule.when === WHEN.AT
+            ? t("jobs.nightShift.addedAt", { time: new Date(schedule.at).toLocaleString(uiLocale()) })
+            : t("jobs.nightShift.added"),
+        );
+        if (inputMode === "text") setPromptsText("");
+        return;
+      }
 
       const res = await fetch(url, {
         method: "POST",
@@ -1861,6 +1889,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     handleEndFrameUpload,
     handleFileUpload,
     handleGenerate,
+    handleSchedule,
     handleRenameVideo,
     handleRerenderClip,
     handleRetryBatch,
@@ -1953,6 +1982,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         />
         </PageStatus>
         <PagePrimaryAction>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Button
             variant="contained"
             size="small"
@@ -1963,6 +1993,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
           >
             {t("videoGenerator.mode.addToQueue")}
           </Button>
+          <ScheduleButton onSchedule={actions.handleSchedule} disabled={!canQueue || controlsDisabled} />
+          </Box>
         </PagePrimaryAction>
         <CardWorkspace
           boardKey="video-gen"

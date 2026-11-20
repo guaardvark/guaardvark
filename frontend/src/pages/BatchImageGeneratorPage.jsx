@@ -57,6 +57,8 @@ import {
   overlayLiveCounts,
 } from '../utils/batchImageQueueWatch';
 import { uiLocale, useUiTranslation } from '../i18n';
+import ScheduleButton from '../components/jobs/ScheduleButton';
+import { createScheduledBatch, WHEN } from '../api/nightShiftService';
 
 // Recent Batches cards drawn at first and per Show more.
 import useStableCallbacks from '../hooks/useStableCallbacks';
@@ -1017,16 +1019,27 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     }
   };
 
-  const startGeneration = async () => {
+  // `schedule` ({ when, at }) saves a typed-prompt batch for the night shift
+  // or a time instead of starting it; the body is the one that would be sent now.
+  const startGeneration = () => submitBatch(null);
+  const scheduleGeneration = (schedule) => submitBatch(schedule);
+
+  const submitBatch = async (schedule) => {
     // The prompt box hands its text over after a pause; take what is typed now.
     const typed = promptFlushRef.current ? promptFlushRef.current() : batchItems;
     setLoading(true);
     setError('');
-    setGeneratedImages([]);
+    if (!schedule) setGeneratedImages([]);
     setSuccess('');
 
     try {
       let response;
+
+      if (schedule && (inputMode === 'blueprint' || inputMode === 'csv')) {
+        setError(t('jobs.nightShift.notForFiles'));
+        setLoading(false);
+        return;
+      }
 
       if (inputMode === 'blueprint') {
         if (!blueprintFile) {
@@ -1100,33 +1113,52 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         };
 
         const typedSeed = parseImageSeed(seedText);
+        const requestBody = {
+          prompts: promptsToGenerate,
+          ...params,
+          ...(typedSeed != null ? { seed: typedSeed } : {}),
+          // Cast characters: backend resolves these to LoRA paths + trigger.
+          subject_ids: castSubjectIds,
+          // User LoRAs switched on below the model select.
+          adapters: selectedAdapters
+            .filter((id) => applicableAdapters.some((a) => a.id === id))
+            .map((id) => ({ id })),
+          // Text encoders picked under the model select; none = shipped.
+          ...(pickedEncoderIds.length ? { text_encoders: pickedEncoderIds } : {}),
+          // Quality enhancement parameters
+          content_preset: selectedPreset === 'auto' ? null : selectedPreset,
+          auto_enhance: autoEnhance,
+          negative_prompt: negativePrompt,
+          enhance_anatomy: enhanceAnatomy,
+          enhance_faces: enhanceFaces,
+          enhance_hands: enhanceHands,
+          // Director (shared intelligent pipeline with MusicVideo / chat)
+          director_mode: !!directorEnabled,
+          director_guidance: directorGuidance || undefined,
+          ui_config: uiConfig,
+        };
+        if (schedule) {
+          const firstLine = String(promptsToGenerate[0] || '').split('\n')[0].slice(0, 80);
+          try {
+            await createScheduledBatch(
+              { type: 'image_batch', variant: 'prompts', name: t('imagesBatch.scheduledName', { prompt: firstLine }), request: requestBody },
+              schedule,
+            );
+            setSuccess(
+              schedule.when === WHEN.AT
+                ? t('jobs.nightShift.addedAt', { time: new Date(schedule.at).toLocaleString(uiLocale()) })
+                : t('jobs.nightShift.added'),
+            );
+          } catch (e) {
+            setError(t('jobs.nightShift.addFailed', { error: e.message }));
+          }
+          setLoading(false);
+          return;
+        }
         response = await fetch(`${API_BASE}/batch-image/generate/prompts`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompts: promptsToGenerate,
-            ...params,
-            ...(typedSeed != null ? { seed: typedSeed } : {}),
-            // Cast characters: backend resolves these to LoRA paths + trigger.
-            subject_ids: castSubjectIds,
-            // User LoRAs switched on below the model select.
-            adapters: selectedAdapters
-              .filter((id) => applicableAdapters.some((a) => a.id === id))
-              .map((id) => ({ id })),
-            // Text encoders picked under the model select; none = shipped.
-            ...(pickedEncoderIds.length ? { text_encoders: pickedEncoderIds } : {}),
-            // Quality enhancement parameters
-            content_preset: selectedPreset === 'auto' ? null : selectedPreset,
-            auto_enhance: autoEnhance,
-            negative_prompt: negativePrompt,
-            enhance_anatomy: enhanceAnatomy,
-            enhance_faces: enhanceFaces,
-            enhance_hands: enhanceHands,
-            // Director (shared intelligent pipeline with MusicVideo / chat)
-            director_mode: !!directorEnabled,
-            director_guidance: directorGuidance || undefined,
-            ui_config: uiConfig,
-          })
+          body: JSON.stringify(requestBody),
         });
       }
 
@@ -1476,6 +1508,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     openModels,
     requestCancel,
     startGeneration,
+    scheduleGeneration,
   });
 
   const activeInQueue = queue.filter((q) => POLLABLE_STATUSES.has(q.status)).length;
@@ -1520,6 +1553,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         />
       </PageStatus>
       <PagePrimaryAction>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Button
           variant="contained"
           size="small"
@@ -1534,6 +1568,12 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
               ? t('imagesBatch.actions.addToQueue')
               : t('imagesBatch.actions.start')}
         </Button>
+        <ScheduleButton
+          onSchedule={actions.scheduleGeneration}
+          disabled={loading || installBlocksStart || inputMode === 'blueprint' || inputMode === 'csv'}
+          tooltip={inputMode === 'blueprint' || inputMode === 'csv' ? t('jobs.nightShift.notForFiles') : ''}
+        />
+        </Box>
       </PagePrimaryAction>
       <CardWorkspace
         boardKey="image-gen"

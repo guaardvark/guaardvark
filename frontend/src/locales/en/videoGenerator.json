@@ -295,5 +295,6 @@
     "description": "The extension stays the same.",
     "label": "File name",
     "submit": "Rename"
-  }
+  },
+  "scheduledName": "Video: {{prompt}}"
 }

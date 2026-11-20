@@ -62,8 +62,13 @@ def queue_outreach_run(
     chain_draft: bool = False,
     priority: int = 2,
     created_by: str = "outreach",
+    when: str | None = None,
+    at: datetime.datetime | None = None,
 ) -> dict[str, Any]:
     """Create and enqueue a Task-backed outreach run.
+
+    With ``when`` (``night_shift``, or ``at`` with a naive-UTC ``at``) the run
+    is held and started by the scheduler instead of now.
 
     Raises:
         ValueError: unsupported platform.
@@ -133,7 +138,7 @@ def queue_outreach_run(
     task = Task(
         name=_task_name(normalized, workflow_config),
         description=_task_description(normalized, workflow_config),
-        status="queued",
+        status="waiting" if when else "queued",
         priority=priority,
         type=task_type,
         workflow_config=json.dumps(workflow_config),
@@ -144,6 +149,20 @@ def queue_outreach_run(
     )
     db.session.add(task)
     db.session.commit()
+
+    if when:
+        from backend.services import night_shift
+
+        try:
+            night_shift.schedule(task.id, when, at)
+        except (ValueError, LookupError):
+            db.session.delete(task)
+            db.session.commit()
+            raise
+        db.session.refresh(task)
+        payload = task.to_dict()
+        payload.update({"task_id": task.id, "platform": normalized, "when": when})
+        return payload
 
     task.job_id = f"task_{task.id}"
     task.updated_at = datetime.datetime.now(datetime.timezone.utc)
