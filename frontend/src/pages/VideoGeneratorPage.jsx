@@ -37,6 +37,7 @@ import { API_BASE, stripGlyph, batchStatusLabel, PathFromUrl, encodePathSegments
 import {
   QUALITY_PRESETS,
   durationPresetsFor,
+  resolveDurationPreset,
   aspectRatiosFor,
   resolveAspectRatio,
   MOTION_PRESETS,
@@ -597,6 +598,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
 
   // Duration presets follow the selected model's native fps.
   const durationPresets = useMemo(() => durationPresetsFor(model, modelMeta[model]), [model, modelMeta, language]);
+  useEffect(() => {
+    setDurationPreset((current) => resolveDurationPreset(durationPresets, current));
+  }, [durationPresets, durationPreset]);
 
   // A model that declares aspectRatios offers only those. Switching to one that
   // cannot render the current selection snaps it rather than leaving a ratio on
@@ -821,7 +825,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   const computedParams = useMemo(() => {
     const quality = QUALITY_PRESETS[qualityPreset] || QUALITY_PRESETS.standard;
     const currentDurationPresets = durationPresetsFor(model, modelMeta[model]);
-    const baseDuration = currentDurationPresets[durationPreset] || currentDurationPresets.short;
+    const baseDuration = currentDurationPresets[resolveDurationPreset(currentDurationPresets, durationPreset)];
     const motion = MOTION_PRESETS[motionPreset] || MOTION_PRESETS.normal;
     const modelConfig = MODEL_OPTIONS[model] || {};
 

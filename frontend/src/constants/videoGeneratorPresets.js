@@ -510,6 +510,15 @@ export const durationPresetsFor = (model, registryMeta) => {
   return COGVIDEOX_DURATION_PRESETS;
 };
 
+/** The selected duration key if the model offers it, else "short", else the
+ *  model's first length. PAN 2 offers a single 5 s length, so the "short" the
+ *  page starts on does not exist for it. */
+export const resolveDurationPreset = (presets, key) => {
+  if (presets?.[key]) return key;
+  if (presets?.short) return "short";
+  return Object.keys(presets || {})[0];
+};
+
 /** Aspect ratios a model can actually render.
  *
  *  A model declaring `aspectRatios` offers only those; anything else is off its
