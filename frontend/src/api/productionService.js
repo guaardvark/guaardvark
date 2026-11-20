@@ -165,6 +165,20 @@ export const trainSubject = async (id, options = {}) => {
   return response.data;
 };
 
+// The training adapter the train base declares: { needed, installed, size_mb, install }.
+export const getTrainAdapterStatus = async (baseModelId) => {
+  const response = await axios.get(`${API_BASE}/cast-library/train-adapter`, {
+    params: baseModelId ? { base_model_id: baseModelId } : {},
+  });
+  return response.data;
+};
+
+export const installTrainAdapter = async (baseModelId) => {
+  const response = await axios.post(`${API_BASE}/cast-library/train-adapter/install`,
+    baseModelId ? { base_model_id: baseModelId } : {});
+  return response.data;
+};
+
 export const cancelTrainSubject = async (id) => {
   const response = await axios.post(`${API_BASE}/cast-library/subjects/${id}/train/cancel`);
   return response.data;
@@ -194,6 +208,8 @@ const productionService = {
   approveSamples,
   deleteSample,
   trainSubject,
+  getTrainAdapterStatus,
+  installTrainAdapter,
   cancelTrainSubject,
 };
 

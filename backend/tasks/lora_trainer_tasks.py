@@ -15,17 +15,21 @@ from flask import current_app
 from backend.models import db, Subject
 from backend.utils.clock import utcnow
 from backend.utils.platform import (
+    LORA_LOAD_TIMEOUT_S,
     LORA_REAP_STUCK_AFTER_S,
     LORA_TRAIN_TASK_SOFT_TIME_LIMIT_S,
     LORA_TRAIN_TASK_TIME_LIMIT_S,
+    LORA_TRAIN_TIMEOUT_S,
 )
 
 logger = logging.getLogger(__name__)
 
 # How long a Cast training waits for the card (a release cooldown, a batch of
-# stills) before failing as busy. Wait plus the 30 min train cap stays under the
-# 45 min stuck-training reap, which reads the subject's updated_at.
+# stills) before failing as busy. The task limits and the stuck-training reap
+# in backend.utils.platform allow for it.
 CAST_TRAIN_GPU_WAIT_S = 10 * 60
+# The card's cross-process lease outlives the longest run the limits allow.
+CAST_TRAIN_GPU_LEASE_S = CAST_TRAIN_GPU_WAIT_S + LORA_LOAD_TIMEOUT_S + LORA_TRAIN_TIMEOUT_S + 600
 
 
 def _output_dir() -> str:
@@ -205,7 +209,7 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
                                        wait_s=CAST_TRAIN_GPU_WAIT_S, on_wait=_waiting,
                                        evict_ollama=True, free_comfyui=True,
                                        vram_estimate_mb=train_vram_mb, require_fit=True,
-                                       cross_process=True, lease_seconds=4 * 3600,
+                                       cross_process=True, lease_seconds=CAST_TRAIN_GPU_LEASE_S,
                                        vram_reserve_mb=compositor_vram_reserve_mb()):
                 if job_id:
                     try:
@@ -234,6 +238,8 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
                         alpha=train_settings["alpha"],
                         learning_rate=train_settings["learning_rate"],
                         steps=train_settings["steps"],
+                        lora_targets=train_settings["lora_targets"],
+                        base_storage=train_settings["base_storage"],
                         base_model_id=train_profile.get("id"),
                     )
                     if isinstance(real_result, dict):
@@ -308,8 +314,8 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
 def create_lora_trainer_tasks(celery_app: Celery):
     # Task limits are derived from the one platform flag in backend.utils.platform
     # so the daemon caps, these task limits, and the reaper cutoff cannot drift
-    # apart. On stock (CUDA) both are None, so the global task_soft_time_limit /
-    # task_time_limit apply unchanged.
+    # apart. They replace the global task_soft_time_limit / task_time_limit,
+    # which are shorter than a training run.
     task_limits = {}
     if LORA_TRAIN_TASK_TIME_LIMIT_S is not None:
         task_limits["soft_time_limit"] = LORA_TRAIN_TASK_SOFT_TIME_LIMIT_S
@@ -569,9 +575,8 @@ def reap_stuck_training_subjects() -> dict:
     nothing marks the Subject failed — it would otherwise stay 'training' forever.
     The cutoff comes from the one platform flag in backend.utils.platform
     (LORA_REAP_STUCK_AFTER_S) so it cannot drift from the daemon and task limits:
-    on Apple Silicon it sits past the 255 min task hard-limit, on stock CUDA it
-    stays the long-standing 45 min (> the 30 min train cap). Uses the DB clock to
-    avoid process/DB timezone skew."""
+    it sits 15 minutes past the task hard-limit on every platform. Uses the DB
+    clock to avoid process/DB timezone skew."""
     from sqlalchemy import text
 
     stale = (

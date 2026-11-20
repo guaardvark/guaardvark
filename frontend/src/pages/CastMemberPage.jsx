@@ -23,6 +23,7 @@ import {
 import { SubjectThumb } from '../components/filmcrew/CastLibraryView';
 import DragDropImageUpload from '../components/filmcrew/DragDropImageUpload';
 import CastVoicePicker from '../components/filmcrew/CastVoicePicker';
+import TrainAdapterInstall from '../components/filmcrew/TrainAdapterInstall';
 import ChangedElsewhereNotice from '../components/common/ChangedElsewhereNotice';
 import EntityContextMenu from '../components/common/EntityContextMenu';
 import useContextMenu from '../hooks/useContextMenu';
@@ -74,17 +75,19 @@ const trainingLabels = () => ({
   steps: translate('cast.fields.steps'),
 });
 
+// Blank until the server answers: the numbers come from the train base's recipe
+// (subject.training_settings), which the server also applies to a blank field.
 const DEFAULT_TRAINING_SETTINGS = {
-  resolution: 768,
-  rank: 16,
-  alpha: 16,
+  resolution: '',
+  rank: '',
+  alpha: '',
   learning_rate: 1e-4,
   steps: '',
   base_model_id: 'zimage-turbo',
 };
 
 const trainingSettingsFromSubject = (subject) => {
-  const raw = subject?.training_settings_json || {};
+  const raw = subject?.training_settings || subject?.training_settings_json || {};
   return {
     resolution: raw.resolution ?? DEFAULT_TRAINING_SETTINGS.resolution,
     rank: raw.rank ?? DEFAULT_TRAINING_SETTINGS.rank,
@@ -656,9 +659,9 @@ const CastMemberPage = () => {
     const stepsRaw = trainingSettings.steps;
     const steps = stepsRaw === '' || stepsRaw == null ? null : Number(stepsRaw);
     return {
-      resolution: Number(trainingSettings.resolution) || 768,
-      rank: Number(trainingSettings.rank) || 16,
-      alpha: Number(trainingSettings.alpha) || 16,
+      resolution: Number(trainingSettings.resolution) || null,
+      rank: Number(trainingSettings.rank) || null,
+      alpha: Number(trainingSettings.alpha) || null,
       learning_rate: Number(trainingSettings.learning_rate) || 1e-4,
       steps: Number.isFinite(steps) && steps > 0 ? steps : null,
       base_model_id: trainingSettings.base_model_id || subject?.base_model_id || 'zimage-turbo',
@@ -1090,6 +1093,9 @@ const CastMemberPage = () => {
                 })}
             </Typography>
           )}
+          <TrainAdapterInstall
+            baseModelId={trainingSettings.base_model_id || subject?.base_model_id || 'zimage-turbo'}
+          />
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <Button variant="contained" color="secondary" onClick={handleTrainClick}
                     disabled={busy || training || !trainable}>
