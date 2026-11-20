@@ -226,6 +226,15 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
                             )
                         except Exception:
                             pass
+                    def _on_step(step, total):
+                        # A run outlasts the progress system's no-update timeout,
+                        # so each step line the trainer logs keeps the job alive.
+                        if job_id and total:
+                            get_unified_progress().update_process(
+                                job_id, 30 + int(60 * step / total),
+                                f"Training step {step} of {total}",
+                            )
+
                     real_result = _TRAINER.train_subject_lora(
                         subject_id=s.id,
                         subject_name=s.name,
@@ -241,6 +250,7 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
                         lora_targets=train_settings["lora_targets"],
                         base_storage=train_settings["base_storage"],
                         base_model_id=train_profile.get("id"),
+                        on_step=_on_step,
                     )
                     if isinstance(real_result, dict):
                         real_result.setdefault("used_images", train_images)
