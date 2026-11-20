@@ -77,3 +77,67 @@ def test_real_trainer_propagates_daemon_failure(tmp_path, monkeypatch):
     
     assert res["status"] == "failed"
     assert res["error"] == "OOM"
+
+
+def _fake_trainer(monkeypatch, sends, train_reply=None):
+    trainer = RealLoraTrainer()
+    monkeypatch.setattr(trainer, "_ensure_proc", lambda backend="sdxl": None)
+    monkeypatch.setattr(trainer, "_backend_paths", lambda backend: ("python", "runner", "stub-model"))
+
+    def fake_send(msg, timeout_s):
+        sends.append((msg, timeout_s))
+        if msg["op"] == "train":
+            out = Path(msg["params"]["output_path"])
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"\0" * 4096)
+            return {"ok": True, **(train_reply or {})}
+        return {"ok": True}
+
+    monkeypatch.setattr(trainer, "_send", fake_send)
+    return trainer
+
+
+def test_zimage_run_sends_the_installed_adapter_and_the_recipe(tmp_path, monkeypatch):
+    monkeypatch.setattr("backend.services.cast_train_adapter.adapter_path",
+                        lambda base: "/models/adapter.safetensors")
+    monkeypatch.setattr(RealLoraTrainer, "_IS_APPLE_SILICON", False)
+    sends = []
+    trainer = _fake_trainer(monkeypatch, sends, {"train_adapter": "adapter.safetensors"})
+
+    res = trainer.train_subject_lora(
+        subject_id=7, subject_name="Mara", ref_image_paths=[f"/tmp/{i}.jpg" for i in range(31)],
+        output_dir=str(tmp_path), base_model_id="zimage-turbo", resolution=1024, rank=32, alpha=32,
+        lora_targets="attention_ffn", base_storage="float8",
+    )
+
+    assert res["status"] == "ok"
+    (load, _), (train, train_timeout) = sends
+    assert load["train_adapter"] == "/models/adapter.safetensors"
+    assert train["params"]["steps"] == 1500
+    assert train["params"]["lora_targets"] == "attention_ffn"
+    assert train["params"]["base_storage"] == "float8"
+    assert train_timeout == RealLoraTrainer._TRAIN_TIMEOUT_S
+
+    import json
+    sidecar = json.loads((tmp_path / "Mara_v1.json").read_text())
+    assert sidecar["train_adapter"] == "adapter.safetensors"
+    assert sidecar["lora_targets"] == "attention_ffn"
+
+
+def test_no_adapter_on_disk_sends_none(tmp_path, monkeypatch):
+    monkeypatch.setattr("backend.services.cast_train_adapter.adapter_path", lambda base: None)
+    sends = []
+    trainer = _fake_trainer(monkeypatch, sends)
+    trainer.train_subject_lora(
+        subject_id=7, subject_name="Mara", ref_image_paths=["/tmp/a.jpg"] * 4,
+        output_dir=str(tmp_path), base_model_id="zimage-turbo",
+    )
+    assert "train_adapter" not in sends[0][0]
+
+
+def test_a_short_run_gets_a_short_budget(monkeypatch):
+    monkeypatch.setattr(RealLoraTrainer, "_IS_APPLE_SILICON", False)
+    assert RealLoraTrainer._train_budget_s("zimage-turbo", 400, 512) == 1800
+    assert RealLoraTrainer._train_budget_s("zimage-turbo", 600, 1024) == 6480
+    assert RealLoraTrainer._train_budget_s("sdxl-legacy", 1500, 1024) == 1800
+

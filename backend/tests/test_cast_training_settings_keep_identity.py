@@ -106,11 +106,17 @@ def test_merge_replaces_the_hyperparameters_and_keeps_the_rest():
     assert merged["resolution"] == 1024 and merged["rank"] == 32 and merged["steps"] is None
 
 
-def test_merge_without_stored_settings_is_the_normalised_six():
+def test_merge_without_stored_settings_is_the_normalised_set():
     merged = merge_training_settings(None, {"resolution": 800, "rank": 99})
     assert merged["resolution"] == 768  # snapped to 64 px
     assert merged["rank"] == 64  # clamped
-    assert set(merged) == {"resolution", "rank", "alpha", "learning_rate", "steps", "base_model_id"}
+    assert set(merged) == {"resolution", "rank", "alpha", "learning_rate", "steps",
+                           "base_model_id", "lora_targets", "base_storage"}
+
+
+def test_merge_keeps_a_stored_layer_choice_the_form_does_not_send():
+    merged = merge_training_settings({"lora_targets": "attention", "base_storage": "bf16"}, SETTINGS)
+    assert (merged["lora_targets"], merged["base_storage"]) == ("attention", "bf16")
 
 
 def test_saving_training_settings_keeps_the_identity_state(client):
