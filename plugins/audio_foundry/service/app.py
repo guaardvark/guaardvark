@@ -145,6 +145,7 @@ _orch_client = OrchestratorClient(
 )
 
 _dispatcher = Dispatcher(orchestrator=_orch_client)
+_dispatcher.gpu_wait_s = float(_gpu_cfg.get("wait_for_gpu_s", _dispatcher.gpu_wait_s) or 0)
 threading.Thread(target=_dispatcher.forget_slots_from_before, name="audio-forget-slots", daemon=True).start()
 _dispatcher.start_idle_unloader(int(_gpu_cfg.get("idle_unload_s", 0) or 0))
 bootstrap(_dispatcher, _config)
@@ -408,6 +409,7 @@ def generate_voice_stream(req: VoiceRequest) -> Any:
     with _http_errors(Intent.VOICE):
         # Force inline load for stream path (chat texts are short)
         with _dispatcher._intent_locks[Intent.VOICE]:
+            _dispatcher.wait_for_gpu(Intent.VOICE)
             with _dispatcher._state_lock:
                 backend = _dispatcher._backends.get(Intent.VOICE)
                 if backend is None:
