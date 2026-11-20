@@ -132,6 +132,8 @@ class Job:
 _TASK_STATUS_MAP = {
     "pending": JobStatus.PENDING,
     "queued": JobStatus.PENDING,
+    # Scheduled for the night shift or a time; metadata.waiting tells it apart.
+    "waiting": JobStatus.PENDING,
     "in-progress": JobStatus.RUNNING,
     "running": JobStatus.RUNNING,        # tolerate alt casing seen in code
     "paused": JobStatus.PAUSED,

@@ -37,6 +37,7 @@ tasks_bp = Blueprint("tasks", __name__, url_prefix="/api/tasks")
 # Define allowed statuses for validation
 ALLOWED_TASK_STATUSES = [
     "pending",
+    "waiting",
     "queued",
     "in-progress",
     "paused",

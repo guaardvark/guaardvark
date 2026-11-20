@@ -62,7 +62,7 @@ def get_task_by_id(task_id: int) -> Optional[Dict[str, Any]]:
             SELECT id, name, description, status, type, priority, prompt_text,
                    model_name, output_filename, job_id, project_id, workflow_config,
                    client_name, target_website, competitor_url, retry_count,
-                   created_at, updated_at, due_date
+                   created_at, updated_at, due_date, max_retries
             FROM tasks
             WHERE id = :task_id
         """), {"task_id": task_id})
@@ -87,9 +87,24 @@ def get_task_by_id(task_id: int) -> Optional[Dict[str, Any]]:
                 'retry_count': row[15] or 0,
                 'created_at': row[16],
                 'updated_at': row[17],
-                'due_date': row[18]
+                'due_date': row[18],
+                'max_retries': row[19],
             }
         return None
+    finally:
+        session.close()
+
+
+def save_task_handoff(task_id: int, handoff: Dict[str, Any]) -> None:
+    """Record which backend batch a handed-off row is following."""
+    session = get_db_session()
+    try:
+        session.execute(
+            sa_text("UPDATE tasks SET handler_config = CAST(:config AS JSON), updated_at = :now WHERE id = :task_id"),
+            {"config": json.dumps(handoff), "now": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+             "task_id": task_id},
+        )
+        session.commit()
     finally:
         session.close()
 
@@ -467,6 +482,10 @@ def execute_unified_task(self, task_id: int):
         # Also update task progress in database
         update_task_status(task_id, 'in-progress', progress=progress)
 
+    # A row saved with max_retries 0 (a night-shift job) is never re-run by
+    # itself; every other row keeps this task's own limit.
+    retry_limit = self.max_retries
+
     try:
         # Load task from database
         update_progress(5, "Loading task from database...")
@@ -480,6 +499,8 @@ def execute_unified_task(self, task_id: int):
             return {'error': error_msg, 'task_id': task_id}
 
         logger.info(f"Loaded task: {task['name']} (type: {task['type']}, status: {task['status']})")
+        if task.get('max_retries') == 0:
+            retry_limit = 0
 
         # Update task status to in-progress with celery job ID
         update_task_status(task_id, 'in-progress', job_id=f"task_{task_id}")
@@ -503,11 +524,26 @@ def execute_unified_task(self, task_id: int):
         output = None
         handler_used = None
 
+        # A long job (a render batch) is started on the backend's own queue
+        # and followed by the scheduler beat; this worker does not wait for it.
+        from backend.services import job_handoff
+        if job_handoff.is_handoff(task_type):
+            update_progress(10, f"Starting {task['name']}")
+            started = job_handoff.start(task)
+            if started.get("handoff"):
+                save_task_handoff(task_id, started)
+                if progress_system and process_id:
+                    progress_system.complete_process(process_id, f"Started: {task['name']}")
+                logger.info(f"Task {task_id} handed off: {started['handoff']}")
+                return {'task_id': task_id, 'status': 'handed_off', 'handoff': started['handoff']}
+            output = started
+            handler_used = task_type
+
         # Handlers an extension registered for its own task types run first,
         # so a vertical never edits this chain (backend/services/task_handler_registry.py).
         from backend.services.task_handler_registry import get_task_handler
         ext_handler = get_task_handler(task_type)
-        if ext_handler is not None:
+        if output is None and ext_handler is not None:
             update_progress(10, f"Running {task_type}")
             output = ext_handler(task, update_progress)
             handler_used = task_type
@@ -880,7 +916,7 @@ def execute_unified_task(self, task_id: int):
             # The previous code set status to 'pending' then raised self.retry() which
             # would be caught by the outer except block, setting status to 'failed'.
             # Now we use Celery's retry mechanism properly.
-            if self.request.retries < self.max_retries:
+            if self.request.retries < retry_limit:
                 # Update task with retry info but keep status as 'queued' for retry
                 update_task_status(task_id, 'queued',
                                    retry_count=self.request.retries + 1,
@@ -922,7 +958,7 @@ def execute_unified_task(self, task_id: int):
         logger.error(f"Task {task_id} failed: {e}", exc_info=True)
 
         # Check if we should retry BEFORE marking as failed
-        if self.request.retries < self.max_retries:
+        if self.request.retries < retry_limit:
             update_task_status(task_id, 'queued',
                                retry_count=self.request.retries + 1,
                                error_message=f"Attempt {self.request.retries + 1} failed: {error_msg}")
