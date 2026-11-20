@@ -297,6 +297,12 @@ def default_log_path() -> Path:
 def invalidate_object_info_caches() -> None:
     """Drop the image and video generators' cached ``/object_info``: the node set changed."""
     try:
+        from backend.services import comfyui_version
+
+        comfyui_version.invalidate()
+    except Exception as e:  # noqa: BLE001
+        logger.debug("ComfyUI version cache not cleared: %s", e)
+    try:
         from backend.services import comfyui_image_generator as img
 
         img._ENGINE_CACHE.clear()

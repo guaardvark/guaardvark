@@ -300,15 +300,16 @@ FLUX3_MIN_TORCH = (2, 7)
 H3S_TAG = "minimax-h3-t2i"
 # H3 samples on a 32 px grid (the template's ResolutionSelector).
 H3S_SIDE_ALIGNMENT = 32
-# The only ComfyUI release the stills graph has rendered on. The template's
-# note says single-image decoding needs ComfyUI PR #16881 (merged 2026-10-10);
-# which earlier release first carries it was not established, so older ones
-# are refused rather than left to fail at decode.
-H3S_MIN_COMFY = (0, 46)
-# The ComfyUI release that first carries each family's graph, for the message a
-# render on an older server gets.
-_GRAPH_MIN_COMFY = {QWEN21_TAG: ("Qwen-Image 2.1", "0.37"), MOSS_TAG: ("MOSS-Image", "0.42"),
-                    FLUX3_TAG: ("FLUX 3 Image Klein", "0.41"), H3S_TAG: ("MiniMax H3 Stills", "0.46")}
+# Each ComfyUI-only graph's name and the registry entry that declares its
+# ComfyUI floor (min_comfyui in video_model_registry). Matched in this order.
+_GRAPHS = {H3S_TAG: ("MiniMax H3 Stills", "minimax-h3-t2i"), MOSS_TAG: ("MOSS-Image", "moss-image"),
+           FLUX3_TAG: ("FLUX 3 Image Klein", "flux3-klein"), QWEN21_TAG: ("Qwen-Image 2.1", "qwen-image-21")}
+
+
+def _graph_tag(model: str | None) -> str | None:
+    """The ComfyUI-only graph a model id renders through, or None."""
+    ml = (model or "").lower()
+    return next((tag for tag in _GRAPHS if tag in ml), None)
 
 
 def _flux3_upsampler_instructions() -> str | None:
@@ -1539,18 +1540,17 @@ class ComfyUIImageGenerator:
         except Exception:  # noqa: BLE001 — unknown is not a refusal
             return None
 
-    def check_h3_still_comfy(self, model: str | None) -> None:
-        """Refuse a MiniMax H3 still on a ComfyUI older than the release it was
-        measured on (H3S_MIN_COMFY): the nodes exist earlier, but whether those
-        releases decode a single frame was not established."""
-        if H3S_TAG not in (model or "").lower():
+    def check_graph_comfy_version(self, model: str | None) -> None:
+        """Refuse a render on a ComfyUI older than the floor the graph's registry
+        entry declares (min_comfyui). Unknown versions are not refused."""
+        tag = _graph_tag(model)
+        if tag is None:
             return
-        ver = self.comfy_version()
-        if ver is not None and ver < H3S_MIN_COMFY:
-            raise RuntimeError(
-                f"MiniMax H3 stills need ComfyUI {H3S_MIN_COMFY[0]}.{H3S_MIN_COMFY[1]} or newer; "
-                f"the running ComfyUI is {ver[0]}.{ver[1]}. Update the ComfyUI plugin, or pick another model."
-            )
+        from backend.services.comfyui_version import refusal
+        label, registry_id = _GRAPHS[tag]
+        message = refusal(registry_id, label)
+        if message:
+            raise RuntimeError(message)
 
     def check_text_encoder_files(self, filenames) -> None:
         """Raise before queueing when the running ComfyUI does not list a text
@@ -1595,12 +1595,12 @@ class ComfyUIImageGenerator:
             return
         missing = self.missing_node_classes(required)
         if missing:
-            ml = (model or "").lower()
-            tag = (H3S_TAG if H3S_TAG in ml else MOSS_TAG if MOSS_TAG in ml
-                   else FLUX3_TAG if FLUX3_TAG in ml else QWEN21_TAG)
-            label, version = _GRAPH_MIN_COMFY[tag]
+            from backend.services.comfyui_version import min_comfyui
+            label, registry_id = _GRAPHS[_graph_tag(model) or QWEN21_TAG]
+            floor = min_comfyui(registry_id)
+            needs = f"ComfyUI {floor[0]}.{floor[1]} or newer" if floor else "a newer ComfyUI"
             raise RuntimeError(
-                f"{label} needs ComfyUI {version} or newer: the running ComfyUI has no "
+                f"{label} needs {needs}: the running ComfyUI has no "
                 f"{', '.join(missing)} node. Update the ComfyUI plugin and try again."
             )
 
@@ -2109,7 +2109,7 @@ class ComfyUIImageGenerator:
         )
         self.check_graph_nodes(effective_model)
         self.check_flux3_torch(effective_model)
-        self.check_h3_still_comfy(effective_model)
+        self.check_graph_comfy_version(effective_model)
         self.check_text_encoder_files(self.user_text_encoders.values())
 
         if admit_vram_mb:

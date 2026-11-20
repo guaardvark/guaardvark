@@ -1328,7 +1328,13 @@ def list_video_models():
         total_vram_mb = _detected_total_vram_mb()
         active_t2v, _ = resolve_active_video_model("t2v", comfyui_down_ok=True)
         active_i2v, _ = resolve_active_video_model("i2v", comfyui_down_ok=True)
+        from backend.services.comfyui_version import comfyui_version, offered
+        comfy_ver = comfyui_version()
         for model_id, info in VIDEO_MODEL_REGISTRY.items():
+            # A model whose graph needs a newer ComfyUI than this install runs
+            # is neither offered nor installable until ComfyUI is updated.
+            if not offered(model_id, comfy_ver):
+                continue
             plan = _resolve_download_plan(model_id)
             requires = info.get("requires", [])
             caps = model_capabilities(model_id)
@@ -1443,6 +1449,10 @@ def start_video_model_download(model_id):
     try:
         if model_id not in VIDEO_MODEL_REGISTRY:
             return error_response(f"Unknown model: {model_id}", 400)
+        from backend.services.comfyui_version import refusal as comfyui_too_old
+        too_old = comfyui_too_old(model_id, VIDEO_MODEL_REGISTRY[model_id].get("name"))
+        if too_old:
+            return error_response(too_old, 409)
 
         # Build the install plan: the model itself plus any required companion
         # models (a WAN unet needs its VAE + text encoder, etc.). Dedupe while

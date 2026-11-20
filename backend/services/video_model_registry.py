@@ -474,6 +474,8 @@ PAN2_LICENSE = {
 }
 _PAN2_COMMON = {
     "type": "pan2",
+    # CLIPLoader type "pan2" first ships in ComfyUI 0.45 (comfyui_version).
+    "min_comfyui": "0.45",
     "modes": ["t2v", "i2v"],
     "requires": ["pan2-qwen35-encoder", "wan22-vae"],
     "vram_mb": 11000,
@@ -1065,6 +1067,8 @@ VIDEO_MODEL_REGISTRY = {
         "description": "Text-to-image with a Qwen3-VL prose encoder, native 2K output, optional "
                        "transparent (RGBA) renders. Qwen Research License: non-commercial "
                        "research and evaluation only. Needs ComfyUI 0.37 or newer.",
+        # The first ComfyUI release carrying the graph's nodes.
+        "min_comfyui": "0.37",
         "hf_repo": "Comfy-Org/Qwen-Image-2.1",
         "local_subdir": "diffusion_models",
         "files": [
@@ -1127,6 +1131,8 @@ VIDEO_MODEL_REGISTRY = {
         "name": "MOSS-Image SFT (int8 convrot)",
         "description": "Text-to-image tuned for exact lettering in English and Chinese, posters "
                        "and layouts; reads long prose prompts. Apache 2.0. Needs ComfyUI 0.42 or newer.",
+        # The first ComfyUI release carrying the graph's nodes.
+        "min_comfyui": "0.42",
         "hf_repo": "Comfy-Org/MOSS-Image",
         "local_subdir": "diffusion_models",
         "files": [
@@ -1198,6 +1204,8 @@ VIDEO_MODEL_REGISTRY = {
         "description": "BFL's FLUX 3 open-weights model, step-distilled: text, layouts and native 4K. "
                        "FLUX Kommunity Licence: commercial use only under US$5M annual revenue. "
                        "Needs ComfyUI 0.41 or newer and a Hugging Face login.",
+        # The first ComfyUI release carrying the graph's nodes.
+        "min_comfyui": "0.41",
         "hf_repo": "black-forest-labs/flux-3-image-klein-comfy",
         "local_subdir": "diffusion_models",
         "files": [{"src": "diffusion_models/flux3-image-klein-int8-convrot.safetensors",
@@ -2163,7 +2171,7 @@ VIDEO_MODEL_REGISTRY = {
         "description": "IFM's 29B world model for text-to-video and image-to-video: "
                        "realistic motion that follows the prompt beat by beat. "
                        "1248x704 at 24 fps, about 5 s per clip. Int8 build for "
-                       "RTX 30/40 cards. Requires ComfyUI 0.46.0. Pulls the "
+                       "RTX 30/40 cards. Needs ComfyUI 0.45 or newer. Pulls the "
                        "Qwen3.5 9B encoder and the Wan 2.2 VAE (~38 GB total).",
         "hf_repo": "Comfy-Org/PAN2",
         "local_subdir": "diffusion_models",
@@ -2177,7 +2185,7 @@ VIDEO_MODEL_REGISTRY = {
         "name": "PAN 2 (NVFP4, RTX 50)",
         "description": "PAN 2 in 4-bit weights and activations, 16.3 GB, for RTX 50 "
                        "cards, which run FP4 natively. Same output size and steps as "
-                       "the Int8 build. Requires ComfyUI 0.46.0. Pulls the Qwen3.5 9B "
+                       "the Int8 build. Needs ComfyUI 0.45 or newer. Pulls the Qwen3.5 9B "
                        "encoder and the Wan 2.2 VAE (~28 GB total).",
         "hf_repo": "BennyDaBall/PAN2-NVFP4-ComfyUI",
         "local_subdir": "diffusion_models",
@@ -2213,6 +2221,11 @@ VIDEO_MODEL_REGISTRY = {
                        "official ComfyUI text-to-image graph, 30 steps, no CFG. Uses the files "
                        "the H3 video model installs (transformer, Qwen3-VL encoder, video VAE). "
                        "Needs ComfyUI 0.46 or newer.",
+        # The only release the stills graph has rendered on. Single-image
+        # decoding needs ComfyUI PR #16881 (merged 2026-10-10); which earlier
+        # release first carries it was not established, so older ones are not
+        # offered rather than left to fail at decode.
+        "min_comfyui": "0.46",
         "hf_repo": "Comfy-Org/MiniMax-H3",
         "local_subdir": "diffusion_models",
         "files": [
@@ -2384,6 +2397,11 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
 
     name = entry.get("name") or model_id
     mtype = entry.get("type")
+
+    from backend.services.comfyui_version import refusal as _comfyui_too_old
+    too_old = _comfyui_too_old(model_id, name)
+    if too_old:
+        return False, RenderFailure(RenderErrorKind.INVALID_REQUEST, too_old)
 
     if mtype == "wan":
         if not is_model_installed(model_id):
@@ -2930,11 +2948,15 @@ def _hardware_candidates(role: str, total_vram_mb) -> list:
     preferred = DEFAULT_I2V_MODEL if role == "i2v" else DEFAULT_T2V_MODEL
     if role in ("scene", "ref2v"):
         preferred = None
+    from backend.services.comfyui_version import comfyui_version, offered
+    comfy_ver = comfyui_version()
     candidates = []
     for mid, entry in VIDEO_MODEL_REGISTRY.items():
         if entry.get("type") not in GENERATION_TYPES:
             continue
         if not _role_ok(mid, role):
+            continue
+        if not offered(mid, comfy_ver):
             continue
         if not is_model_installed(mid):
             continue
@@ -3567,7 +3589,10 @@ def verify_registry() -> list:
     human-readable problems (empty = healthy). Never raises."""
     problems = []
     try:
+        from backend.services.comfyui_version import parse_version
         for mid, entry in VIDEO_MODEL_REGISTRY.items():
+            if "min_comfyui" in entry and parse_version(entry["min_comfyui"]) is None:
+                problems.append(f"{mid}: min_comfyui '{entry['min_comfyui']}' is not a 'major.minor' version")
             if not entry.get("check_files"):
                 problems.append(f"{mid}: no check_files (and no files/hf_filename to derive from)")
             for dep in entry.get("requires", []):

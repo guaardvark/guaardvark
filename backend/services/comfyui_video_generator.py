@@ -2563,9 +2563,11 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 clip_types = (((self._get_object_info() or {}).get("CLIPLoader") or {})
                               .get("input", {}).get("required", {}).get("type") or [[]])[0]
                 if "pan2" not in clip_types:
+                    from backend.services.comfyui_version import min_comfyui
+                    floor = min_comfyui(model) or (0, 45)
                     return result.fail(RenderErrorKind.NODE_MISSING, (
-                        "PAN 2 needs ComfyUI 0.46.0 or newer, and the running ComfyUI does not "
-                        "know the PAN 2 text encoder. Update ComfyUI from its plugin card, then retry."
+                        f"PAN 2 needs ComfyUI {floor[0]}.{floor[1]} or newer, and the running ComfyUI "
+                        "does not know the PAN 2 text encoder. Update ComfyUI from its plugin card, then retry."
                     ))
                 image_path, mode_error = render_limits.start_image(model_key, image_path, family)
                 if mode_error:
