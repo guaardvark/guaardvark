@@ -15,7 +15,8 @@ export function themeCssVars(palette) {
     "--primary-main": palette.primary.main,
     "--scrollbar-track": palette.background.paper,
     "--scrollbar-thumb": palette.divider,
-    "--scrollbar-thumb-hover": palette.action.hover,
+    // A shade darker than the resting thumb (action.hover was lighter).
+    "--scrollbar-thumb-hover": palette.action.disabled,
     "--scrollbar-thumb-active": palette.primary.main,
   };
 }

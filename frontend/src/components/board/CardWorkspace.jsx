@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
-import { Badge, Button } from "@mui/material";
+import { Badge, Button, useTheme } from "@mui/material";
 import ViewQuiltIcon from "@mui/icons-material/ViewQuilt";
 import CardBoard, { TILED } from "./CardBoard";
 import { barRows, narrowReflow, repackRows } from "./boardGeometry";
@@ -80,6 +80,7 @@ export function standardPresets(defaults, columns, t) {
 const CardWorkspace = ({ boardKey, version = 1, cards, presets }) => {
   const { t } = useUiTranslation();
   const { gridSettings } = useLayout();
+  const cardInset = useTheme().board?.cardInset ?? 0;
   const { COLS_COUNT, ROW_HEIGHT_PX, CARD_MARGIN_PX } = gridSettings;
   const [containerRef, width] = useMeasuredWidth(useDashboardWidth());
   const headerSlot = usePageHeaderSlot();
@@ -160,14 +161,14 @@ const CardWorkspace = ({ boardKey, version = 1, cards, presets }) => {
   const shown = useMemo(() => {
     const visible = layout.filter((item) => !hidden[item.i]);
     if (!reflow.isNarrow) return visible;
-    const rows = barRows(ROW_HEIGHT_PX, CARD_MARGIN_PX * TILED.marginScale, TILED.barPx);
+    const rows = barRows(ROW_HEIGHT_PX, CARD_MARGIN_PX * TILED.marginScale, TILED.barPx + 2 * cardInset);
     return repackRows(
       visible.map((item) => (minimized[item.i] ? { ...item, h: rows } : item)),
       COLS_COUNT,
       reflow.cardsPerRow,
       40,
     );
-  }, [reflow.isNarrow, reflow.cardsPerRow, layout, hidden, minimized, ROW_HEIGHT_PX, CARD_MARGIN_PX, COLS_COUNT]);
+  }, [reflow.isNarrow, reflow.cardsPerRow, layout, hidden, minimized, ROW_HEIGHT_PX, CARD_MARGIN_PX, COLS_COUNT, cardInset]);
 
   const onUserLayoutChange = (reported, fromDrag) => {
     if (reflow.isNarrow) return;

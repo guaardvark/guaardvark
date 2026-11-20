@@ -112,7 +112,11 @@ const CardBoard = ({
   }, [endGesture]);
   useEffect(() => endGesture, [endGesture]);
 
-  const rows = barRows(ROW_HEIGHT_PX, margin, spacing?.barPx ?? CARD_BAR_PX);
+  // An edge-to-edge board can still show a strip of page round each card
+  // (the theme's choice); it pads inside the cell, so the grid is unchanged
+  // apart from a minimized card's slot, which also holds the strip.
+  const cardInset = spacing === TILED ? theme.board?.cardInset ?? 0 : 0;
+  const rows = barRows(ROW_HEIGHT_PX, margin, (spacing?.barPx ?? CARD_BAR_PX) + 2 * cardInset);
   const shown = useMemo(() => gridLayout(layout, minimized, rows), [layout, minimized, rows]);
 
   // The grid resets its items' inline styles; put the stacking order back.
@@ -128,6 +132,7 @@ const CardBoard = ({
         [`&.${GESTURE_CLASS}, &.${GESTURE_CLASS} *`]: { userSelect: "none !important" },
         "& .react-grid-item": {
           transition: "transform 0.2s ease-out !important",
+          ...(cardInset > 0 && { padding: `${cardInset}px`, boxSizing: "border-box" }),
           "&.react-draggable-dragging": {
             transition: "none !important",
             opacity: 0.9,
