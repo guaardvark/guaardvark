@@ -132,6 +132,8 @@ To run Guaardvark without a native Python install:
 
 Docker runs five containers: the backend (the API, Celery and its scheduler), the UI, PostgreSQL with pgvector, Redis and Ollama. ComfyUI (the image and video models), Audio Foundry and Upscaling run inside the backend container: install and start them from their cards on the **Plugins** page, and each model from its own Install button, as in a native install. The screen agent's desktop is not in the default image; use `./start.sh` for it.
 
+**AMD Radeon (Linux).** Each release also publishes `guaardvark/guaardvark:latest-rocm` (and `<version>-rocm`, such as `3.6.0-rocm`): PyTorch 2.14.1 on ROCm 7.2, with `rocm-smi` for the card's VRAM and metrics. It runs with rootless Podman and the systemd units in [docker/quadlet/](docker/quadlet/README.md), which pass the card through (`/dev/kfd`, `/dev/dri`). What has run on an RX 7900 XTX is in [docs/HARDWARE.md](docs/HARDWARE.md#amd-rocm).
+
 **On Windows 11 (Docker Desktop).** The same containers run on Docker Desktop with its WSL 2 backend, and they reach an NVIDIA card with no Container Toolkit step:
 
 1. Install a current NVIDIA driver and [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) on Windows, with Ubuntu from `wsl --install`.

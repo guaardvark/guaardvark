@@ -830,7 +830,7 @@ const DevToolsPage = () => {
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                 <Box />
-                <Box display="flex" gap={1}>
+                <Box display="flex" flexWrap="wrap" justifyContent="flex-end" gap={1}>
                   <Chip 
                     label={t("devTools.jobs.activeCount", { count: incompleteJobs.length })} 
                     color={incompleteJobs.length > 5 ? 'warning' : 'success'} 
@@ -858,7 +858,7 @@ const DevToolsPage = () => {
                 </Box>
               </Box>
               
-              <Box display="flex" gap={1} mb={2}>
+              <Box display="flex" flexWrap="wrap" gap={1} mb={2} sx={{ "& > .MuiButton-root": { flexShrink: 0 } }}>
                 <Button
                   variant="outlined"
                   size="small"
