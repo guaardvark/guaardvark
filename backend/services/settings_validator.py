@@ -65,6 +65,13 @@ _MODEL_NOTES = {
                         "Heavy VRAM — batch max_workers forced to 1.",
                         "FLUX Kommunity Licence: commercial use only under US$5M annual revenue.",
                     ]},
+    "minimax-h3-t2i": {"best_for": ["text", "prompt_adherence"],
+                       "warnings": [
+                           "Runs through ComfyUI 0.46 or newer (needs Comfy up + the MiniMax H3 video model's files).",
+                           "Heavy VRAM — batch max_workers forced to 1.",
+                           "MiniMax H3 Community License: the USA, EU, UK and South Korea are Excluded Territories; "
+                           "commercial products must display 'MiniMax H3'.",
+                       ]},
     "moss-image": {"best_for": ["text", "prompt_adherence", "high_res"],
                    "warnings": [
                        "Runs through ComfyUI 0.42 or newer (needs Comfy up + the MOSS-Image weights).",

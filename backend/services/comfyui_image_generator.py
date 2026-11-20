@@ -215,6 +215,16 @@ try:
                  or "flux2-vae.safetensors")
     FLUX3_DEFAULT_STEPS = int(_FLUX3.get("default_steps") or 15)
     FLUX3_NODES = tuple(_FLUX3.get("comfy_nodes") or ("Flux3LayoutPrompt", "TextGenerate", "EmptyFlux2LatentImage"))
+    # MiniMax H3 stills: the H3 video model's files, the template's sampling.
+    _H3S = _VMR.get("minimax-h3-t2i") or {}
+    H3S_UNET = ((_H3S.get("files") or [{}])[0].get("dst") or "minimax_h3_fl2va_pruned_int8_convrot.safetensors")
+    H3S_CLIP = (((_VMR.get("minimax-h3-qwen3vl-nvfp4") or {}).get("files") or [{}])[0].get("dst")
+                or "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors")
+    H3S_VAE = (((_VMR.get("minimax-h3-vae") or {}).get("files") or [{}])[0].get("dst")
+               or "minimax_h3_video_vae_fp16.safetensors")
+    H3S_DEFAULT_STEPS = int(_H3S.get("default_steps") or 30)
+    H3S_NODES = tuple(_H3S.get("comfy_nodes") or ("LTXVSeparateAVLatent",))
+    H3S_ATTENTION_VERIFIED = dict(_H3S.get("attention_verified") or {"pytorch": ["*"]})
     _MOSS_EDIT = _VMR.get("moss-image-edit") or {}
     MOSS_EDIT_LORA = ((_MOSS_EDIT.get("files") or [{}])[0].get("dst")
                       or "moss_image_edit_lora_rank_64_bf16.safetensors")
@@ -247,6 +257,12 @@ except Exception:  # pragma: no cover - registry import is environment-specific
     FLUX3_VAE = "flux2-vae.safetensors"
     FLUX3_DEFAULT_STEPS = 15
     FLUX3_NODES = ("Flux3LayoutPrompt", "TextGenerate", "EmptyFlux2LatentImage")
+    H3S_UNET = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+    H3S_CLIP = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+    H3S_VAE = "minimax_h3_video_vae_fp16.safetensors"
+    H3S_DEFAULT_STEPS = 30
+    H3S_NODES = ("LTXVSeparateAVLatent",)
+    H3S_ATTENTION_VERIFIED = {"pytorch": ["*"]}
     MOSS_EDIT_LORA = "moss_image_edit_lora_rank_64_bf16.safetensors"
     MOSS_EDIT_DEFAULT_STEPS = 30
     MOSS_EDIT_DEFAULT_CFG = 4.0
@@ -280,10 +296,19 @@ FLUX3_UPSAMPLE_MAX_TOKENS = 3584
 # a 1024x1024 render took 16 s; on torch 2.6, where comfy-kitchen's decode kernel
 # does not run, it wrote 1.1 s per token and a render took more than 5 minutes.
 FLUX3_MIN_TORCH = (2, 7)
+# The model tag the MiniMax H3 stills graph dispatches on.
+H3S_TAG = "minimax-h3-t2i"
+# H3 samples on a 32 px grid (the template's ResolutionSelector).
+H3S_SIDE_ALIGNMENT = 32
+# The only ComfyUI release the stills graph has rendered on. The template's
+# note says single-image decoding needs ComfyUI PR #16881 (merged 2026-10-10);
+# which earlier release first carries it was not established, so older ones
+# are refused rather than left to fail at decode.
+H3S_MIN_COMFY = (0, 46)
 # The ComfyUI release that first carries each family's graph, for the message a
 # render on an older server gets.
 _GRAPH_MIN_COMFY = {QWEN21_TAG: ("Qwen-Image 2.1", "0.37"), MOSS_TAG: ("MOSS-Image", "0.42"),
-                    FLUX3_TAG: ("FLUX 3 Image Klein", "0.41")}
+                    FLUX3_TAG: ("FLUX 3 Image Klein", "0.41"), H3S_TAG: ("MiniMax H3 Stills", "0.46")}
 
 
 def _flux3_upsampler_instructions() -> str | None:
@@ -684,6 +709,16 @@ class ComfyUIImageGenerator:
                     )
                     effective_model = "zimage"
                     ml = "zimage"
+
+        if H3S_TAG in ml:
+            if lora_names:
+                raise RuntimeError(
+                    "MiniMax H3 stills do not take LoRAs yet. Remove the LoRA "
+                    "or pick a FLUX.1, SDXL, Z-Image or MOSS-Image model for it."
+                )
+            return self._build_h3_still_workflow(
+                prompt=prompt, width=width, height=height, seed=seed, steps=steps,
+            )
 
         if MOSS_TAG in ml:
             return self._build_moss_workflow(
@@ -1331,6 +1366,68 @@ class ComfyUIImageGenerator:
             "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-moss-image", "images": ["vae", 0]}},
         }
 
+    def _h3_still_attention(self, profile: str) -> str | None:
+        """The ModelAttentionBackend choice to pin for an H3 still, or None to
+        leave ComfyUI's launch backend. As on the video path
+        (video_render_limits.attention_pin): the PyTorch default is never
+        pinned, and another launch backend is pinned back to PyTorch unless the
+        registry entry lists it as verified for this profile."""
+        from backend.services.comfyui_launch_flags import ATTENTION_BACKENDS, ATTENTION_DEFAULT, ATTENTION_ENV
+        launch = (os.environ.get(ATTENTION_ENV) or ATTENTION_DEFAULT).strip().lower()
+        if launch not in ATTENTION_BACKENDS or launch == ATTENTION_DEFAULT:
+            return None
+        verified = H3S_ATTENTION_VERIFIED.get(launch) or []
+        if "*" in verified or profile in verified:
+            return None
+        try:
+            if self.missing_node_classes(("ModelAttentionBackend",)):
+                return None
+        except Exception:  # noqa: BLE001 — leave ComfyUI's choice when it cannot be asked
+            return None
+        return "pytorch attention"
+
+    def _build_h3_still_workflow(
+        self, *, prompt: str, width: int, height: int, seed: int, steps: int,
+    ) -> dict:
+        """The official Comfy-Org MiniMax H3 text-to-image graph
+        (image_minimax_h3_t2i) without its optional turbo LoRA: UNETLoader on the
+        H3 fl2va transformer, CLIPLoader type minimax on the
+        Qwen3-VL encoder, the video VAE, EmptyLatentImage, BasicGuider with no
+        CFG and no negative prompt, RandomNoise, res_multistep / simple through
+        SamplerCustomAdvanced, then LTXVSeparateAVLatent's video half into
+        VAEDecode. Steps default to the template's 30; a value that
+        is given is used as given. Sides snap down to multiples of 32."""
+        n = int(steps) if steps and int(steps) > 0 else H3S_DEFAULT_STEPS
+        grid = H3S_SIDE_ALIGNMENT
+        w = max(grid, (int(width) // grid) * grid)
+        h = max(grid, (int(height) // grid) * grid)
+        model_src = ["unet", 0]
+        wf: dict = {
+            "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": H3S_UNET, "weight_dtype": "default"}},
+        }
+        pin = self._h3_still_attention("standard")
+        if pin:
+            wf["attention"] = {"class_type": "ModelAttentionBackend", "inputs": {"model": model_src, "attention": pin}}
+            model_src = ["attention", 0]
+        wf.update({
+            "clip": {"class_type": "CLIPLoader", "inputs": {"clip_name": H3S_CLIP, "type": "minimax", "device": "default"}},
+            "vae_loader": {"class_type": "VAELoader", "inputs": {"vae_name": H3S_VAE}},
+            "positive": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["clip", 0], "text": prompt}},
+            "latent": {"class_type": "EmptyLatentImage", "inputs": {"width": w, "height": h, "batch_size": 1}},
+            "noise": {"class_type": "RandomNoise", "inputs": {"noise_seed": int(seed) % (2 ** 63)}},
+            "sampler_select": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "res_multistep"}},
+            "scheduler": {"class_type": "BasicScheduler", "inputs": {
+                "model": model_src, "scheduler": "simple", "steps": n, "denoise": 1.0}},
+            "guider": {"class_type": "BasicGuider", "inputs": {"model": model_src, "conditioning": ["positive", 0]}},
+            "sampler": {"class_type": "SamplerCustomAdvanced", "inputs": {
+                "noise": ["noise", 0], "guider": ["guider", 0], "sampler": ["sampler_select", 0],
+                "sigmas": ["scheduler", 0], "latent_image": ["latent", 0]}},
+            "split": {"class_type": "LTXVSeparateAVLatent", "inputs": {"av_latent": ["sampler", 0]}},
+            "vae": {"class_type": "VAEDecode", "inputs": {"samples": ["split", 0], "vae": ["vae_loader", 0]}},
+            "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-h3-still", "images": ["vae", 0]}},
+        })
+        return wf
+
     def _build_flux3_workflow(
         self, *, prompt: str, width: int, height: int, seed: int, steps: int,
     ) -> dict:
@@ -1432,6 +1529,29 @@ class ComfyUIImageGenerator:
                 f"or pick another model."
             )
 
+    def comfy_version(self) -> tuple | None:
+        """(major, minor) of the ComfyUI release the running server reports, or None."""
+        try:
+            stats = requests.get(f"{self.comfy_url}/system_stats", timeout=5).json()
+            raw = str((stats.get("system") or {}).get("comfyui_version") or "")
+            parts = raw.lstrip("v").split(".")
+            return int(parts[0]), int(parts[1])
+        except Exception:  # noqa: BLE001 — unknown is not a refusal
+            return None
+
+    def check_h3_still_comfy(self, model: str | None) -> None:
+        """Refuse a MiniMax H3 still on a ComfyUI older than the release it was
+        measured on (H3S_MIN_COMFY): the nodes exist earlier, but whether those
+        releases decode a single frame was not established."""
+        if H3S_TAG not in (model or "").lower():
+            return
+        ver = self.comfy_version()
+        if ver is not None and ver < H3S_MIN_COMFY:
+            raise RuntimeError(
+                f"MiniMax H3 stills need ComfyUI {H3S_MIN_COMFY[0]}.{H3S_MIN_COMFY[1]} or newer; "
+                f"the running ComfyUI is {ver[0]}.{ver[1]}. Update the ComfyUI plugin, or pick another model."
+            )
+
     def check_text_encoder_files(self, filenames) -> None:
         """Raise before queueing when the running ComfyUI does not list a text
         encoder picked for this render, instead of ComfyUI's "Value not in list"
@@ -1456,6 +1576,8 @@ class ComfyUIImageGenerator:
     def required_node_classes(self, model: str | None) -> tuple:
         """Node classes a model's graph needs beyond ComfyUI's long-standing core."""
         ml = (model or "").lower()
+        if H3S_TAG in ml:
+            return tuple(H3S_NODES)
         if MOSS_TAG in ml:
             return tuple(MOSS_NODES)
         if FLUX3_TAG in ml:
@@ -1474,7 +1596,8 @@ class ComfyUIImageGenerator:
         missing = self.missing_node_classes(required)
         if missing:
             ml = (model or "").lower()
-            tag = MOSS_TAG if MOSS_TAG in ml else FLUX3_TAG if FLUX3_TAG in ml else QWEN21_TAG
+            tag = (H3S_TAG if H3S_TAG in ml else MOSS_TAG if MOSS_TAG in ml
+                   else FLUX3_TAG if FLUX3_TAG in ml else QWEN21_TAG)
             label, version = _GRAPH_MIN_COMFY[tag]
             raise RuntimeError(
                 f"{label} needs ComfyUI {version} or newer: the running ComfyUI has no "
@@ -1986,6 +2109,7 @@ class ComfyUIImageGenerator:
         )
         self.check_graph_nodes(effective_model)
         self.check_flux3_torch(effective_model)
+        self.check_h3_still_comfy(effective_model)
         self.check_text_encoder_files(self.user_text_encoders.values())
 
         if admit_vram_mb:

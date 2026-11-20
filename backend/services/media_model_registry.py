@@ -269,6 +269,19 @@ IMAGE_FAMILY_SPECS: dict[str, dict[str, Any]] = {
         "prompt_style": "natural", "engine": "comfy",
         "vram_mb": _registry_vram_mb("flux3-klein", 9500), "ram_gb": 16.0,
     },
+    # MiniMax H3 stills through ComfyUI (video_model_registry "minimax-h3-t2i",
+    # where the measurements are). No CFG; sides in multiples of 32. The area is
+    # capped at the largest canvas rendered (1024x1024; 1344x768 also measured)
+    # and the short side at the smallest measured (768) until another size is
+    # rendered. prompt_style "natural": the Qwen3-VL encoder reads prose.
+    "minimax-h3-t2i": {
+        "max_side": 1344, "max_pixel_area": 1024 * 1024, "min_side": 768, "dimension_alignment": 32,
+        "width": 1024, "height": 1024, "default_steps": 30, "min_steps": 30, "cfg_when_unset": 0.0,
+        "prompt_style": "natural", "engine": "comfy",
+        # ram_gb: ComfyUI's resident RAM peaked at 27 GB on the H3 video render
+        # that loads the same files (video_model_registry); not measured for stills.
+        "vram_mb": _registry_vram_mb("minimax-h3-t2i", 11000), "ram_gb": 27.0,
+    },
     # SDXL loads whole onto cards of 10 GB and up (vram_mb 8000: ~6.9 GB of fp16
     # weights plus the working set). Below that it runs with CPU model offload,
     # one component on the card at a time. vram_mb_offload measured 2026-10-07 on
@@ -340,6 +353,11 @@ IMAGE_MODEL_LIMITS: dict[str, dict[str, Any]] = {
                     "distilled": True},
     "moss-image": {"family": "moss-image", "steps_range": (12, 50), "cfg_range": (2.5, 6.0),
                    "min_dimensions": (512, 512), "hard_clamp": False, "force_max_workers": 1},
+    # MiniMax H3 stills: 30 steps is the template's default and the only count
+    # rendered clean (the template says fewer steps lose fine texture first; the
+    # 8-step turbo LoRA garbled lettering, see video_model_registry). No CFG.
+    "minimax-h3-t2i": {"family": "minimax-h3-t2i", "steps_range": (30, 50), "cfg_range": (0.0, 0.0),
+                       "min_dimensions": (768, 768), "hard_clamp": False, "force_max_workers": 1},
     # SDXL: guidance above 9 renders black images, so its range is enforced.
     "sd-xl": {"family": "sdxl", "steps_range": (20, 40), "cfg_range": (4.0, 9.0),
               "min_dimensions": (768, 768)},

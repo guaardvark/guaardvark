@@ -686,7 +686,7 @@ def _comfy_admission_mb(model_tag: str | None) -> int | None:
     without a claim."""
     from backend.services.user_model_families import comfy_t2i_family
     family = comfy_t2i_family(model_tag)
-    if family not in ("qwen-image-21", "moss-image", "flux3-klein"):
+    if family not in ("qwen-image-21", "moss-image", "flux3-klein", "minimax-h3-t2i"):
         return None
     from backend.services.video_model_registry import vram_mb_for_model
     return int(vram_mb_for_model(family))

@@ -34,6 +34,7 @@ import { formatUiError } from '../utils/uiError';
 import { handleResponse } from '../api/apiClient';
 import {
   FLUX3_KLEIN_GUIDANCE,
+  H3_STILL_GUIDANCE,
   ZIMAGE_GUIDANCE,
   ZIMAGE_PRESET_STEPS,
   ZIMAGE_STEPS,
@@ -363,9 +364,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const isQwenImage21 = family === 'qwen-image-21';
   const isMossImage = family === 'moss-image';
   const isFlux3Klein = family === 'flux3-klein';
+  const isH3Still = family === 'minimax-h3-t2i';
   // Stills rendered by a ComfyUI graph: one picture at a time, 1K native, and a
   // guidance scale that is not SD-era CFG.
-  const comfyStills = isFlux || isQwenImage21 || isMossImage || isFlux3Klein;
+  const comfyStills = isFlux || isQwenImage21 || isMossImage || isFlux3Klein || isH3Still;
   const isZimage = isZimageModel(params.model);
   const unusedNegAnat = ignoresNegativeAndAnatomy(params.model);
   // A prose model (Z-Image, and Auto while it resolves to one) reads tag
@@ -388,7 +390,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const oneAtATime = generatorDevice === 'cuda' || comfyStills;
   const effectiveWorkers = oneAtATime ? 1 : params.max_workers;
   const oneAtATimeNote = comfyStills && generatorDevice !== 'cuda'
-    ? t('imagesBatch.workers.oneAtATimeModel', { model: isFlux ? 'FLUX' : isMossImage ? 'MOSS-Image' : isFlux3Klein ? 'FLUX 3 Klein' : 'Qwen-Image 2.1' })
+    ? t('imagesBatch.workers.oneAtATimeModel', { model: isFlux ? 'FLUX' : isMossImage ? 'MOSS-Image' : isFlux3Klein ? 'FLUX 3 Klein' : isH3Still ? 'MiniMax H3' : 'Qwen-Image 2.1' })
     : t('imagesBatch.workers.oneAtATimeGpu');
 
   // Generating never downloads a model. A picked model that is not installed
@@ -948,7 +950,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       if (fam === 'flux3-klein') {
         newParams.guidance = FLUX3_KLEIN_GUIDANCE;
       }
-      if (fam === 'flux' || fam === 'qwen-image-21' || fam === 'moss-image' || fam === 'flux3-klein') {
+      if (fam === 'minimax-h3-t2i') {
+        newParams.guidance = H3_STILL_GUIDANCE;
+      }
+      if (fam === 'flux' || fam === 'qwen-image-21' || fam === 'moss-image' || fam === 'flux3-klein' || fam === 'minimax-h3-t2i') {
         newParams.max_workers = 1; // VRAM safety — heavy Comfy graph
       }
       // The explicit High 2K preset is the only thing that puts the canvas at 2048².
@@ -1661,6 +1666,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                 isExpanding={isExpanding}
                 isFlux={isFlux}
                 isFlux3Klein={isFlux3Klein}
+                isH3Still={isH3Still}
                 isModernDit={isModernDit}
                 isMossImage={isMossImage}
                 isQwenImage21={isQwenImage21}

@@ -25,6 +25,7 @@ import {
   QWEN_IMAGE_21_GUIDANCE_MAX,
   MOSS_IMAGE_GUIDANCE_MAX,
   FLUX3_KLEIN_GUIDANCE,
+  H3_STILL_GUIDANCE,
   ZIMAGE_GUIDANCE,
   MAX_QUANTITY,
   IMAGE_MAX_SEED,
@@ -57,6 +58,7 @@ function ImageSettingsCard({
   isExpanding,
   isFlux,
   isFlux3Klein,
+  isH3Still,
   isModernDit,
   isMossImage,
   isQwenImage21,
@@ -400,13 +402,13 @@ function ImageSettingsCard({
                     than left free to drift off the only correct setting. `auto` is left
                     editable: the router may pick SDXL, which does use CFG. */}
                 <Slider
-                  value={isZimage ? ZIMAGE_GUIDANCE : isFlux3Klein ? FLUX3_KLEIN_GUIDANCE : params.guidance}
+                  value={isZimage ? ZIMAGE_GUIDANCE : isFlux3Klein ? FLUX3_KLEIN_GUIDANCE : isH3Still ? H3_STILL_GUIDANCE : params.guidance}
                   onChange={(e, value) => setParams({ ...params, guidance: value })}
                   min={0}
                   max={isFlux ? 6 : isQwenImage21 ? QWEN_IMAGE_21_GUIDANCE_MAX : isMossImage ? MOSS_IMAGE_GUIDANCE_MAX : 20}
                   step={0.5}
                   marks
-                  disabled={isZimage || isFlux3Klein || castLocked}
+                  disabled={isZimage || isFlux3Klein || isH3Still || castLocked}
                 />
                 {castLocked && (
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
@@ -426,6 +428,11 @@ function ImageSettingsCard({
                 {isFlux3Klein && !castLocked && (
                   <Typography variant="caption" color="text.secondary">
                     {t('imagesBatch.guidance.flux3KleinHelp')}
+                  </Typography>
+                )}
+                {isH3Still && !castLocked && (
+                  <Typography variant="caption" color="text.secondary">
+                    {t('imagesBatch.guidance.h3StillHelp')}
                   </Typography>
                 )}
                 {isMossImage && !castLocked && (

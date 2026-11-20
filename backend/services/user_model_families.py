@@ -278,6 +278,27 @@ IMAGE_FAMILIES = (
         "pipeline_tags": (),
         "index_classes": ("MOSSImagePipeline",),
     },
+    {
+        # MiniMax H3 stills: the shipped ids only. The files are the H3 video
+        # model's, so a pasted H3 file belongs to the video catalog, and no role
+        # is offered here; the row exists so comfy_t2i_family routes the ids.
+        "id": "minimax-h3-t2i",
+        "domain": "image",
+        "wired": True,
+        "label": "MiniMax H3 Stills",
+        "engine": "comfy",
+        "like": "minimax-h3-t2i",
+        "roles": (),
+        "layout": "comfy_files",
+        "single_file": True,
+        "lora_engine": None,
+        "local_subdir": "diffusion_models",
+        "comfy_graph": "minimax-h3-t2i",
+        "weight_suffixes": (".safetensors",),
+        "tokens": ("minimax-h3-t2i",),
+        "pipeline_tags": (),
+        "index_classes": (),
+    },
 )
 
 UNWIRED_FAMILIES = (
@@ -445,7 +466,8 @@ def image_generation_families() -> dict:
     """Shape consumed by user_image_models.build_user_entry."""
     out = {}
     for row in IMAGE_FAMILIES:
-        if not row["wired"]:
+        # A row with no role takes no user files (MiniMax H3 stills).
+        if not row["wired"] or not row["roles"]:
             continue
         out[row["id"]] = {
             "label": row["label"],
