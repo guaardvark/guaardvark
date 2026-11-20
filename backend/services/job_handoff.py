@@ -29,12 +29,15 @@ _STATUS_TIMEOUT_S = 20
 
 @dataclass(frozen=True)
 class Handoff:
-    """One long job kind. ``start`` receives the row's
+    """One long job kind. A start route receives the row's
     ``workflow_config['request']`` as its JSON body and answers with a
-    ``batch_id``; ``status`` is read with that id."""
+    ``batch_id``; ``status`` and ``cancel`` are called with that id. A kind
+    with more than one way to start (video from text or from images) names
+    them in ``starts`` and the row picks one with ``workflow_config['variant']``."""
 
-    start: str
+    starts: dict
     status: str
+    cancel: str
     total: str
     done: str
     failed: str
@@ -44,10 +47,21 @@ class Handoff:
 
 HANDOFFS: dict[str, Handoff] = {
     "image_batch": Handoff(
-        start="/api/batch-image/generate/prompts",
+        starts={"prompts": "/api/batch-image/generate/prompts"},
         status="/api/batch-image/status/{id}",
+        cancel="/api/batch-image/cancel/{id}",
         total="total_images", done="completed_images", failed="failed_images",
         percent="progress_percentage", noun="images",
+    ),
+    "video_batch": Handoff(
+        starts={
+            "text": "/api/batch-video/generate/text",
+            "image": "/api/batch-video/generate/image",
+        },
+        status="/api/batch-video/status/{id}",
+        cancel="/api/batch-video/batch/{id}/cancel",
+        total="total_videos", done="completed_videos", failed="failed_videos",
+        percent="progress_pct", noun="clips",
     ),
 }
 
@@ -71,11 +85,15 @@ def start(task: dict) -> dict:
     from backend.utils.backend_http import BackendError
 
     kind = HANDOFFS[task["type"]]
-    request_body = (task.get("workflow_config") or {}).get("request")
+    config = task.get("workflow_config") or {}
+    request_body = config.get("request")
     if not isinstance(request_body, dict) or not request_body:
         return {"error": "the job has no saved request to run"}
+    variant = config.get("variant") or next(iter(kind.starts))
+    if variant not in kind.starts:
+        return {"error": f"unknown way to start this job: {variant!r}"}
     try:
-        data = _call("POST", kind.start, request_body, _START_TIMEOUT_S).data
+        data = _call("POST", kind.starts[variant], request_body, _START_TIMEOUT_S).data
     except BackendError as e:
         return {"error": str(e)}
     batch_id = data.get("batch_id") if isinstance(data, dict) else None
@@ -83,6 +101,27 @@ def start(task: dict) -> dict:
         return {"error": "the backend started the job without naming its batch"}
     return {"handoff": {"kind": task["type"], "batch_id": str(batch_id),
                         "started_at": datetime.datetime.now().isoformat(timespec="seconds")}}
+
+
+def cancel(task_type: Optional[str], handler_config: Any) -> bool:
+    """Cancel the batch a handed-off row is following. False when the row
+    has no batch yet or the backend did not cancel it."""
+    from backend.utils.backend_http import BackendError
+
+    if isinstance(handler_config, str):
+        try:
+            handler_config = json.loads(handler_config)
+        except ValueError:
+            handler_config = None
+    ref = handler_config.get("handoff") if isinstance(handler_config, dict) else None
+    if not is_handoff(task_type) or not ref or not ref.get("batch_id"):
+        return False
+    try:
+        _call("POST", HANDOFFS[task_type].cancel.format(id=ref["batch_id"]))
+        return True
+    except BackendError as e:
+        logger.warning("could not cancel batch %s: %s", ref["batch_id"], e)
+        return False
 
 
 def _utcnow() -> datetime.datetime:
