@@ -121,3 +121,15 @@ def test_a_job_added_in_the_morning_waits_for_tonight(shift):
     shift["queue"] = [{"id": 9}]
     assert ns.tick(at("10:00"))["night_started"] is None
     assert ns.tick(at("00:30", day=21))["night_started"] == 9
+
+
+def test_desktop_idle_reads_the_milliseconds_not_the_type_name(monkeypatch):
+    replies = {"org.gnome.Mutter.IdleMonitor.GetIdletime": "(uint64 4842,)",
+               "org.gnome.SessionManager.IsInhibited": "(false,)"}
+    monkeypatch.setattr(ns, "_gdbus", lambda dest, path, method, *args: replies[method])
+    assert ns.desktop_idle() == {"seconds": 4.842, "inhibited": False, "source": "gnome"}
+
+
+def test_desktop_idle_unreadable_without_a_session_bus(monkeypatch):
+    monkeypatch.setattr(ns, "_gdbus", lambda *args: None)
+    assert ns.desktop_idle()["seconds"] is None
