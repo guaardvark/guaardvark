@@ -1023,8 +1023,10 @@ def run_pass():
     """Trigger an outreach pass on demand instead of waiting for the cron.
 
     Body: {platform: "reddit"|"self_share"|"youtube"|"recon"|"draft",
-           subreddit?, keyword_profiles?, topics?, chain_draft?}
+           subreddit?, keyword_profiles?, topics?, chain_draft?,
+           when?: "night_shift"|"at", at?: ISO time}
     Returns a Task-backed job id; the actual run is async on the worker.
+    With ``when`` the run is held for the night shift or for ``at``.
     """
     body = request.get_json(silent=True) or {}
     platform = (body.get("platform") or "").strip().lower()
@@ -1032,6 +1034,15 @@ def run_pass():
     link_url = (body.get("link_url") or body.get("share_link") or "").strip() or None
     profiles = body.get("keyword_profiles") or body.get("topics") or None
     chain_draft = bool(body.get("chain_draft", False))
+    when = body.get("when") or None
+    at = None
+    if when == "at":
+        from backend.api.night_shift_api import _parse_time
+
+        try:
+            at = _parse_time(body.get("at"))
+        except (TypeError, ValueError):
+            return jsonify({"error": "at must be an ISO date and time"}), 400
 
     try:
         from backend.services.social_outreach.job_service import queue_outreach_run
@@ -1044,6 +1055,8 @@ def run_pass():
             keyword_profiles=profiles,
             chain_draft=chain_draft,
             created_by="outreach_page",
+            when=when,
+            at=at,
         )
         return jsonify(queued), 202
     except ValueError as e:

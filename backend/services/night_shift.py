@@ -315,7 +315,7 @@ def _disk_hold() -> Optional[str]:
 
 _ROW_COLS = (
     "id, name, type, status, schedule_type, due_date, queue_rank, priority, created_at, "
-    "last_run_at, error_message, progress, task_handler, updated_at"
+    "last_run_at, error_message, progress, task_handler, updated_at, cron_expression, next_run_at, result"
 )
 _ORDER = "queue_rank ASC NULLS LAST, priority ASC, created_at ASC, id ASC"
 
@@ -421,6 +421,44 @@ def schedule(task_id: int, when: str, at: Optional[datetime.datetime] = None) ->
     if changed != 1:
         raise LookupError(f"job {task_id} was not found or is already running")
     return {"task_id": task_id, "when": when, "queue_rank": rank}
+
+
+def create_handoff_job(task_type: str, name: str, request_body: dict, variant: Optional[str],
+                       when: str, at: Optional[datetime.datetime] = None) -> dict:
+    """Save a render batch as a held job: the body its page would have sent
+    now is sent when the job is released. ``at`` is naive UTC."""
+    from backend.services import job_handoff
+
+    kind = job_handoff.HANDOFFS.get(task_type)
+    if kind is None:
+        raise ValueError(f"type must be one of {sorted(job_handoff.HANDOFFS)}")
+    if variant is not None and variant not in kind.starts:
+        raise ValueError(f"variant must be one of {sorted(kind.starts)}")
+    if not isinstance(request_body, dict) or not request_body:
+        raise ValueError("request must be the body the job is started with")
+    if when not in SCHEDULED_TYPES:
+        raise ValueError(f"when must be one of {SCHEDULED_TYPES}")
+    if when == AT and at is None:
+        raise ValueError("a time is required")
+    config: dict = {"request": request_body}
+    if variant:
+        config["variant"] = variant
+    now = datetime.datetime.now()
+    s = _session()
+    try:
+        task_id = s.execute(
+            text(
+                "INSERT INTO tasks (name, type, status, priority, workflow_config, schedule_type, progress, "
+                "retry_count, max_retries, retry_delay, created_at, updated_at) "
+                "VALUES (:name, :type, :w, 2, :config, 'immediate', 0, 0, 3, 60, :now, :utc) RETURNING id"
+            ),
+            {"name": (name or task_type)[:255], "type": task_type, "w": WAITING,
+             "config": json.dumps(config), "now": now, "utc": _utcnow()},
+        ).scalar()
+        s.commit()
+    finally:
+        s.close()
+    return schedule(int(task_id), when, at)
 
 
 def reorder(task_ids: list[int]) -> int:
@@ -558,6 +596,11 @@ def status(now: Optional[datetime.datetime] = None) -> dict:
         "hold": hold,
         "waiting": [_public(r) for r in queue],
         "at": [_public(r) for r in waiting_rows(AT)],
+        # Held with no time set: created with "Start when created" off.
+        "held": [_public(r) for r in _rows(
+            "status = :st AND COALESCE(schedule_type, '') NOT IN ('night_shift', 'at')", {"st": WAITING})],
+        "recurring": [_public(r) for r in _rows(
+            "cron_expression IS NOT NULL AND cron_expression <> '' AND status IN ('pending', 'waiting')")],
         "shift": {
             "opened": since,
             "ended": bool(state.get("ended")),
@@ -591,4 +634,8 @@ def _public(row: dict) -> dict:
         "progress": row.get("progress"),
         "error": row.get("error_message"),
         "started_at": row["last_run_at"].isoformat() if row.get("last_run_at") else None,
+        "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
+        "repeats": row.get("cron_expression") or None,
+        "next_run_at": row["next_run_at"].isoformat() if row.get("next_run_at") else None,
+        "result": (row.get("result") or "")[:200] or None,
     }

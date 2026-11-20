@@ -57,6 +57,7 @@ HANDOFFS: dict[str, Handoff] = {
         starts={
             "text": "/api/batch-video/generate/text",
             "image": "/api/batch-video/generate/image",
+            "references": "/api/batch-video/generate/references",
         },
         status="/api/batch-video/status/{id}",
         cancel="/api/batch-video/batch/{id}/cancel",

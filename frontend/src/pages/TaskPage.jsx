@@ -67,6 +67,8 @@ import useContextMenu from "../hooks/useContextMenu";
 import EmptyState from "../components/common/EmptyState";
 import { ContextualLoader } from "../components/common/LoadingStates";
 import { CardWorkspace } from "../components/board";
+import ScheduledJobsCard from "../components/jobs/ScheduledJobsCard";
+import useNightShift from "../hooks/useNightShift";
 import { translate, useUiTranslation } from "../i18n";
 
 // A video batch job's status as shown; the value from the API stays the one compared.
@@ -165,6 +167,8 @@ const TaskPage = () => {
   const pageMenu = useContextMenu();
   const contextItem = pageMenu.payload;
   const handleContextMenu = (e, task = null) => pageMenu.open(e, task);
+
+  const nightShift = useNightShift();
 
   const [videoGenJobs, setVideoGenJobs] = useState([]);
   const [videoGenLoading, setVideoGenLoading] = useState(false);
@@ -565,6 +569,25 @@ const TaskPage = () => {
     }
   };
 
+  // The Scheduled card names a job by its row; the task list has the full record.
+  const handleEditScheduled = (row) => {
+    const task = tasks.find((item) => item.id === row.id);
+    if (task) handleEditTask(task);
+  };
+
+  const handleRemoveScheduled = (row) => {
+    setPendingConfirm({
+      title: t("jobs.nightShift.removeTitle"),
+      description: t("jobs.nightShift.removeDescription", { name: row.name }),
+      keeps: t("jobs.nightShift.removeKeeps"),
+      confirmLabel: t("jobs.nightShift.remove"),
+      run: async () => {
+        await deleteTaskConfirmed(row.id);
+        nightShift.refresh();
+      },
+    });
+  };
+
   const handleStartSingleTask = async (taskId, task) => {
     if (!taskId || !task) {
       setFeedback({
@@ -913,11 +936,12 @@ const TaskPage = () => {
         {/* The job list and the video batches are cards on the shared board. */}
         <CardWorkspace
           boardKey="jobs"
+          version={2}
           cards={[
             {
               id: "jobs",
               title: t("tasks.title"),
-              layout: { x: 0, y: 0, w: 115, h: 90 },
+              layout: { x: 0, y: 55, w: 115, h: 90 },
               body: (
                 <Box sx={{ p: 1.5 }}>
         <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap", alignItems: "center" }}>
@@ -1018,9 +1042,24 @@ const TaskPage = () => {
               ),
             },
             {
+              id: "scheduled",
+              title: t("jobs.nightShift.cardTitle"),
+              layout: { x: 0, y: 0, w: 175, h: 55 },
+              body: (
+                <ScheduledJobsCard
+                  status={nightShift.status}
+                  error={nightShift.error}
+                  refresh={nightShift.refresh}
+                  onEdit={handleEditScheduled}
+                  onRemove={handleRemoveScheduled}
+                  onChanged={fetchTasks}
+                />
+              ),
+            },
+            {
               id: "video",
               title: t("tasks.video.title"),
-              layout: { x: 115, y: 0, w: 60, h: 90 },
+              layout: { x: 115, y: 55, w: 60, h: 90 },
               body: (
                 <Box sx={{ p: 1.5 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>

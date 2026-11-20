@@ -48,6 +48,9 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import * as outreachApi from "../api/outreachService";
 import { CardWorkspace } from "../components/board";
+import ChoiceChips from "../components/settings/ui/ChoiceChips";
+import { AtTimeDialog } from "../components/jobs/ScheduleButton";
+import { NIGHT_SHIFT_CHANGED_EVENT, WHEN } from "../api/nightShiftService";
 import { translate, uiLocale, useUiTranslation, Trans } from "../i18n";
 
 // Per-platform character soft-caps used by the pre-flight panel.
@@ -536,6 +539,10 @@ const OutreachPage = () => {
     }
   };
 
+  // When the pass buttons below start their run: now, in the night shift, or at a time.
+  const [passWhen, setPassWhen] = useState({ when: WHEN.NOW });
+  const [passAtOpen, setPassAtOpen] = useState(false);
+
   const handleRunPass = async (passPlatform) => {
     setBusy(true);
     setError(null); setInfo(null);
@@ -551,6 +558,18 @@ const OutreachPage = () => {
         .filter(Boolean);
       if (topicList.length && (passPlatform === "youtube" || passPlatform === "reddit")) {
         body.topics = topicList;
+      }
+      if (passWhen.when !== WHEN.NOW) {
+        body.when = passWhen.when;
+        if (passWhen.when === WHEN.AT) body.at = passWhen.at;
+        await outreachApi.runPass(body);
+        window.dispatchEvent(new Event(NIGHT_SHIFT_CHANGED_EVENT));
+        setInfo(
+          passWhen.when === WHEN.AT
+            ? t("jobs.nightShift.addedAt", { time: new Date(passWhen.at).toLocaleString(uiLocale()) })
+            : t("jobs.nightShift.added"),
+        );
+        return;
       }
       const out = await outreachApi.runPass(body);
       if (out.task_id != null) setLastTaskId(out.task_id);
@@ -951,6 +970,29 @@ const OutreachPage = () => {
                 </span>
               </Tooltip>
             </Stack>
+            <Box sx={{ mb: 1 }} data-testid="outreach-pass-when">
+              <ChoiceChips
+                ariaLabel={t("jobs.nightShift.whenLabel")}
+                options={[
+                  { value: WHEN.NOW, label: t("jobs.nightShift.whenNow") },
+                  { value: WHEN.NIGHT_SHIFT, label: t("jobs.nightShift.when.night") },
+                  {
+                    value: WHEN.AT,
+                    label: passWhen.when === WHEN.AT ? new Date(passWhen.at).toLocaleString(uiLocale()) : t("jobs.nightShift.atMenu"),
+                  },
+                ]}
+                value={passWhen.when}
+                onChange={(next) => (next === WHEN.AT ? setPassAtOpen(true) : setPassWhen({ when: next }))}
+              />
+              <AtTimeDialog
+                open={passAtOpen}
+                onClose={() => setPassAtOpen(false)}
+                onPick={(at) => {
+                  setPassAtOpen(false);
+                  setPassWhen({ when: WHEN.AT, at });
+                }}
+              />
+            </Box>
             <TextField
               size="small"
               fullWidth

@@ -74,6 +74,26 @@ def post_schedule(task_id: int):
         return error_response(str(e), status_code=409)
 
 
+@night_shift_bp.route("/jobs", methods=["POST"])
+def post_job():
+    """Save a render batch to run later. Body: ``type`` (a hand-off kind),
+    ``request`` (the body its start route takes), ``variant``, ``name``,
+    ``when`` (``night_shift`` or ``at`` with ``at``)."""
+    data = request.get_json(silent=True) or {}
+    when = data.get("when")
+    at = None
+    if when == night_shift.AT:
+        try:
+            at = _parse_time(data.get("at"))
+        except (TypeError, ValueError):
+            return error_response("at must be an ISO date and time", status_code=400)
+    try:
+        return success_response(night_shift.create_handoff_job(
+            data.get("type"), str(data.get("name") or ""), data.get("request"), data.get("variant"), when, at))
+    except ValueError as e:
+        return error_response(str(e), status_code=400)
+
+
 @night_shift_bp.route("/order", methods=["POST"])
 def post_order():
     """Set the night's order: ``ids`` top to bottom."""

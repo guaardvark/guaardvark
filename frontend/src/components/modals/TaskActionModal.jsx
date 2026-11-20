@@ -33,7 +33,9 @@ import { getWebsites } from "../../api/websiteService";
 import { formatUiError } from "../../utils/uiError";
 import { generateStructuredCSV } from "../../api/bulkGenerationService";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
-import { translate, useUiTranslation } from "../../i18n";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
+import { AtTimeDialog } from "../jobs/ScheduleButton";
+import { scheduleJob, WHEN } from "../../api/nightShiftService";
 
 const taskTypes = () => [
   { value: "file_generation", label: translate("dialogs.taskAction.types.fileGeneration"), description: translate("dialogs.taskAction.types.fileGenerationDescription") },
@@ -71,6 +73,10 @@ const TaskActionModal = ({
     page_count: 50,
     auto_start_job: true,
   });
+
+  // When a new job runs: now, in the night shift, or at a time ({ when, at }).
+  const [runWhen, setRunWhen] = useState({ when: WHEN.NOW });
+  const [atOpen, setAtOpen] = useState(false);
 
   const [formError, setFormError] = useState(null);
   // Lists that could not be loaded (models, rules, websites): their dropdowns
@@ -231,6 +237,7 @@ const TaskActionModal = ({
   // Initialize form data
   useEffect(() => {
     if (open) {
+      setRunWhen({ when: WHEN.NOW });
       fetchProjects();
       fetchModels();
       fetchRules();
@@ -585,8 +592,13 @@ const TaskActionModal = ({
     // A new task this form starts itself (below) is created queued. Both task
     // schedulers run any pending task with no job_id within seconds, so a
     // pending create followed by the start ran the task twice.
-    const startsHere = !isEditMode && (isFileGeneration || isCodeGeneration) && formData.auto_start_job;
+    const scheduled = !isEditMode && runWhen.when !== WHEN.NOW;
+    const startsHere =
+      !isEditMode && !scheduled && (isFileGeneration || isCodeGeneration) && formData.auto_start_job;
     if (startsHere) taskPayload.status = "queued";
+    // Held: for the night shift or a time, or with "Start when created" off.
+    // A waiting job is started only by the scheduler or by Run now.
+    else if (scheduled || (!isEditMode && (isFileGeneration || isCodeGeneration))) taskPayload.status = "waiting";
 
     try {
       let createdTask;
@@ -595,6 +607,15 @@ const TaskActionModal = ({
         createdTask = await onSave(formData.id, taskPayload);
       } else {
         createdTask = await onSave(null, taskPayload);
+      }
+
+      if (scheduled && createdTask?.id) {
+        try {
+          await scheduleJob(createdTask.id, runWhen);
+        } catch (scheduleError) {
+          setFormError(t("jobs.nightShift.addFailed", { error: scheduleError.message }));
+          return;
+        }
       }
 
       // If this is a new task with auto-start enabled, start the job
@@ -1150,7 +1171,35 @@ const TaskActionModal = ({
             </Box>
           )}
 
-          {!isEditMode && (isFileGeneration || isCodeGeneration) && (
+          {!isEditMode && (
+            <Box data-testid="task-when">
+              <Hint sx={{ display: "block", mb: 0.5 }}>{t("jobs.nightShift.whenLabel")}</Hint>
+              <ChoiceChips
+                ariaLabel={t("jobs.nightShift.whenLabel")}
+                options={[
+                  { value: WHEN.NOW, label: t("jobs.nightShift.whenNow") },
+                  { value: WHEN.NIGHT_SHIFT, label: t("jobs.nightShift.when.night") },
+                  {
+                    value: WHEN.AT,
+                    label: runWhen.when === WHEN.AT ? new Date(runWhen.at).toLocaleString(uiLocale()) : t("jobs.nightShift.atMenu"),
+                  },
+                ]}
+                value={runWhen.when}
+                onChange={(next) => (next === WHEN.AT ? setAtOpen(true) : setRunWhen({ when: next }))}
+                disabled={anyActionInProgress}
+              />
+              <AtTimeDialog
+                open={atOpen}
+                onClose={() => setAtOpen(false)}
+                onPick={(at) => {
+                  setAtOpen(false);
+                  setRunWhen({ when: WHEN.AT, at });
+                }}
+              />
+            </Box>
+          )}
+
+          {!isEditMode && runWhen.when === WHEN.NOW && (isFileGeneration || isCodeGeneration) && (
             <SettingChip
               label={t("dialogs.taskAction.autoStartChip")}
               on={Boolean(formData.auto_start_job)}
@@ -1177,7 +1226,7 @@ const TaskActionModal = ({
           <ActionButton kind="primary" onClick={handleCreateTask} loading={anyActionInProgress}>
             {isEditMode
               ? t("dialogs.taskAction.saveChanges")
-              : (isFileGeneration || isCodeGeneration) && formData.auto_start_job
+              : runWhen.when === WHEN.NOW && (isFileGeneration || isCodeGeneration) && formData.auto_start_job
                 ? t("dialogs.taskAction.createAndStart")
                 : t("dialogs.taskAction.createTask")}
           </ActionButton>
