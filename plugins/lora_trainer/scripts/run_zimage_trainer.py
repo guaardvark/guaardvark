@@ -39,6 +39,8 @@ from pathlib import Path
 # Must be set before the first CUDA context is created in this process.
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
+_RECLAIM_EVERY_STEPS = 5
+
 _pipeline = None
 _torch = None
 _model_id = None
@@ -532,7 +534,10 @@ def _do_train(cmd: dict) -> dict:
             del loss
 
             # Allocator hygiene — without this, reserved-but-free holes OOM ~step 7 on 16GB.
-            if (step + 1) % 25 == 0:
+            # Captions of different lengths grow the reserve by about 0.2 GB a
+            # step at 1024 px (measured 2026-11-20: 10.2 GB after a reclaim, 14.7 GB
+            # 25 steps later on a 16 GB card), so reclaim often.
+            if (step + 1) % _RECLAIM_EVERY_STEPS == 0:
                 _cuda_reclaim()
 
         # ── save diffusers-compatible LoRA ──────────────────────────────────
