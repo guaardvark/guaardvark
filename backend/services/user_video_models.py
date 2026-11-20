@@ -53,6 +53,7 @@ _LIKE_GENERATION_KEYS = (
     "frame_rule",
     "min_vram_gb",
     "vram_mb",
+    "min_comfyui",
 )
 
 
