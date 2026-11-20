@@ -3,6 +3,7 @@ import json
 from backend.services import pan2_prompt_compiler as pan2
 from backend.services import video_render_limits as limits
 from backend.services.video_model_registry import (
+    clip_defaults_for,
     model_capabilities,
     pan2_comfyui_map,
     verify_registry,
@@ -26,6 +27,12 @@ def test_render_limits_hold_the_measured_settings():
     assert limits.resolve_steps("pan2-int8", 20, family="pan2") == 50
     assert limits.resolve_steps("pan2-int8", 30, explicit=True, family="pan2") == 30
     assert limits.cfg_when_unset("pan2-int8", "pan2") == 2.5
+
+
+def test_a_request_without_settings_gets_the_measured_clip():
+    defaults = clip_defaults_for("pan2-int8")
+    assert (defaults["width"], defaults["height"], defaults["duration_frames"]) == (1248, 704, 121)
+    assert defaults["num_inference_steps"] == 50
 
 
 def test_plain_prompt_becomes_a_caption_with_the_words_kept():
