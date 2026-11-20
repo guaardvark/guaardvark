@@ -215,7 +215,7 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
     >
       <TableCell sx={{ width: 28, px: 0.5 }}>
         {draggable && (
-          <Tooltip title={t("jobs.nightShift.dragHelp")}>
+          <Tooltip title={dragId == null ? t("jobs.nightShift.dragHelp") : ""} disableFocusListener>
             <Box
               role="button"
               tabIndex={0}
