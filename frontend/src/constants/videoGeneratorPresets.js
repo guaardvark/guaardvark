@@ -75,6 +75,12 @@ export const MINIMAX_DURATION_PRESETS = {
   long: { get label() { return translate("options.videoPresets.duration.long"); }, get description() { return translate("options.videoPresets.duration.about", { count: 7 }); }, duration_frames: 175, fps: 24 },
 };
 
+/** PAN 2 renders 121 frames (5 s) at 24 fps, the length measured on a 16 GB
+ *  card; frames are 4n+1 on the Wan 2.2 VAE. */
+export const PAN2_DURATION_PRESETS = {
+  long: { get label() { return translate("options.videoPresets.duration.seconds", { seconds: 5 }); }, get description() { return translate("options.videoPresets.duration.exact", { count: 5 }); }, duration_frames: 121, fps: 24 },
+};
+
 export const HUNYUAN_DURATION_PRESETS = {
   short: { get label() { return translate("options.videoPresets.duration.short"); }, get description() { return translate("options.videoPresets.duration.about", { count: 2 }); }, duration_frames: 49, fps: 24 },
   medium: { get label() { return translate("options.videoPresets.duration.medium"); }, get description() { return translate("options.videoPresets.duration.about", { count: 3 }); }, duration_frames: 73, fps: 24 },
@@ -118,7 +124,7 @@ export const WAN5B_SAMPLER_PROFILES = {
 // MODEL_OPTIONS below; keep the two in step or the UI will send a value the
 // backend never chose for itself.
 // MiniMax H3 runs without CFG (BasicGuider); the value is display-only.
-export const MODEL_DEFAULT_GUIDANCE = { wan: 3.5, cogvideox: 6.0, ltx: 1.0, hunyuan: 6.0, minimax: 1.0 };
+export const MODEL_DEFAULT_GUIDANCE = { wan: 3.5, cogvideox: 6.0, ltx: 1.0, hunyuan: 6.0, minimax: 1.0, pan2: 2.5 };
 
 export const ASPECT_RATIO_PRESETS = {
   "16:9": { label: "16:9", get description() { return translate("options.videoPresets.aspectRatios.widescreen"); }, ratio: 16 / 9 },
@@ -388,6 +394,44 @@ export const MODEL_OPTIONS = {
     dimensionAlignment: 16,
     maxPixelArea: 1_000_000,
   },
+  // PAN 2: the registry entries carry the limits; these mirror them for the
+  // menu. 50 steps at 1248x704 x 121 frames is what was rendered on a 16 GB card.
+  "pan2-int8": {
+    label: "PAN 2 Int8 (16GB)",
+    get description() { return translate("options.videoPresets.models.pan2Int8.description"); },
+    type: "pan2",
+    nativeFps: 24,
+    maxFrames: 121,
+    resolution: [1248, 704],
+    canvas: { shortSide: 704, maxLongSide: 1248 },
+    maxPixelArea: 1248 * 704,
+    aspectRatios: ["16:9", "9:16"],
+    durationPresets: PAN2_DURATION_PRESETS,
+    defaultGuidance: 2.5,
+    defaultSteps: 50,
+    minSteps: 50,
+    supportsT2V: true,
+    supportsI2V: true,
+    dimensionAlignment: 32,
+  },
+  "pan2-nvfp4": {
+    label: "PAN 2 NVFP4 (RTX 50)",
+    get description() { return translate("options.videoPresets.models.pan2Nvfp4.description"); },
+    type: "pan2",
+    nativeFps: 24,
+    maxFrames: 121,
+    resolution: [1248, 704],
+    canvas: { shortSide: 704, maxLongSide: 1248 },
+    maxPixelArea: 1248 * 704,
+    aspectRatios: ["16:9", "9:16"],
+    durationPresets: PAN2_DURATION_PRESETS,
+    defaultGuidance: 2.5,
+    defaultSteps: 50,
+    minSteps: 50,
+    supportsT2V: true,
+    supportsI2V: true,
+    dimensionAlignment: 32,
+  },
 };
 
 /** Every family that renders video, derived from MODEL_OPTIONS so a new
@@ -418,6 +462,7 @@ const FAMILY_CHIP_LABEL = {
   wan: () => "Wan 2.2",
   hunyuan: () => "HunyuanVideo",
   cogvideox: () => "CogVideoX",
+  pan2: () => "PAN 2",
 };
 
 export function modelChipLabel(modelId, registryMeta) {
