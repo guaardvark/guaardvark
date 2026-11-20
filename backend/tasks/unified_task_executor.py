@@ -520,7 +520,9 @@ def execute_unified_task(self, task_id: int):
             except Exception as e:
                 logger.warning(f"Could not switch progress tracking to Outreach: {e}")
 
-        # Try to find a specific handler for the task type
+        # Try to find a specific handler for the task type. A type added to
+        # this chain is added to backend/services/task_routing.py as well, so
+        # the in-process loop leaves its rows to this executor.
         output = None
         handler_used = None
 

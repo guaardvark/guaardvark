@@ -274,7 +274,13 @@ def _write_output(app, filename: str, content: str) -> None:
 
 
 def process_pending_tasks(app) -> None:
-    """Process all tasks in the pending state that are due."""
+    """Run due pending tasks that are plain prompts.
+
+    A row whose type has its own runner is left for the scheduler beat, which
+    sends it to the unified executor; this loop would answer it with the chat
+    model instead.
+    """
+    from backend.services.task_routing import has_own_runner
     # Job order on: while a chat or voice turn runs, due rows wait for a later pass.
     from backend.services import job_arbiter
     if job_arbiter.should_yield("scheduled_task"):
@@ -299,6 +305,8 @@ def process_pending_tasks(app) -> None:
                 if task_due and task_due.tzinfo is None:
                     task_due = task_due.replace(tzinfo=datetime.timezone.utc)
                 if task_due and task_due > now:
+                    continue
+                if has_own_runner(task.type, task.workflow_config):
                     continue
 
                 logger.info(f"Processing task {task.id}: {task.name}")
