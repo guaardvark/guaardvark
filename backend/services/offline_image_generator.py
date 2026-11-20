@@ -4299,10 +4299,17 @@ Negative Prompt: {negative_prompt}""",
             except Exception as e:
                 logger.debug(f"Model availability probe failed: {e}")
 
+        from backend.services.comfyui_version import comfyui_version, offered
+        comfy_ver = comfyui_version()
         for model_key, model_id in self.available_models.items():
             if model_key in self.hidden_models:
                 continue
             meta = self.model_meta.get(model_key, {})
+            # A ComfyUI graph whose registry entry (the key, else its family)
+            # needs a newer ComfyUI than this install runs is not offered.
+            if not (offered(model_key, comfy_ver)
+                    and offered(meta.get("family") or self._model_family(model_key), comfy_ver)):
+                continue
             downloaded = self._is_model_downloaded(model_id)
             gated = False
             if downloaded:
