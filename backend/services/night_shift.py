@@ -40,7 +40,7 @@ MIN_FREE_GB_KEY = "night_shift_min_free_gb"
 DEFAULT_WINDOW = "00:00-07:00"
 # How long the machine must have been left alone before a night job starts.
 AWAY_S = 600.0
-# Free space the outputs volume must keep before a night job starts. Measured
+# Free space the render folders' volume must keep before a night job starts. Measured
 # 2026-11-19 over 179 rendered clips: median 1.3 MB, largest 90 MB, so 5 GB is
 # room for a full night of renders and their intermediate frames.
 DEFAULT_MIN_FREE_GB = 5.0
@@ -291,16 +291,23 @@ def _disk_hold() -> Optional[str]:
         floor_gb = float(_get(MIN_FREE_GB_KEY, "") or DEFAULT_MIN_FREE_GB)
     except ValueError:
         floor_gb = DEFAULT_MIN_FREE_GB
+    # Renders land under the uploads folder (Images, Videos) and exports under
+    # outputs; the two can sit on different volumes, so the tighter one decides.
+    free_gb = None
     try:
-        from backend.config import OUTPUT_DIR as out_dir
+        from backend import config
+
+        folders = [getattr(config, name, None) for name in ("UPLOAD_DIR", "OUTPUT_DIR")]
     except Exception:  # noqa: BLE001
-        out_dir = os.environ.get("GUAARDVARK_OUTPUT_DIR") or os.getcwd()
-    try:
-        free_gb = shutil.disk_usage(out_dir).free / 1024 ** 3
-    except OSError:
-        return None
-    if free_gb < floor_gb:
-        return f"only {free_gb:.1f} GB free where outputs are saved; the night shift keeps {floor_gb:g} GB free"
+        folders = [os.getcwd()]
+    for folder in folders:
+        try:
+            here = shutil.disk_usage(folder).free / 1024 ** 3
+        except (OSError, TypeError):
+            continue
+        free_gb = here if free_gb is None else min(free_gb, here)
+    if free_gb is not None and free_gb < floor_gb:
+        return f"only {free_gb:.1f} GB free where renders are saved; the night shift keeps {floor_gb:g} GB free"
     return None
 
 
