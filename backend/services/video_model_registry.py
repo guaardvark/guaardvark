@@ -2187,6 +2187,51 @@ VIDEO_MODEL_REGISTRY = {
         "size_gb": 16.33,
         **_PAN2_COMMON,
     },
+    # ── MiniMax H3 stills — text-to-image through ComfyUI ────────────────────
+    # The official Comfy-Org template (image_minimax_h3_t2i) samples a single
+    # frame from the same pruned int8 fl2va transformer the video entry loads,
+    # with the Qwen3-VL encoder and the video VAE (no audio VAE). These entries
+    # name those files rather than new ones, so they are ready whenever the H3
+    # video model is, and an Install fetches nothing a video install has not.
+    # BasicGuider with no CFG, res_multistep / simple, sides in multiples of 32.
+    # Measured 2026-11-20 on a 16 GB RTX 40-series card, ComfyUI 0.46.0, torch
+    # 2.15, Comfy Kitchen int8 attention, --reserve-vram 1:
+    #   1024x1024, 30 steps: 33-37 s; 1344x768, 30 steps: 30 s. Card peak
+    #   15.7-15.9 GB with ~2.1 GB held by other processes before the render
+    #   (the 21 GB transformer streams). A lettered poster and a shop sign were
+    #   spelled right and a photo of a man's hands at dawn looked natural.
+    # No turbo option: on 2026-11-20 the template's 8-step turbo LoRA rendered
+    # the same storefront prompt (turbo8_sign) with garbled lettering nobody
+    # asked for on the window decals and a chalkboard, where 30 steps was
+    # clean. A turbo option can come back once a measured run shows it clean.
+    # Only those two canvases were rendered, so the family row in
+    # media_model_registry caps the area at 1024x1024 until another is measured.
+    # vram_mb is the H3 video entry's budget for the same transformer.
+    "minimax-h3-t2i": {
+        "name": "MiniMax H3 Stills (Int8, 16GB)",
+        "description": "Still pictures from the MiniMax H3 video model: one frame from the "
+                       "official ComfyUI text-to-image graph, 30 steps, no CFG. Uses the files "
+                       "the H3 video model installs (transformer, Qwen3-VL encoder, video VAE). "
+                       "Needs ComfyUI 0.46 or newer.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {
+                "src": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+                "dst": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            },
+        ],
+        "requires": ["minimax-h3-qwen3vl-nvfp4", "minimax-h3-vae"],
+        "size_gb": 20.97,
+        "default_steps": 30,
+        "vram_mb": 11000,
+        "min_vram_gb": 16,
+        "comfy_nodes": ["LTXVSeparateAVLatent"],
+        # Rendered clean under Comfy Kitchen int8 attention.
+        "attention_verified": {"pytorch": ["*"], "ck": ["standard"]},
+        "license": H3_LICENSE,
+        "type": "minimax-image",
+    },
 }
 
 

@@ -390,6 +390,8 @@ class OfflineImageGenerator:
             "moss-image": "comfy:moss-image",
             # FLUX 3 Image Klein — text-to-image via ComfyUI 0.41+; gated download.
             "flux3-klein": "comfy:flux3-klein",
+            # MiniMax H3 stills — one frame from the H3 video model via ComfyUI 0.46+.
+            "minimax-h3-t2i": "comfy:minimax-h3-t2i",
             # ComfyUI generic backend — chat/batch route to the reachable ComfyUI
             # and pick whichever image engine is installed (Z-Image / FLUX).
             "comfyui": "comfy:comfyui",
@@ -407,7 +409,8 @@ class OfflineImageGenerator:
         # get_available_models() and model_recommender still honour it.
         self.hidden_models: set[str] = set()
         # Offline Diffusers cannot load these — batch/API must route to ComfyUI.
-        self.comfy_only_models = {"flux-dev", "qwen-image-21", "moss-image", "flux3-klein", "comfyui"}
+        self.comfy_only_models = {"flux-dev", "qwen-image-21", "moss-image", "flux3-klein",
+                                  "minimax-h3-t2i", "comfyui"}
         # User-added entries (backend/services/user_image_models.py): family by id
         # or repo, file-kind entries keyed by their "user:<id>" sentinel, and the
         # catalog rows themselves. Filled by load_user_catalog() below.
@@ -425,6 +428,7 @@ class OfflineImageGenerator:
             "qwen-image-21": {"label": "Qwen-Image 2.1 (ComfyUI)", "description": "Prose prompts, native 2K, transparent renders; 25 steps, cfg 1 (official template). Needs ComfyUI 0.37+. Qwen Research License: non-commercial research and evaluation only.", "recommended": False, "order": 1, "engine": "comfy"},
             "moss-image": {"label": "MOSS-Image (ComfyUI)", "description": "Exact lettering in English and Chinese, posters and layouts from long prose prompts; 25 steps, cfg 2.5 (official template). Needs ComfyUI 0.42+. Apache 2.0.", "recommended": False, "order": 1, "engine": "comfy"},
             "flux3-klein": {"label": "FLUX 3 Image Klein (ComfyUI)", "description": "BFL's FLUX 3 open-weights model with its prompt upsampler; 15 steps, cfg 1 (official template). Needs ComfyUI 0.41+ and a Hugging Face login. FLUX Kommunity Licence: commercial use only under US$5M annual revenue.", "recommended": False, "order": 1, "engine": "comfy"},
+            "minimax-h3-t2i": {"label": "MiniMax H3 Stills (ComfyUI)", "description": "Still pictures from the MiniMax H3 video model, with the files the H3 video model installs; 30 steps, no CFG (official template). Needs ComfyUI 0.46+. MiniMax H3 Community License: the USA, EU, UK and South Korea are Excluded Territories; commercial products must display 'MiniMax H3'.", "recommended": False, "order": 1, "engine": "comfy"},
             "comfyui": {"label": "ComfyUI (auto backend)", "description": "Routes image generation to the running ComfyUI plugin and picks the installed engine (Z-Image or FLUX).", "recommended": False, "order": 1, "engine": "comfy"},
             "krea2-turbo": {"label": "Krea 2 Turbo", "description": "12B aesthetic-first model, native 2K, 8 steps CFG-free. Fast inference.", "recommended": False, "order": 2},
             "krea2-raw": {"label": "Krea 2 Raw", "description": "Base 12B checkpoint — less post-trained than Turbo (~52 steps, CFG 3.5). Use for mature/creative prompts or LoRA base.", "recommended": False, "order": 3},
@@ -1065,6 +1069,8 @@ class OfflineImageGenerator:
             return "qwen-image-21"
         if "moss-image" in mid or key.startswith("moss-image"):
             return "moss-image"
+        if "minimax-h3-t2i" in mid or key.startswith("minimax-h3-t2i"):
+            return "minimax-h3-t2i"
         if "flux3" in mid or key.startswith("flux3"):
             return "flux3-klein"
         if "flux" in mid or key.startswith("flux"):
@@ -4342,6 +4348,7 @@ Negative Prompt: {negative_prompt}""",
                     else "17GB+Comfy" if "qwen-image-21" in model_key
                     else "13GB+Comfy" if "moss-image" in model_key
                     else "18GB+Comfy" if "flux3" in model_key
+                    else "42GB+Comfy" if "minimax-h3-t2i" in model_key
                     else "31GB" if "z-image" in model_id.lower() or "zimage" in model_key
                     else "Comfy backend" if model_key == "comfyui"
                     else "12-15GB" if "xl" in model_id.lower()

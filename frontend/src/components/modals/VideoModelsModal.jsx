@@ -45,6 +45,7 @@ const typeLabels = () => ({
   "qwen-edit": translate("models.videoModels.types.imageEditing"),
   "qwen-image": translate("models.videoModels.types.imageGeneration"),
   "moss-image": translate("models.videoModels.types.imageGeneration"),
+  "minimax-image": translate("models.videoModels.types.imageGeneration"),
   pulid: translate("models.videoModels.types.imageEditing"),
   editing: translate("models.videoModels.types.imageEditing"),
 });

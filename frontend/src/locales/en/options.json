@@ -338,6 +338,9 @@
         "standard": "Official ComfyUI template (25 steps, cfg 1)",
         "high": "Official pipeline range (40-50 steps), slower"
       },
+      "h3Still": {
+        "standard": "Official ComfyUI template (30 steps, no guidance)"
+      },
       "flux3Klein": {
         "standard": "Official ComfyUI template (15 steps, cfg 1, prompt upsampler on)"
       },
