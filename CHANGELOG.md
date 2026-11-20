@@ -4,8 +4,9 @@
 
 - **Every studio page is a card workspace.** Video Gen, Image Gen, Image Edit, Music Video, Film Crew, Cast Library,
   Agents, Jobs, Plugins and the rest are boards of cards you arrange, hide and restore, with ready-made layouts
-  behind a Layout button in each page header. The dashboard shows recent media and pending approvals, notes sit on
-  the same board, and the top bar has a full screen button. The frontend now runs on React 19.
+  behind a Layout button in each page header. The dashboard shows recent media and pending approvals, its header
+  opens the Sticky Notes board in one click, and the top bar has a full screen button. The frontend now runs on
+  React 19.
 - **AMD Radeon cards.** The GPU coordinator, metrics and video preflight read AMD cards through rocm-smi, so Radeon
   cards render video the way NVIDIA cards do.
 - **Run ComfyUI yourself.** A switch on the ComfyUI card points Guaardvark at a ComfyUI you already run, as the
