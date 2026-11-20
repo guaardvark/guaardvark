@@ -1039,6 +1039,83 @@ class ComfyUIVideoWorkflowMixin:
         return workflow
 
 
+    def _create_pan2_workflow(
+        self,
+        caption: str,
+        negative_caption: str,
+        model_key: str = "pan2-int8",
+        image_filename: Optional[str] = None,
+        num_frames: int = 121,
+        num_inference_steps: int = 50,
+        guidance_scale: float = 2.5,
+        width: int = 1248,
+        height: int = 704,
+        seed: Optional[int] = None,
+        fps: int = 24,
+        interpolation_multiplier: int = 1,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
+    ) -> dict:
+        """PAN 2, text or image to video, as the reference workflows build it:
+        UNETLoader + CLIPLoader(pan2) + Wan 2.2 VAE -> CLIPTextEncode x2 on the
+        JSON captions -> Wan22ImageToVideoLatent (start_image when given) ->
+        KSampler (euler/simple) -> decode -> VHS_VideoCombine."""
+        if seed is None:
+            seed = int(time.time() * 1000) % (2**31)
+        from backend.services.video_model_registry import pan2_comfyui_map
+        files = pan2_comfyui_map().get(model_key) or {}
+        workflow = {
+            "1": {"class_type": "UNETLoader", "inputs": {"unet_name": files.get("unet"), "weight_dtype": "default"}},
+            "2": {"class_type": "CLIPLoader", "inputs": {
+                "clip_name": files.get("clip"), "type": "pan2", "device": self._text_encoder_device(model_key)}},
+            "3": {"class_type": "VAELoader", "inputs": {"vae_name": files.get("vae")}},
+            "4": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": caption}},
+            "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0], "text": negative_caption}},
+            "6": {"class_type": "Wan22ImageToVideoLatent", "inputs": {
+                "vae": ["3", 0], "width": width, "height": height, "length": num_frames, "batch_size": 1}},
+            "7": {
+                "class_type": "KSampler",
+                "inputs": {
+                    "model": ["1", 0],
+                    "positive": ["4", 0],
+                    "negative": ["5", 0],
+                    "latent_image": ["6", 0],
+                    "seed": seed,
+                    "steps": num_inference_steps,
+                    "cfg": guidance_scale,
+                    "sampler_name": "euler",
+                    "scheduler": "simple",
+                    "denoise": 1.0,
+                },
+            },
+            "8": self._build_vae_decode_node("7", "3", width, height, model_key=model_key, num_frames=num_frames),
+            "9": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["8", 0],
+                    "frame_rate": fps,
+                    "loop_count": 0,
+                    "filename_prefix": "pan2",
+                    "format": "video/h264-mp4",
+                    "pix_fmt": "yuv420p",
+                    "crf": 17,
+                    "save_metadata": True,
+                    "pingpong": False,
+                    "save_output": True,
+                    "videopreview": {"hidden": False, "paused": False, "params": {}},
+                },
+            },
+        }
+        if image_filename:
+            workflow["10"] = {"class_type": "LoadImage", "inputs": {"image": image_filename}}
+            workflow["6"]["inputs"]["start_image"] = ["10", 0]
+        if interpolation_multiplier > 1:
+            self._add_rife_interpolation(
+                workflow, source_node_id="8", video_combine_node_id="9",
+                base_fps=fps, multiplier=interpolation_multiplier,
+            )
+        self._pin_model_attention(workflow, model_key, speed_profile)
+        return workflow
+
     def _create_ltx23_t2v_workflow(
         self,
         prompt: str,

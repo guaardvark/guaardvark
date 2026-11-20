@@ -456,6 +456,45 @@ _H3_FL2VA_MODES = ["t2v", "i2v", "l2v", "flf2v"]
 _H3_REF_LIMITS = {"images": 9, "videos": 3, "audios": 3, "files": 12, "video_seconds": [2, 15]}
 
 
+# ── PAN 2 shared capability data ─────────────────────────────────────────
+# IFM (MBZUAI) PAN 2, a 29B text/image-to-video world model on the Wan 2.2 VAE,
+# prompted with a structured JSON caption (backend/services/pan2_prompt_compiler.py).
+# Graph: the reference workflows in Comfy-Org/PAN2 and BennyDaBall/PAN2-NVFP4-ComfyUI
+# (core nodes only; CLIPLoader type "pan2" needs ComfyUI 0.45 or newer).
+# Measured 2026-11-19 on a 16 GB RTX 40-series card (Ada), ComfyUI 0.46.0 launched
+# with --reserve-vram 1, 1248x704, 121 frames, 50 steps, cfg 2.5, euler/simple:
+# INT8 1100 s per clip at 15.6 GB card peak; NVFP4 (emulated on Ada) 1265-1275 s
+# at 15.7 GB. Clean, coherent frames on all four clips. Nothing shorter than 50
+# steps, larger than 1248x704 or longer than 121 frames has been rendered here,
+# so those are the declared limits until a measured run says otherwise.
+PAN2_LICENSE = {
+    "name": "Apache License 2.0",
+    "url": "https://huggingface.co/IFM/PAN2",
+    "attribution": "PAN 2 (IFM, MBZUAI)",
+}
+_PAN2_COMMON = {
+    "type": "pan2",
+    "modes": ["t2v", "i2v"],
+    "requires": ["pan2-qwen35-encoder", "wan22-vae"],
+    "vram_mb": 11000,
+    "min_vram_gb": 16,
+    # Same flag the Wan 2.2 14B entries carry; the measurement above ran at 1.0.
+    "comfyui_reserve_vram_gb": 1.0,
+    "dimension_alignment": 32,
+    "max_pixel_area": 1248 * 704,
+    "aspect_ratios": ["16:9", "9:16"],
+    "audio_out": False,
+    "native_fps": 24,
+    "frame_rule": "4n+1",
+    "max_frames": 121,
+    "min_clip_s": 1.0,
+    "max_clip_s": 5.04,
+    "min_steps": 50,
+    "default_steps": 50,
+    "cfg_when_unset": 2.5,
+    "license": PAN2_LICENSE,
+}
+
 VIDEO_MODEL_REGISTRY = {
     "cogvideox-5b": {
         "name": "CogVideoX 5B",
@@ -2101,6 +2140,47 @@ VIDEO_MODEL_REGISTRY = {
         "type": "lora",
         "applies_to": ["minimax-h3-ref2va-int8"],
     },
+    "pan2-qwen35-encoder": {
+        "name": "PAN 2 Text Encoder (Qwen3.5 9B, int8)",
+        "description": "Required by PAN 2. Reads the structured caption PAN 2 is prompted with.",
+        "hf_repo": "Comfy-Org/PAN2",
+        "local_subdir": "text_encoders",
+        "files": [
+            {"src": "text_encoders/qwen3.5_9b_int8_convrot.safetensors", "dst": "qwen3.5_9b_int8_convrot.safetensors"},
+        ],
+        "size_gb": 9.75,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "pan2-int8": {
+        "name": "PAN 2 (Int8, 16GB)",
+        "description": "IFM's 29B world model for text-to-video and image-to-video: "
+                       "realistic motion that follows the prompt beat by beat. "
+                       "1248x704 at 24 fps, about 5 s per clip. Int8 build for "
+                       "RTX 30/40 cards. Requires ComfyUI 0.46.0. Pulls the "
+                       "Qwen3.5 9B encoder and the Wan 2.2 VAE (~38 GB total).",
+        "hf_repo": "Comfy-Org/PAN2",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {"src": "diffusion_models/pan2_int8_convrot.safetensors", "dst": "pan2_int8_convrot.safetensors"},
+        ],
+        "size_gb": 26.68,
+        **_PAN2_COMMON,
+    },
+    "pan2-nvfp4": {
+        "name": "PAN 2 (NVFP4, RTX 50)",
+        "description": "PAN 2 in 4-bit weights and activations, 16.3 GB, for RTX 50 "
+                       "cards, which run FP4 natively. Same output size and steps as "
+                       "the Int8 build. Requires ComfyUI 0.46.0. Pulls the Qwen3.5 9B "
+                       "encoder and the Wan 2.2 VAE (~28 GB total).",
+        "hf_repo": "BennyDaBall/PAN2-NVFP4-ComfyUI",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {"src": "diffusion_models/PAN2-NVFP4-ComfyUI.safetensors", "dst": "PAN2-NVFP4-ComfyUI.safetensors"},
+        ],
+        "size_gb": 16.33,
+        **_PAN2_COMMON,
+    },
 }
 
 
@@ -2383,6 +2463,25 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
             ))
         return True, ""
 
+    if mtype == "pan2":
+        if not is_model_installed(model_id):
+            return False, RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, (
+                f"{name} is not installed. Open Manage Video Models to download it "
+                f"(and its Qwen3.5 encoder / Wan 2.2 VAE companions) before queuing a batch."
+            ))
+        for dep in entry.get("requires", []):
+            if not is_model_installed(dep):
+                dep_name = (VIDEO_MODEL_REGISTRY.get(dep) or {}).get("name") or dep
+                return False, RenderFailure(RenderErrorKind.COMPANION_MISSING, (
+                    f"{name} is missing companion '{dep_name}'. "
+                    f"Open Manage Video Models and Install again (companions auto-pull)."
+                ))
+        if not _comfyui_reachable():
+            return False, RenderFailure(RenderErrorKind.COMFYUI_DOWN, (
+                f"{name} requires ComfyUI 0.46.0 or newer. Start the ComfyUI plugin, then retry."
+            ))
+        return True, ""
+
     return True, ""
 
 
@@ -2499,6 +2598,11 @@ FAMILY_SPECS = {
                 "lora_slot": "model_only", "audio_out": True, "guidance": None,
                 "frame_snap": "up", "min_frames": 5, "frames_when_unset": 124, "negative_prompt": False,
                 "enforce_min_steps": True, "attention": "pytorch"},
+    "pan2": {"dimension_alignment": 32, "max_pixel_area": 1248 * 704, "min_vram_gb": 16, "frame_rule": "4n+1",
+             "lora_slot": None, "audio_out": False, "guidance": 2.5,
+             "frame_snap": "down", "min_frames": 25, "frames_when_unset": 121, "negative_prompt": True,
+             "enforce_min_steps": True, "cfg_when_unset": 2.5, "attention": "pytorch",
+             "vae_decode_whole_clip": True},
 }
 # How the render holds a request to these (backend/services/video_render_limits.py):
 #   frame_snap          how a length is moved onto frame_rule: "down", "up" (MiniMax's
@@ -2584,7 +2688,7 @@ def register_video_model(model_id: str, entry: dict, *, replace: bool = False) -
 # testing `type == "minimax"`. Entries that predate the contract get family
 # defaults from model_capabilities(); nothing here is a second registry.
 CAPABILITY_MODES = ("t2v", "i2v", "l2v", "flf2v", "ref2v")
-GENERATION_TYPES = ("wan", "cogvideox", "ltx", "hunyuan", "minimax")
+GENERATION_TYPES = ("wan", "cogvideox", "ltx", "hunyuan", "minimax", "pan2")
 # Families whose ComfyUI graph stacks user LoRAs (LoraLoaderModelOnly after the
 # UNET) and takes a user-chosen text encoder in place of the shipped companion.
 # A family not listed refuses that role at add time rather than accepting a
@@ -3235,6 +3339,29 @@ def minimax_comfyui_map() -> dict:
     return out
 
 
+def pan2_comfyui_map() -> dict:
+    """ComfyUI loader map for PAN 2 entries: {model_id: {unet, clip, vae}} (never raises)."""
+    out = {}
+    try:
+        for mid, entry in VIDEO_MODEL_REGISTRY.items():
+            if entry.get("type") != "pan2":
+                continue
+            dsts = [f["dst"] for f in entry.get("files", [])]
+            mapped = {"unet": dsts[0] if dsts else None, "clip": None, "vae": None}
+            for dep in entry.get("requires", []):
+                dep_entry = VIDEO_MODEL_REGISTRY.get(dep, {})
+                dep_files = dep_entry.get("files", [])
+                dep_dst = dep_files[0]["dst"] if dep_files else (dep_entry.get("check_files") or [None])[0]
+                if dep_entry.get("type") == "encoder":
+                    mapped["clip"] = dep_dst
+                elif dep_entry.get("type") == "vae":
+                    mapped["vae"] = dep_dst
+            out[mid] = mapped
+    except Exception as e:
+        logger.error("pan2_comfyui_map() build failed: %s", e, exc_info=True)
+    return out
+
+
 def music_comfyui_map() -> dict:
     """ComfyUI loader map for audio entries: {model_id: {unet, clip, vae}}."""
     out = {}
@@ -3420,6 +3547,12 @@ def verify_registry() -> list:
                 for k in ("unet", "clip", "vae", "audio_vae"):
                     if not m.get(k):
                         problems.append(f"{mid}: MiniMax ComfyUI map missing '{k}'")
+                problems.extend(_verify_capabilities(mid, entry))
+            if entry.get("type") == "pan2":
+                m = pan2_comfyui_map().get(mid, {})
+                for k in ("unet", "clip", "vae"):
+                    if not m.get(k):
+                        problems.append(f"{mid}: PAN 2 ComfyUI map missing '{k}'")
                 problems.extend(_verify_capabilities(mid, entry))
             if entry.get("type") == "audio":
                 m = music_comfyui_map().get(mid, {})

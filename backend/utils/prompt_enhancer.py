@@ -223,6 +223,7 @@ IDENTITY_BLEED_NEGATIVE = (
 # missing compiler never breaks enhancement for the other families.
 FAMILY_COMPILERS = {
     "minimax": "backend.services.h3_prompt_compiler:enhance_for_family",
+    "pan2": "backend.services.pan2_prompt_compiler:enhance_for_family",
 }
 
 

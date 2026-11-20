@@ -284,6 +284,12 @@
       },
       "ltx25": {
         "description": "Lightricks LTX-2.5 — 8 steps, up to ~10s on 16GB Ada. T2V + I2V. Gated HF accept + ComfyUI ≥ 0.32."
+      },
+      "pan2Int8": {
+        "description": "PAN 2 — a 29B world model with realistic motion that follows the prompt beat by beat. 1248x704, 24fps, 5s. T2V + I2V. ComfyUI ≥ 0.46."
+      },
+      "pan2Nvfp4": {
+        "description": "PAN 2 in 4-bit for RTX 50 cards, which run FP4 natively. 1248x704, 24fps, 5s. T2V + I2V. ComfyUI ≥ 0.46."
       }
     },
     "unknownModel": "Unknown model"
