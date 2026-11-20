@@ -58,37 +58,27 @@ def is_handoff(task_type: Optional[str]) -> bool:
     return task_type in HANDOFFS
 
 
-def _base() -> str:
-    from backend.utils.backend_http import own_backend_url
+def _call(method: str, path: str, payload: Any = None, timeout: float = _STATUS_TIMEOUT_S):
+    """One call to this checkout's backend, with its API key where it has one."""
+    from backend.utils.backend_http import request_json
 
-    return own_backend_url()
-
-
-def _payload(resp) -> dict:
-    """The data of a success_response, or the body itself."""
-    body = resp.json() if resp.content else {}
-    data = body.get("data") if isinstance(body, dict) else None
-    return data if isinstance(data, dict) else (body if isinstance(body, dict) else {})
+    return request_json(method, path, payload=payload, read_timeout=timeout, own_backend=True)
 
 
 def start(task: dict) -> dict:
     """Start the row's batch on the backend. Returns ``{"handoff": {...}}``
     for the row's ``handler_config``, or ``{"error": ...}``."""
-    import requests
+    from backend.utils.backend_http import BackendError
 
     kind = HANDOFFS[task["type"]]
     request_body = (task.get("workflow_config") or {}).get("request")
     if not isinstance(request_body, dict) or not request_body:
         return {"error": "the job has no saved request to run"}
     try:
-        resp = requests.post(f"{_base()}{kind.start}", json=request_body, timeout=_START_TIMEOUT_S)
-    except requests.RequestException as e:
-        return {"error": f"the backend did not take the job ({type(e).__name__}: {e})"}
-    body = resp.json() if resp.content else {}
-    if resp.status_code >= 400:
-        message = (body.get("message") or body.get("error")) if isinstance(body, dict) else None
-        return {"error": str(message or f"the backend refused the job ({resp.status_code})")}
-    batch_id = _payload(resp).get("batch_id")
+        data = _call("POST", kind.start, request_body, _START_TIMEOUT_S).data
+    except BackendError as e:
+        return {"error": str(e)}
+    batch_id = data.get("batch_id") if isinstance(data, dict) else None
     if not batch_id:
         return {"error": "the backend started the job without naming its batch"}
     return {"handoff": {"kind": task["type"], "batch_id": str(batch_id),
@@ -108,7 +98,7 @@ def sync(session_factory) -> dict:
     batches pick up again from disk. A batch the backend no longer knows
     fails the row.
     """
-    import requests
+    from backend.utils.backend_http import BackendError
 
     out = {"followed": 0, "ended": 0}
     s = session_factory()
@@ -130,23 +120,20 @@ def sync(session_factory) -> dict:
             out["followed"] += 1
             update: dict[str, Any] = {"utc": _utcnow(), "id": task_id}
             try:
-                resp = requests.get(f"{_base()}{kind.status.format(id=ref['batch_id'])}", timeout=_STATUS_TIMEOUT_S)
-            except requests.RequestException:
-                s.execute(text("UPDATE tasks SET updated_at = :utc WHERE id = :id AND status = 'in-progress'"), update)
+                data = _call("GET", kind.status.format(id=ref["batch_id"])).data
+            except BackendError as e:
+                if e.status == 404:
+                    update["err"] = f"batch {ref['batch_id']} is no longer known to the backend"
+                    s.execute(text("UPDATE tasks SET status = 'failed', error_message = :err, updated_at = :utc "
+                                   "WHERE id = :id AND status = 'in-progress'"), update)
+                    out["ended"] += 1
+                else:
+                    s.execute(text("UPDATE tasks SET updated_at = :utc WHERE id = :id AND status = 'in-progress'"),
+                              update)
                 s.commit()
                 continue
-            if resp.status_code == 404:
-                update["err"] = f"batch {ref['batch_id']} is no longer known to the backend"
-                s.execute(text("UPDATE tasks SET status = 'failed', error_message = :err, updated_at = :utc "
-                               "WHERE id = :id AND status = 'in-progress'"), update)
-                s.commit()
-                out["ended"] += 1
-                continue
-            if resp.status_code >= 400:
-                s.execute(text("UPDATE tasks SET updated_at = :utc WHERE id = :id AND status = 'in-progress'"), update)
-                s.commit()
-                continue
-            data = _payload(resp)
+            if not isinstance(data, dict):
+                data = {}
             total, done, failed = (int(data.get(k) or 0) for k in (kind.total, kind.done, kind.failed))
             try:
                 percent = int(float(data.get(kind.percent)))

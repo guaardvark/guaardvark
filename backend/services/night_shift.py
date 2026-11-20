@@ -261,12 +261,11 @@ def _other_work() -> Optional[str]:
     answer from the backend holds the shift: it does not start work blind.
     """
     try:
-        import requests
-        from backend.utils.backend_http import own_backend_url
+        from backend.utils.backend_http import request_json
 
-        resp = requests.get(f"{own_backend_url()}/api/jobs/active", params={"limit": 200}, timeout=20)
-        resp.raise_for_status()
-        jobs = resp.json().get("jobs") or []
+        body = request_json("GET", "/api/jobs/active", params={"limit": 200}, read_timeout=20,
+                            own_backend=True).body
+        jobs = (body or {}).get("jobs") or []
     except Exception as e:  # noqa: BLE001
         return f"the jobs list did not answer ({type(e).__name__})"
     for job in jobs:
