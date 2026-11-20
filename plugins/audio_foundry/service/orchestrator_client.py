@@ -113,6 +113,29 @@ class OrchestratorClient:
             missing_ok=True,
         )
 
+    def gpu_holder(self) -> str | None:
+        """The job holding the GPU exclusively (e.g. "video_render:VideoBatch_x"),
+        or None when the card is free, the orchestrator is off, or the backend
+        cannot say. An older backend without the route answers 404: None."""
+        if not self._enabled:
+            return None
+        try:
+            key = backend_api_key(self._own_backend)
+            response = httpx.get(
+                f"{self._url}/api/gpu/memory/holder",
+                headers={API_KEY_HEADER: key} if key else None,
+                timeout=self._timeout,
+            )
+            if response.status_code != 200:
+                return None
+            body = response.json()
+            if body.get("held"):
+                return str(body.get("holder") or "another job")
+            return None
+        except (httpx.HTTPError, ValueError) as e:
+            logger.debug("Orchestrator gpu_holder failed (non-fatal): %s", e)
+            return None
+
     # ------------------------------------------------------------------
 
     def _post(self, path: str, payload: dict[str, Any], op: str, missing_ok: bool = False) -> bool:

@@ -11,6 +11,7 @@ Provides:
     POST /api/gpu/memory/preload  — Manually preload a model
     POST /api/gpu/memory/begin-use — Pin a registered slot while it is in use
     POST /api/gpu/memory/end-use  — Drop one pin taken with begin-use
+    GET  /api/gpu/memory/holder   — Who holds the GPU exclusively now, if anyone
 
 Auto-discovered by blueprint_discovery.py.
 Note: /api/gpu is already used by gpu_api.py (coordinator), so this uses /api/gpu/memory.
@@ -38,6 +39,20 @@ def gpu_status():
     except Exception as e:
         logger.error(f"GPU status error: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@gpu_orchestrator_bp.route("/holder", methods=["GET"])
+def gpu_holder():
+    """Who holds the GPU for an exclusive job (a video render, training), if anyone.
+
+    Reads the in-process job gate and the cross-process lease file, the two
+    places a render or training run claims the card. A plugin in its own
+    process (Audio Foundry) asks before loading a model, so it waits for the
+    job instead of loading beside it and running out of memory.
+    """
+    from backend.services.gpu_resource_policy import gpu_holder_now
+    holder = gpu_holder_now()
+    return jsonify({"held": holder is not None, "holder": holder}), 200
 
 
 @gpu_orchestrator_bp.route("/intent", methods=["POST"])

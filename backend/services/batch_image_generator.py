@@ -2078,7 +2078,9 @@ class BatchImageGenerator:
                 from backend.services.job_operation_gate import (
                     GpuBusyError,
                     GpuCapacityError,
+                    GpuQueuedError,
                     get_gate,
+                    gpu_holder_label,
                 )
                 from backend.services.job_types import JobKind
 
@@ -2171,6 +2173,11 @@ class BatchImageGenerator:
                     except GpuBusyError as e:
                         if cancel_event and cancel_event.is_set():
                             continue
+                        if isinstance(e, GpuQueuedError) or gpu_holder_label(e) is not None:
+                            # Queued behind a job that holds the card (a video
+                            # render can run for hours): wait for it, and keep
+                            # the deadline for VRAM that does not come free.
+                            deadline = max(deadline, time.time() + admit_deadline_s)
                         remaining = deadline - time.time()
                         if remaining <= 0:
                             batch_status.gpu_wait_reason = None
