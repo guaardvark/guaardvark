@@ -9,6 +9,10 @@ import PropTypes from "prop-types";
 import { Badge, Button, useTheme } from "@mui/material";
 import ViewQuiltIcon from "@mui/icons-material/ViewQuilt";
 import CardBoard, { TILED } from "./CardBoard";
+
+// The Dashboard's gaps between cards and around the board; the bar slot stays
+// TILED's, which fits the card frame's title bar.
+const SPACING = { marginScale: 1, paddingScale: 1, barPx: TILED.barPx };
 import { barRows, narrowReflow, repackRows } from "./boardGeometry";
 import { loadBoardState, saveBoardState } from "./boardState";
 import { useBoardGestures, useCardStacking, useMeasuredWidth } from "./useBoard";
@@ -161,7 +165,7 @@ const CardWorkspace = ({ boardKey, version = 1, cards, presets }) => {
   const shown = useMemo(() => {
     const visible = layout.filter((item) => !hidden[item.i]);
     if (!reflow.isNarrow) return visible;
-    const rows = barRows(ROW_HEIGHT_PX, CARD_MARGIN_PX * TILED.marginScale, TILED.barPx + 2 * cardInset);
+    const rows = barRows(ROW_HEIGHT_PX, CARD_MARGIN_PX * SPACING.marginScale, SPACING.barPx + 2 * cardInset);
     return repackRows(
       visible.map((item) => (minimized[item.i] ? { ...item, h: rows } : item)),
       COLS_COUNT,
@@ -257,7 +261,7 @@ const CardWorkspace = ({ boardKey, version = 1, cards, presets }) => {
         containerRef={containerRef}
         width={width}
         grid={gridSettings}
-        spacing={TILED}
+        spacing={SPACING}
         layout={shown}
         minimized={minimized}
         stacking={stacking}
