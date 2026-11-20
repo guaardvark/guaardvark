@@ -179,11 +179,32 @@ Partial, actively improving — tracked in
 
 ## AMD (ROCm)
 
-Best-effort and unverified on real hardware: detection installs the ROCm
-PyTorch build and reads VRAM via `rocm-smi`, but several GPU-presence checks
-are NVIDIA-only, so generation paths should be considered NVIDIA-first for
-now. If you run Guaardvark on an AMD card, an issue report with logs would
-genuinely help.
+Partial. Detection installs the ROCm PyTorch build and reads VRAM through
+`rocm-smi` (one shared probe for the load gate, the hardware profile, the GPU
+coordinator, the video preflight and the system metrics). The published image
+`docker.io/guaardvark/guaardvark:edge-rocm` (`latest-rocm` and `<version>-rocm`
+once released) is PyTorch 2.14.1 on ROCm 7.2 and includes `rocm-smi`; a local
+build with `--build-arg TORCH_CHANNEL=rocm6.3` includes it too.
+
+**Checked on an RX 7900 XTX (24 GB) with a Radeon 780M iGPU**, Nobara 44 (Fedora
+based, SELinux disabled), ROCm 7.1.1 on the host, rootless Podman with the
+Quadlet units in `docker/quadlet/`:
+
+- Chat with `qwen3.5:9b` and `qwen3.8:27b` (the 27B model at a 32768 context), including a picture attached in chat.
+- RAG over text and PDF files, SDXL Turbo image generation.
+- Wan 2.2 14B (GGUF Q5_K) video generation through a ComfyUI in another container
+  (see the Quadlet README). The Wan 2.2 5B model ran on the same setup, but its
+  clips were unusable there, so it is not listed as working.
+- System metrics (temperature, utilisation, VRAM) through `rocm-smi`.
+
+Not covered by these runs: training, music and voice generation, Film Crew,
+the agent screen on AMD, and any card other than the 7900 XTX.
+
+**What a container needs.** `AddDevice=/dev/kfd` and `AddDevice=/dev/dri`. On the
+checked host both devices are world-readable, and the backend found both GPUs
+without `GroupAdd=keep-groups` and without `SecurityLabelDisable=true`. Hosts
+where the device nodes belong to the `video`/`render` groups, or where SELinux is
+enforcing, may need them (the units keep both lines); that was not tested.
 
 With an integrated GPU next to a discrete AMD card, both are listed as GPUs. The
 VRAM checks (load gate and hardware profile) use the card with the most VRAM. To
