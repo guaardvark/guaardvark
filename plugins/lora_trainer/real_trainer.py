@@ -2,6 +2,7 @@ from __future__ import annotations
 import ctypes
 import json
 import logging
+import re
 import signal
 import subprocess
 import sys
@@ -17,6 +18,9 @@ from backend.utils.platform import (
 )
 
 logger = logging.getLogger(__name__)
+
+# The step lines run_zimage_trainer prints to stderr, e.g. "step 451/1500".
+_STEP_LINE = re.compile(r"\bstep (\d+)/(\d+)\b")
 
 
 def _set_pdeathsig():
@@ -68,6 +72,8 @@ class RealLoraTrainer:
         self._lock = threading.Lock()
         self._loaded = False
         self._active_backend: str | None = None  # "sdxl" | "zimage"
+        # Called with (step, total) for each step line the daemon logs.
+        self._on_step = None
 
     @staticmethod
     def _gpu_env() -> dict:
@@ -238,6 +244,7 @@ class RealLoraTrainer:
                             logger.info("lora_trainer daemon: %s", line)
                             f.write(line + "\n")
                             f.flush()
+                            self._report_step(line)
 
         threading.Thread(target=_pump_stderr, daemon=True).start()
 
@@ -245,6 +252,18 @@ class RealLoraTrainer:
         if not pong.get("ok"):
             self._kill_proc()
             raise RuntimeError(f"LoRA trainer daemon ping failed: {pong}")
+
+    def _report_step(self, line: str) -> None:
+        on_step = self._on_step
+        if on_step is None:
+            return
+        m = _STEP_LINE.search(line)
+        if not m:
+            return
+        try:
+            on_step(int(m.group(1)), int(m.group(2)))
+        except Exception as e:  # noqa: BLE001 — reporting must not stop the log pump
+            logger.debug("lora_trainer: step report failed: %s", e)
 
     def _send(self, msg: dict, timeout_s: float) -> dict:
         if self._proc is None or self._proc.stdin is None or self._proc.stdout is None:
@@ -329,6 +348,7 @@ class RealLoraTrainer:
         base_model_id: str | None = None,
         lora_targets: str | None = None,
         base_storage: str | None = None,
+        on_step=None,
         **_,
     ) -> dict:
         # resolution is the dominant VRAM lever; run_zimage_trainer caps it to
@@ -409,10 +429,14 @@ class RealLoraTrainer:
                 train_params["lora_targets"] = lora_targets
             if base_storage:
                 train_params["base_storage"] = base_storage
-            train_resp = self._send(
-                {"op": "train", "params": train_params},
-                timeout_s=self._train_budget_s(registry_base, steps, resolution),
-            )
+            self._on_step = on_step
+            try:
+                train_resp = self._send(
+                    {"op": "train", "params": train_params},
+                    timeout_s=self._train_budget_s(registry_base, steps, resolution),
+                )
+            finally:
+                self._on_step = None
 
             if not train_resp.get("ok"):
                 return {"status": "failed", "error": train_resp.get("error", "train failed")}

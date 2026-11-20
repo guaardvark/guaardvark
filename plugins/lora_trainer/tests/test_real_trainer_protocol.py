@@ -141,3 +141,23 @@ def test_a_short_run_gets_a_short_budget(monkeypatch):
     assert RealLoraTrainer._train_budget_s("zimage-turbo", 600, 1024) == 6480
     assert RealLoraTrainer._train_budget_s("sdxl-legacy", 1500, 1024) == 1800
 
+
+
+def test_step_lines_reach_the_callback_only_while_one_is_set():
+    trainer = RealLoraTrainer()
+    seen = []
+    trainer._report_step("[run_zimage_trainer] step 451/1500 loss=0.23730")
+    trainer._on_step = lambda step, total: seen.append((step, total))
+    trainer._report_step("[run_zimage_trainer] step 451/1500 loss=0.23730")
+    trainer._report_step("OOM during Z-Image training (stage=train)")
+    assert seen == [(451, 1500)]
+
+
+def test_a_failing_step_callback_does_not_raise():
+    trainer = RealLoraTrainer()
+
+    def boom(step, total):
+        raise RuntimeError("progress store unavailable")
+
+    trainer._on_step = boom
+    trainer._report_step("step 1/10")
