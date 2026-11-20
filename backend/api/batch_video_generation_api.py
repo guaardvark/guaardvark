@@ -191,9 +191,53 @@ def _resolve_request_model(data, role: str):
     return model_id, None
 
 
+def _canvas_for_ratio(ratio: str, model_id: str, default_w: int, default_h: int) -> tuple:
+    """(width, height) for an ``aspect_ratio`` like "9:16": the model's own canvas
+    in that shape. A ratio the model does not declare is refused with the same
+    words as the generate_video tool. A model with a declared canvas takes its
+    size for the ratio; any other keeps the default frame's pixel area,
+    aligned to its grid, so 9:16 on a 1312x736 default renders 736x1312."""
+    import math
+    from backend.services.video_model_registry import declared_canvas
+
+    try:
+        w_part, h_part = (float(x) for x in str(ratio).split(":"))
+        if w_part <= 0 or h_part <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        raise _BadField(f"aspect_ratio must look like 16:9, got {ratio!r}.")
+    caps = model_capabilities(model_id) or {}
+    ratios = caps.get("aspect_ratios") or []
+    if ratios and ratio not in ratios:
+        name = (VIDEO_MODEL_REGISTRY.get(model_id) or {}).get("name") or model_id
+        raise _BadField(f"{name} renders {', '.join(ratios)}; {ratio} is not one of them.")
+    from backend.services.video_render_limits import ASPECT_TOLERANCE
+    r = w_part / h_part
+    if abs((default_w / default_h) / r - 1.0) <= ASPECT_TOLERANCE:
+        return default_w, default_h
+    if declared_canvas(model_id, default_w, default_h) == (default_w, default_h):
+        fixed = declared_canvas(model_id, int(w_part * 100), int(h_part * 100))
+        if fixed:
+            return fixed
+    align = int(caps.get("dimension_alignment") or 16) or 16
+    width = math.sqrt(default_w * default_h * r)
+    height = width / r
+    return (max(align, int(round(width / align)) * align),
+            max(align, int(round(height / align)) * align))
+
+
 def _clip_params(data, model_id: str) -> dict:
-    """Fill omitted fps/frames/steps/canvas from the model's native defaults."""
+    """Fill omitted fps/frames/steps/canvas from the model's native defaults.
+
+    ``aspect_ratio`` sets the canvas when neither width nor height is given;
+    an explicit width or height wins."""
     defaults = clip_defaults_for(model_id)
+    ratio = str(data.get("aspect_ratio") or "").strip()
+    if ratio and data.get("width") in (None, "") and data.get("height") in (None, ""):
+        defaults = dict(defaults)
+        defaults["width"], defaults["height"] = _canvas_for_ratio(
+            ratio, model_id, int(defaults["width"]), int(defaults["height"]),
+        )
     def _num(key, fallback):
         raw = data.get(key)
         if raw in (None, ""):
