@@ -2,6 +2,7 @@ from __future__ import annotations
 import ctypes
 import json
 import logging
+import re
 import signal
 import subprocess
 import sys
@@ -17,6 +18,9 @@ from backend.utils.platform import (
 )
 
 logger = logging.getLogger(__name__)
+
+# The step lines run_zimage_trainer prints to stderr, e.g. "step 451/1500".
+_STEP_LINE = re.compile(r"\bstep (\d+)/(\d+)\b")
 
 
 def _set_pdeathsig():
@@ -58,7 +62,7 @@ class RealLoraTrainer:
     _BACKEND_PYTHON = _REPO_ROOT / "backend" / "venv" / "bin" / "python"
     # Time budgets come from backend.utils.platform's one platform flag, so the
     # daemon caps, the Celery task limits, and the reaper cutoff cannot drift
-    # apart. Stock (CUDA) values (900 / 1800) are unchanged from main.
+    # apart.
     _IS_APPLE_SILICON = IS_APPLE_SILICON
     _LOAD_TIMEOUT_S = LORA_LOAD_TIMEOUT_S
     _TRAIN_TIMEOUT_S = LORA_TRAIN_TIMEOUT_S
@@ -68,6 +72,8 @@ class RealLoraTrainer:
         self._lock = threading.Lock()
         self._loaded = False
         self._active_backend: str | None = None  # "sdxl" | "zimage"
+        # Called with (step, total) for each step line the daemon logs.
+        self._on_step = None
 
     @staticmethod
     def _gpu_env() -> dict:
@@ -238,6 +244,7 @@ class RealLoraTrainer:
                             logger.info("lora_trainer daemon: %s", line)
                             f.write(line + "\n")
                             f.flush()
+                            self._report_step(line)
 
         threading.Thread(target=_pump_stderr, daemon=True).start()
 
@@ -245,6 +252,18 @@ class RealLoraTrainer:
         if not pong.get("ok"):
             self._kill_proc()
             raise RuntimeError(f"LoRA trainer daemon ping failed: {pong}")
+
+    def _report_step(self, line: str) -> None:
+        on_step = self._on_step
+        if on_step is None:
+            return
+        m = _STEP_LINE.search(line)
+        if not m:
+            return
+        try:
+            on_step(int(m.group(1)), int(m.group(2)))
+        except Exception as e:  # noqa: BLE001 — reporting must not stop the log pump
+            logger.debug("lora_trainer: step report failed: %s", e)
 
     def _send(self, msg: dict, timeout_s: float) -> dict:
         if self._proc is None or self._proc.stdin is None or self._proc.stdout is None:
@@ -278,6 +297,31 @@ class RealLoraTrainer:
         except json.JSONDecodeError as e:
             raise RuntimeError(f"LoRA trainer daemon returned non-JSON: {response_line!r} ({e})") from e
 
+    # Slack over the recipe's measured pace, for cards slower than the one it
+    # was measured on. A run on a base with no measured pace keeps 30 minutes.
+    _TRAIN_PACE_SLACK = 3
+    _TRAIN_BUDGET_FLOOR_S = 1800
+
+    @classmethod
+    def _train_budget_s(cls, registry_base: str, steps: int, resolution: int) -> int:
+        """Seconds one train call may take before the daemon is killed.
+
+        From the run's own size, so a wedged short run frees the card long
+        before the platform ceiling. Apple Silicon keeps the ceiling: no pace
+        was measured there.
+        """
+        ceiling = cls._TRAIN_TIMEOUT_S
+        if cls._IS_APPLE_SILICON:
+            return ceiling
+        from backend.services.media_model_registry import train_recipe
+        recipe = train_recipe(registry_base)
+        pace = recipe.get("seconds_per_step")
+        if not pace:
+            return min(ceiling, cls._TRAIN_BUDGET_FLOOR_S)
+        area = (int(resolution) / int(recipe["resolution"])) ** 2
+        budget = int(cls._TRAIN_PACE_SLACK * int(steps) * float(pace) * area)
+        return min(ceiling, max(cls._TRAIN_BUDGET_FLOOR_S, budget))
+
     @staticmethod
     def _resolve_backend(base_model_id: str | None) -> str:
         mid = (base_model_id or "sdxl-legacy").strip().lower()
@@ -302,10 +346,13 @@ class RealLoraTrainer:
         learning_rate: float = 1.0e-4,
         steps: int | None = None,
         base_model_id: str | None = None,
+        lora_targets: str | None = None,
+        base_storage: str | None = None,
+        on_step=None,
         **_,
     ) -> dict:
-        # resolution is the dominant VRAM lever. Default 512 fits a 16 GB card
-        # with desktop/other CUDA present; run_zimage_trainer also soft-caps.
+        # resolution is the dominant VRAM lever; run_zimage_trainer caps it to
+        # what the card and the base's storage format can hold.
         resolution = max(512, (int(resolution) // 64) * 64)
         if not ref_image_paths:
             return {"status": "failed", "error": "no reference images provided"}
@@ -342,42 +389,54 @@ class RealLoraTrainer:
 
             _, _, load_model_id = self._backend_paths(backend)
             if not self._loaded:
-                load_resp = self._send(
-                    {"op": "load", "model_id": load_model_id},
-                    timeout_s=self._LOAD_TIMEOUT_S,
-                )
+                from backend.services.cast_train_adapter import adapter_path
+                load_msg = {"op": "load", "model_id": load_model_id}
+                train_adapter = adapter_path(registry_base)
+                if train_adapter:
+                    load_msg["train_adapter"] = train_adapter
+                load_resp = self._send(load_msg, timeout_s=self._LOAD_TIMEOUT_S)
                 if not load_resp.get("ok"):
                     return {"status": "failed", "error": load_resp.get("error", "load failed")}
                 self._loaded = True
 
             if steps is None:
-                if backend == "zimage":
-                    steps = min(1200, max(400, len(ref_image_paths) * 80))
-                else:
-                    steps = min(1500, max(400, len(ref_image_paths) * 100))
+                from backend.services.media_model_registry import default_train_steps
+                steps = default_train_steps(registry_base, len(ref_image_paths))
+            if steps is None:
+                steps = min(1500, max(400, len(ref_image_paths) * 100))
             prompts = list(image_prompts or [])
             if not prompts:
                 prompts = [f"a photo of {token}"] * len(ref_image_paths)
             while len(prompts) < len(ref_image_paths):
                 prompts.append(prompts[-1] if prompts else f"a photo of {token}")
 
-            train_resp = self._send({
-                "op": "train",
-                "params": {
-                    "subject_id": subject_id,
-                    "subject_name": subject_name,
-                    "ref_image_paths": [str(Path(p).resolve()) for p in ref_image_paths],
-                    "output_path": str(output_path),
-                    "rank": int(rank),
-                    "alpha": int(alpha),
-                    "steps": int(steps),
-                    "learning_rate": float(learning_rate),
-                    "resolution": resolution,
-                    "seed": 42,
-                    "instance_prompt": f"a photo of {token}",
-                    "image_prompts": prompts[: len(ref_image_paths)],
-                }
-            }, timeout_s=self._TRAIN_TIMEOUT_S)
+            train_params = {
+                "subject_id": subject_id,
+                "subject_name": subject_name,
+                "ref_image_paths": [str(Path(p).resolve()) for p in ref_image_paths],
+                "output_path": str(output_path),
+                "rank": int(rank),
+                "alpha": int(alpha),
+                "steps": int(steps),
+                "learning_rate": float(learning_rate),
+                "resolution": resolution,
+                "seed": 42,
+                "instance_prompt": f"a photo of {token}",
+                "image_prompts": prompts[: len(ref_image_paths)],
+            }
+            # Left out when unset so the trainer script's own defaults apply.
+            if lora_targets:
+                train_params["lora_targets"] = lora_targets
+            if base_storage:
+                train_params["base_storage"] = base_storage
+            self._on_step = on_step
+            try:
+                train_resp = self._send(
+                    {"op": "train", "params": train_params},
+                    timeout_s=self._train_budget_s(registry_base, steps, resolution),
+                )
+            finally:
+                self._on_step = None
 
             if not train_resp.get("ok"):
                 return {"status": "failed", "error": train_resp.get("error", "train failed")}
@@ -399,6 +458,9 @@ class RealLoraTrainer:
                         "resolution": int(train_resp.get("resolution") or resolution),
                         "rank": rank,
                         "alpha": alpha,
+                        "lora_targets": train_resp.get("lora_targets") or lora_targets,
+                        "base_storage": train_resp.get("base_storage") or base_storage,
+                        "train_adapter": train_resp.get("train_adapter"),
                     },
                 )
             except Exception as e:

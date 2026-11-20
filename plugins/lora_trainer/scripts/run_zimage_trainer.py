@@ -18,7 +18,7 @@ Training notes / anticipated fails handled here:
   - Turbo distillation: training straight on Turbo erodes it. Measured 2026-11-19
     (31 images, 1024 px, rank 32, attention_ffn, 1500 steps, trigger-only renders):
     without the adapter the LoRA rendered soft and kept only hair and lip colour;
-    with ZIMAGE_TURBO_TRAIN_ADAPTER (v2) fused it rendered sharp and kept hair
+    with the training adapter (v2) fused it rendered sharp and kept hair
     streaks, piercings and an arm sleeve.
   - CUDA_VISIBLE_DEVICES='' poison: parent RealLoraTrainer forces a real device.
   - Save format: pipeline.save_lora_weights (diffusers/peft) so
@@ -39,9 +39,12 @@ from pathlib import Path
 # Must be set before the first CUDA context is created in this process.
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
+_RECLAIM_EVERY_STEPS = 5
+
 _pipeline = None
 _torch = None
 _model_id = None
+_train_adapter = None
 
 
 def _dev() -> str:
@@ -186,7 +189,7 @@ def _resolve_model_path(model_id: str) -> str:
 
 
 def _do_load(cmd: dict) -> dict:
-    global _pipeline, _torch, _model_id
+    global _pipeline, _torch, _model_id, _train_adapter
     model_id = cmd.get("model_id") or "Tongyi-MAI/Z-Image-Turbo"
     if _pipeline is not None and _model_id == model_id:
         return {"ok": True}
@@ -249,20 +252,29 @@ def _do_load(cmd: dict) -> dict:
         _model_id = None
         return {"ok": False, "error": f"failed to load Z-Image: {e}\n{traceback.format_exc()}"}
 
-    # Optional turbo training adapter (Ostris) if operator placed it on disk.
-    # Fused into the frozen base so the trained LoRA is the only adapter saved;
-    # renders then run on plain Turbo without it.
-    adapter = os.environ.get("ZIMAGE_TURBO_TRAIN_ADAPTER", "").strip()
+    # The turbo training adapter, fused into the frozen base so the trained LoRA
+    # is the only adapter saved; renders then run on plain Turbo without it.
+    # The caller names the installed file; the env var serves a hand-run daemon.
+    requested = (cmd.get("train_adapter") or "").strip()
+    adapter = requested or os.environ.get("ZIMAGE_TURBO_TRAIN_ADAPTER", "").strip()
+    _train_adapter = None
     if adapter and Path(adapter).exists():
         try:
             _pipeline.load_lora_weights(adapter, adapter_name="turbo_train_adapter")
             _pipeline.fuse_lora(adapter_names=["turbo_train_adapter"])
             _pipeline.unload_lora_weights()
+            _train_adapter = Path(adapter).name
             _eprint(f"[run_zimage_trainer] loaded turbo train adapter: {adapter}")
         except Exception as e:
-            _eprint(f"[run_zimage_trainer] turbo adapter load failed (continuing): {e}")
+            _pipeline = None
+            _model_id = None
+            return {"ok": False, "error": f"the training adapter {adapter} failed to load: {e}"}
+    elif requested:
+        _pipeline = None
+        _model_id = None
+        return {"ok": False, "error": f"the training adapter {requested} is not on disk"}
 
-    return {"ok": True}
+    return {"ok": True, "train_adapter": _train_adapter}
 
 
 def _do_train(cmd: dict) -> dict:
@@ -522,7 +534,10 @@ def _do_train(cmd: dict) -> dict:
             del loss
 
             # Allocator hygiene — without this, reserved-but-free holes OOM ~step 7 on 16GB.
-            if (step + 1) % 25 == 0:
+            # Captions of different lengths grow the reserve by about 0.2 GB a
+            # step at 1024 px (measured 2026-11-20: 10.2 GB after a reclaim, 14.7 GB
+            # 25 steps later on a 16 GB card), so reclaim often.
+            if (step + 1) % _RECLAIM_EVERY_STEPS == 0:
                 _cuda_reclaim()
 
         # ── save diffusers-compatible LoRA ──────────────────────────────────
@@ -586,6 +601,11 @@ def _do_train(cmd: dict) -> dict:
             "base_model_id": "zimage-turbo",
             "steps": steps,
             "resolution": resolution,
+            "rank": rank,
+            "alpha": alpha,
+            "lora_targets": lora_targets,
+            "base_storage": base_storage,
+            "train_adapter": _train_adapter,
         }
     except _torch.cuda.OutOfMemoryError as e:
         cur = step + 1 if step >= 0 else "n/a"

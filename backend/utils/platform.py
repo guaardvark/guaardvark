@@ -123,19 +123,22 @@ def lora_train_time_budgets(
 ) -> tuple[int, int, int | None, int | None, int]:
     """Return (load, train, task_soft, task_hard, reap) seconds for a platform.
 
-    Pure so the non-Darwin numbers can be asserted in tests on any host. On
-    stock CUDA the task limits are ``None`` so the global Celery
-    ``task_soft_time_limit`` / ``task_time_limit`` apply unchanged.
+    Pure so the non-Darwin numbers can be asserted in tests on any host.
+    ``train`` is the ceiling for one train call; on CUDA the trainer gives each
+    run a tighter budget from its step count (RealLoraTrainer._train_budget_s).
+    The CUDA ceiling covers 3000 steps at 1024 px at the measured 3.6 s a step
+    (16 GB NVIDIA card, 2026-11-19) with a third to spare.
     """
-    load = 3600 if apple_silicon else 900     # cold HF download / model load
-    train = 10800 if apple_silicon else 1800  # per train call
+    load = 3600 if apple_silicon else 900       # model load from disk
+    train = 10800 if apple_silicon else 14400   # per train call
     if apple_silicon:
         task_soft = load + train + 300   # 245 min: leaves room for teardown
         task_hard = load + train + 900   # 255 min: > 3h train + 1h load
-        reap = task_hard + 900           # 270 min: never a false positive
     else:
-        task_soft = task_hard = None     # global Celery limits apply
-        reap = 45 * 60                   # > 30 min train cap + 15 min slack
+        # Also covers the wait for the card (CAST_TRAIN_GPU_WAIT_S, 10 min).
+        task_soft = 600 + load + train + 300   # 270 min
+        task_hard = 600 + load + train + 900   # 280 min
+    reap = task_hard + 900               # never a false positive
     return load, train, task_soft, task_hard, reap
 
 

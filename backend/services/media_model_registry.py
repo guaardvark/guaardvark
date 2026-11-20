@@ -65,9 +65,38 @@ MEDIA_MODEL_REGISTRY: dict[str, dict[str, Any]] = {
         "train_backend": "peft_zimage",
         "train_ready": True,
         "train_status_note": (
-            "PEFT flow-matching LoRA on Z-Image Turbo (16GB-safe: cache latents, "
-            "768 default). Optional Ostris turbo adapter via ZIMAGE_TURBO_TRAIN_ADAPTER."
+            "PEFT flow-matching LoRA on Z-Image Turbo, 1024 px on a 16 GB card. "
+            "Install the Turbo training adapter on the Cast page for sharp results."
         ),
+        # What a Cast training run uses when the person set nothing. Measured
+        # 2026-11-19 on a 16 GB NVIDIA card, 31 pictures, with the training
+        # adapter fused, renders on the trigger word alone (6 prompts x 3 seeds):
+        # this recipe held the face, hair streaks, piercings and an arm sleeve;
+        # the 512 px / rank 16 / attention-only recipe it replaces held none of
+        # the marks. 1500 steps took 89 minutes (3.6 s a step).
+        "train_recipe": {
+            "resolution": 1024,
+            "rank": 32,
+            "alpha": 32,
+            "lora_targets": "attention_ffn",
+            "base_storage": "float8",
+            "steps_per_image": 80,
+            "steps_min": 400,
+            "steps_max": 1500,
+            "seconds_per_step": 3.6,
+        },
+        # Z-Image Turbo is distilled; training straight on it erodes the
+        # distillation and the LoRA renders soft (same measurement: without the
+        # adapter only hair and lip colour survived). The adapter is fused into
+        # the frozen base for training only; renders run on plain Turbo.
+        "train_adapter": {
+            "name": "Turbo training adapter",
+            "hf_repo": "ostris/zimage_turbo_training_adapter",
+            "filename": "zimage_turbo_training_adapter_v2.safetensors",
+            "size_mb": 340,
+            "license": "Apache-2.0",
+            "env": "ZIMAGE_TURBO_TRAIN_ADAPTER",
+        },
         # Peak 12818 MB for the trainer process (nvidia-smi, 0.5 s samples),
         # measured 2026-11-07 on a 16 GB NVIDIA card: 512 px, rank 16, bf16
         # transformer on the card for the whole run. The fit check adds 1 GB
@@ -597,6 +626,21 @@ def train_base_missing_message(profile: dict[str, Any]) -> Optional[str]:
         "the Images page or Settings > Model libraries > Image, then train again. "
         "Training never downloads a base model on its own."
     )
+
+
+def train_recipe(base_model_id: str | None) -> dict[str, Any]:
+    """The base's declared training recipe; empty for a base that declares none."""
+    return dict((get_profile(base_model_id) or {}).get("train_recipe") or {})
+
+
+def default_train_steps(base_model_id: str | None, image_count: int) -> Optional[int]:
+    """Steps for a run that names none, from the base's recipe. None when the
+    base declares no recipe and the trainer's own rule applies."""
+    r = train_recipe(base_model_id)
+    if not r.get("steps_per_image"):
+        return None
+    steps = int(image_count) * int(r["steps_per_image"])
+    return min(int(r["steps_max"]), max(int(r["steps_min"]), steps))
 
 
 def lora_compatible_with_inference(base_model_id: str, inference_model: str | None) -> bool:
