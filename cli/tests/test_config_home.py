@@ -57,3 +57,12 @@ def test_get_frontend_url_env(monkeypatch, tmp_path):
     monkeypatch.setenv("GUAARDVARK_FRONTEND", "http://localhost:5999/")
     monkeypatch.setattr(cfg, "RUNTIME_FILE", tmp_path / "missing.json")
     assert cfg.get_frontend_url() == "http://localhost:5999"
+
+
+def test_save_makes_cli_json_owner_only(tmp_path, monkeypatch):
+    new_dir = tmp_path / ".guaardvark"
+    new_file = new_dir / "cli.json"
+    monkeypatch.setattr(cfg, "CONFIG_DIR", new_dir)
+    monkeypatch.setattr(cfg, "CONFIG_FILE", new_file)
+    cfg.save_config({"api_key": "k"})
+    assert new_file.stat().st_mode & 0o777 == 0o600
