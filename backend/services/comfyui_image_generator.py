@@ -2046,8 +2046,14 @@ class ComfyUIImageGenerator:
             if not found:
                 for d in search_dirs:
                     if (d / pth.name).exists():
+                        pth = d / pth.name
                         found = True
                         break
+            if found:
+                from backend.utils.model_file_integrity import file_incomplete
+                cut = file_incomplete(pth)
+                if cut:
+                    logger.warning("LoRA preflight: %s is incomplete (%s); the render will fail to load it", pth, cut)
             if not found:
                 logger.warning("LoRA preflight: %s not found in training/loras or Comfy loras search; proceeding without it (cast identity may be lost)", p)
 

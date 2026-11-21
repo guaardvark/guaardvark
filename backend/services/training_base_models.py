@@ -226,7 +226,8 @@ def installed_revision(entry: dict[str, Any]) -> str | None:
 
 
 def _missing_files(folder: Path) -> list[str]:
-    """Files a training run reads that the snapshot lacks."""
+    """Files a training run reads that the snapshot lacks, or holds cut short."""
+    from backend.utils.model_file_integrity import file_complete
     missing = [name for name in ("config.json", "tokenizer_config.json") if not (folder / name).is_file()]
     index = folder / "model.safetensors.index.json"
     if index.is_file():
@@ -234,8 +235,8 @@ def _missing_files(folder: Path) -> list[str]:
             shards = set(json.loads(index.read_text(encoding="utf-8"))["weight_map"].values())
         except (OSError, ValueError, KeyError, AttributeError):
             return missing + [index.name]
-        missing += sorted(s for s in shards if not (folder / s).is_file())
-    elif not (folder / "model.safetensors").is_file():
+        missing += sorted(s for s in shards if not file_complete(folder / s))
+    elif not file_complete(folder / "model.safetensors"):
         missing.append("model.safetensors")
     return missing
 

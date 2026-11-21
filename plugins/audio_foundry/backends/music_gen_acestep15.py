@@ -111,8 +111,11 @@ def _arrangement_from_request(resolved: dict[str, Any]) -> dict[str, Any]:
 
 
 def missing_weights(cat: dict[str, Any]) -> list[str]:
+    """Files of the catalog that are absent from the checkpoints folder or cut short."""
+    from backends.model_file_integrity import file_complete
+
     checkpoints = _REPO_ROOT / cat["local_dir"] / "checkpoints"
-    return [f for f in cat["files"] if not (checkpoints / f).is_file()]
+    return [f for f in cat["files"] if not file_complete(checkpoints / f)]
 
 
 class ACEStep15Backend(ACEStepBackend):

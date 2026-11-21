@@ -7,11 +7,14 @@ for a zip, the end record) and never the tensor data:
                         end must land exactly on the end of the file.
   .gguf                 key/value and tensor tables; the file must reach the
                         end of the last tensor.
-  .pt .pth .ckpt .bin   only when the file is a zip (torch.save's format): the
-                        central directory at the end must be readable.
+  .onnx                 top-level protobuf fields; each must end inside the file.
+  .pt .pth .ckpt .bin   a zip (torch.save's format): the central directory at
+                        the end must be readable. A whisper.cpp ggml file:
+                        every tensor must end inside the file.
 
-Formats with no length of their own to compare against (ONNX, legacy pickle
-checkpoints, raw .bin) are reported whole when they are non-empty.
+Formats with no length of their own to compare against (legacy pickle
+checkpoints, CTranslate2 and other raw .bin) are reported whole when they are
+non-empty; ``check_kind`` returns None for them.
 
 Verdicts are cached per path and dropped when the file's mtime or size changes.
 Standard library only, so plugin services can import it.
@@ -33,6 +36,7 @@ _MAX_SAFETENSORS_HEADER = 100_000_000
 
 _SAFETENSORS_SUFFIXES = (".safetensors", ".sft")
 _GGUF_SUFFIXES = (".gguf",)
+_ONNX_SUFFIXES = (".onnx",)
 _MAYBE_ZIP_SUFFIXES = (".pt", ".pth", ".ckpt", ".bin")
 
 _CACHE_LIMIT = 4096
@@ -45,7 +49,11 @@ class _Truncated(Exception):
 
 
 def _gb(n: int) -> str:
-    return f"{n / 1e9:.2f} GB"
+    if n >= 1e9:
+        return f"{n / 1e9:.2f} GB"
+    if n >= 1e6:
+        return f"{n / 1e6:.1f} MB"
+    return f"{n} bytes"
 
 
 def _cut_short(have: int, want: int) -> str:
@@ -195,15 +203,151 @@ def _zip_problem(path: str) -> Optional[str]:
         return "truncated: the checkpoint archive has no readable end record"
 
 
+def _varint(buf: bytes, at: int):
+    """(value, index after it), or (None, at) when ``buf`` ends inside it."""
+    value = shift = 0
+    while at < len(buf) and shift < 64:
+        byte = buf[at]
+        at += 1
+        value |= (byte & 0x7F) << shift
+        if not byte & 0x80:
+            return value, at
+        shift += 7
+    return None, at
+
+
+def _onnx_problem(path: str, size: int) -> Optional[str]:
+    # An ONNX file is one ModelProto message: a few top-level fields, the graph
+    # (nearly all of the file) among them as a single length-prefixed field.
+    with open(path, "rb") as f:
+        pos = 0
+        while pos < size:
+            f.seek(pos)
+            head = f.read(20)
+            tag, at = _varint(head, 0)
+            if tag is None:
+                return "truncated: the file ends inside an ONNX field"
+            field, wire = tag >> 3, tag & 7
+            if field == 0 or wire not in (0, 1, 2, 5):
+                return "corrupt header: not an ONNX model"
+            if wire == 0:
+                value, at = _varint(head, at)
+                if value is None:
+                    return "truncated: the file ends inside an ONNX field"
+                pos += at
+            elif wire == 2:
+                length, at = _varint(head, at)
+                if length is None:
+                    return "truncated: the file ends inside an ONNX field"
+                pos += at + length
+            else:
+                pos += at + (8 if wire == 1 else 4)
+    if pos > size:
+        return _cut_short(size, pos)
+    return None
+
+
+_WHISPER_GGML_MAGIC = b"lmgg"
+
+
+def _whisper_ggml_problem(path: str, size: int) -> Optional[str]:
+    """whisper.cpp's ggml layout: hyperparameters, mel filters, vocabulary, then
+    tensors to the end of the file. Anything that does not read as that layout
+    is left unjudged (None); only a tensor running past the end is a verdict."""
+    with open(path, "rb") as f:
+        def i32(count: int = 1):
+            data = f.read(4 * count)
+            if len(data) < 4 * count:
+                raise _Truncated()
+            return struct.unpack(f"<{count}i", data)
+
+        try:
+            f.seek(4)
+            hparams = i32(11)
+            n_vocab, n_mels = hparams[0], hparams[9]
+            if not 0 < n_vocab < 1_000_000 or n_mels not in (80, 128):
+                return None
+            n_mel, n_fft = i32(2)
+            if n_mel != n_mels or not 0 < n_fft < 100_000:
+                return None
+            f.seek(4 * n_mel * n_fft, os.SEEK_CUR)
+            (words,) = i32()
+            if not 0 < words < 1_000_000:
+                return None
+            for _ in range(words):
+                (length,) = i32()
+                if not 0 <= length < 4096:
+                    return None
+                f.seek(length, os.SEEK_CUR)
+            if f.tell() > size:
+                raise _Truncated()
+            while f.tell() < size:
+                n_dims, name_len, ttype = i32(3)
+                per_block, block_bytes = _GGML_BLOCKS.get(ttype, (0, 0))
+                if not 1 <= n_dims <= 4 or not 0 < name_len <= 256 or not per_block:
+                    return None
+                elements = 1
+                for dim in i32(n_dims):
+                    if dim <= 0:
+                        return None
+                    elements *= dim
+                name = f.read(name_len)
+                if len(name) < name_len:
+                    raise _Truncated()
+                if not name.isascii():
+                    return None
+                end = f.tell() + (elements // per_block) * block_bytes
+                if end > size:
+                    return _cut_short(size, end)
+                f.seek(end)
+        except _Truncated:
+            return "truncated: the file ends inside a whisper ggml table"
+    return None
+
+
+def _bin_family(path: str) -> Optional[str]:
+    with open(path, "rb") as f:
+        magic = f.read(4)
+    if magic == b"PK\x03\x04":
+        return "zip"
+    if magic == _WHISPER_GGML_MAGIC:
+        return "ggml"
+    return None
+
+
+def check_kind(path: Union[str, Path]) -> Optional[str]:
+    """The structure check ``file_problem`` applies to ``path``: "safetensors",
+    "gguf", "onnx", "zip" or "ggml"; None when the format carries no length to
+    check and the file is only tested for being non-empty."""
+    key = os.fspath(path)
+    suffix = os.path.splitext(key)[1].lower()
+    if suffix in _SAFETENSORS_SUFFIXES:
+        return "safetensors"
+    if suffix in _GGUF_SUFFIXES:
+        return "gguf"
+    if suffix in _ONNX_SUFFIXES:
+        return "onnx"
+    if suffix in _MAYBE_ZIP_SUFFIXES:
+        try:
+            return _bin_family(key)
+        except OSError:
+            return None
+    return None
+
+
 def _examine(path: str, size: int) -> Optional[str]:
-    suffix = os.path.splitext(path)[1].lower()
     try:
-        if suffix in _SAFETENSORS_SUFFIXES:
+        kind = check_kind(path)
+        if kind == "safetensors":
             return _safetensors_problem(path, size)
-        if suffix in _GGUF_SUFFIXES:
+        if kind == "gguf":
             return _gguf_problem(path, size)
-        if suffix in _MAYBE_ZIP_SUFFIXES:
+        if kind == "onnx":
+            return _onnx_problem(path, size)
+        if kind == "zip":
             return _zip_problem(path)
+        if kind == "ggml":
+            return _whisper_ggml_problem(path, size)
     except OSError as e:
         return f"unreadable: {e.strerror or e}"
     return None

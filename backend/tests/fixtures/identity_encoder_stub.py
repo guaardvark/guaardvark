@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 
 from backend.services.identity_method_data import IMAGE_ENCODERS
+from backend.tests.fixtures.model_files import write_model_file
 
 REPO = "facebook/dinov2-base"
 
@@ -25,7 +26,7 @@ def fake_install(root: Path, *, revision: str | None = None, sha256: str | None 
     folder = Path(root) / entry["folder"]
     folder.mkdir(parents=True, exist_ok=True)
     for name in entry["files"]:
-        (folder / name).write_text("{}", encoding="utf-8")
+        write_model_file(folder / name)
     (folder / "install.json").write_text(json.dumps({
         "repo": REPO,
         "revision": revision or entry["revision"],

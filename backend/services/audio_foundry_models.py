@@ -239,8 +239,12 @@ def get_entry(model_id: str) -> Optional[Dict[str, Any]]:
 
 
 def is_hub_cached(repo_id: str, probe_file: str) -> bool:
-    from backend.services.local_weights import is_cached
-    return is_cached(repo_id, probe_file)
+    """True when the file is in the local HF cache and whole
+    (backend.utils.model_file_integrity)."""
+    from backend.services.local_weights import cached_path
+    from backend.utils.model_file_integrity import file_complete
+    path = cached_path(repo_id, probe_file)
+    return path is not None and file_complete(path)
 
 
 def load_voice_catalog(relpath: str) -> Dict[str, Any]:
@@ -375,11 +379,53 @@ def local_weights_dir(entry: Dict[str, Any]) -> Optional[Path]:
     return REPO_ROOT / cat["local_dir"] / "checkpoints"
 
 
-def missing_hub_files(entry: Dict[str, Any]) -> List[str]:
+def _hub_file_path(entry: Dict[str, Any], name: str) -> Optional[Path]:
+    """Where a required file sits on this machine, or None when it is not here."""
     local = local_weights_dir(entry)
     if local is not None:
-        return [f for f in required_hub_files(entry) if not (local / f).is_file()]
+        return local / name
+    from backend.services.local_weights import cached_path
+    hit = cached_path(entry["hf_repo"], name)
+    return Path(hit) if hit else None
+
+
+def missing_hub_files(entry: Dict[str, Any]) -> List[str]:
+    """Required files Install still has to fetch: absent, or there but not whole."""
+    local = local_weights_dir(entry)
+    if local is not None:
+        from backend.utils.model_file_integrity import file_complete
+        return [f for f in required_hub_files(entry) if not file_complete(local / f)]
     return [f for f in required_hub_files(entry) if not is_hub_cached(entry["hf_repo"], f)]
+
+
+def incomplete_hub_files(entry: Dict[str, Any]) -> Dict[str, str]:
+    """``{file: reason}`` for required files on disk but cut short or unreadable.
+    A subset of missing_hub_files."""
+    from backend.utils.model_file_integrity import file_incomplete
+    incomplete = {}
+    for name in required_hub_files(entry):
+        path = _hub_file_path(entry, name)
+        reason = file_incomplete(path) if path is not None else None
+        if reason:
+            incomplete[name] = reason
+    return incomplete
+
+
+def _discard_incomplete_hub_files(entry: Dict[str, Any]) -> None:
+    """Remove required files that are on disk but not whole, so the download
+    replaces them. A file in the HF cache is a link to a blob the hub would
+    reuse as it is; the blob goes too."""
+    for name in incomplete_hub_files(entry):
+        path = _hub_file_path(entry, name)
+        blob = Path(os.path.realpath(path))
+        targets = [path]
+        if blob != path and blob.parent.name == "blobs":
+            targets.append(blob)
+        for target in targets:
+            try:
+                target.unlink()
+            except OSError as e:
+                logger.warning("Could not remove %s: %s", target, e)
 
 
 # setup_music15.sh writes the source commit it built from here as its last step.
@@ -596,6 +642,7 @@ def _hub_row(entry: Dict[str, Any]) -> Dict[str, Any]:
         "installed": installed,
         "delegate": None,
         "missing_files": missing,
+        "incomplete_files": {} if installed else incomplete_hub_files(entry),
     }
 
 
@@ -985,6 +1032,8 @@ def _run_install(entry: Dict[str, Any], epoch: int) -> None:
         fetched = bool(missing_hub_files(entry))
         if fetched:
             from huggingface_hub import snapshot_download
+
+            _discard_incomplete_hub_files(entry)
 
             pinned: Dict[str, Any] = {}
             if local is not None:
