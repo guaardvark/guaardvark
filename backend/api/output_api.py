@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from flask import Blueprint, current_app, jsonify, request, send_file, abort
+from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 
 # Import existing converters
@@ -209,6 +210,8 @@ def get_output_details(filename):
             'success': True,
             'data': data
         })
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting output details for {filename}: {e}")
         return jsonify({
@@ -245,6 +248,8 @@ def download_csv(filename):
             download_name=base_name,
             mimetype='text/csv'
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error downloading CSV for {filename}: {e}")
         return jsonify({
@@ -281,6 +286,8 @@ def download_xml(filename):
             download_name=base_name,
             mimetype='application/xml'
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error downloading XML for {filename}: {e}")
         return jsonify({
@@ -308,6 +315,8 @@ def delete_output(filename):
             'success': True,
             'message': f'Tracking file {filename} deleted successfully'
         })
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error deleting output {filename}: {e}")
         return jsonify({
@@ -386,6 +395,8 @@ def get_merged_csv(filename):
             mimetype='text/csv'
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error generating merged CSV for {filename}: {e}")
         return jsonify({
