@@ -246,7 +246,8 @@
     "notInLibrary": "The clips are rendered but the finished video was not added to the library, so it cannot play here. Assemble again builds it from the same clips; nothing is re-rendered.",
     "failedAtStage": "Failed at stage <bold>{{stage}}</bold>: {{error}}",
     "unknownError": "unknown error",
-    "footer": "{{cuts}} cuts · {{done}}/{{total}} clips rendered"
+    "footer": "{{cuts}} cuts · {{done}}/{{total}} clips rendered",
+    "scheduledName": "Render music video: {{name}}"
   },
   "duplicate": {
     "title": "Duplicate “{{name}}”",

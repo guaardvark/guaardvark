@@ -26,6 +26,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import CloseIcon from "@mui/icons-material/Close";
 import CancelIcon from "@mui/icons-material/Cancel";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import NightlightOutlinedIcon from "@mui/icons-material/NightlightOutlined";
+import ScheduleIcon from "@mui/icons-material/Schedule";
 import ComputerIcon from "@mui/icons-material/Computer";
 import SchoolIcon from "@mui/icons-material/School";
 import SaveIcon from "@mui/icons-material/Save";
@@ -63,6 +65,8 @@ import TrainingDatasetModal from "../components/modals/TrainingDatasetModal";
 import NewTrainingJobModal from "../components/modals/NewTrainingJobModal";
 import DeviceProfileModal, { hardwareNote, profileFromHardware } from "../components/modals/DeviceProfileModal";
 import ParseJobModal from "../components/modals/ParseJobModal";
+import { AtTimeDialog } from "../components/jobs/ScheduleButton";
+import { createScheduledBatch, WHEN } from "../api/nightShiftService";
 import BuildFromFolderModal from "../components/modals/BuildFromFolderModal";
 import ExportQuantizationModal from "../components/modals/ExportQuantizationModal";
 import TrainingLibrariesModal from "../components/modals/TrainingLibrariesModal";
@@ -100,7 +104,7 @@ const stepsJson = (steps) =>
 // (utils/serverFormSync), held by the page so that collapsing the row or
 // reloading the list does not drop it; null when there is no edit.
 // updateDraft(id, fn) replaces it with fn(current form).
-const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateDraft, onSaved, showMessage, theme }) => {
+const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, onSchedule, draft, updateDraft, onSaved, showMessage, theme }) => {
   const { t } = useUiTranslation();
   const [saving, setSaving] = useState(false);
   const serverSteps = stepsJson(demo.steps);
@@ -195,6 +199,17 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
                 <PlayArrowIcon fontSize="small" />
               </IconButton>
             </Tooltip>
+            {demo.autonomy_level === "autonomous" && onSchedule && (
+              <Tooltip title={t("training.demos.scheduleReplay")}>
+                <IconButton
+                  size="small"
+                  aria-label={t("training.demos.scheduleReplay")}
+                  onClick={(e) => { e.stopPropagation(); onSchedule(demo); }}
+                >
+                  <ScheduleIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
             <Tooltip title={t("training.demos.delete")}>
               <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(demo); }} color="error">
                 <CloseIcon fontSize="small" />
@@ -536,6 +551,37 @@ const TrainingPage = () => {
     }
   };
 
+  // Start a job that has not run yet later: on the night shift or at a time.
+  // `atJob` is the saved request waiting for a time to be picked.
+  const [atJob, setAtJob] = useState(null);
+  const trainingLater = (job) => ({
+    type: "model_training",
+    variant: "existing",
+    name: t("training.jobs.scheduledName", { name: job.name }),
+    path: { job_id: job.id },
+    request: {},
+  });
+  // A replay runs unattended only once the Lesson has reached "autonomous".
+  const replayLater = (demo) => ({
+    type: "lesson_replay",
+    name: t("training.demos.scheduledName", { name: demo.name || demo.id }),
+    path: { demo_id: demo.id },
+    request: {},
+  });
+  const handleScheduleJob = async (built, choice) => {
+    try {
+      await createScheduledBatch(built, choice);
+      showMessage(
+        choice.when === WHEN.AT
+          ? t("jobs.nightShift.addedAt", { time: new Date(choice.at).toLocaleString(uiLocale()) })
+          : t("jobs.nightShift.added"),
+        "success",
+      );
+    } catch (err) {
+      showMessage(t("jobs.nightShift.addFailed", { error: err.message }), "error");
+    }
+  };
+
   const handleResumeJob = async (jobId) => {
     try {
       await resumeTrainingJob(jobId);
@@ -726,6 +772,8 @@ const TrainingPage = () => {
       const exporting = exportingJobs.has(job.id);
       return [
         canStart(job) && { label: t("training.jobs.start"), icon: <PlayArrowIcon fontSize="small" />, onClick: () => handleStartJob(job.id) },
+        canStart(job) && { label: t("jobs.nightShift.add"), icon: <NightlightOutlinedIcon fontSize="small" />, onClick: () => handleScheduleJob(trainingLater(job), { when: WHEN.NIGHT_SHIFT }) },
+        canStart(job) && { label: t("jobs.nightShift.atMenu"), icon: <ScheduleIcon fontSize="small" />, onClick: () => setAtJob(trainingLater(job)) },
         job.status === "running" && { label: t("training.common.cancel"), icon: <CancelIcon fontSize="small" />, onClick: () => handleCancelJob(job.id) },
         canResume(job) && { label: t("training.jobs.resume"), icon: <PlayArrowIcon fontSize="small" />, onClick: () => handleResumeJob(job.id) },
         job.export_verified && job.status === "completed" && job.lora_path && !job.ollama_model_name && {
@@ -861,6 +909,7 @@ const TrainingPage = () => {
                           onToggle={() => setExpandedDemoId(expandedDemoId === demo.id ? null : demo.id)}
                           onDelete={handleDeleteDemo}
                           onAttempt={handleAttemptDemo}
+                          onSchedule={(d) => setAtJob(replayLater(d))}
                           draft={stepDrafts[demo.id] || null}
                           updateDraft={updateStepDraft}
                           onSaved={handleDemoSaved}
@@ -1094,6 +1143,24 @@ const TrainingPage = () => {
                               <Tooltip title={t("training.jobs.startTooltip")}>
                                 <IconButton size="small" color="primary" onClick={() => handleStartJob(job.id)}>
                                   <PlayArrowIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {canStart(job) && (
+                              <Tooltip title={t("jobs.nightShift.addHelp")}>
+                                <IconButton
+                                  size="small"
+                                  aria-label={t("jobs.nightShift.add")}
+                                  onClick={() => handleScheduleJob(trainingLater(job), { when: WHEN.NIGHT_SHIFT })}
+                                >
+                                  <NightlightOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {canStart(job) && (
+                              <Tooltip title={t("jobs.nightShift.atMenu")}>
+                                <IconButton size="small" aria-label={t("jobs.nightShift.atMenu")} onClick={() => setAtJob(trainingLater(job))}>
+                                  <ScheduleIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             )}
@@ -1345,6 +1412,16 @@ const TrainingPage = () => {
           isSaving={isSaving}
         />
       )}
+
+      <AtTimeDialog
+        open={Boolean(atJob)}
+        onClose={() => setAtJob(null)}
+        onPick={(at) => {
+          const built = atJob;
+          setAtJob(null);
+          handleScheduleJob(built, { when: WHEN.AT, at });
+        }}
+      />
 
       {parseModalOpen && (
         <ParseJobModal

@@ -24,6 +24,7 @@ import { SubjectThumb } from '../components/filmcrew/CastLibraryView';
 import DragDropImageUpload from '../components/filmcrew/DragDropImageUpload';
 import CastVoicePicker from '../components/filmcrew/CastVoicePicker';
 import TrainAdapterInstall from '../components/filmcrew/TrainAdapterInstall';
+import ScheduleRequestButton from '../components/jobs/ScheduleRequestButton';
 import ChangedElsewhereNotice from '../components/common/ChangedElsewhereNotice';
 import EntityContextMenu from '../components/common/EntityContextMenu';
 import useContextMenu from '../hooks/useContextMenu';
@@ -695,6 +696,14 @@ const CastMemberPage = () => {
     handleTrain();
   };
 
+  // The training run as a job for later: the same request Train sends now.
+  const scheduledTrainJob = () => ({
+    type: 'cast_lora',
+    name: t('cast.trainingData.scheduledName', { name: subject?.name || subjectId }),
+    path: { subject_id: subjectId },
+    request: { training_settings: buildTrainingSettingsPayload() },
+  });
+
   const handleTrain = async () => {
     const sent = trainingForm.values;
     setBusy(true); setError(null);
@@ -1107,6 +1116,7 @@ const CastMemberPage = () => {
                     disabled={busy || training || !trainable}>
               {training ? t('cast.trainingData.training') : hasPendingAmend ? t('cast.trainingData.trainAmend') : t('cast.trainingData.train')}
             </Button>
+            <ScheduleRequestButton job={scheduledTrainJob} disabled={busy || training || !trainable} />
             {(training || trainingJob) && (
               <Button variant="outlined" color="error" onClick={handleCancelTrain} disabled={busy}>
                 {t('cast.trainingData.cancelTraining')}

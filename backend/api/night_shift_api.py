@@ -74,11 +74,27 @@ def post_schedule(task_id: int):
         return error_response(str(e), status_code=409)
 
 
+@night_shift_bp.route("/kinds", methods=["GET"])
+def get_kinds():
+    """What can be scheduled: features that take one prompt, and the kinds
+    their own pages schedule."""
+    from backend.services import schedulable
+
+    return success_response({"kinds": schedulable.catalog()})
+
+
 @night_shift_bp.route("/jobs", methods=["POST"])
 def post_job():
-    """Save a render batch to run later. Body: ``type`` (a hand-off kind),
-    ``request`` (the body its start route takes), ``variant``, ``name``,
-    ``when`` (``night_shift`` or ``at`` with ``at``)."""
+    """Save a job to run later: ``when`` is ``night_shift`` or ``at`` with ``at``.
+
+    One of three bodies:
+    * ``feature`` + ``prompt`` (+ ``options``, ``count``): a feature from
+      GET /kinds, described in one line.
+    * ``tool`` + ``arguments``: a chat tool call.
+    * ``type`` (a hand-off kind) + ``request`` (the body its start route
+      takes), with ``variant``, ``path`` and ``name``: what a feature's own
+      page sends.
+    """
     data = request.get_json(silent=True) or {}
     when = data.get("when")
     at = None
@@ -88,10 +104,32 @@ def post_job():
         except (TypeError, ValueError):
             return error_response("at must be an ISO date and time", status_code=400)
     try:
+        if data.get("feature"):
+            try:
+                count = max(1, min(int(data.get("count") or 1), 20))
+            except (TypeError, ValueError):
+                return error_response("count must be a whole number", status_code=400)
+            options = data.get("options") if isinstance(data.get("options"), dict) else None
+            jobs = [night_shift.schedule_feature(data["feature"], str(data.get("prompt") or ""), when, at,
+                                                 options, by_person=True) for _ in range(count)]
+            return success_response({**jobs[0], "jobs": jobs})
+        if data.get("tool"):
+            arguments = data.get("arguments") if isinstance(data.get("arguments"), dict) else {}
+            return success_response(night_shift.schedule_tool_call(
+                str(data["tool"]), arguments, str(data.get("name") or ""), when, at, by_person=True))
         return success_response(night_shift.create_handoff_job(
-            data.get("type"), str(data.get("name") or ""), data.get("request"), data.get("variant"), when, at))
+            data.get("type"), str(data.get("name") or ""), data.get("request"), data.get("variant"), when, at,
+            data.get("path")))
     except ValueError as e:
         return error_response(str(e), status_code=400)
+
+
+@night_shift_bp.route("/jobs/<int:task_id>", methods=["DELETE"])
+def delete_job(task_id: int):
+    """Take a job that has not started off the schedule."""
+    if not night_shift.remove(task_id):
+        return error_response(f"Job {task_id} is not waiting", status_code=409)
+    return success_response({"task_id": task_id, "removed": True})
 
 
 @night_shift_bp.route("/order", methods=["POST"])

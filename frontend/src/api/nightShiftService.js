@@ -46,8 +46,17 @@ export const scheduleJob = (taskId, choice) => changed(call(`/jobs/${taskId}/sch
 
 export const setNightShiftOrder = (ids) => changed(call("/order", "POST", { ids }));
 
-// Save a render batch to start later. `request` is the body its page would
-// have sent now; `type` and `variant` name the start route
+// Save a job to start later. `request` is the body its page would have sent
+// now; `type` and `variant` name the start route and `path` fills the ids in
+// it, such as the Cast member a training run is for
 // (backend/services/job_handoff.py).
-export const createScheduledBatch = ({ type, variant, name, request }, choice) =>
-  changed(call("/jobs", "POST", { type, variant, name, request, ...whenBody(choice) }));
+export const createScheduledBatch = ({ type, variant, name, request, path }, choice) =>
+  changed(call("/jobs", "POST", { type, variant, name, request, path, ...whenBody(choice) }));
+
+// What can be scheduled: features that take one prompt, and the kinds their
+// own pages schedule (backend/services/schedulable.py).
+export const getScheduleKinds = async () => (await call("/kinds")).kinds || [];
+
+// Schedule a feature from one prompt; `count` saves that many separate jobs.
+export const scheduleFeature = ({ feature, prompt, count, options }, choice) =>
+  changed(call("/jobs", "POST", { feature, prompt, count, options, ...whenBody(choice) }));

@@ -424,25 +424,23 @@ def schedule(task_id: int, when: str, at: Optional[datetime.datetime] = None) ->
 
 
 def create_handoff_job(task_type: str, name: str, request_body: dict, variant: Optional[str],
-                       when: str, at: Optional[datetime.datetime] = None) -> dict:
-    """Save a render batch as a held job: the body its page would have sent
-    now is sent when the job is released. ``at`` is naive UTC."""
+                       when: str, at: Optional[datetime.datetime] = None,
+                       path: Optional[dict] = None) -> dict:
+    """Save a job as a held row: the body its page would have sent now is
+    sent when the job is released. ``path`` fills the ``{name}`` parts of the
+    kind's start route (the Cast member a training run is for). ``at`` is
+    naive UTC."""
     from backend.services import job_handoff
 
-    kind = job_handoff.HANDOFFS.get(task_type)
-    if kind is None:
-        raise ValueError(f"type must be one of {sorted(job_handoff.HANDOFFS)}")
-    if variant is not None and variant not in kind.starts:
-        raise ValueError(f"variant must be one of {sorted(kind.starts)}")
-    if not isinstance(request_body, dict) or not request_body:
-        raise ValueError("request must be the body the job is started with")
+    request_body = request_body if request_body is not None else {}
+    variant, path = job_handoff.check_request(task_type, request_body, variant, path)
     if when not in SCHEDULED_TYPES:
         raise ValueError(f"when must be one of {SCHEDULED_TYPES}")
     if when == AT and at is None:
         raise ValueError("a time is required")
-    config: dict = {"request": request_body}
-    if variant:
-        config["variant"] = variant
+    config: dict = {"request": request_body, "variant": variant}
+    if path:
+        config["path"] = path
     now = datetime.datetime.now()
     s = _session()
     try:
@@ -450,15 +448,61 @@ def create_handoff_job(task_type: str, name: str, request_body: dict, variant: O
             text(
                 "INSERT INTO tasks (name, type, status, priority, workflow_config, schedule_type, progress, "
                 "retry_count, max_retries, retry_delay, created_at, updated_at) "
-                "VALUES (:name, :type, :w, 2, :config, 'immediate', 0, 0, 3, 60, :now, :utc) RETURNING id"
+                "VALUES (:name, :type, :w, 2, :config, 'immediate', 0, 0, :retries, 60, :now, :utc) RETURNING id"
             ),
-            {"name": (name or task_type)[:255], "type": task_type, "w": WAITING,
-             "config": json.dumps(config), "now": now, "utc": _utcnow()},
+            # A start that was refused is refused again a minute later, and a
+            # start that half ran must not run twice: no automatic re-run.
+            {"name": (name or job_handoff.HANDOFFS[task_type].label)[:255], "type": task_type, "w": WAITING,
+             "config": json.dumps(config), "now": now, "utc": _utcnow(),
+             "retries": 3 if task_type in ("image_batch", "video_batch") else 0},
         ).scalar()
         s.commit()
     finally:
         s.close()
     return schedule(int(task_id), when, at)
+
+
+def schedule_tool_call(tool: str, arguments: dict, name: str, when: str,
+                       at: Optional[datetime.datetime] = None, by_person: bool = False) -> dict:
+    """Save a chat tool call to run later. Refuses a tool that is not on the
+    schedulable list, and one that needs a person's approval each time unless
+    a person is the one scheduling it (``by_person``: the Jobs page)."""
+    from backend.services import schedulable
+
+    if tool not in schedulable.SCHEDULABLE_TOOLS:
+        raise ValueError(f"{tool!r} cannot be scheduled; the tools that can: "
+                         f"{', '.join(sorted(schedulable.SCHEDULABLE_TOOLS))}")
+    if tool in schedulable.PERSON_ONLY_TOOLS and not by_person:
+        raise ValueError(f"{tool} needs your approval when it runs, so chat cannot schedule it. "
+                         "Schedule it yourself: Jobs page, Scheduled card, Schedule a job.")
+    return create_handoff_job("tool_call", name or tool.replace("_", " ").capitalize(),
+                              schedulable.tool_request(tool, arguments), None, when, at)
+
+
+def schedule_feature(feature: str, prompt: str, when: str, at: Optional[datetime.datetime] = None,
+                     options: Optional[dict] = None, by_person: bool = False) -> dict:
+    """Schedule a feature from one prompt (backend/services/schedulable.py)."""
+    from backend.services import schedulable
+
+    job = schedulable.feature_job(feature, prompt, options)
+    if job["type"] == "tool_call":
+        req = job["request"]
+        return schedule_tool_call(req["tool_name"], req["parameters"], job["name"], when, at, by_person)
+    return create_handoff_job(job["type"], job["name"], job["request"], job["variant"], when, at)
+
+
+def remove(task_id: int) -> bool:
+    """Take a job that has not started off the schedule. False when it is not waiting."""
+    s = _session()
+    try:
+        changed = s.execute(
+            text("UPDATE tasks SET status = 'cancelled', updated_at = :utc WHERE id = :id AND status = :w"),
+            {"utc": _utcnow(), "id": int(task_id), "w": WAITING},
+        ).rowcount
+        s.commit()
+    finally:
+        s.close()
+    return changed == 1
 
 
 def reorder(task_ids: list[int]) -> int:

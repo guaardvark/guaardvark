@@ -88,7 +88,8 @@
     "flightModeInfo": "Flight Mode: offline backends only (Ollama). Conflicts will be auto-serialized.",
     "cancel": "Cancel",
     "launchFlightMode": "Launch (Flight Mode)",
-    "launch": "Launch"
+    "launch": "Launch",
+    "scheduledName": "Swarm: {{plan}}"
   },
   "editor": {
     "title": "Swarm Plan Editor",

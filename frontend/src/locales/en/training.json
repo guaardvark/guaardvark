@@ -21,7 +21,9 @@
     "empty": "No demonstrations yet. Record one with the Interactive Trainer: show the agent a task on its screen and the steps are saved here.",
     "openTrainer": "Open Interactive Trainer",
     "lesson": "Lesson",
-    "lessonSaved": "Signed off step by step and saved as the Lesson \"{{title}}\""
+    "lessonSaved": "Signed off step by step and saved as the Lesson \"{{title}}\"",
+    "scheduledName": "Replay lesson: {{name}}",
+    "scheduleReplay": "Replay at a time. Offered once a Lesson runs on its own (autonomous)."
   },
   "common": {
     "saveFailed": "Save failed: {{error}}",
@@ -96,7 +98,8 @@
     "parsedPairs_other": "Parsed {{count}} pairs",
     "error": "Error: {{error}}",
     "exportOverride": "Export gate overridden by {{by}} ({{via}}) at {{at}}. {{note}}",
-    "empty": "No training jobs found"
+    "empty": "No training jobs found",
+    "scheduledName": "Train: {{name}}"
   },
   "devices": {
     "hardwareFailed": "Could not read this machine's hardware: {{error}}",

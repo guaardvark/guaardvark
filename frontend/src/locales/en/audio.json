@@ -177,7 +177,8 @@
     "polishing": "Polishing...",
     "polishPreview": "Polish & Preview",
     "composing": "Composing...",
-    "compose": "Compose Music"
+    "compose": "Compose Music",
+    "scheduledName": "Song: {{style}}"
   },
   "fx": {
     "title": "FX & Foley Generator",
