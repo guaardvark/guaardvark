@@ -1546,8 +1546,12 @@ class InterconnectorSyncService:
             else:
                 client_dt = client_updated
 
-            if master_updated > client_dt:
-                # Master is newer -- skip
+            # Equal stamps mean "unchanged" only for an entity that carries its
+            # own updated_at. A chat session or an image has just created_at,
+            # which stays equal however much the client's copy has changed.
+            versioned = bool(entity_data.get("updated_at"))
+            if master_updated > client_dt or (versioned and master_updated == client_dt):
+                # Master is newer, or the copies are the same version -- skip
                 stats["skipped"] = True
                 return True, None, stats
             else:
