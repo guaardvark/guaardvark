@@ -103,6 +103,12 @@ MEDIA_MODEL_REGISTRY: dict[str, dict[str, Any]] = {
         # headroom and the compositor reserve, so a 12 GB card is refused.
         "vram_train_mb": 12900,
         "vram_train_measured": "peak 12818 MB, 512 px, rank 16, 2026-11-07",
+        # With the frozen base stored in float8: peak 10428 MB for the trainer
+        # process (nvidia-smi, 0.5 s samples), measured 2026-11-21 on a 16 GB
+        # NVIDIA card at 1024 px, rank 32, attention and feed-forward layers,
+        # 1500 steps, memory reclaimed every 5 steps; 10288 and 10390 MB on two
+        # earlier runs.
+        "vram_train_mb_by_storage": {"float8": 10500},
         "vram_infer_mb": 11000,
         "order": 0,
     },
@@ -631,6 +637,12 @@ def train_base_missing_message(profile: dict[str, Any]) -> Optional[str]:
 def train_recipe(base_model_id: str | None) -> dict[str, Any]:
     """The base's declared training recipe; empty for a base that declares none."""
     return dict((get_profile(base_model_id) or {}).get("train_recipe") or {})
+
+
+def train_vram_mb(profile: dict[str, Any], base_storage: str | None = None) -> int:
+    """The training peak to claim for a base, for the storage format the run uses."""
+    by_storage = profile.get("vram_train_mb_by_storage") or {}
+    return int(by_storage.get(base_storage) or profile.get("vram_train_mb") or 12000)
 
 
 def default_train_steps(base_model_id: str | None, image_count: int) -> Optional[int]:
