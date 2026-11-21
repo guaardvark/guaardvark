@@ -317,8 +317,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     # Prompt ids this process has queued, newest last. Class-level because
     # generate and cancel do not always hold the same generator: the batch
     # runner uses the module singleton, the router keeps its own instance and
-    # replaces it on every get_active_generator(). Bounded, and a stale id
-    # costs nothing — ComfyUI matches it against what is actually running.
+    # replaces it on every get_active_generator(). Bounded. Every waiter forgets
+    # its id: while any is listed, interrupt() skips the unscoped fallback.
     _queued_prompts: deque = deque(maxlen=16)
     _queued_prompts_lock = threading.Lock()
 
@@ -2763,10 +2763,12 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 f"soft_timeout: {gen_timeout}s, hard_ceiling: {hard_ceiling}s, "
                 f"steps: {steps}, upscale: {has_upscale}, high_res: {is_high_res}, fpb={fpb})..."
             )
-            outputs = self._wait_for_completion(
-                prompt_id, timeout=gen_timeout, hard_ceiling_s=hard_ceiling
-            )
-            self._forget_prompt(prompt_id)
+            try:
+                outputs = self._wait_for_completion(
+                    prompt_id, timeout=gen_timeout, hard_ceiling_s=hard_ceiling
+                )
+            finally:
+                self._forget_prompt(prompt_id)
             # The /history poll decides the outcome; the bridge closes its job with it.
             progress_bridge.finish(bool(outputs))
 

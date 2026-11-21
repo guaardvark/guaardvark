@@ -121,7 +121,12 @@ class ComfyUIMusicGenerator:
             # The plan stage is an 8B language model writing the whole song
             # before diffusion starts; budget on the song's length, not steps.
             timeout = int(max(600, float(seconds) * 12))
-            outputs = self.vg._wait_for_completion(prompt_id, timeout=timeout, hard_ceiling_s=max(timeout * 2, 3600))
+            try:
+                outputs = self.vg._wait_for_completion(prompt_id, timeout=timeout, hard_ceiling_s=max(timeout * 2, 3600))
+            finally:
+                # A remembered id that is no longer running would keep a later
+                # cancel from reaching prompts the Celery worker queued.
+                self.vg._forget_prompt(prompt_id)
         if not outputs:
             return {"success": False, "error": "ComfyUI song generation timed out or failed"}
         paths = []
