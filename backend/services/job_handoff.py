@@ -137,7 +137,8 @@ def _read_tool_job(data: dict) -> dict:
     ended = {"done": "completed", "failed": "failed"}.get(str(data.get("status") or ""))
     output = result.get("output")
     summary = output if isinstance(output, str) else ""
-    return {"ended": ended, "percent": None, "summary": summary.strip()[:400] or "Done",
+    return {"ended": ended, "percent": None,
+            "summary": summary.strip()[:400] or ("Done" if ended == "completed" else ""),
             "error": result.get("error"), "metadata": result.get("metadata") or {}, "tool": data.get("tool")}
 
 

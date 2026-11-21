@@ -57,7 +57,7 @@ FEATURES: dict[str, Feature] = {f.id: f for f in (
     Feature("video", "Video clip", "/video", "What happens in the clip",
             tool="generate_video", words=("video", "videos", "clip", "clips")),
     Feature("infographic", "Infographic", "/infographic", "What the infographic explains",
-            kind="infographic", body=lambda p: {"raw_prompt": p, "quantity": 1},
+            kind="infographic", body=lambda p: {"scene": p, "quantity": 1},
             words=("infographic", "infographics")),
     Feature("music", "Instrumental song", "/audio", "The sound: genre, instruments, mood, tempo",
             kind="music", body=lambda p: {"style_prompt": p, "duration_s": 60, "instrumental_only": True},
@@ -98,9 +98,16 @@ SCHEDULABLE_TOOLS = frozenset(f.tool for f in FEATURES.values() if f.tool) | {
 PERSON_ONLY_TOOLS = frozenset(f.tool for f in FEATURES.values() if f.tool and f.person_only)
 
 
+# Arguments a scheduled call always carries. In chat generate_image renders
+# while the person waits and refuses when the GPU is busy; scheduled, it goes
+# on the image queue, which takes its turn behind whatever is rendering.
+UNATTENDED_ARGUMENTS = {"generate_image": {"wait_for_result": False}}
+
+
 def tool_request(tool: str, arguments: dict) -> dict:
     """The saved request of a scheduled tool call."""
-    return {"tool_name": tool, "parameters": {k: v for k, v in (arguments or {}).items() if v is not None}}
+    parameters = {k: v for k, v in (arguments or {}).items() if v is not None}
+    return {"tool_name": tool, "parameters": {**parameters, **UNATTENDED_ARGUMENTS.get(tool, {})}}
 
 
 def feature_job(feature_id: str, prompt: str, options: Optional[dict] = None) -> dict:
@@ -244,6 +251,8 @@ def parse_time_argument(value: Any, now: Optional[datetime.datetime] = None) -> 
     if not text:
         raise ValueError("a time is required, e.g. '2026-11-22T03:00', 'in 2 hours' or 'tomorrow at 9am'")
     now = now or datetime.datetime.now()
+    if re.search(r"(?i)\b(?:yesterday|ago|last\s+(?:night|week|month))\b", text):
+        raise ValueError(f"{text!r} is in the past")
     found = None
     try:
         parsed = datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
