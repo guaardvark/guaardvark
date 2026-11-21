@@ -100,7 +100,7 @@
     "holdReason": "Not starting yet: {{reason}}.",
     "noDesktopIdle": "Desktop idle time is not available here, so only activity in Guaardvark counts as someone being at the machine.",
     "loadFailed": "The schedule could not be read: {{error}}",
-    "empty": "Nothing is scheduled. Use Schedule a job here, Add to night shift on a feature's page, or ask in chat.",
+    "empty": "Nothing is scheduled. Use Schedule a job here, or Add to night shift on a feature's page.",
     "col": {
       "name": "Job",
       "kind": "Kind",
