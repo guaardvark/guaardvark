@@ -280,7 +280,21 @@ def test_gpu_claim_uses_the_bases_measured_training_vram(app, tmp_path, monkeypa
         train_subject_lora_for_subject(s_id)
 
     assert seen["require_fit"] is True
-    assert seen["vram_estimate_mb"] == get_profile(base_id)["vram_train_mb"]
+    from backend.services.lora_training_settings import normalize_training_settings
+    from backend.services.media_model_registry import train_vram_mb
+    storage = normalize_training_settings({"base_model_id": base_id})["base_storage"]
+    assert seen["vram_estimate_mb"] == train_vram_mb(get_profile(base_id), storage)
     # A run queued behind another waits out the release cooldown instead of failing.
     from backend.tasks.lora_trainer_tasks import CAST_TRAIN_GPU_WAIT_S
     assert seen["wait_s"] == CAST_TRAIN_GPU_WAIT_S
+
+
+def test_training_vram_follows_the_base_storage_format():
+    from backend.services.media_model_registry import get_profile, train_vram_mb
+
+    zimage = get_profile("zimage-turbo")
+    assert train_vram_mb(zimage, "bf16") == zimage["vram_train_mb"]
+    assert train_vram_mb(zimage, "float8") == zimage["vram_train_mb_by_storage"]["float8"]
+    assert train_vram_mb(zimage, "float8") < train_vram_mb(zimage, "bf16")
+    sdxl = get_profile("sdxl-legacy")
+    assert train_vram_mb(sdxl, "float8") == sdxl["vram_train_mb"]
