@@ -298,6 +298,10 @@ def learn_stop():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+def _dict_or_none(value):
+    return value if isinstance(value, dict) else None
+
+
 @agent_control_bp.route("/learn/status", methods=["GET"])
 def learn_status():
     """Get current learning mode state.
@@ -332,6 +336,9 @@ def learn_status():
             "learning": learning,
             "demonstration_id": demo_id,
             "steps_count": steps_count,
+            # The replay in flight (None when idle) and the last one finished.
+            "attempt": _dict_or_none(getattr(service, "_attempt_state", None)),
+            "last_attempt": _dict_or_none(getattr(service, "_last_attempt", None)),
         })
     except Exception as e:
         logger.error(f"Error getting learning status: {e}", exc_info=True)
@@ -350,10 +357,15 @@ def learn_list_demonstrations():
     """List all completed demonstrations."""
     try:
         from backend.models import Demonstration
+        from backend.services.demonstration_lessons import lessons_by_demonstration
         demos = Demonstration.query.filter_by(is_complete=True).order_by(
             Demonstration.created_at.desc()
         ).all()
-        return jsonify({"success": True, "demonstrations": [d.to_dict() for d in demos]})
+        lessons = lessons_by_demonstration([d.id for d in demos])
+        return jsonify({
+            "success": True,
+            "demonstrations": [{**d.to_dict(), "lesson": lessons.get(d.id)} for d in demos],
+        })
     except Exception as e:
         logger.error(f"Error listing demonstrations: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
@@ -497,6 +509,31 @@ def learn_attempt_demonstration(demo_id):
         return jsonify(result), 200 if result["success"] else 409
     except Exception as e:
         logger.error(f"Error attempting demonstration {demo_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@agent_control_bp.route("/learn/attempt/respond", methods=["POST"])
+def learn_attempt_respond():
+    """Answer the step a running replay is waiting on.
+
+    Body: {"verdict": "go" | "ok" | "retry" | "stop", "step_index": n}.
+    "go" runs a previewed step; "ok", "retry" and "stop" are the verdicts on
+    a step that just ran ("stop" also rejects a previewed step).
+    """
+    try:
+        data = request.get_json() or {}
+        verdict = data.get("verdict")
+        if verdict not in ("go", "ok", "retry", "stop"):
+            return jsonify({"success": False, "error": "verdict must be go, ok, retry or stop"}), 400
+        reply = {"step_index": data.get("step_index")}
+        if verdict != "go":
+            reply["verdict"] = verdict
+        from backend.services.agent_control_service import get_agent_control_service
+        if not get_agent_control_service().confirm_apprentice_step(reply):
+            return jsonify({"success": False, "error": "No replay is waiting for an answer."}), 409
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error answering the replay: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 

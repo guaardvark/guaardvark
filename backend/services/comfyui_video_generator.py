@@ -576,6 +576,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         cls._ensure_minimax_models()
         if model in cls.MINIMAX_MODELS or str(model).startswith("minimax"):
             return "minimax"
+        if cls._registry_type(model) == "pan2":
+            return "pan2"
         if model in cls.HUNYUAN_MODELS or str(model).startswith("hunyuan"):
             return "hunyuan"
         if model in cls.LTX_MODELS or str(model).startswith("ltx"):
@@ -585,6 +587,11 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         if model in cls.COGVIDEOX_MODELS:
             return "cogvideox"
         return "cogvideox"  # SVD retired; unknown models default to the cogvideox family
+
+    @staticmethod
+    def _registry_type(model: str) -> Optional[str]:
+        from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
+        return (VIDEO_MODEL_REGISTRY.get(model or "") or {}).get("type")
 
     @staticmethod
     def _hunyuan_frame_count(num_frames: int) -> int:
@@ -2550,6 +2557,51 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 if render_limits.limits_for(model_key, family).get("audio_out"):
                     result.has_audio = True
                     result.metadata["has_audio"] = "1"
+
+            elif self._registry_type(model) == "pan2":
+                model_key = model
+                clip_types = (((self._get_object_info() or {}).get("CLIPLoader") or {})
+                              .get("input", {}).get("required", {}).get("type") or [[]])[0]
+                if "pan2" not in clip_types:
+                    from backend.services.comfyui_version import min_comfyui
+                    floor = min_comfyui(model) or (0, 45)
+                    return result.fail(RenderErrorKind.NODE_MISSING, (
+                        f"PAN 2 needs ComfyUI {floor[0]}.{floor[1]} or newer, and the running ComfyUI "
+                        "does not know the PAN 2 text encoder. Update ComfyUI from its plugin card, then retry."
+                    ))
+                image_path, mode_error = render_limits.start_image(model_key, image_path, family)
+                if mode_error:
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, mode_error)
+                img_name = None
+                if image_path:
+                    img_name = self._upload_image_to_comfyui(image_path)
+                    if not img_name:
+                        return result.fail(RenderErrorKind.INVALID_REQUEST, self._upload_failure("image"))
+                from backend.services.pan2_prompt_compiler import caption_text, negative_text
+                caption = caption_text(
+                    request.prompt, duration_s=request.duration_frames / float(request.fps or 24),
+                    width=request.width, height=request.height, first_frame=bool(img_name),
+                    motion_strength=request.motion_strength,
+                )
+                request.prompt = caption
+                result.prompt_used = caption
+                workflow = self._create_pan2_workflow(
+                    caption=caption,
+                    negative_caption=negative_text(user_negative),
+                    model_key=model_key,
+                    image_filename=img_name,
+                    num_frames=request.duration_frames,
+                    num_inference_steps=render_limits.resolve_steps(
+                        model_key, request.num_inference_steps, explicit=explicit_steps, family=family),
+                    guidance_scale=render_limits.resolve_cfg(model_key, request.guidance_scale, family),
+                    width=request.width,
+                    height=request.height,
+                    seed=seed,
+                    fps=request.fps,
+                    interpolation_multiplier=interpolation,
+                    speed_profile=request.speed_profile,
+                )
+                logger.info("Using PAN 2 %s (%s) via ComfyUI", "i2v" if img_name else "t2v", model_key)
 
             else:
                 # SVD retired 2026-05-29. Supported: wan22-*, cogvideox-*, ltx23-*, ltx25-*, minimax-*.

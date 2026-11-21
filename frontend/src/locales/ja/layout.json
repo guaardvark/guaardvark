@@ -92,5 +92,38 @@
     "exitKiosk": "キオスクモードを終了 (F11)",
     "minimize": "ウィンドウを最小化（コンテンツを隠す）",
     "close": "アプリケーションを閉じる (Ctrl+Q または Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "カードレイアウトをリセット",
+    "layout": "レイアウト",
+    "cards": {
+      "prompt": "プロンプト",
+      "settings": "設定",
+      "queue": "キュー",
+      "results": "結果",
+      "status": "ステータス"
+    },
+    "queueEmpty": "キューは空、またはレンダリングされていません。",
+    "useLayout": "レイアウト: {{name}}",
+    "layouts": {
+      "columns": "カラム",
+      "library": "ワイドライブラリ",
+      "compose": "コンポーズ",
+      "tiles": "タイル",
+      "stacked": "スタック"
+    },
+    "status": {
+      "model": "モデル",
+      "size": "サイズ",
+      "steps": "ステップ",
+      "queue": "キュー",
+      "idle": "アイドル",
+      "active": "{{count}} アクティブ",
+      "running": "実行中",
+      "queued": "待機中",
+      "none": "未選択"
+    },
+    "fullScreen": "全画面",
+    "exitFullScreen": "全画面を終了"
   }
 }

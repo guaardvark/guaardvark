@@ -105,8 +105,11 @@
     "statusFailed": "Überprüfung des Service-Status fehlgeschlagen"
   },
   "history": {
-    "cleared": "Batch-Verlauf gelöscht.",
+    "cleared": "Jeder Batch wird aus dieser Liste ausgeblendet. Nichts wurde gelöscht.",
     "clear": "Batch-Liste löschen",
+    "hideAll": "Alle Batches aus dieser Liste ausblenden (nichts wird gelöscht)",
+    "viewRows": "Zeilen",
+    "viewGrid": "Miniaturansichten",
     "title": "Letzte Batches",
     "refresh": "Batches aktualisieren",
     "retry": "Erneut versuchen",
@@ -264,6 +267,7 @@
     "scale": "Guidance-Skala: {{guidance}}",
     "zimageHelp": "Z-Image läuft ohne CFG – die Guidance ist auf 0 festgesetzt. Nutze Schritte für die Qualität.",
     "qwenHelp": "Qwen-Image 2.1 läuft auf dem offiziellen Pfad bei einer Guidance von 1. Erhöhe sie nur zusammen mit einem negativen Prompt.",
+    "flux3KleinHelp": "FLUX 3 Klein ist destilliert: Die Guidance bleibt auf 1 im offiziellen Pfad, und sein Prompt-Upsampler schreibt die vollständige Bildunterschrift.",
     "mossHelp": "MOSS-Image läuft auf der offiziellen Vorlage mit einem Guidance von 2,5. Bis zu 6 wird ebenfalls sauber gerendert, mit etwas mehr Kontrast.",
     "autoHelp": "Automatische Routen pro Prompt. Die übliche Auswahl (Z-Image) ist CFG-frei – belasse es bei 0, sofern du keinen SDXL-Pfad erwartest."
   },
@@ -315,5 +319,8 @@
     "title": "Vorschau der generierten Prompts ({{count}})",
     "intro": "Dies sind die finalen Prompts, die an den Bildgenerator gesendet werden:",
     "close": "Schließen"
+  },
+  "cards": {
+    "noSettings": "Dieser Eingabemodus hat hier keine Einstellungen."
   }
 }

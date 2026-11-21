@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Optional
 
 from backend.services.job_types import RenderErrorKind, RenderFailure
+from backend.utils.model_file_integrity import file_complete, file_incomplete
 
 logger = logging.getLogger(__name__)
 
@@ -111,19 +112,29 @@ def _entry_check_dirs(entry: dict) -> list:
     return [resolve_entry_dir(entry)]
 
 
+def _entry_file_paths(entry: dict) -> list:
+    """``(name, path)`` for every file an entry needs; path is None for a
+    Hugging Face cache file that is not cached."""
+    if entry.get("dest") == "hf_cache":
+        from backend.services.local_weights import cached_path
+        return [
+            (f["src"], cached_path(entry["hf_repo"], f["src"]))
+            for f in entry.get("files", [])
+        ]
+    return [
+        (check_file, base / check_file)
+        for base in _entry_check_dirs(entry)
+        for check_file in entry.get("check_files", [])
+    ]
+
+
 def entry_files_present(entry: dict) -> bool:
-    """True when every file the entry declares is on this machine, non-empty."""
+    """True when every file the entry declares is on this machine and whole
+    (backend.utils.model_file_integrity)."""
     if not entry:
         return False
-    if entry.get("dest") == "hf_cache":
-        from backend.services.local_weights import is_cached
-        return all(is_cached(entry["hf_repo"], f["src"]) for f in entry.get("files", []))
-    for base in _entry_check_dirs(entry):
-        for check_file in entry.get("check_files", []):
-            fpath = base / check_file
-            if not fpath.exists() or fpath.stat().st_size == 0:
-                return False
-    return bool(entry.get("check_files"))
+    paths = _entry_file_paths(entry)
+    return bool(paths) and all(path is not None and file_complete(path) for _, path in paths)
 
 
 def is_model_installed(model_id: str) -> bool:
@@ -151,23 +162,40 @@ def install_plan(model_id: str) -> list:
 
 
 def missing_plan_files(model_id: str) -> list:
-    """``"<entry>:<file>"`` for every file of the plan that is absent on disk."""
-    from backend.services.local_weights import is_cached
-
+    """``"<entry>:<file>"`` for every file of the plan Install still has to
+    fetch: absent on disk, or there but not whole (see incomplete_plan_files)."""
     missing: list = []
     for eid in install_plan(model_id):
-        info = VIDEO_MODEL_REGISTRY.get(eid, {})
-        if info.get("dest") == "hf_cache":
-            for f in info.get("files", []):
-                if not is_cached(info["hf_repo"], f["src"]):
-                    missing.append(f"{eid}:{f['src']}")
-            continue
-        for base in _entry_check_dirs(info):
-            for cf in info.get("check_files", []):
-                fp = base / cf
-                if (not fp.exists() or fp.stat().st_size == 0) and f"{eid}:{cf}" not in missing:
-                    missing.append(f"{eid}:{cf}")
+        for name, path in _entry_file_paths(VIDEO_MODEL_REGISTRY.get(eid, {})):
+            label = f"{eid}:{name}"
+            if (path is None or not file_complete(path)) and label not in missing:
+                missing.append(label)
     return missing
+
+
+def incomplete_plan_files(model_id: str) -> dict:
+    """``{"<entry>:<file>": reason}`` for the plan's files that are on disk but
+    cut short or unreadable. A subset of missing_plan_files."""
+    incomplete: dict = {}
+    for eid in install_plan(model_id):
+        for name, path in _entry_file_paths(VIDEO_MODEL_REGISTRY.get(eid, {})):
+            reason = file_incomplete(path) if path is not None else None
+            if reason:
+                incomplete.setdefault(f"{eid}:{name}", reason)
+    return incomplete
+
+
+def _discard_incomplete(path: Path) -> None:
+    """Remove a file that is on disk but not whole, so a download replaces it
+    instead of taking it for the finished file."""
+    reason = file_incomplete(path)
+    if not reason:
+        return
+    logger.warning("Replacing %s (%s)", path, reason)
+    try:
+        path.unlink()
+    except OSError as e:
+        logger.warning("Could not remove %s: %s", path, e)
 
 
 def is_plan_installed(model_id: str) -> bool:
@@ -181,7 +209,8 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
     """Fetch one registry entry's files into ``local_dir`` at their ``dst`` names.
 
     ``check`` is called before each file and may raise to stop the pull (a stall
-    monitor or a newer download taking over). Files already present are kept.
+    monitor or a newer download taking over). Whole files already present are
+    kept; a truncated one is fetched again.
     """
     import shutil
     from huggingface_hub import hf_hub_download, snapshot_download
@@ -202,15 +231,20 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
         for spec in entry["direct_urls"]:
             _check()
             dst = local_dir / spec["dst"]
-            if not (dst.exists() and dst.stat().st_size > 0):
+            if not file_complete(dst):
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                urllib.request.urlretrieve(spec["url"], str(dst))
+                # An interrupted fetch must not leave its front part under the
+                # final name: these formats carry no length to check it against.
+                part = dst.with_name(dst.name + ".part")
+                urllib.request.urlretrieve(spec["url"], str(part))
+                os.replace(str(part), str(dst))
             # One download serves every facexlib on the machine.
             for other in _entry_check_dirs(entry):
                 copy = other / spec["dst"]
-                if other == local_dir or (copy.exists() and copy.stat().st_size > 0):
+                if other == local_dir or file_complete(copy):
                     continue
                 copy.parent.mkdir(parents=True, exist_ok=True)
+                _discard_incomplete(copy)
                 try:
                     os.link(str(dst), str(copy))
                 except OSError:
@@ -219,8 +253,10 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
         for spec in entry["files"]:
             _check()
             dst = local_dir / spec["dst"]
-            if not (dst.exists() and dst.stat().st_size > 0):
+            if not file_complete(dst):
                 dst.parent.mkdir(parents=True, exist_ok=True)
+                _discard_incomplete(dst)
+                _discard_incomplete(local_dir / spec["src"])
                 got = Path(hf_hub_download(
                     repo_id=entry["hf_repo"],
                     filename=spec["src"],
@@ -234,6 +270,7 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
             extra = spec.get("also_link")
             if extra and dst.exists():
                 link_dst = comfyui_models_dir() / extra / dst.name
+                _discard_incomplete(link_dst)
                 if not link_dst.exists():
                     link_dst.parent.mkdir(parents=True, exist_ok=True)
                     try:
@@ -241,6 +278,8 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
                     except OSError:
                         shutil.copy2(str(dst), str(link_dst))
     elif "hf_filename" in entry:
+        _discard_incomplete(local_dir / entry["hf_filename"])
+        _discard_incomplete(local_dir / entry["check_files"][0])
         hf_hub_download(
             repo_id=entry["hf_repo"],
             filename=entry["hf_filename"],
@@ -253,6 +292,8 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(str(src), str(dst))
     else:
+        for check_file in entry.get("check_files", []):
+            _discard_incomplete(local_dir / check_file)
         snapshot_download(repo_id=entry["hf_repo"], local_dir=str(local_dir))
 
 
@@ -414,6 +455,53 @@ _H3_COMMON = {
 _H3_FL2VA_MODES = ["t2v", "i2v", "l2v", "flf2v"]
 _H3_REF_LIMITS = {"images": 9, "videos": 3, "audios": 3, "files": 12, "video_seconds": [2, 15]}
 
+
+# ── PAN 2 shared capability data ─────────────────────────────────────────
+# IFM (MBZUAI) PAN 2, a 29B text/image-to-video world model on the Wan 2.2 VAE,
+# prompted with a structured JSON caption (backend/services/pan2_prompt_compiler.py).
+# Graph: the reference workflows in Comfy-Org/PAN2 and BennyDaBall/PAN2-NVFP4-ComfyUI
+# (core nodes only; CLIPLoader type "pan2" needs ComfyUI 0.45 or newer).
+# Measured 2026-11-19 on a 16 GB RTX 40-series card (Ada), ComfyUI 0.46.0 launched
+# with --reserve-vram 1, 1248x704, 121 frames, 50 steps, cfg 2.5, euler/simple:
+# INT8 1100 s per clip at 15.6 GB card peak; NVFP4 (emulated on Ada) 1265-1275 s
+# at 15.7 GB. Clean, coherent frames on all four clips. Nothing shorter than 50
+# steps, larger than 1248x704 or longer than 121 frames has been rendered here,
+# so those are the declared limits until a measured run says otherwise.
+PAN2_LICENSE = {
+    "name": "Apache License 2.0",
+    "url": "https://huggingface.co/IFM/PAN2",
+    "attribution": "PAN 2 (IFM, MBZUAI)",
+}
+_PAN2_COMMON = {
+    "type": "pan2",
+    # CLIPLoader type "pan2" first ships in ComfyUI 0.45 (comfyui_version).
+    "min_comfyui": "0.45",
+    "modes": ["t2v", "i2v"],
+    "requires": ["pan2-qwen35-encoder", "wan22-vae"],
+    "vram_mb": 11000,
+    "min_vram_gb": 16,
+    # Same flag the Wan 2.2 14B entries carry; the measurement above ran at 1.0.
+    "comfyui_reserve_vram_gb": 1.0,
+    "dimension_alignment": 32,
+    "max_pixel_area": 1248 * 704,
+    # The measured canvas: the short side is fixed and the long side follows
+    # the aspect, so a caller that sends no size gets 1248x704, not a 16:9 fit
+    # of the pixel budget (1248x672).
+    "short_side": 704,
+    "max_long_side": 1248,
+    "aspect_ratios": ["16:9", "9:16"],
+    "audio_out": False,
+    "native_fps": 24,
+    "frame_rule": "4n+1",
+    "max_frames": 121,
+    "frames_when_unset": 121,
+    "min_clip_s": 1.0,
+    "max_clip_s": 5.04,
+    "min_steps": 50,
+    "default_steps": 50,
+    "cfg_when_unset": 2.5,
+    "license": PAN2_LICENSE,
+}
 
 VIDEO_MODEL_REGISTRY = {
     "cogvideox-5b": {
@@ -979,6 +1067,8 @@ VIDEO_MODEL_REGISTRY = {
         "description": "Text-to-image with a Qwen3-VL prose encoder, native 2K output, optional "
                        "transparent (RGBA) renders. Qwen Research License: non-commercial "
                        "research and evaluation only. Needs ComfyUI 0.37 or newer.",
+        # The first ComfyUI release carrying the graph's nodes.
+        "min_comfyui": "0.37",
         "hf_repo": "Comfy-Org/Qwen-Image-2.1",
         "local_subdir": "diffusion_models",
         "files": [
@@ -1041,6 +1131,8 @@ VIDEO_MODEL_REGISTRY = {
         "name": "MOSS-Image SFT (int8 convrot)",
         "description": "Text-to-image tuned for exact lettering in English and Chinese, posters "
                        "and layouts; reads long prose prompts. Apache 2.0. Needs ComfyUI 0.42 or newer.",
+        # The first ComfyUI release carrying the graph's nodes.
+        "min_comfyui": "0.42",
         "hf_repo": "Comfy-Org/MOSS-Image",
         "local_subdir": "diffusion_models",
         "files": [
@@ -1112,6 +1204,8 @@ VIDEO_MODEL_REGISTRY = {
         "description": "BFL's FLUX 3 open-weights model, step-distilled: text, layouts and native 4K. "
                        "FLUX Kommunity Licence: commercial use only under US$5M annual revenue. "
                        "Needs ComfyUI 0.41 or newer and a Hugging Face login.",
+        # The first ComfyUI release carrying the graph's nodes.
+        "min_comfyui": "0.41",
         "hf_repo": "black-forest-labs/flux-3-image-klein-comfy",
         "local_subdir": "diffusion_models",
         "files": [{"src": "diffusion_models/flux3-image-klein-int8-convrot.safetensors",
@@ -2060,6 +2154,97 @@ VIDEO_MODEL_REGISTRY = {
         "type": "lora",
         "applies_to": ["minimax-h3-ref2va-int8"],
     },
+    "pan2-qwen35-encoder": {
+        "name": "PAN 2 Text Encoder (Qwen3.5 9B, int8)",
+        "description": "Required by PAN 2. Reads the structured caption PAN 2 is prompted with.",
+        "hf_repo": "Comfy-Org/PAN2",
+        "local_subdir": "text_encoders",
+        "files": [
+            {"src": "text_encoders/qwen3.5_9b_int8_convrot.safetensors", "dst": "qwen3.5_9b_int8_convrot.safetensors"},
+        ],
+        "size_gb": 9.75,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "pan2-int8": {
+        "name": "PAN 2 (Int8, 16GB)",
+        "description": "IFM's 29B world model for text-to-video and image-to-video: "
+                       "realistic motion that follows the prompt beat by beat. "
+                       "1248x704 at 24 fps, about 5 s per clip. Int8 build for "
+                       "RTX 30/40 cards. Needs ComfyUI 0.45 or newer. Pulls the "
+                       "Qwen3.5 9B encoder and the Wan 2.2 VAE (~38 GB total).",
+        "hf_repo": "Comfy-Org/PAN2",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {"src": "diffusion_models/pan2_int8_convrot.safetensors", "dst": "pan2_int8_convrot.safetensors"},
+        ],
+        "size_gb": 26.68,
+        **_PAN2_COMMON,
+    },
+    "pan2-nvfp4": {
+        "name": "PAN 2 (NVFP4, RTX 50)",
+        "description": "PAN 2 in 4-bit weights and activations, 16.3 GB, for RTX 50 "
+                       "cards, which run FP4 natively. Same output size and steps as "
+                       "the Int8 build. Needs ComfyUI 0.45 or newer. Pulls the Qwen3.5 9B "
+                       "encoder and the Wan 2.2 VAE (~28 GB total).",
+        "hf_repo": "BennyDaBall/PAN2-NVFP4-ComfyUI",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {"src": "diffusion_models/PAN2-NVFP4-ComfyUI.safetensors", "dst": "PAN2-NVFP4-ComfyUI.safetensors"},
+        ],
+        "size_gb": 16.33,
+        **_PAN2_COMMON,
+    },
+    # ── MiniMax H3 stills — text-to-image through ComfyUI ────────────────────
+    # The official Comfy-Org template (image_minimax_h3_t2i) samples a single
+    # frame from the same pruned int8 fl2va transformer the video entry loads,
+    # with the Qwen3-VL encoder and the video VAE (no audio VAE). These entries
+    # name those files rather than new ones, so they are ready whenever the H3
+    # video model is, and an Install fetches nothing a video install has not.
+    # BasicGuider with no CFG, res_multistep / simple, sides in multiples of 32.
+    # Measured 2026-11-20 on a 16 GB RTX 40-series card, ComfyUI 0.46.0, torch
+    # 2.15, Comfy Kitchen int8 attention, --reserve-vram 1:
+    #   1024x1024, 30 steps: 33-37 s; 1344x768, 30 steps: 30 s. Card peak
+    #   15.7-15.9 GB with ~2.1 GB held by other processes before the render
+    #   (the 21 GB transformer streams). A lettered poster and a shop sign were
+    #   spelled right and a photo of a man's hands at dawn looked natural.
+    # No turbo option: on 2026-11-20 the template's 8-step turbo LoRA rendered
+    # the same storefront prompt (turbo8_sign) with garbled lettering nobody
+    # asked for on the window decals and a chalkboard, where 30 steps was
+    # clean. A turbo option can come back once a measured run shows it clean.
+    # Only those two canvases were rendered, so the family row in
+    # media_model_registry caps the area at 1024x1024 until another is measured.
+    # vram_mb is the H3 video entry's budget for the same transformer.
+    "minimax-h3-t2i": {
+        "name": "MiniMax H3 Stills (Int8, 16GB)",
+        "description": "Still pictures from the MiniMax H3 video model: one frame from the "
+                       "official ComfyUI text-to-image graph, 30 steps, no CFG. Uses the files "
+                       "the H3 video model installs (transformer, Qwen3-VL encoder, video VAE). "
+                       "Needs ComfyUI 0.46 or newer.",
+        # The only release the stills graph has rendered on. Single-image
+        # decoding needs ComfyUI PR #16881 (merged 2026-10-10); which earlier
+        # release first carries it was not established, so older ones are not
+        # offered rather than left to fail at decode.
+        "min_comfyui": "0.46",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {
+                "src": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+                "dst": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            },
+        ],
+        "requires": ["minimax-h3-qwen3vl-nvfp4", "minimax-h3-vae"],
+        "size_gb": 20.97,
+        "default_steps": 30,
+        "vram_mb": 11000,
+        "min_vram_gb": 16,
+        "comfy_nodes": ["LTXVSeparateAVLatent"],
+        # Rendered clean under Comfy Kitchen int8 attention.
+        "attention_verified": {"pytorch": ["*"], "ck": ["standard"]},
+        "license": H3_LICENSE,
+        "type": "minimax-image",
+    },
 }
 
 
@@ -2213,6 +2398,11 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
     name = entry.get("name") or model_id
     mtype = entry.get("type")
 
+    from backend.services.comfyui_version import refusal as _comfyui_too_old
+    too_old = _comfyui_too_old(model_id, name)
+    if too_old:
+        return False, RenderFailure(RenderErrorKind.INVALID_REQUEST, too_old)
+
     if mtype == "wan":
         if not is_model_installed(model_id):
             return False, RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, (
@@ -2342,6 +2532,25 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
             ))
         return True, ""
 
+    if mtype == "pan2":
+        if not is_model_installed(model_id):
+            return False, RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, (
+                f"{name} is not installed. Open Manage Video Models to download it "
+                f"(and its Qwen3.5 encoder / Wan 2.2 VAE companions) before queuing a batch."
+            ))
+        for dep in entry.get("requires", []):
+            if not is_model_installed(dep):
+                dep_name = (VIDEO_MODEL_REGISTRY.get(dep) or {}).get("name") or dep
+                return False, RenderFailure(RenderErrorKind.COMPANION_MISSING, (
+                    f"{name} is missing companion '{dep_name}'. "
+                    f"Open Manage Video Models and Install again (companions auto-pull)."
+                ))
+        if not _comfyui_reachable():
+            return False, RenderFailure(RenderErrorKind.COMFYUI_DOWN, (
+                f"{name} requires ComfyUI 0.46.0 or newer. Start the ComfyUI plugin, then retry."
+            ))
+        return True, ""
+
     return True, ""
 
 
@@ -2458,6 +2667,11 @@ FAMILY_SPECS = {
                 "lora_slot": "model_only", "audio_out": True, "guidance": None,
                 "frame_snap": "up", "min_frames": 5, "frames_when_unset": 124, "negative_prompt": False,
                 "enforce_min_steps": True, "attention": "pytorch"},
+    "pan2": {"dimension_alignment": 32, "max_pixel_area": 1248 * 704, "min_vram_gb": 16, "frame_rule": "4n+1",
+             "lora_slot": None, "audio_out": False, "guidance": 2.5,
+             "frame_snap": "down", "min_frames": 25, "frames_when_unset": 121, "negative_prompt": True,
+             "enforce_min_steps": True, "cfg_when_unset": 2.5, "attention": "pytorch",
+             "vae_decode_whole_clip": True},
 }
 # How the render holds a request to these (backend/services/video_render_limits.py):
 #   frame_snap          how a length is moved onto frame_rule: "down", "up" (MiniMax's
@@ -2543,7 +2757,7 @@ def register_video_model(model_id: str, entry: dict, *, replace: bool = False) -
 # testing `type == "minimax"`. Entries that predate the contract get family
 # defaults from model_capabilities(); nothing here is a second registry.
 CAPABILITY_MODES = ("t2v", "i2v", "l2v", "flf2v", "ref2v")
-GENERATION_TYPES = ("wan", "cogvideox", "ltx", "hunyuan", "minimax")
+GENERATION_TYPES = ("wan", "cogvideox", "ltx", "hunyuan", "minimax", "pan2")
 # Families whose ComfyUI graph stacks user LoRAs (LoraLoaderModelOnly after the
 # UNET) and takes a user-chosen text encoder in place of the shipped companion.
 # A family not listed refuses that role at add time rather than accepting a
@@ -2676,7 +2890,7 @@ def _video_setting(key: str) -> str:
         return ""
 
 
-NO_VIDEO_GPU_MESSAGE = "GPU required for video generation: no NVIDIA GPU detected on this host."
+NO_VIDEO_GPU_MESSAGE = "GPU required for video generation: no supported GPU (NVIDIA, AMD or Apple) detected on this host."
 
 
 def _probe_total_vram_mb():
@@ -2734,11 +2948,15 @@ def _hardware_candidates(role: str, total_vram_mb) -> list:
     preferred = DEFAULT_I2V_MODEL if role == "i2v" else DEFAULT_T2V_MODEL
     if role in ("scene", "ref2v"):
         preferred = None
+    from backend.services.comfyui_version import comfyui_version, offered
+    comfy_ver = comfyui_version()
     candidates = []
     for mid, entry in VIDEO_MODEL_REGISTRY.items():
         if entry.get("type") not in GENERATION_TYPES:
             continue
         if not _role_ok(mid, role):
+            continue
+        if not offered(mid, comfy_ver):
             continue
         if not is_model_installed(mid):
             continue
@@ -3194,6 +3412,29 @@ def minimax_comfyui_map() -> dict:
     return out
 
 
+def pan2_comfyui_map() -> dict:
+    """ComfyUI loader map for PAN 2 entries: {model_id: {unet, clip, vae}} (never raises)."""
+    out = {}
+    try:
+        for mid, entry in VIDEO_MODEL_REGISTRY.items():
+            if entry.get("type") != "pan2":
+                continue
+            dsts = [f["dst"] for f in entry.get("files", [])]
+            mapped = {"unet": dsts[0] if dsts else None, "clip": None, "vae": None}
+            for dep in entry.get("requires", []):
+                dep_entry = VIDEO_MODEL_REGISTRY.get(dep, {})
+                dep_files = dep_entry.get("files", [])
+                dep_dst = dep_files[0]["dst"] if dep_files else (dep_entry.get("check_files") or [None])[0]
+                if dep_entry.get("type") == "encoder":
+                    mapped["clip"] = dep_dst
+                elif dep_entry.get("type") == "vae":
+                    mapped["vae"] = dep_dst
+            out[mid] = mapped
+    except Exception as e:
+        logger.error("pan2_comfyui_map() build failed: %s", e, exc_info=True)
+    return out
+
+
 def music_comfyui_map() -> dict:
     """ComfyUI loader map for audio entries: {model_id: {unet, clip, vae}}."""
     out = {}
@@ -3348,7 +3589,10 @@ def verify_registry() -> list:
     human-readable problems (empty = healthy). Never raises."""
     problems = []
     try:
+        from backend.services.comfyui_version import parse_version
         for mid, entry in VIDEO_MODEL_REGISTRY.items():
+            if "min_comfyui" in entry and parse_version(entry["min_comfyui"]) is None:
+                problems.append(f"{mid}: min_comfyui '{entry['min_comfyui']}' is not a 'major.minor' version")
             if not entry.get("check_files"):
                 problems.append(f"{mid}: no check_files (and no files/hf_filename to derive from)")
             for dep in entry.get("requires", []):
@@ -3379,6 +3623,12 @@ def verify_registry() -> list:
                 for k in ("unet", "clip", "vae", "audio_vae"):
                     if not m.get(k):
                         problems.append(f"{mid}: MiniMax ComfyUI map missing '{k}'")
+                problems.extend(_verify_capabilities(mid, entry))
+            if entry.get("type") == "pan2":
+                m = pan2_comfyui_map().get(mid, {})
+                for k in ("unet", "clip", "vae"):
+                    if not m.get(k):
+                        problems.append(f"{mid}: PAN 2 ComfyUI map missing '{k}'")
                 problems.extend(_verify_capabilities(mid, entry))
             if entry.get("type") == "audio":
                 m = music_comfyui_map().get(mid, {})

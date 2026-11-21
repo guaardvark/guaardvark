@@ -34,7 +34,7 @@ describe("dashboard card row menus", () => {
       "Schedule Task",
     ]);
     fireEvent.click(screen.getByRole("menuitem", { name: "Schedule Task" }));
-    expect(navigate).toHaveBeenLastCalledWith("/tasks?project_id=7");
+    expect(navigate).toHaveBeenLastCalledWith("/tasks?project_id=7&new=1");
   });
 
   it("the card menu still opens from the card's own space", async () => {

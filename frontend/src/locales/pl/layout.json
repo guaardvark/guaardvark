@@ -92,5 +92,38 @@
     "exitKiosk": "Wyjdź z trybu kiosku (F11)",
     "minimize": "Zminimalizuj okno (ukryj zawartość)",
     "close": "Zamknij aplikację (Ctrl+Q lub Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Resetuj układ kart",
+    "layout": "Układ",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Ustawienia",
+      "queue": "Kolejka",
+      "results": "Wyniki",
+      "status": "Status"
+    },
+    "queueEmpty": "Nic nie jest w kolejce ani w trakcie renderowania.",
+    "useLayout": "Układ: {{name}}",
+    "layouts": {
+      "columns": "Kolumny",
+      "library": "Szeroka Biblioteka",
+      "compose": "Kompozycja",
+      "tiles": "Płytki",
+      "stacked": "Skumulowane"
+    },
+    "status": {
+      "model": "Model",
+      "size": "Rozmiar",
+      "steps": "Kroki",
+      "queue": "Kolejka",
+      "idle": "Bezczynny",
+      "active": "{{count}} aktywnych",
+      "running": "Uruchamianie",
+      "queued": "W kolejce",
+      "none": "Brak wyboru"
+    },
+    "fullScreen": "Pełny ekran",
+    "exitFullScreen": "Wyjdź z pełnego ekranu"
   }
 }

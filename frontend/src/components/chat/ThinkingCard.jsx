@@ -1,26 +1,23 @@
 /**
- * ThinkingCard - Collapsible card showing a model's reasoning stream.
- * Same visual language as ToolCallCard so thinking and tool calls read as
- * one sequence inside the message bubble.
+ * ThinkingCard - Collapsible model reasoning stream: a coloured title over
+ * plain text. Same visual language as ToolCallCard so thinking and tool
+ * calls read as one sequence inside the message bubble.
  */
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { Box, Typography, Collapse, IconButton, Chip, CircularProgress } from "@mui/material";
+import { Box, Typography, Collapse, IconButton, CircularProgress } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import PsychologyIcon from "@mui/icons-material/Psychology";
 import { useUiTranslation } from "../../i18n";
-
-// Taller than ToolCallCard's 200px result block: reasoning runs longer than
-// tool output and the extra rows keep the tail readable while it streams.
-const BODY_MAX_HEIGHT = 240;
+import useFollowTail from "../../hooks/useFollowTail";
+import { STEP_COLORS, stepHeaderSx, stepTitleSx, stepBodySx, stepScrollSx } from "./stepText";
 
 const formatElapsed = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
 const ThinkingCard = ({ text = "", streaming = false, elapsedMs = null, defaultExpanded = false }) => {
   const { t } = useUiTranslation();
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const bodyRef = useRef(null);
+  const follow = useFollowTail(streaming && expanded, text.length);
 
   // The parent flips defaultExpanded to collapse the card once the answer
   // starts; a manual toggle after that still wins until the next flip.
@@ -28,71 +25,41 @@ const ThinkingCard = ({ text = "", streaming = false, elapsedMs = null, defaultE
     setExpanded(defaultExpanded);
   }, [defaultExpanded]);
 
-  useEffect(() => {
-    if (streaming && expanded && bodyRef.current) {
-      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-    }
-  }, [text, streaming, expanded]);
-
-  const borderColor = streaming ? "warning.main" : "grey.500";
-
   return (
-    <Box
-      data-testid="thinking-card"
-      sx={{
-        my: 0.5,
-        borderLeft: 3,
-        borderColor,
-        borderRadius: 1,
-        bgcolor: "action.hover",
-        overflow: "hidden",
-        opacity: 0.9,
-      }}
-    >
+    <Box data-testid="thinking-card" sx={{ my: 0.5 }}>
       <Box
         role="button"
         aria-expanded={expanded}
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 0.5,
-          px: 1,
-          py: 0.5,
-          cursor: "pointer",
-          "&:hover": { bgcolor: "action.selected" },
-        }}
+        sx={{ ...stepHeaderSx, color: STEP_COLORS.thinking }}
         onClick={() => setExpanded((prev) => !prev)}
       >
-        {streaming ? (
-          <CircularProgress size={14} color="warning" data-testid="thinking-spinner" />
-        ) : (
-          <PsychologyIcon sx={{ fontSize: 14, color: borderColor }} />
+        {streaming && (
+          <CircularProgress size={12} color="inherit" data-testid="thinking-spinner" />
         )}
 
-        <Typography
-          variant="caption"
-          sx={{ fontWeight: 600, fontFamily: "monospace", color: "text.primary" }}
-        >
+        <Typography component="span" sx={stepTitleSx}>
           {t("chat.thinking.tag")}
         </Typography>
 
         <Typography
-          variant="caption"
-          sx={{ color: "text.secondary", flex: 1, fontSize: "0.65rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          component="span"
+          sx={{ color: "text.secondary", fontSize: "0.75rem", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
         >
           {streaming ? t("chat.thinking.streaming") : t("chat.thinking.done")}
         </Typography>
 
         {!streaming && elapsedMs != null && (
-          <Chip
-            label={formatElapsed(elapsedMs)}
-            size="small"
-            variant="outlined"
-            sx={{ height: 18, fontSize: "0.6rem" }}
-          />
+          <Typography component="span" sx={{ color: "text.secondary", fontSize: "0.75rem", flexShrink: 0 }}>
+            {formatElapsed(elapsedMs)}
+          </Typography>
         )}
 
-        <IconButton size="small" sx={{ p: 0 }} aria-label={expanded ? t("chat.thinking.collapse") : t("chat.thinking.expand")}>
+        <IconButton
+          size="small"
+          disableRipple
+          sx={{ p: 0, color: "inherit", "&:hover": { bgcolor: "transparent" } }}
+          aria-label={expanded ? t("chat.thinking.collapse") : t("chat.thinking.expand")}
+        >
           {expanded ? (
             <ExpandLessIcon sx={{ fontSize: 16 }} />
           ) : (
@@ -102,27 +69,14 @@ const ThinkingCard = ({ text = "", streaming = false, elapsedMs = null, defaultE
       </Box>
 
       <Collapse in={expanded}>
-        <Box sx={{ px: 1.5, pb: 1 }}>
-          <Box
-            ref={bodyRef}
-            component="pre"
-            data-testid="thinking-body"
-            sx={{
-              m: 0,
-              p: 0.5,
-              bgcolor: "background.default",
-              color: "text.secondary",
-              borderRadius: 0.5,
-              fontSize: "0.65rem",
-              fontFamily: "monospace",
-              overflow: "auto",
-              maxHeight: BODY_MAX_HEIGHT,
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            {text || (streaming ? "" : t("chat.thinkingTrail.noReasoning"))}
-          </Box>
+        <Box
+          ref={follow.ref}
+          onScroll={follow.onScroll}
+          component="pre"
+          data-testid="thinking-body"
+          sx={{ ...stepBodySx, ...stepScrollSx }}
+        >
+          {text || (streaming ? "" : t("chat.thinkingTrail.noReasoning"))}
         </Box>
       </Collapse>
     </Box>

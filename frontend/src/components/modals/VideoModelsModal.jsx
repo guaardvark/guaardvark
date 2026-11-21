@@ -45,6 +45,7 @@ const typeLabels = () => ({
   "qwen-edit": translate("models.videoModels.types.imageEditing"),
   "qwen-image": translate("models.videoModels.types.imageGeneration"),
   "moss-image": translate("models.videoModels.types.imageGeneration"),
+  "minimax-image": translate("models.videoModels.types.imageGeneration"),
   pulid: translate("models.videoModels.types.imageEditing"),
   editing: translate("models.videoModels.types.imageEditing"),
 });
@@ -359,6 +360,20 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                   sx={{ color: "text.secondary" }}
                 >
                   {t("models.videoModels.filesMissing", { count: model.missing_files.length })}
+                </Typography>
+              )}
+              {Object.keys(model.incomplete_files || {}).length > 0 && (
+                <Typography
+                  variant="caption"
+                  color="warning.main"
+                  noWrap
+                  title={Object.entries(model.incomplete_files)
+                    .map(([file, reason]) => `${file}: ${reason}`)
+                    .join("\n")}
+                >
+                  {t("models.shared.filesIncomplete", {
+                    count: Object.keys(model.incomplete_files).length,
+                  })}
                 </Typography>
               )}
             </Box>

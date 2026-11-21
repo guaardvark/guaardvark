@@ -56,6 +56,8 @@ def family_of(model: Optional[str]) -> str:
         return "qwen-image-21"
     if any(tok in key for tok in _MOSS_TOKENS):
         return "moss-image"
+    if "minimax-h3-t2i" in key:
+        return "minimax-h3-t2i"
     if any(tok in key for tok in _FLUX3_TOKENS):
         return "flux3-klein"
     if key.startswith("flux") or "flux" in key:

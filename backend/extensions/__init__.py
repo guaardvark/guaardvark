@@ -34,6 +34,7 @@ loads; ``GUAARDVARK_EXTENSIONS=a,b`` restricts to a list.
 from __future__ import annotations
 
 import importlib
+import importlib.machinery
 import importlib.util
 import json
 import logging
@@ -188,11 +189,19 @@ def _bind_package(ext: Extension) -> None:
         parent.__path__ = [str(ext.root.parent)]  # type: ignore[attr-defined]
         sys.modules[PACKAGE] = parent
     existing = sys.modules.get(ext.package)
-    if existing is not None and Path(getattr(existing, "__file__", "") or "").parent == ext.root:
+    if existing is not None and list(getattr(existing, "__path__", []) or []) == [str(ext.root)]:
         return
     init = ext.root / "__init__.py"
     if not init.is_file():
-        init.write_text("", encoding="utf-8")
+        try:
+            init.write_text("", encoding="utf-8")
+        except OSError:
+            # A read-only folder (Docker mounts extensions/ read-only): bind it
+            # as a package with no __init__ code instead.
+            spec = importlib.machinery.ModuleSpec(ext.package, None, is_package=True)
+            spec.submodule_search_locations = [str(ext.root)]
+            sys.modules[ext.package] = importlib.util.module_from_spec(spec)
+            return
     spec = importlib.util.spec_from_file_location(ext.package, init, submodule_search_locations=[str(ext.root)])
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)

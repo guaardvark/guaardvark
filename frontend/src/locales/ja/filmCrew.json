@@ -10,7 +10,8 @@
     "title": "Film Crew",
     "productionsTab": "制作物",
     "castLibraryTab": "キャストライブラリ",
-    "newProduction": "新規制作"
+    "newProduction": "新規制作",
+    "productionCard": "制作"
   },
   "list": {
     "failedAt": "失敗: {{stage}}",

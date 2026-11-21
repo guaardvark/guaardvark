@@ -92,5 +92,38 @@
     "exitKiosk": "Sair do Modo Quiosque (F11)",
     "minimize": "Minimizar Janela (Ocultar Conteúdo)",
     "close": "Fechar Aplicativo (Ctrl+Q ou Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Redefinir layout do cartão",
+    "layout": "Layout",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Configurações",
+      "queue": "Fila",
+      "results": "Resultados",
+      "status": "Status"
+    },
+    "queueEmpty": "Nada está na fila ou sendo renderizado.",
+    "useLayout": "Layout: {{name}}",
+    "layouts": {
+      "columns": "Colunas",
+      "library": "Biblioteca ampla",
+      "compose": "Compor",
+      "tiles": "Blocos",
+      "stacked": "Empilhado"
+    },
+    "status": {
+      "model": "Modelo",
+      "size": "Tamanho",
+      "steps": "Passos",
+      "queue": "Fila",
+      "idle": "Ocioso",
+      "active": "{{count}} ativos",
+      "running": "Executando",
+      "queued": "Na fila",
+      "none": "Nenhum selecionado"
+    },
+    "fullScreen": "Tela cheia",
+    "exitFullScreen": "Sair da tela cheia"
   }
 }

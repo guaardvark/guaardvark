@@ -1,6 +1,6 @@
 # Guaardvark
 
-**版本 3.5.2** · [guaardvark.com](https://guaardvark.com)
+**版本 3.6.0** · [guaardvark.com](https://guaardvark.com)
 
 > 本译文基于较早的 README，更新会滞后；最新、最完整的说明请见英文 [README.md](README.md)。
 
@@ -49,6 +49,8 @@ cd guaardvark
 cp .env.example .env       # 使用您的配置进行编辑
 ./start.sh
 ```
+
+**Windows 11：** 配有 NVIDIA 显卡的 Windows 11 可通过 WSL2 或 Docker Desktop 运行 Guaardvark，对话、图像和视频生成都在显卡上完成。步骤见 [INSTALL.md](INSTALL.md#install-windows-11-through-wsl2)。
 
 启动脚本在首次运行时会处理所有内容：Python 虚拟环境、Node 依赖、 Whisper.cpp 构建、数据库迁移、前端构建及服务启动。
 

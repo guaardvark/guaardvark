@@ -89,7 +89,9 @@
     "viewDependencies": "Voir les dépendances",
     "mapTitle": "Carte du dépôt",
     "noMap": "Aucune carte disponible.",
-    "graphTitle": "Graphique des dépendances"
+    "graphTitle": "Graphique des dépendances",
+    "mapping": "Cartographie du dépôt…",
+    "mappingFailed": "Le dépôt n'a pas pu être cartographié : {{error}}"
   },
   "desktop": {
     "loadFailed": "Échec du chargement des éléments du bureau",

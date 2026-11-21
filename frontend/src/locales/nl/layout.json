@@ -92,5 +92,38 @@
     "exitKiosk": "Verlaat Kiosk-modus (F11)",
     "minimize": "Minimaliseer venster (Verberg inhoud)",
     "close": "Sluit applicatie (Ctrl+Q of Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Reset kaartindeling",
+    "layout": "Indeling",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Instellingen",
+      "queue": "Wachtrij",
+      "results": "Resultaten",
+      "status": "Status"
+    },
+    "queueEmpty": "Er staat niets in de wachtrij of er wordt niets gerenderd.",
+    "useLayout": "Layout: {{name}}",
+    "layouts": {
+      "columns": "Kolommen",
+      "library": "Brede Bibliotheek",
+      "compose": "Componeren",
+      "tiles": "Tegels",
+      "stacked": "Gestapeld"
+    },
+    "status": {
+      "model": "Model",
+      "size": "Grootte",
+      "steps": "Stappen",
+      "queue": "Wachtrij",
+      "idle": "Inactief",
+      "active": "{{count}} actief",
+      "running": "Draaiend",
+      "queued": "In wachtrij",
+      "none": "Geen gekozen"
+    },
+    "fullScreen": "Volledig scherm",
+    "exitFullScreen": "Volledig scherm afsluiten"
   }
 }

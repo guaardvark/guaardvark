@@ -57,15 +57,15 @@ def test_media_player_is_linux_only(monkeypatch):
         assert plat.media_player_available() is expected
 
 
-def test_lora_train_time_budgets_stock_cuda_unchanged_from_main():
-    """The non-Darwin path must keep main's numbers exactly, so a future edit
-    cannot silently widen the CUDA caps (a wedged NVIDIA run would then hold the
-    GPU for hours)."""
+def test_lora_train_time_budgets_cuda_cover_the_default_recipe():
+    """The train ceiling holds the measured 89 minute default run, and the task
+    limits and reaper are derived from it so none can cut a live run short."""
     load, train, task_soft, task_hard, reap = plat.lora_train_time_budgets(False)
-    assert (load, train) == (900, 1800)
-    # None → the global task_soft_time_limit / task_time_limit apply.
-    assert task_soft is None and task_hard is None
-    assert reap == 45 * 60
+    assert (load, train) == (900, 14400)
+    assert train > 2 * 89 * 60
+    assert task_soft == 600 + load + train + 300
+    assert task_hard == 600 + load + train + 900
+    assert reap == task_hard + 900
 
 
 def test_lora_train_time_budgets_apple_silicon_derived_from_one_flag():

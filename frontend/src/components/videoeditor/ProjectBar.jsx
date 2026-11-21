@@ -16,7 +16,9 @@ import {
   Paper,
   Stack,
   Typography,
+  Tooltip,
   Button,
+  IconButton,
   Menu,
   MenuItem,
   ListItemIcon,
@@ -172,6 +174,18 @@ const ProjectBar = ({
         <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
           {savingCaption}
         </Typography>
+        <Tooltip title={`${t("videoEditor.project.save")} (Ctrl+S)`}>
+          <span>
+            <IconButton
+              size="small"
+              aria-label={t("videoEditor.project.save")}
+              onClick={() => onSave?.()}
+              disabled={!isDirty || isSaving}
+            >
+              <SaveIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
       </Paper>
 
       <Menu

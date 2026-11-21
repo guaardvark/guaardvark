@@ -213,7 +213,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                       sx={{ alignItems: "center", justifyContent: "space-between", mb: 1 }}
                     >
                       <Typography variant="body2">{t("dialogs.contextQuality.qualityScore")}</Typography>
-                      <Typography variant="h6" color={getQualityColor(results.overall_quality_score)}>
+                      <Typography variant="h6" sx={{ color: getQualityColor(results.overall_quality_score) }}>
                         {formatScore(results.overall_quality_score)}
                       </Typography>
                     </Stack>
@@ -327,7 +327,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                     <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.relevance")}
                     </Typography>
-                    <Typography variant="h6" color={getQualityColor(results.metrics?.relevance_score)}>
+                    <Typography variant="h6" sx={{ color: getQualityColor(results.metrics?.relevance_score) }}>
                       {formatScore(results.metrics?.relevance_score)}
                     </Typography>
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
@@ -340,7 +340,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                     <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.freshness")}
                     </Typography>
-                    <Typography variant="h6" color={getQualityColor(results.metrics?.freshness_score)}>
+                    <Typography variant="h6" sx={{ color: getQualityColor(results.metrics?.freshness_score) }}>
                       {formatScore(results.metrics?.freshness_score)}
                     </Typography>
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>

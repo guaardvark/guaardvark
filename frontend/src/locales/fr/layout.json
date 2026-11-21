@@ -92,5 +92,38 @@
     "exitKiosk": "Quitter le mode Kiosque (F11)",
     "minimize": "Réduire la fenêtre (Masquer le contenu)",
     "close": "Fermer l'application (Ctrl+Q ou Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Réinitialiser la disposition des cartes",
+    "layout": "Mise en page",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Paramètres",
+      "queue": "File d'attente",
+      "results": "Résultats",
+      "status": "Statut"
+    },
+    "queueEmpty": "Rien n'est en file d'attente ou en cours de rendu.",
+    "useLayout": "Mise en page : {{name}}",
+    "layouts": {
+      "columns": "Colonnes",
+      "library": "Bibliothèque large",
+      "compose": "Composition",
+      "tiles": "Tuiles",
+      "stacked": "Empilé"
+    },
+    "status": {
+      "model": "Modèle",
+      "size": "Taille",
+      "steps": "Étapes",
+      "queue": "File d'attente",
+      "idle": "Inactif",
+      "active": "{{count}} actif",
+      "running": "En cours",
+      "queued": "En attente",
+      "none": "Aucun choisi"
+    },
+    "fullScreen": "Plein écran",
+    "exitFullScreen": "Quitter le plein écran"
   }
 }

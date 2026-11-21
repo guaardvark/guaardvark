@@ -12,7 +12,6 @@ import {
   Button,
   CircularProgress,
   Alert,
-  Paper,
   Grid,
   TextareaAutosize,
   Select,
@@ -21,7 +20,6 @@ import {
   InputLabel,
   Autocomplete,
   Chip,
-  Divider,
   Snackbar,
   Tooltip,
   Radio,
@@ -41,6 +39,7 @@ import { getWebsites } from "../api/websiteService"; // For website dropdown
 import { generateBulkXML, generateStructuredCSV } from "../api/bulkGenerationService"; // For XML generation
 import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
+import { CardWorkspace } from "../components/board";
 import { useUiTranslation } from "../i18n";
 
 const FileGenerationPage = () => {
@@ -632,10 +631,16 @@ const FileGenerationPage = () => {
           </Snackbar>
         )}
 
-        <Paper elevation={3} sx={{ p: { xs: 1.5, sm: 2, md: 3 }, mb: 3 }}>
-          <Typography variant="h5" gutterBottom component="div">
-            {t("fileGeneration.page.batchTitle")}
-          </Typography>
+      {/* Batch and single-file generation are cards on the shared board. */}
+      <CardWorkspace
+        boardKey="file-generation"
+        cards={[
+          {
+            id: "batch",
+            title: t("fileGeneration.page.batchTitle"),
+            layout: { x: 0, y: 0, w: 105, h: 90 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
 
           {/* File Format Selector */}
           <FormControl component="fieldset" sx={{ mb: 2 }}>
@@ -1087,19 +1092,16 @@ const FileGenerationPage = () => {
               </Button>
             </Grid>
           </Grid>
-        </Paper>
-
-        <Divider sx={{ my: 4 }}>
-          <Chip label={t("fileGeneration.page.advancedChip")} />
-        </Divider>
-
-        <Paper
-          elevation={3}
-          sx={{ p: { xs: 1.5, sm: 2, md: 3 }, mb: 3, opacity: 0.7 }}
-        >
-          <Typography variant="h5" gutterBottom component="div">
-            {t("fileGeneration.page.singleTitle")}
-          </Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "single",
+            title: t("fileGeneration.page.singleTitle"),
+            layout: { x: 105, y: 0, w: 70, h: 90 },
+            body: (
+              <Box sx={{ p: 1.5, opacity: 0.7 }}>
+                <Chip size="small" label={t("fileGeneration.page.advancedChip")} sx={{ mb: 1 }} />
           <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
             {t("fileGeneration.page.singleDescription")}
           </Typography>
@@ -1197,7 +1199,11 @@ const FileGenerationPage = () => {
               </Button>
             </Grid>
           </Grid>
-        </Paper>
+              </Box>
+            ),
+          },
+        ]}
+      />
     </PageLayout>
   );
 };

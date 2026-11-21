@@ -428,6 +428,10 @@ class AgentControlService:
         # The replay running a guided attempt, so a Confirm from the Trainer
         # reaches the event it actually waits on.
         self._apprentice_engine = None
+        # The replay in flight and the one that last finished, as the Trainer
+        # shows them; /learn/status hands both out.
+        self._attempt_state: Optional[Dict[str, Any]] = None
+        self._last_attempt: Optional[Dict[str, Any]] = None
         self._current_task: Optional[str] = None
         self._active_task_id: str = ""
         self._task_context: Optional[AgentTaskContext] = None
@@ -653,6 +657,9 @@ class AgentControlService:
         """Emergency stop — immediately halt all agent operations."""
         if self._task_context is not None:
             self._task_context.killed = True
+        engine = self._apprentice_engine
+        if engine is not None:
+            engine.kill()
         self._killed = True
         self._active = False
         self._ready = False
@@ -2470,10 +2477,15 @@ class AgentControlService:
         screen = LocalScreenBackend()
         analyzer = VisionAnalyzer()
 
+        from backend.config import GUAARDVARK_ROOT
         from backend.services.demo_recorder import DemoRecorder
         self._demo_recorder = DemoRecorder(
             screen=screen,
             analyzer=analyzer,
+            # One folder per demonstration: step files are numbered from 1 in
+            # every recording.
+            screenshots_dir=os.path.join(
+                GUAARDVARK_ROOT, "data", "training", "demonstrations", str(demo_id)),
         )
         self._demo_recorder.start(demo_id=str(demo_id))
         self._learning = True
@@ -2485,7 +2497,8 @@ class AgentControlService:
         return {"success": True, "demonstration_id": demo_id}
 
     def confirm_apprentice_step(self, data: Optional[Dict] = None) -> bool:
-        """Hand a Trainer Confirm (or correction) to the replay waiting on it.
+        """Hand a Trainer answer (go ahead, sign-off, retry, stop) to the replay
+        waiting on it; ApprenticeEngine.confirm_step has the shapes.
 
         The socket handlers used to set this service's own _step_confirm_event,
         which the replay never waits on: every guided attempt started from the
@@ -2495,6 +2508,9 @@ class AgentControlService:
         engine = self._apprentice_engine
         if engine is None:
             return False
+        state = getattr(self, "_attempt_state", None)
+        if state is not None:
+            state["waiting"] = None
         engine.confirm_step(data)
         return True
 
@@ -2560,31 +2576,58 @@ class AgentControlService:
                 return {"success": False, "error": f"Demonstration {demonstration_id} not found."}
             steps = [s.to_dict() for s in demo.steps]
             level = demo.autonomy_level
+            demo_name = demo.name or ""
 
         if not steps:
             return {"success": False, "error": "Demonstration has no steps."}
 
+        from backend.services import demonstration_lessons
+        lesson_id = demonstration_lessons.new_attempt_lesson_id(demonstration_id)
+
         # Capture app reference for use in background thread
         app = current_app._get_current_object()
+
+        state = {
+            "attempt_id": lesson_id,
+            "demonstration_id": demonstration_id,
+            "name": demo_name,
+            "level": level,
+            "total_steps": len(steps),
+            "step_index": 0,
+            "description": "",
+            # "confirm" before a step, "review" after one, None while working.
+            "waiting": None,
+            "precondition_ok": True,
+            "machine_success": None,
+            "error": "",
+            "next_description": "",
+            "signed": [],
+        }
+        self._attempt_state = state
 
         def _run():
             self._active = True
             try:
                 from backend.services.local_screen_backend import LocalScreenBackend
                 from backend.utils.vision_analyzer import VisionAnalyzer
-                from backend.services.servo_controller import ServoController
                 from backend.services.training_data_collector import TrainingDataCollector
                 from backend.socketio_events import (
                     emit_learning_question, emit_step_preview,
                     emit_step_executed, emit_attempt_complete,
+                    emit_step_review, emit_step_signed, emit_lesson_saved,
                 )
                 from backend.services.apprentice_engine import ApprenticeEngine
 
                 screen = LocalScreenBackend()
-                analyzer = VisionAnalyzer()
                 collector = TrainingDataCollector()
-                from backend.services.servo_knowledge_store import get_vision_config as _gvc
-                servo = ServoController(screen=screen, analyzer=analyzer, collector=collector, vision_config=_gvc())
+                # The eye, config and measured accuracy an agent task would
+                # get on this machine, so a replay clicks as well as the agent
+                # does, not as well as the first vision model installed.
+                with app.app_context():
+                    be = self.resolve_brain_eye(screen_size=tuple(screen.screen_size()))
+                eye = be.eye or VisionAnalyzer().default_model
+                analyzer, servo = build_servo(screen, eye, collector=collector)
+                logger.info(f"Attempt of demonstration {demonstration_id}: eye {eye} ({be.reason})")
 
                 engine = ApprenticeEngine(
                     screen=screen,
@@ -2599,6 +2642,23 @@ class AgentControlService:
                     """Adapt the engine's emit_fn(event, payload) contract to
                     the kwarg-style socketio emitters."""
                     try:
+                        if event in ("step_preview", "step_review"):
+                            state.update(
+                                waiting="confirm" if event == "step_preview" else "review",
+                                step_index=payload.get("step_index", 0),
+                                description=payload.get("target_description", ""),
+                                precondition_ok=payload.get("precondition_ok", True),
+                                machine_success=payload.get("machine_success"),
+                                error=payload.get("error", ""),
+                                next_description=payload.get("next_description", ""),
+                            )
+                        elif event == "step_complete":
+                            state.update(waiting=None, step_index=payload.get("step_index", 0) + 1)
+                        elif event == "step_signed":
+                            state["signed"].append({
+                                "step_index": payload.get("step_index", 0),
+                                "description": payload.get("description", ""),
+                            })
                         if event == "step_preview":
                             emit_step_preview(
                                 demonstration_id=payload.get("demonstration_id"),
@@ -2607,6 +2667,32 @@ class AgentControlService:
                                     "target_description", ""),
                                 action_type=payload.get("action_type", ""),
                                 confidence=payload.get("confidence", 1.0),
+                                precondition_ok=payload.get("precondition_ok", True),
+                            )
+                        elif event == "step_review":
+                            emit_step_review(
+                                demonstration_id=payload.get("demonstration_id"),
+                                step_index=payload.get("step_index", 0),
+                                target_description=payload.get(
+                                    "target_description", ""),
+                                machine_success=payload.get(
+                                    "machine_success", False),
+                                error=payload.get("error", ""),
+                                next_description=payload.get(
+                                    "next_description", ""),
+                            )
+                        elif event == "step_signed":
+                            # A signed-off step is a pearl of this attempt's lesson.
+                            with app.app_context():
+                                pearl = demonstration_lessons.record_step_pearl(
+                                    lesson_id, demonstration_id,
+                                    payload.get("step") or {})
+                            emit_step_signed(
+                                demonstration_id=payload.get("demonstration_id"),
+                                step_index=payload.get("step_index", 0),
+                                description=payload.get("description", ""),
+                                lesson_id=lesson_id,
+                                pearl_id=(pearl or {}).get("id"),
                             )
                         elif event in ("step_complete", "step_executed"):
                             emit_step_executed(
@@ -2634,7 +2720,27 @@ class AgentControlService:
                     autonomy_level=level,
                     demonstration_id=demonstration_id,
                     emit_fn=_apprentice_emit,
+                    review=True,
                 )
+
+                signed = [r for r in result.step_results if r.get("signed_off")]
+                teaches = result.success and len(signed) == result.total_steps
+                finished = {
+                    "attempt_id": lesson_id,
+                    "demonstration_id": demonstration_id,
+                    "name": demo_name,
+                    "level": level,
+                    "success": result.success,
+                    "steps_completed": result.steps_completed,
+                    "total_steps": result.total_steps,
+                    "failure_reason": result.failure_reason,
+                    # "saving" until the lesson is made, then "saved", "kept"
+                    # or "failed"; None for a run that teaches no lesson.
+                    "lesson_state": "saving" if teaches else None,
+                    "lesson": None,
+                }
+                self._last_attempt = finished
+                self._attempt_state = None
 
                 emit_attempt_complete(
                     demonstration_id=demonstration_id,
@@ -2648,7 +2754,14 @@ class AgentControlService:
                     demo = db.session.get(Demonstration, demonstration_id)
                     if demo:
                         demo.attempt_count += 1
-                        if result.success:
+                        # A step the person signed off although the agent's own
+                        # check failed (they did it for the agent, or overruled
+                        # the check) completes the lesson but is not the agent
+                        # succeeding: no promotion, and the streak starts over.
+                        unaided = all(r.get("machine_success") for r in result.step_results)
+                        if result.success and not unaided:
+                            demo.success_count = 0
+                        elif result.success:
                             demo.success_count += 1
                             if ApprenticeEngine._should_promote(demo.autonomy_level, demo.success_count):
                                 demo.autonomy_level = ApprenticeEngine._promote(demo.autonomy_level)
@@ -2662,10 +2775,47 @@ class AgentControlService:
                                 logger.info(f"Demo {demonstration_id} demoted to {demo.autonomy_level}")
                         db.session.commit()
 
+                # Every step signed off by a person: the pearls become the
+                # demonstration's Lesson. Runs the agent did unwatched teach
+                # nothing new, so they save none.
+                if teaches:
+                    lesson = demonstration_lessons.save_demonstration_lesson(
+                        app, demonstration_id, lesson_id)
+                    finished["lesson"] = lesson
+                    finished["lesson_state"] = (
+                        "failed" if not lesson
+                        else "kept" if lesson.get("already_saved") else "saved")
+                    emit_lesson_saved(demonstration_id=demonstration_id, lesson=lesson)
+                    if lesson:
+                        logger.info(
+                            f"Demo {demonstration_id} lesson "
+                            f"{'kept' if lesson.get('already_saved') else 'saved'}: "
+                            f"{lesson.get('title')} ({lesson.get('memory_id')})")
+                    else:
+                        logger.warning(f"Demo {demonstration_id}: signed-off attempt produced no lesson")
+
             except Exception as e:
                 logger.error(f"Attempt failed: {e}", exc_info=True)
+                last = self._last_attempt
+                if last is None or last.get("attempt_id") != lesson_id:
+                    # It never got as far as a result (display or model down).
+                    self._last_attempt = {
+                        "attempt_id": lesson_id,
+                        "demonstration_id": demonstration_id,
+                        "name": demo_name,
+                        "level": level,
+                        "success": False,
+                        "steps_completed": 0,
+                        "total_steps": len(steps),
+                        "failure_reason": str(e),
+                        "lesson_state": None,
+                        "lesson": None,
+                    }
+                elif last.get("lesson_state") == "saving":
+                    last["lesson_state"] = "failed"
             finally:
                 self._apprentice_engine = None
+                self._attempt_state = None
                 self._active = False
 
         thread = threading.Thread(target=_run, daemon=True)

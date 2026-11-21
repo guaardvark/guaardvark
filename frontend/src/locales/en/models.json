@@ -1,5 +1,7 @@
 {
   "shared": {
+    "filesIncomplete_one": "{{count}} file on disk is incomplete; Install downloads it again",
+    "filesIncomplete_other": "{{count}} files on disk are incomplete; Install downloads them again",
     "installed": "Installed",
     "modelInstalled": "Model installed",
     "downloadCompleted": "Model download completed!",

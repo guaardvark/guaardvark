@@ -1,6 +1,6 @@
 // frontend/src/pages/AgentsPage.jsx
-// The built-in agents as tiles in four groups, or as one table. A click opens
-// the editor; a right-click offers Edit, Test, Enable/Disable, Copy id and Reset.
+// The built-in agents as tiles, each group a card on the shared board, or as
+// one table. A click opens the editor; a right-click offers Edit, Test, Enable/Disable, Copy id and Reset.
 /* eslint-env browser */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -23,6 +23,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
+  Typography,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import Refresh from "@mui/icons-material/Refresh";
@@ -35,7 +36,8 @@ import AlertSnackbar from "../components/common/AlertSnackbar";
 import EmptyState from "../components/common/EmptyState";
 import EntityContextMenu from "../components/common/EntityContextMenu";
 import { ContextualLoader } from "../components/common/LoadingStates";
-import { ActionButton, Cluster } from "../components/settings/ui";
+import { ActionButton } from "../components/settings/ui";
+import { CardWorkspace } from "../components/board";
 import AgentTile, { agentEdits, agentStatus, agentTone } from "../components/agents/AgentTile";
 import AgentEditDialog, { ResetAgentDialog } from "../components/agents/AgentEditDialog";
 import useContextMenu from "../hooks/useContextMenu";
@@ -94,13 +96,21 @@ function groupAgents(agents) {
 }
 
 
-// Fixed-width tiles: they wrap instead of stretching across the row when a
-// group has only one or two agents.
+// Tiles share the width of their group's card and wrap as it narrows.
 const TILE_GRID = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 360px))",
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
   gap: 1.5,
 };
+
+// Where each group's card sits by default; a group without a place goes under the rest.
+const GROUP_CARD_LAYOUT = {
+  create: { x: 0, y: 0, w: 110, h: 23 },
+  web: { x: 110, y: 0, w: 65, h: 23 },
+  computer: { x: 0, y: 23, w: 110, h: 23 },
+  routing: { x: 110, y: 23, w: 65, h: 23 },
+};
+const EXTRA_GROUP_LAYOUT = { x: 0, y: 46, w: 175, h: 23 };
 
 // Tiles or table, remembered in this browser.
 const VIEW_KEY = "agentsPageViewMode";
@@ -410,22 +420,33 @@ const AgentsPage = () => {
       ) : view === "table" ? (
         <AgentsTable groups={groups} onOpen={(a) => setEditingId(a.id)} onContextMenu={(event, a) => menu.open(event, a)} />
       ) : (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-          {groups.map((group) => (
-            <Cluster key={group.key} label={group.label} help={group.help || undefined}>
-              <Box sx={TILE_GRID}>
-                {group.agents.map((agent) => (
-                  <AgentTile
-                    key={agent.id}
-                    agent={agent}
-                    onOpen={(a) => setEditingId(a.id)}
-                    onContextMenu={(event, a) => menu.open(event, a)}
-                  />
-                ))}
+        <CardWorkspace
+          boardKey="agents"
+          cards={groups.map((group) => ({
+            id: group.key,
+            title: group.label,
+            layout: GROUP_CARD_LAYOUT[group.key] || EXTRA_GROUP_LAYOUT,
+            body: (
+              <Box sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1 }}>
+                {group.help && (
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    {group.help}
+                  </Typography>
+                )}
+                <Box sx={TILE_GRID}>
+                  {group.agents.map((agent) => (
+                    <AgentTile
+                      key={agent.id}
+                      agent={agent}
+                      onOpen={(a) => setEditingId(a.id)}
+                      onContextMenu={(event, a) => menu.open(event, a)}
+                    />
+                  ))}
+                </Box>
               </Box>
-            </Cluster>
-          ))}
-        </Box>
+            ),
+          }))}
+        />
       )}
 
       <EntityContextMenu

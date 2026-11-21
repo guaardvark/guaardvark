@@ -24,11 +24,10 @@ import {
   ListItemText,
   CircularProgress,
 } from "@mui/material";
-import ReactGridLayout, { WidthProvider } from "react-grid-layout/legacy";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
+import { CardBoard, TILED, loadBoardState, saveBoardState, useBoardGestures, useCardStacking } from "../components/board";
+import { boundToBoard, savedEditorLayout } from "../components/codeeditor/codeEditorLayout";
 
 import {
   FormatAlignJustify,
@@ -70,7 +69,6 @@ import {
 import { ContextualLoader } from "../components/common/LoadingStates";
 import { useUiTranslation, translate, uiLocale } from "../i18n";
 
-const FixedGridLayout = WidthProvider(ReactGridLayout);
 
 const buildUnavailableReason = () => translate("code.page.buildUnavailable");
 
@@ -95,7 +93,6 @@ const CodeEditorPage = () => {
   const [layoutError, setLayoutError] = useState(null);
   const [cardColors, setCardColors] = useState({});
   const [minimizedCards, setMinimizedCards] = useState({});
-  const [originalDimensions, setOriginalDimensions] = useState({});
   const [containerSize, setContainerSize] = useState({ width: null, height: null });
 
   const [openTabs, setOpenTabs] = useState([]);
@@ -281,7 +278,6 @@ const CodeEditorPage = () => {
 
   const {
     CONTAINER_PADDING_PX,
-    CARD_MARGIN_PX,
     COLS_COUNT,
     ROW_HEIGHT_PX,
     cardMinGridW,
@@ -592,6 +588,15 @@ const CodeEditorPage = () => {
   }, [layoutProfiles, cardMinGridW, cardMinGridH]);
 
   const [layout, setLayout] = useState(defaultCodeEditorLayout);
+  const stacking = useCardStacking();
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const minimizedRef = useRef(minimizedCards);
+  minimizedRef.current = minimizedCards;
+  const gestures = useBoardGestures(
+    useCallback(() => layoutRef.current, []),
+    useCallback(() => minimizedRef.current, []),
+  );
 
   useEffect(() => {
     try {
@@ -614,135 +619,31 @@ const CodeEditorPage = () => {
     const fetchCodeEditorState = async () => {
       setLayoutError(null);
       try {
-        const res = await fetch("/api/state/code-editor");
-        if (!res.ok) {
-          if (res.status === 404) {
-            console.warn("CodeEditor: No saved state found. Using defaults.");
-            setLayout(defaultCodeEditorLayout);
-            setCardColors({});
-            setMinimizedCards({});
-            setOriginalDimensions({});
-          } else {
-            console.error(`Failed to fetch code editor state: ${res.statusText} (Status: ${res.status})`);
-            setLayout(defaultCodeEditorLayout);
-            setCardColors({});
-            setMinimizedCards({});
-            setOriginalDimensions({});
-          }
+        let savedState = null;
+        try {
+          savedState = await loadBoardState("code-editor");
+        } catch (stateError) {
+          // The saved arrangement could not be read; the session below still loads.
+          console.error("Failed to fetch code editor state:", stateError);
+        }
+        if (!savedState) {
+          setLayout(defaultCodeEditorLayout);
+          setCardColors({});
+          setMinimizedCards({});
         } else {
-          let savedState;
-          try {
-            savedState = await res.json();
-          } catch (jsonError) {
-            console.error("Failed to parse saved state JSON:", jsonError);
-            setLayout(defaultCodeEditorLayout);
-            setCardColors({});
-            setMinimizedCards({});
-            setOriginalDimensions({});
-            setInitialStateLoaded(true);
-            return;
-          }
-
-          let layoutToApply = null;
-          if (
-            Array.isArray(savedState.layout) &&
-            savedState.layout.length > 0
-          ) {
-            layoutToApply = savedState.layout;
-          }
-
-          let validatedLayout = null; // Declare outside the if block so it's accessible later
-          if (layoutToApply) {
-            if (process.env.NODE_ENV === 'development') {
-              console.log("CodeEditor: Found saved layout. Applying...");
-            }
-            
-            validatedLayout = defaultCodeEditorLayout.map((defaultItem) => {
-              const savedItem = layoutToApply.find(
-                (item) => item.i === defaultItem.i,
-              );
-              
-              if (savedItem) {
-                const savedH = typeof savedItem.h === 'number' ? savedItem.h : defaultItem.h;
-                const savedMinH = typeof savedItem.minH === 'number' ? savedItem.minH : defaultItem.minH;
-                const savedMaxH = savedItem.maxH !== undefined ? savedItem.maxH : undefined;
-                
-                let validMaxH = savedMaxH;
-                if (validMaxH !== undefined) {
-                  if (validMaxH < savedH || validMaxH < savedMinH) {
-                    validMaxH = undefined;
-                  }
-                }
-                
-                return {
-                  ...defaultItem,
-                  x: typeof savedItem.x === 'number' ? savedItem.x : defaultItem.x,
-                  y: typeof savedItem.y === 'number' ? savedItem.y : defaultItem.y,
-                  w: typeof savedItem.w === 'number' ? savedItem.w : defaultItem.w,
-                  h: savedH,
-                  minW: typeof savedItem.minW === 'number' ? savedItem.minW : defaultItem.minW,
-                  minH: savedMinH,
-                  maxW: savedItem.maxW !== undefined ? savedItem.maxW : defaultItem.maxW,
-                  maxH: validMaxH,
-                  isDraggable: savedItem.isDraggable !== undefined ? savedItem.isDraggable : defaultItem.isDraggable,
-                  isResizable: savedItem.isResizable !== undefined ? savedItem.isResizable : defaultItem.isResizable,
-                };
-              }
-              return defaultItem;
-            });
-            
-            const savedCardIds = new Set(validatedLayout.map(item => item.i));
-            const newCards = layoutToApply.filter(item => !savedCardIds.has(item.i));
-            
-            if (newCards.length > 0) {
-              const { cardMinGridW, cardMinGridH } = gridSettings;
-              newCards.forEach(savedItem => {
-                validatedLayout.push({
-                  i: savedItem.i,
-                  x: typeof savedItem.x === 'number' ? savedItem.x : 0,
-                  y: typeof savedItem.y === 'number' ? savedItem.y : 0,
-                  w: typeof savedItem.w === 'number' ? savedItem.w : cardMinGridW,
-                  h: typeof savedItem.h === 'number' ? savedItem.h : cardMinGridH,
-                  minW: typeof savedItem.minW === 'number' ? savedItem.minW : cardMinGridW,
-                  minH: typeof savedItem.minH === 'number' ? savedItem.minH : cardMinGridH,
-                  maxW: savedItem.maxW,
-                  maxH: savedItem.maxH,
-                  isDraggable: savedItem.isDraggable !== undefined ? savedItem.isDraggable : true,
-                  isResizable: savedItem.isResizable !== undefined ? savedItem.isResizable : true,
-                });
-              });
-            }
+          const minimized = savedState.minimizedCards || {};
+          if (Array.isArray(savedState.layout) && savedState.layout.length > 0) {
+            setLayout(
+              savedEditorLayout(defaultCodeEditorLayout, savedState.layout, minimized, savedState.originalDimensions, {
+                cardMinGridW,
+                cardMinGridH,
+              }),
+            );
           } else {
             setLayout(defaultCodeEditorLayout);
           }
-
-          if (savedState.cardColors) {
-            setCardColors(savedState.cardColors);
-          }
-
-          if (savedState.minimizedCards) {
-            setMinimizedCards(savedState.minimizedCards);
-          }
-
-          if (savedState.originalDimensions && typeof savedState.originalDimensions === 'object') {
-            setOriginalDimensions(savedState.originalDimensions);
-          }
-
-          if (layoutToApply && validatedLayout) {
-            const minimizedHeight = Math.max(1, Math.round(48 / ROW_HEIGHT_PX));
-            const adjustedLayout = validatedLayout.map((item) => {
-              if (savedState.minimizedCards && savedState.minimizedCards[item.i]) {
-                return {
-                  ...item,
-                  h: minimizedHeight,
-                  minH: minimizedHeight,
-                  maxH: minimizedHeight,
-                };
-              }
-              return item;
-            });
-            setLayout(adjustedLayout);
-          }
+          if (savedState.cardColors) setCardColors(savedState.cardColors);
+          setMinimizedCards(minimized);
         }
 
         try {
@@ -784,58 +685,30 @@ const CodeEditorPage = () => {
         setLayout(defaultCodeEditorLayout);
         setCardColors({});
         setMinimizedCards({});
-        setOriginalDimensions({});
       }
       setInitialStateLoaded(true);
     };
     fetchCodeEditorState();
-  }, [defaultCodeEditorLayout, ROW_HEIGHT_PX]);
+  }, [defaultCodeEditorLayout, cardMinGridW, cardMinGridH]);
 
   const saveCodeEditorState = useCallback(
-    async (newLayout, newCardColors, newMinimizedCards, newOriginalDimensions) => {
-      if (!initialStateLoaded) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log("CodeEditor: Skipping saveCodeEditorState during initial load");
-        }
-        return;
-      }
-
+    async (newLayout, newCardColors, newMinimizedCards) => {
+      // Nothing is written until the saved arrangement has been read.
+      if (!initialStateLoaded) return;
       try {
-        const stateToSave = {
+        await saveBoardState("code-editor", {
           layout: newLayout ?? layout,
           cardColors: newCardColors ?? cardColors,
           minimizedCards: newMinimizedCards ?? minimizedCards,
-          originalDimensions: newOriginalDimensions ?? originalDimensions,
           lastSaved: new Date().toISOString(),
-        };
-
-        if (process.env.NODE_ENV === 'development') {
-          console.log("CodeEditor: Saving state to backend", {
-            layoutItems: stateToSave.layout?.length || 0,
-            minimizedCards: Object.keys(stateToSave.minimizedCards || {}).length,
-            cardColors: Object.keys(stateToSave.cardColors || {}).length,
-          });
-        }
-
-        const res = await fetch("/api/state/code-editor", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(stateToSave),
         });
-
-        if (!res.ok) {
-          throw new Error(`Failed to save code editor state (${res.status})`);
-        }
         setLayoutError(null);
-        if (process.env.NODE_ENV === 'development') {
-          console.log("CodeEditor: State saved successfully");
-        }
       } catch (err) {
         console.error("Failed to save code editor state:", err);
         setLayoutError("SAVE_FAILED");
       }
     },
-    [layout, cardColors, minimizedCards, originalDimensions, initialStateLoaded],
+    [layout, cardColors, minimizedCards, initialStateLoaded],
   );
 
   const lastSavedSession = useRef(null);
@@ -898,158 +771,53 @@ const CodeEditorPage = () => {
     },
     [openTabs, activeTabIndex, chatMessages, fileTree, searchResults],
   );
-
-  const onLayoutChange = useCallback(
-    (newLayout) => {
-      if (!initialStateLoaded) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log("CodeEditor: Skipping onLayoutChange during initial load");
-        }
-        return;
-      }
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log("CodeEditor: onLayoutChange triggered", newLayout.length, "items");
-      }
-
-      const validLayout = newLayout.filter((item) => 
-        item !== undefined && 
-        item !== null &&
-        typeof item === 'object' &&
-        typeof item.i === 'string' &&
-        typeof item.x === 'number' &&
-        typeof item.y === 'number' &&
-        typeof item.w === 'number' &&
-        typeof item.h === 'number'
-      ).map(item => ({
-        i: item.i,
-        x: item.x,
-        y: item.y,
-        w: item.w,
-        h: item.h,
-        minW: item.minW,
-        minH: item.minH,
-        maxW: item.maxW,
-        maxH: item.maxH,
-        isDraggable: item.isDraggable,
-        isResizable: item.isResizable,
-      }));
-      
-      const minimizedHeight = Math.max(1, Math.round(48 / ROW_HEIGHT_PX));
-      
-      const adjustedLayout = validLayout.map((item) => {
-        if (minimizedCards[item.i]) {
-          return {
-            ...item,
-            w: item.w,
-            h: minimizedHeight,
-            minH: minimizedHeight,
-            maxH: minimizedHeight,
-          };
-        }
-        const cleanedItem = { ...item };
-        if (cleanedItem.maxH === minimizedHeight && cleanedItem.h > minimizedHeight) {
-          delete cleanedItem.maxH;
-        }
-        return cleanedItem;
-      });
-
-      const boundedLayout = adjustedLayout.map((item) => {
-        const boundedW = Math.min(item.w, COLS_COUNT);
-        const maxX = Math.max(0, COLS_COUNT - boundedW);
-        const boundedX = Math.min(Math.max(item.x, 0), maxX);
-        let boundedH = item.h;
-        let boundedY = Math.max(item.y, 0);
-
-        if (maxRows) {
-          boundedH = Math.min(boundedH, maxRows);
-          const maxY = Math.max(0, maxRows - boundedH);
-          boundedY = Math.min(boundedY, maxY);
-        }
-
-        return {
-          ...item,
-          x: boundedX,
-          y: boundedY,
-          w: boundedW,
-          h: boundedH,
-        };
-      });
-      
+  // A drag or resize ended: keep where the cards are now, inside the board.
+  const onUserLayoutChange = useCallback(
+    (reported, fromDrag) => {
+      if (!initialStateLoaded) return;
+      const settled = gestures.settle(reported, fromDrag);
+      if (!settled) return;
+      const boundedLayout = boundToBoard(settled, COLS_COUNT, maxRows);
       setLayout(boundedLayout);
-      if (process.env.NODE_ENV === 'development') {
-        console.log("CodeEditor: Saving layout state", boundedLayout.length, "items");
-      }
-      saveCodeEditorState(boundedLayout, cardColors, minimizedCards, originalDimensions);
+      saveCodeEditorState(boundedLayout, cardColors, minimizedCards);
     },
-    [cardColors, minimizedCards, originalDimensions, saveCodeEditorState, ROW_HEIGHT_PX, initialStateLoaded, COLS_COUNT, maxRows],
+    [cardColors, minimizedCards, saveCodeEditorState, initialStateLoaded, COLS_COUNT, maxRows, gestures],
   );
 
   const handleCardColorChange = useCallback(
     (cardId, color) => {
       const newCardColors = { ...cardColors, [cardId]: color };
       setCardColors(newCardColors);
-      saveCodeEditorState(layout, newCardColors, minimizedCards, originalDimensions);
+      saveCodeEditorState(layout, newCardColors, minimizedCards);
     },
-    [cardColors, layout, minimizedCards, originalDimensions, saveCodeEditorState],
+    [cardColors, layout, minimizedCards, saveCodeEditorState],
   );
 
+  // Minimizing leaves the card's place and size alone: the board shows its bar
+  // and the stored size is what it opens to again.
   const handleToggleMinimize = useCallback(
     (cardId) => {
-      const newMinimizedCards = {
-        ...minimizedCards,
-        [cardId]: !minimizedCards[cardId],
-      };
+      gestures.beginToggle(cardId);
+      const newMinimizedCards = { ...minimizedCards, [cardId]: !minimizedCards[cardId] };
       setMinimizedCards(newMinimizedCards);
-      
-      const minimizedHeight = Math.max(1, Math.round(48 / ROW_HEIGHT_PX));
-      
-      const newOriginalDimensions = { ...originalDimensions };
-      const adjustedLayout = layout.map((item) => {
-        if (item.i === cardId) {
-          if (newMinimizedCards[cardId]) {
-            newOriginalDimensions[cardId] = { w: item.w, h: item.h };
-            return {
-              ...item,
-              w: item.w,
-              h: minimizedHeight,
-              minH: minimizedHeight,
-              maxH: minimizedHeight,
-            };
-          } else {
-            const original = newOriginalDimensions[cardId];
-            if (original) {
-              delete newOriginalDimensions[cardId];
-              const restored = {
-                ...item,
-                w: original.w,
-                h: original.h,
-              };
-              if (restored.maxH === minimizedHeight) {
-                delete restored.maxH;
-              }
-              return restored;
-            }
-            return item;
-          }
-        }
-        return item;
-      });
-      
-      setOriginalDimensions(newOriginalDimensions);
-      setLayout(adjustedLayout);
-      saveCodeEditorState(adjustedLayout, cardColors, newMinimizedCards, newOriginalDimensions);
+      saveCodeEditorState(layout, cardColors, newMinimizedCards);
     },
-    [minimizedCards, layout, cardColors, saveCodeEditorState, ROW_HEIGHT_PX, originalDimensions],
+    [minimizedCards, layout, cardColors, saveCodeEditorState, gestures],
   );
 
   const handleResetLayout = useCallback(() => {
     setLayout(defaultCodeEditorLayout);
     setCardColors({});
     setMinimizedCards({});
-    setOriginalDimensions({});
-    saveCodeEditorState(defaultCodeEditorLayout, {}, {}, {});
-  }, [defaultCodeEditorLayout, saveCodeEditorState]);
+    stacking.reset();
+    saveCodeEditorState(defaultCodeEditorLayout, {}, {});
+  }, [defaultCodeEditorLayout, saveCodeEditorState, stacking]);
+
+  // The Chat and Output cards are memoized and skip most re-renders, so the
+  // handlers they hold can be old ones. They call through this, which is
+  // always the current pair.
+  const cardHandlers = useRef({});
+  cardHandlers.current = { toggleMinimize: handleToggleMinimize, changeColor: handleCardColorChange };
 
   const applyLayoutProfile = useCallback((profileKey) => {
     const profile = layoutProfiles[profileKey];
@@ -1064,8 +832,8 @@ const CodeEditorPage = () => {
     }));
 
     setLayout(newLayout);
-    saveCodeEditorState(newLayout, cardColors, minimizedCards, originalDimensions);
-  }, [layoutProfiles, cardMinGridW, cardMinGridH, cardColors, minimizedCards, originalDimensions, saveCodeEditorState]);
+    saveCodeEditorState(newLayout, cardColors, minimizedCards);
+  }, [layoutProfiles, cardMinGridW, cardMinGridH, cardColors, minimizedCards, saveCodeEditorState]);
 
   useEffect(() => {
     if (initialStateLoaded) {
@@ -1442,143 +1210,92 @@ const CodeEditorPage = () => {
           </MuiAlert>
         )}
 
-        {/* The grid takes the width it is given: WidthProvider measures this
-            box (sidebar toggles included) and layouts are in columns, so
-            saved layouts scale. A pixel min-width here would hold the page
-            at that width and the measurement with it. */}
-        <Box
-          sx={{
-            width: "100%",
-            overflow: "none",
-            "& .react-grid-item": {
-              transition: "transform 0.2s ease-out !important",
-              "&.react-draggable-dragging": {
-                transition: "none !important",
-                zIndex: 1000,
-              },
-              "&[style*='z-index']": {
-                zIndex: "inherit !important",
-              }
-            },
-            "& .react-grid-item .MuiPaper-root": {
-              zIndex: "inherit !important",
-            }
-          }}
-        >
-          <FixedGridLayout
-            className="layout"
-            layout={layout}
-            style={{
-              transition: "all 0.2s ease-out",
-            }}
-            cols={COLS_COUNT}
-            rowHeight={ROW_HEIGHT_PX}
-            containerPadding={[CONTAINER_PADDING_PX / 10, CONTAINER_PADDING_PX / 10]}
-            margin={[CARD_MARGIN_PX / 20, CARD_MARGIN_PX / 20]}
-            isDraggable
-            isResizable
-            compactType={null}
-            preventCollision={false}
-            useCSSTransforms={false}
-            allowOverlap={true}
-            maxRows={maxRows || undefined}
-            draggableHandle=".card-header-buttons"
-            draggableCancel="button, input, textarea, select, option, .non-draggable"
-            onLayoutChange={onLayoutChange}
-            resizeHandles={["s", "w", "e", "n", "sw", "nw", "se", "ne"]}
-          >
-            {layout.map((layoutItem) => {
-              const cardId = layoutItem.i;
-              const CardComponent = cardComponents[cardId];
-              const isMinimized = minimizedCards[cardId] || false;
-
-              const minimizedHeight = Math.max(1, Math.round(48 / ROW_HEIGHT_PX));
-              
-              const adjustedLayoutItem = isMinimized ? {
-                ...layoutItem,
-                h: minimizedHeight,
-                minH: minimizedHeight,
-                maxH: minimizedHeight,
-                isResizable: false,
-              } : {
-                ...layoutItem,
-                isResizable: true,
-              };
-
-              return (
-                <div
-                  key={cardId}
-                  data-grid={adjustedLayoutItem}
-                  data-card-id={cardId}
-                  onKeyDown={cardId === 'editor' ? handleEditorShortcut : undefined}
+        {/* The board measures its own width (sidebar toggles included) and
+            layouts are in columns, so saved layouts scale. A pixel min-width
+            here would hold the page at that width and the measurement with it. */}
+        <CardBoard
+          fitWidth
+          width={containerSize.width || 1280}
+          grid={gridSettings}
+          spacing={TILED}
+          maxRows={maxRows || undefined}
+          layout={layout}
+          minimized={minimizedCards}
+          stacking={stacking}
+          dragHandle=".card-header-buttons"
+          onDragStart={gestures.onDragStart}
+          onDragStop={(reported) => onUserLayoutChange(reported, true)}
+          onResizeStop={(reported) => onUserLayoutChange(reported, false)}
+          cardProps={(cardId) => (cardId === "editor" ? { onKeyDown: handleEditorShortcut } : null)}
+          renderCard={(layoutItem, isMinimized) => {
+            const cardId = layoutItem.i;
+            const CardComponent = cardComponents[cardId];
+            return (
+              <>
+              {CardComponent ? (
+                <CardComponent
+                  id={cardId}
+                  ref={cardId === 'editor' ? editorRef : null}
+                  cardColor={cardColors[cardId]}
+                  onCardColorChange={(color) => cardHandlers.current.changeColor(cardId, color)}
+                  isMinimized={isMinimized}
+                  onToggleMinimize={() => cardHandlers.current.toggleMinimize(cardId)}
+                  projectId={projectId}
+                  openTabs={openTabs}
+                  setOpenTabs={setOpenTabs}
+                  activeTabIndex={activeTabIndex}
+                  setActiveTabIndex={setActiveTabIndex}
+                  fileTree={fileTree}
+                  setFileTree={setFileTree}
+                  chatMessages={chatMessages}
+                  setChatMessages={setChatMessages}
+                  searchResults={searchResults}
+                  setSearchResults={setSearchResults}
+                  {...(cardId === 'chat' && {
+                    rulesCutoffEnabled,
+                    currentTab: currentTab,
+                    editorContext: editorContext,
+                    editorRef: editorRef
+                  })}
+                  {...(cardId === 'editor' && {
+                    onEditorContextChange: handleEditorContextChange,
+                    onChatAction: handleEditorChatAction,
+                    onRun: () => handleQuickAction('run'),
+                    revealRequest,
+                    onRevealDone: () => setRevealRequest(null),
+                  })}
+                  {...(cardId === 'output' && {
+                    currentTab: currentTab,
+                    outputEntries: runOutput,
+                    onClearOutput: () => setRunOutput([]),
+                  })}
+                  {...(cardId === 'wordpress' && {
+                    openTabs: openTabs,
+                    setOpenTabs: setOpenTabs,
+                    setActiveTabIndex: setActiveTabIndex
+                  })}
+                />
+              ) : (
+                <Paper
+                  sx={{
+                    p: 1,
+                    height: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    bgcolor: "warning.dark",
+                    backgroundImage: 'none',
+                  }}
                 >
-                  {CardComponent ? (
-                    <CardComponent
-                      id={cardId}
-                      ref={cardId === 'editor' ? editorRef : null}
-                      cardColor={cardColors[cardId]}
-                      onCardColorChange={(color) =>
-                        handleCardColorChange(cardId, color)
-                      }
-                      isMinimized={minimizedCards[cardId] || false}
-                      onToggleMinimize={() => handleToggleMinimize(cardId)}
-                      projectId={projectId}
-                      openTabs={openTabs}
-                      setOpenTabs={setOpenTabs}
-                      activeTabIndex={activeTabIndex}
-                      setActiveTabIndex={setActiveTabIndex}
-                      fileTree={fileTree}
-                      setFileTree={setFileTree}
-                      chatMessages={chatMessages}
-                      setChatMessages={setChatMessages}
-                      searchResults={searchResults}
-                      setSearchResults={setSearchResults}
-                      {...(cardId === 'chat' && {
-                        rulesCutoffEnabled,
-                        currentTab: currentTab,
-                        editorContext: editorContext,
-                        editorRef: editorRef
-                      })}
-                      {...(cardId === 'editor' && {
-                        onEditorContextChange: handleEditorContextChange,
-                        onChatAction: handleEditorChatAction,
-                        onRun: () => handleQuickAction('run'),
-                        revealRequest,
-                        onRevealDone: () => setRevealRequest(null),
-                      })}
-                      {...(cardId === 'output' && {
-                        currentTab: currentTab,
-                        outputEntries: runOutput,
-                        onClearOutput: () => setRunOutput([]),
-                      })}
-                      {...(cardId === 'wordpress' && {
-                        openTabs: openTabs,
-                        setOpenTabs: setOpenTabs,
-                        setActiveTabIndex: setActiveTabIndex
-                      })}
-                    />
-                  ) : (
-                    <Paper
-                      sx={{
-                        p: 1,
-                        height: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        bgcolor: "warning.dark",
-                        backgroundImage: 'none',
-                      }}
-                    >
-                      <Typography sx={{ color: "warning.contrastText" }}>
-                        {t("code.page.missingCard", { card: cardId })}
-                      </Typography>
-                    </Paper>
-                  )}
-                </div>
-              );
-            })}
-          </FixedGridLayout>
-        </Box>
+                  <Typography sx={{ color: "warning.contrastText" }}>
+                    {t("code.page.missingCard", { card: cardId })}
+                  </Typography>
+                </Paper>
+              )}
+              </>
+            );
+          }}
+        />
       </Box>
       {relatedFiles.length > 0 && (
         <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider' }}>

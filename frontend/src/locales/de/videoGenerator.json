@@ -272,7 +272,7 @@
     "retryBatch": "Batch erneut versuchen",
     "noRetryData": "Die ursprünglichen Prompts & Einstellungen wurden für diese Batch nicht gespeichert (erstellt vor der Unterstützung für Retries), daher kann sie nicht automatisch wiederholt werden. Erstelle sie erneut aus den Einstellungen oben.",
     "statusTitle": "Generierungsstatus",
-    "none": "Keine aktive Generierung. Starte oben eine Videogenerierung, um den Fortschritt hier zu sehen."
+    "none": "Keine aktive Generierung. Starte eine Videogenerierung, um den Fortschritt hier zu sehen."
   },
   "results": {
     "thumbAlt": "Vorschaubild",

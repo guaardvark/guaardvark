@@ -1,9 +1,25 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 const executeTool = vi.fn(async () => ({ success: true, result: { success: true, output: "ran" } }));
 
+// The page lays its cards out on the shared board, which reads the grid from the layout context.
+vi.mock("../../contexts/LayoutContext", () => {
+  const layout = {
+    gridSettings: {
+      CONTAINER_PADDING_PX: 4,
+      CARD_MARGIN_PX: 8,
+      COLS_COUNT: 175,
+      ROW_HEIGHT_PX: 10,
+      cardGridW: 35,
+      cardGridH: 49,
+      cardMinGridW: 30,
+    },
+  };
+  return { useDashboardWidth: () => 1750, useLayout: () => layout };
+});
 vi.mock("../../api/toolsService", () => ({
   getTools: vi.fn(async () => ({
     success: true,
@@ -60,9 +76,13 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+// A tool is named in the tool list and again under its category; the tests mean the list.
+const toolTitle = async (toolName) =>
+  (await screen.findAllByText(toolName)).find((el) => el.closest('[data-card-id="tools"]'));
+
 const openTestFor = async (toolName) => {
-  render(<ToolsPage />);
-  const title = await screen.findByText(toolName);
+  render(<MemoryRouter><ToolsPage /></MemoryRouter>);
+  const title = await toolTitle(toolName);
   const card = title.closest(".MuiCard-root");
   fireEvent.click(within(card).getByRole("button", { name: /Test/ }));
   return screen.findByRole("dialog");
@@ -93,8 +113,8 @@ describe("ToolsPage test dialog", () => {
   });
 
   it("labels a tool with the category the registry gave it", async () => {
-    render(<ToolsPage />);
-    const title = await screen.findByText("media_status");
+    render(<MemoryRouter><ToolsPage /></MemoryRouter>);
+    const title = await toolTitle("media_status");
     expect(within(title.closest(".MuiCard-root")).getByText("media")).toBeInTheDocument();
   });
 });

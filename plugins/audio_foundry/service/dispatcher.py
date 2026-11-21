@@ -12,6 +12,10 @@ HTTP (see service/orchestrator_client.py). The pre-load handshake is:
   3. orchestrator.mark_loaded(slot_id)             — registry transitions LOADING -> LOADED
 On load() failure we call orchestrator.evict(slot_id) so the LOADING slot
 doesn't dangle in the registry.
+
+On a machine with no CUDA device there is no VRAM to arbitrate: a backend that
+runs on the CPU (Kokoro, Chatterbox) loads without the handshake, and nothing
+is reserved, released or evicted from other services on its behalf.
 """
 from __future__ import annotations
 
@@ -39,6 +43,19 @@ _SLOT_PREFIX = "audio_foundry"
 _DEFAULT_PRIORITY = 70
 # Room left above a backend's estimate before this plugin unloads its own others.
 _HEADROOM_MB = 512
+# How often a job waiting for the GPU asks again who holds it.
+_GPU_WAIT_POLL_S = 5.0
+# A call with no progress callback answers an open HTTP request, so it waits
+# only this long; a background job waits up to Dispatcher.gpu_wait_s.
+_GPU_WAIT_INLINE_S = 120.0
+
+
+def _cuda_available() -> bool:
+    try:
+        import torch
+        return bool(torch.cuda.is_available())
+    except Exception:
+        return False
 
 
 def _free_vram_mb() -> Optional[int]:
@@ -53,6 +70,12 @@ def _free_vram_mb() -> Optional[int]:
         return None
 
 
+def _is_oom(exc: BaseException) -> bool:
+    """torch.cuda.OutOfMemoryError, the RuntimeError older torch raises, or a
+    daemon's error text carrying either."""
+    return type(exc).__name__ == "OutOfMemoryError" or "out of memory" in str(exc).lower()
+
+
 class NotWired(NotImplementedError):
     """Raised when an intent is reachable but its backend hasn't been wired yet.
 
@@ -65,6 +88,11 @@ class BackendUnavailable(RuntimeError):
     """Raised when a backend is wired but can't run on this machine
     (e.g. Stable Audio Open without a CUDA GPU). Service layer maps to HTTP 503.
     Checked before a job is accepted so callers get the reason up front."""
+
+
+class GpuBusy(BackendUnavailable):
+    """Another job (a video render, training) held the GPU for longer than this
+    request may wait. Maps to 503 like any unavailable backend."""
 
 
 class Dispatcher:
@@ -89,10 +117,15 @@ class Dispatcher:
             Intent.MUSIC: threading.Lock(),
         }
         self._last_used: dict[Intent, float] = {}
+        # Intents whose slot this process reserved with the orchestrator.
+        self._claimed: set[Intent] = set()
 
         # If no client passed, we still construct a disabled one so the call
         # sites can stay branch-free. enabled=False means every method is a no-op.
         self._orch = orchestrator or OrchestratorClient(enabled=False)
+        # Longest a background job waits for another job to give the GPU back
+        # (runtime.gpu.wait_for_gpu_s).
+        self.gpu_wait_s: float = 3600.0
 
     def forget_slots_from_before(self) -> None:
         """Drop the slots an earlier run of this service left in the orchestrator.
@@ -162,6 +195,9 @@ class Dispatcher:
         """
         # 1. Get the intent lock to serialize requests for this specific model
         with self._intent_locks[intent]:
+            # Outside the state lock: an eviction from the backend calls unload(),
+            # which takes it, and the wait can be long.
+            self.wait_for_gpu(intent, progress_cb=progress_cb, cancel_event=cancel_event)
             # 2. Check/Load inside the state lock
             with self._state_lock:
                 backend = self._backends.get(intent)
@@ -196,7 +232,7 @@ class Dispatcher:
                 )
                 self._last_used[intent] = time.monotonic()
                 # Signal success to orchestrator so eviction timer can reset
-                self._orch.release(f"{_SLOT_PREFIX}:{intent.value}")
+                self._release(intent)
                 
                 # Update dynamic VRAM estimate if possible
                 try:
@@ -210,9 +246,13 @@ class Dispatcher:
                     pass
 
                 return result
-            except Exception:
+            except Exception as e:
                 # If generation fails, we still release the intent lock (via context manager)
-                # and the orchestrator already knows we are LOADED.
+                # and the orchestrator already knows we are LOADED. Out of memory
+                # leaves the card in an unknown state: drop the model so its
+                # memory goes back to the job that needed it.
+                if _is_oom(e):
+                    self._drop_after_oom(intent, backend)
                 raise
 
     def plan(self, intent: Intent, **params: Any) -> dict[str, Any]:
@@ -223,6 +263,7 @@ class Dispatcher:
         """
         params = dict(params)
         with self._intent_locks[intent]:
+            self.wait_for_gpu(intent)
             with self._state_lock:
                 backend = self._backends.get(intent)
                 if backend is None:
@@ -247,7 +288,7 @@ class Dispatcher:
             try:
                 result = backend.plan(**params)
                 self._last_used[intent] = time.monotonic()
-                self._orch.release(f"{_SLOT_PREFIX}:{intent.value}")
+                self._release(intent)
                 return result
             except Exception:
                 raise
@@ -262,6 +303,7 @@ class Dispatcher:
         Loading and locking same as generate().
         """
         with self._intent_locks[intent]:
+            self.wait_for_gpu(intent)
             with self._state_lock:
                 backend = self._backends.get(intent)
                 if backend is None:
@@ -272,6 +314,10 @@ class Dispatcher:
                     raise BackendUnavailable(
                         reason or f"Backend {backend.name} is unavailable on this machine"
                     )
+
+                select = getattr(backend, "select_for_request", None)
+                if select is not None and select(params):
+                    self._orch.evict(f"{_SLOT_PREFIX}:{intent.value}")
 
                 if not backend.is_loaded:
                     self._load_with_orchestrator(intent, backend)
@@ -288,7 +334,7 @@ class Dispatcher:
 
             # Fallback: full generate, yield the whole file as one "chunk"
             result = backend.generate(**params)
-            self._orch.release(f"{_SLOT_PREFIX}:{intent.value}")
+            self._release(intent)
             def _one_chunk():
                 with open(result.path, "rb") as f:
                     yield f.read(), True
@@ -318,6 +364,7 @@ class Dispatcher:
                     
                     backend.unload()
                     slot_id = f"{_SLOT_PREFIX}:{intent.value}"
+                    self._claimed.discard(intent)
                     self._orch.evict(slot_id)
                     return True
                 return False
@@ -325,6 +372,11 @@ class Dispatcher:
             self._intent_locks[intent].release()
 
     # ------------------------------------------------------------------
+
+    def _release(self, intent: Intent) -> None:
+        """Tell the orchestrator a generation finished, for a slot it holds."""
+        if intent in self._claimed:
+            self._orch.release(f"{_SLOT_PREFIX}:{intent.value}")
 
     def _make_room(self, intent: Intent, vram_req: int) -> None:
         """Unload this plugin's other idle backends while the card is short.
@@ -357,10 +409,11 @@ class Dispatcher:
         """For a loaded backend that needs the whole card (ACE-Step): ask for it
         again before running. A chat model loaded between two songs would
         otherwise leave this one out of memory. Voice and effects share."""
-        if not getattr(backend, "requires_exclusive_vram", False):
+        if not getattr(backend, "requires_exclusive_vram", False) or not _cuda_available():
             return
         slot_id = f"{_SLOT_PREFIX}:{intent.value}"
         vram_req = max(backend.vram_mb_estimate, backend.last_vram_mb)
+        self._claimed.add(intent)
         self._orch.request_vram(slot_id, vram_req, _DEFAULT_PRIORITY, exclusive=True)
         # The orchestrator may have forgotten an idle slot; a re-registered one
         # starts as loading, and the model is already in memory.
@@ -387,9 +440,105 @@ class Dispatcher:
 
         threading.Thread(target=loop, name="audio-idle-unload", daemon=True).start()
 
+    def wait_for_gpu(
+        self,
+        intent: Intent,
+        *,
+        progress_cb: Optional[Any] = None,
+        cancel_event: Optional[Any] = None,
+    ) -> None:
+        """Wait while another job holds the GPU and this request would need it.
+
+        A video render or a training run claims the card through the backend's
+        job gate and lease; a model loaded beside it runs out of memory and
+        stalls the render. Music (which needs the whole card) waits whenever
+        another job holds it. Voice and effects wait only when they are cold
+        and the card is too short for them; a loaded voice model keeps working.
+
+        Raises GpuBusy after gpu_wait_s (a background job) or
+        _GPU_WAIT_INLINE_S (an inline request), GenerationCancelled on cancel.
+        Returns at once without CUDA, with the orchestrator off, or when the
+        backend cannot say who holds the card.
+        """
+        import time
+
+        with self._state_lock:
+            backend = self._backends.get(intent)
+        if backend is None or not _cuda_available() or not self._orch.enabled:
+            return
+        exclusive = bool(getattr(backend, "requires_exclusive_vram", False))
+        if not exclusive and backend.is_loaded:
+            return
+
+        limit = self.gpu_wait_s if progress_cb is not None else min(self.gpu_wait_s, _GPU_WAIT_INLINE_S)
+        started = time.monotonic()
+        announced = False
+        while True:
+            holder = self._orch.gpu_holder()
+            if holder is None:
+                break
+            if not exclusive:
+                need = max(backend.vram_mb_estimate, backend.last_vram_mb) + _HEADROOM_MB
+                free = _free_vram_mb()
+                if free is not None and free >= need:
+                    break
+            if cancel_event is not None and cancel_event.is_set():
+                from backends.base import GenerationCancelled
+                raise GenerationCancelled(f"Cancelled while waiting for the GPU ({holder})")
+            waited = time.monotonic() - started
+            if waited >= limit:
+                raise GpuBusy(
+                    f"The GPU is held by {holder}; waited {int(waited)} s for it. "
+                    "Try again when that job finishes."
+                )
+            if not announced:
+                logger.info("%s waits for the GPU, held by %s", intent.value, holder)
+                if progress_cb is not None:
+                    try:
+                        progress_cb(0, 0, "waiting_for_gpu")
+                    except Exception:  # noqa: BLE001 - progress is best effort
+                        pass
+                announced = True
+            if cancel_event is not None:
+                cancel_event.wait(_GPU_WAIT_POLL_S)
+            else:
+                time.sleep(_GPU_WAIT_POLL_S)
+        if announced:
+            logger.info("%s got the GPU after %.0f s", intent.value, time.monotonic() - started)
+
+    @staticmethod
+    def _free_backend(backend: AudioBackend) -> None:
+        """Best-effort: unload a backend and hand its cached blocks back."""
+        try:
+            backend.unload()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Unload of %s after out-of-memory failed: %s", backend.name, e)
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+    def _drop_after_oom(self, intent: Intent, backend: AudioBackend) -> None:
+        """Unload a backend whose generation ran out of memory and forget its slot.
+        Runs with the intent lock held, so it does not go through unload()."""
+        logger.warning("%s ran out of GPU memory; unloading it to free the card", intent.value)
+        with self._state_lock:
+            self._free_backend(backend)
+            self._claimed.discard(intent)
+            self._orch.evict(f"{_SLOT_PREFIX}:{intent.value}")
+
     def _load_with_orchestrator(self, intent: Intent, backend: AudioBackend) -> None:
         """Request VRAM, run load(), report load completion. Cleans up on failure."""
         slot_id = f"{_SLOT_PREFIX}:{intent.value}"
+        if not _cuda_available():
+            logger.info(
+                "Cold backend for %s — no CUDA device, loading on the CPU with no VRAM request",
+                intent.value,
+            )
+            backend.load()
+            return
         # Use the higher of hardcoded estimate vs actually observed peak.
         vram_req = max(backend.vram_mb_estimate, backend.last_vram_mb)
         # Backends that need the whole GPU (ACE-Step at 10 GB) ask the
@@ -404,6 +553,7 @@ class Dispatcher:
         )
         # Best-effort eviction. If the orchestrator is unreachable we still try
         # the load — it might just OOM, which the caller will see as a 500.
+        self._claimed.add(intent)
         self._orch.request_vram(slot_id, vram_req, _DEFAULT_PRIORITY, exclusive=exclusive)
         self._make_room(intent, vram_req)
 
@@ -412,9 +562,13 @@ class Dispatcher:
             if torch.cuda.is_available():
                 torch.cuda.reset_peak_memory_stats()
             backend.load()
-        except Exception:
+        except Exception as e:
             # Don't leave a LOADING slot dangling in the orchestrator's registry.
+            self._claimed.discard(intent)
             self._orch.evict(slot_id)
+            if _is_oom(e):
+                # A half-loaded model still holds what it allocated.
+                self._free_backend(backend)
             raise
 
         self._orch.mark_loaded(slot_id)

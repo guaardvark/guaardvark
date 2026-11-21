@@ -3,6 +3,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
+// The page lays its cards out on the shared board, which reads the grid from the layout context.
+vi.mock("../../contexts/LayoutContext", () => {
+  const layout = {
+    gridSettings: {
+      CONTAINER_PADDING_PX: 4,
+      CARD_MARGIN_PX: 8,
+      COLS_COUNT: 175,
+      ROW_HEIGHT_PX: 10,
+      cardGridW: 35,
+      cardGridH: 49,
+      cardMinGridW: 30,
+    },
+  };
+  return { useDashboardWidth: () => 1750, useLayout: () => layout };
+});
 vi.mock("../../contexts/UnifiedProgressContext", () => ({
   useUnifiedProgress: () => ({ activeProcesses: new Map(), unifiedJobs: new Map(), socketRef: { current: null } }),
   useImageProcesses: () => [],
@@ -55,8 +70,8 @@ describe("Image Gen workers on a CUDA card", () => {
 
   it("shows one-at-a-time instead of a worker count", async () => {
     await renderPage();
-    expect(screen.getByText("One at a time")).toBeInTheDocument();
-    expect(screen.queryByText(/Workers: \d/)).toBeNull();
+    expect(screen.getByText("One picture at a time on the graphics card.")).toBeInTheDocument();
+    expect(screen.queryByText(/^Workers: \d/)).toBeNull();
   });
 
   it("disables Max Workers with a plain reason", async () => {
@@ -71,6 +86,6 @@ describe("Image Gen workers on a CPU box", () => {
   it("keeps the worker count", async () => {
     mockFetchWithDevice("cpu");
     await renderPage();
-    expect(screen.getByText("Workers: 2")).toBeInTheDocument();
+    expect(screen.getByText(/Max Workers: 2/)).toBeInTheDocument();
   });
 });

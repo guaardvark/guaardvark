@@ -92,5 +92,38 @@
     "exitKiosk": "Kiosk-Modus verlassen (F11)",
     "minimize": "Fenster minimieren (Inhalt ausblenden)",
     "close": "Anwendung schließen (Strg+Q oder Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Kartenlayout zurücksetzen",
+    "layout": "Layout",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Einstellungen",
+      "queue": "Warteschlange",
+      "results": "Ergebnisse",
+      "status": "Status"
+    },
+    "queueEmpty": "Nichts in der Warteschlange oder wird nicht gerendert.",
+    "useLayout": "Layout: {{name}}",
+    "layouts": {
+      "columns": "Spalten",
+      "library": "Breite Bibliothek",
+      "compose": "Komposition",
+      "tiles": "Kacheln",
+      "stacked": "Gestapelt"
+    },
+    "status": {
+      "model": "Modell",
+      "size": "Größe",
+      "steps": "Schritte",
+      "queue": "Warteschlange",
+      "idle": "Leerlauf",
+      "active": "{{count}} aktiv",
+      "running": "Läuft",
+      "queued": "In Warteschlange",
+      "none": "Keines ausgewählt"
+    },
+    "fullScreen": "Vollbild",
+    "exitFullScreen": "Vollbild beenden"
   }
 }

@@ -15,12 +15,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     melt \
     && rm -rf /var/lib/apt/lists/*
 
+# pg_dump/pg_restore for the daily backup and for restores. The client must match the server's major version
+# (pgvector/pgvector:pg16 in docker-compose.yml): restores run with --exit-on-error, and a newer client's dump
+# opens with settings a 16 server rejects. Debian's own postgresql-client is a newer major, so the client comes
+# from the PostgreSQL project's apt repository.
+ARG PG_MAJOR=16
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && . /etc/os-release \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-${PG_MAJOR} \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # PyTorch for the card this image will run on. start-docker.sh --gpu passes
 # the channel backend/services/hardware_policy.torch_channel gives for the host
 # GPU (cu132 with driver 580+, cu126 for older drivers and Pascal/Volta, cu118
-# below driver 525, cu128 for Blackwell below 580). The pins match
+# below driver 525, cu128 for Blackwell below 580). rocm7.2 is the AMD build the
+# published -rocm image carries, on the same torch as cu132. The pins match
 # scripts/install_pytorch.sh: 2.14.1 is the newest torch Unsloth accepts, and
 # TorchCodec (with the ffmpeg libraries above) gives torchaudio its file I/O.
 # Empty installs the PyPI build, which has no kernels below sm_75.
@@ -30,6 +45,7 @@ RUN codec="" && case "$TORCH_CHANNEL" in \
         cu126) pins="torch==2.14.1 torchvision==0.29.1 torchaudio==2.11.0 torchcodec==0.17.0" ;; \
         cu128) pins="torch==2.11.0 torchvision==0.26.0 torchaudio==2.11.0 torchcodec==0.11.1" ;; \
         cu118) pins="torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 torchcodec==0.5" ;; \
+        rocm7.2) pins="torch==2.14.1 torchvision==0.29.1 torchaudio==2.11.0"; codec="torchcodec==0.17.0" ;; \
         rocm6.3) pins="torch torchvision torchaudio"; codec="torchcodec==0.9.1" ;; \
         *) pins="torch torchvision torchaudio" ;; \
     esac \
@@ -37,6 +53,15 @@ RUN codec="" && case "$TORCH_CHANNEL" in \
     && pip install --no-cache-dir $idx $pins \
     && if [ -n "$codec" ]; then pip install --no-cache-dir --no-deps --index-url https://download.pytorch.org/whl/cpu $codec; fi \
     && pip freeze | grep -E '^(torch|torchvision|torchaudio|torchcodec)==' > /tmp/torch-pins.txt
+
+# ROCm builds only: rocm-smi is what the VRAM probe reads (load gate, hardware profile,
+# GPU coordinator). Without it the container sees no AMD card. NVIDIA and CPU builds
+# are unchanged.
+RUN case "$TORCH_CHANNEL" in \
+        rocm*) apt-get update && apt-get install -y --no-install-recommends rocm-smi \
+               && rm -rf /var/lib/apt/lists/* \
+               && python -c "import torch, torchvision, torchaudio; assert torch.version.hip, 'not a ROCm build of torch'" ;; \
+    esac
 
 # Install Python dependencies (cached layer). The pins keep the channel build:
 # a requirement that needs a newer torch fails the build instead of replacing it.
@@ -52,13 +77,26 @@ COPY scripts/ /app/scripts/
 # app and its models, plugin environments) survives an image update. The image keeps its
 # copy here, and docker/entrypoint.sh brings it onto the volume at every start.
 COPY plugins/ /app/.plugins-dist/
-COPY docker/entrypoint.sh docker/sync_plugins.py /app/docker/
+# The tracked default data files (agent knowledge, recipes, style recipes, trainer pages).
+# /app/data is a volume, so docker/entrypoint.sh seeds them from here at every start and
+# leaves any file the install has changed. .dockerignore lists exactly which files come in.
+COPY data/ /app/.data-dist/
+COPY docker/entrypoint.sh docker/sync_plugins.py docker/seed_data.py /app/docker/
 RUN chmod +x /app/docker/entrypoint.sh
 # The plugin start scripts and the ComfyUI update service expect /app/backend/venv. The
 # packages are installed system-wide in this image, so the venv only has to see them.
 RUN python -m venv --system-site-packages /app/backend/venv
 # app.py reads the version from here; without it /api/health reports a stale fallback.
 COPY VERSION /app/VERSION
+# The `guaardvark` command, for `docker compose exec backend guaardvark ...`. Its
+# dependencies are already in backend/requirements.txt; setup.py reads cli/VERSION.
+COPY cli/ /tmp/cli/
+RUN cp /app/VERSION /tmp/cli/VERSION \
+    && pip install --no-cache-dir -c /tmp/torch-pins.txt /tmp/cli \
+    && rm -rf /tmp/cli
+# Extensions load from /app/extensions. docker-compose.yml mounts the extensions/
+# folder next to it here; the image itself carries only that folder's README.
+COPY extensions/ /app/extensions/
 
 # Create data directories
 RUN mkdir -p /app/data/uploads /app/data/outputs/narrations /app/data/cache \
@@ -81,8 +119,13 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
+# Health check. Before the API listens the container syncs plugin sources, runs
+# the migrations and imports the app again beside three Celery processes; on a
+# first start or a busy disk that outlasts a short grace, and the container
+# then reads "unhealthy" while it is still coming up. A miss inside the start
+# period is not counted and the first answer ends it, so a long one costs a
+# healthy container nothing.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=5 \
     CMD curl -f http://localhost:5000/api/health || exit 1
 
 ENTRYPOINT ["/app/docker/entrypoint.sh"]

@@ -7,7 +7,6 @@ import PageLayout from "../components/layout/PageLayout";
 import {
   Box,
   Typography,
-  Paper,
   Button,
   Chip,
   TextField,
@@ -57,6 +56,7 @@ import {
   judgeWarning,
   runOutcome,
 } from "../utils/autoresearchLabels";
+import { CardWorkspace } from "../components/board";
 import { translate, useUiTranslation } from "../i18n";
 
 const RUN_STATUS_COLORS = {
@@ -512,11 +512,19 @@ const AutoresearchPage = () => {
         </Button>
       }
     >
-      {/* --- Research Tonight --- */}
-      <Paper
-        elevation={0}
-        sx={{ p: 2, mb: 3, border: 1, borderColor: "divider" }}
-      >
+      {/* --- Code keeps (PendingFixes staged by the director) --- */}
+      <CodeKeepsTable keeps={codeKeeps} onDecide={handleCodeKeep} />
+
+      {/* The page's sections are cards on the shared board. */}
+      <CardWorkspace
+        boardKey="autoresearch"
+        cards={[
+          {
+            id: "run",
+            title: t("autoresearch.run.title"),
+            layout: { x: 0, y: 0, w: 100, h: 40 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         <Box
           sx={{
             display: "flex",
@@ -527,7 +535,6 @@ const AutoresearchPage = () => {
         >
           <NightIcon color="primary" />
           <Box sx={{ flex: 1, minWidth: 200 }}>
-            <Typography variant="subtitle1">{t("autoresearch.run.title")}</Typography>
             <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("autoresearch.run.intro")}
             </Typography>
@@ -663,16 +670,15 @@ const AutoresearchPage = () => {
             )}
           </Box>
         )}
-      </Paper>
-
-      {/* --- Settings --- */}
-      <Paper
-        elevation={0}
-        sx={{ p: 2, mb: 3, border: 1, borderColor: "divider" }}
-      >
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("autoresearch.settings.title")}
-        </Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "settings",
+            title: t("autoresearch.settings.title"),
+            layout: { x: 100, y: 0, w: 75, h: 40 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         <Typography
           variant="caption"
           sx={{ color: "text.secondary", display: "block", mb: 2 }}
@@ -810,19 +816,15 @@ const AutoresearchPage = () => {
             {t("autoresearch.settings.reset")}
           </Button>
         </Box>
-      </Paper>
-
-      {/* --- Code keeps (PendingFixes staged by the director) --- */}
-      <CodeKeepsTable keeps={codeKeeps} onDecide={handleCodeKeep} />
-
-      {/* --- Runs --- */}
-      <Paper
-        elevation={0}
-        sx={{ p: 2, mb: 3, border: 1, borderColor: "divider" }}
-      >
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("autoresearch.runs.title")}
-        </Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "runs",
+            title: t("autoresearch.runs.title"),
+            layout: { x: 0, y: 40, w: 110, h: 46 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         {runs.length === 0 ? (
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("autoresearch.runs.empty")}
@@ -957,22 +959,23 @@ const AutoresearchPage = () => {
             )}
           </Box>
         )}
-      </Paper>
-
-      {/* --- Promotions --- */}
-      <Paper
-        elevation={0}
-        sx={{ p: 2, mb: 3, border: 1, borderColor: "divider" }}
-      >
+              </Box>
+            ),
+          },
+          {
+            id: "promotions",
+            title: t("autoresearch.promotions.title"),
+            layout: { x: 110, y: 40, w: 65, h: 46 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             mb: 1,
           }}
         >
-          <Typography variant="h6">{t("autoresearch.promotions.title")}</Typography>
           <Button
             size="small"
             color="warning"
@@ -1063,16 +1066,15 @@ const AutoresearchPage = () => {
             </Table>
           </TableContainer>
         )}
-      </Paper>
-
-      {/* --- Experiments --- */}
-      <Paper
-        elevation={0}
-        sx={{ p: 2, mb: 3, border: 1, borderColor: "divider" }}
-      >
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {t("autoresearch.experiments.title")}
-        </Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "experiments",
+            title: t("autoresearch.experiments.title"),
+            layout: { x: 0, y: 86, w: 175, h: 46 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         {metrics.length === 0 ? (
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("autoresearch.experiments.empty")}
@@ -1166,7 +1168,11 @@ const AutoresearchPage = () => {
             </Table>
           </TableContainer>
         )}
-      </Paper>
+              </Box>
+            ),
+          },
+        ]}
+      />
 
       {/* Revert confirm dialog */}
       <Dialog

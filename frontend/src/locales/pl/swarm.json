@@ -59,7 +59,9 @@
   "sections": {
     "activeSwarms": "Aktywne Swarmy",
     "quickLaunchTemplates": "Szablony szybkiego uruchamiania",
-    "recentSwarms": "Ostatnie Swarmy"
+    "recentSwarms": "Ostatnie Swarmy",
+    "noTemplates": "Nie znaleziono szablonów.",
+    "noHistory": "Brak poprzednich Swarmów."
   },
   "taskCount": "{{count}} zadań",
   "flightMode": "Tryb lotu",

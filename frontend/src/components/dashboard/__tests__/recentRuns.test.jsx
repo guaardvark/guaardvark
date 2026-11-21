@@ -7,6 +7,7 @@ const getTasks = vi.fn();
 vi.mock("../../../api/taskService", () => ({ getTasks: (...args) => getTasks(...args) }));
 
 import ImageGenerationCard from "../ImageGenerationCard";
+import { SnackbarProvider } from "../../common/SnackbarProvider";
 import CSVGenerationCard from "../CSVGenerationCard";
 import CodeGenerationCard from "../CodeGenerationCard";
 import { imageBatchRows, isCsvJob, jobRows, runStatus } from "../recentRuns";
@@ -18,12 +19,14 @@ const Where = () => {
 
 const renderCard = (card) =>
   render(
-    <MemoryRouter initialEntries={["/"]}>
-      <Routes>
-        <Route path="/" element={card} />
-        <Route path="*" element={<Where />} />
-      </Routes>
-    </MemoryRouter>,
+    <SnackbarProvider>
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={card} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>
+    </SnackbarProvider>,
   );
 
 const json = (body, status = 200) =>

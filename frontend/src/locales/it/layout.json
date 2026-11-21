@@ -92,5 +92,38 @@
     "exitKiosk": "Esci dalla modalità Kiosk (F11)",
     "minimize": "Minimizza finestra (Nascondi contenuto)",
     "close": "Chiudi applicazione (Ctrl+Q o Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Ripristina layout schede",
+    "layout": "Layout",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Impostazioni",
+      "queue": "Coda",
+      "results": "Risultati",
+      "status": "Stato"
+    },
+    "queueEmpty": "Nessun elemento in coda o in fase di rendering.",
+    "useLayout": "Layout: {{name}}",
+    "layouts": {
+      "columns": "Colonne",
+      "library": "Libreria ampia",
+      "compose": "Composizione",
+      "tiles": "Piastrelle",
+      "stacked": "Impilati"
+    },
+    "status": {
+      "model": "Modello",
+      "size": "Dimensione",
+      "steps": "Passaggi",
+      "queue": "Coda",
+      "idle": "Inattivo",
+      "active": "{{count}} attivi",
+      "running": "In esecuzione",
+      "queued": "In coda",
+      "none": "Nessuno selezionato"
+    },
+    "fullScreen": "Schermo intero",
+    "exitFullScreen": "Esci schermo intero"
   }
 }

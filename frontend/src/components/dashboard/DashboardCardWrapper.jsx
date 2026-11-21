@@ -5,7 +5,7 @@
 // - Enhanced dragging support for minimized cards
 // - Better UX for minimize/maximize transitions
 
-import React, { useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useEffect, useRef, useMemo, useCallback, useState } from "react";
 import PropTypes from "prop-types";
 import {
   Paper,
@@ -13,11 +13,15 @@ import {
   Typography,
   Divider,
   IconButton,
+  InputBase,
   Tooltip,
 } from "@mui/material";
 import { ThemeProvider, useTheme } from "@mui/material/styles";
-import { foregroundFor, themeOnColor } from "../../theme/onColor";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import { flattenOver, foregroundFor, themeOnColor } from "../../theme/onColor";
+import CloseIcon from "@mui/icons-material/Close";
+import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
+import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
+import { toHexColor } from "../../utils/colorHex";
 import { useNavigate } from "react-router-dom";
 import useContextMenu from "../../hooks/useContextMenu";
 import EntityContextMenu from "../common/EntityContextMenu";
@@ -33,6 +37,8 @@ const CARD_ROUTES = {
   csvgen: "/file-generation",
   codegen: "/code-editor",
   imggen: "/batch-images",
+  videogen: "/video",
+  approvals: "/approvals",
   files: "/documents",
   family: "/settings",
   autoresearch: "/autoresearch",
@@ -50,6 +56,17 @@ const getCardRoute = (cardId) => CARD_ROUTES[cardId] || "/";
  * minimize, colour, hide when `onHideCard` is given) followed by those actions.
  * `contextMenuArea="header"` limits it to the title bar, for cards whose body has
  * menus of its own.
+ *
+ * `route` is the page the title opens, for a card core has no page listed for
+ * (an extension's).
+ *
+ * A card the person names (a note) passes `onRename`: its title is then a name,
+ * not a link to a page. Double-clicking the name of an open card edits it in
+ * place (Enter or leaving the box keeps it, Escape does not); everywhere else
+ * on the bar, and anywhere on a minimized card's bar, a double-click minimizes
+ * or expands as usual. `onClose` adds a close button, `showMinimizeButton` a
+ * minimize button beside it, and `keepMounted` keeps the body in the page
+ * while minimized, for a body that holds unsaved state of its own.
  */
 const DashboardCardWrapper = React.forwardRef(
   (
@@ -65,6 +82,14 @@ const DashboardCardWrapper = React.forwardRef(
       contextMenuActions,
       contextMenuArea = "card",
       onHideCard,
+      minHeightPx = 200,
+      onRename,
+      titlePlaceholder,
+      route: routeProp,
+      onClose,
+      closeLabel,
+      showMinimizeButton = false,
+      keepMounted = false,
       ...props
     },
     ref,
@@ -109,27 +134,59 @@ const DashboardCardWrapper = React.forwardRef(
       rulesCutoffEnabled: _rulesCutoffEnabled,
       currentTab: _currentTab,
 
-      ...restProps // Collect any other valid DOM/MUI props (like sx, data-grid)
+      sx: sxProp, // merged over the frame's own styles below
+
+      ...restProps // Collect any other valid DOM/MUI props (like data-grid)
     } = props;
 
     const theme = useTheme();
     const cardId = restProps.id || i;
+    // The page the title opens: the card's own, or the built-in one for a core card.
+    const cardRoute = routeProp || getCardRoute(cardId);
     const colorInputRef = useRef(null);
 
     // A custom card colour: header text and the card body's theme follow it
     // (black or white ink by WCAG contrast); without one the app theme stands.
+    // A translucent colour (a note's glass tint) is read as it looks over the page.
+    const inkBase = useMemo(
+      () => (cardColor ? flattenOver(cardColor, theme.palette.background.default) : null),
+      [cardColor, theme.palette.background.default],
+    );
     const colorData = useMemo(() => {
-      const fg = cardColor ? foregroundFor(cardColor) : null;
+      const fg = inkBase ? foregroundFor(inkBase) : null;
       if (!fg) {
         return { isLight: false, oppositeColor: theme.palette.text.primary };
       }
       return { isLight: fg.mode === "light", oppositeColor: fg.text.primary };
-    }, [cardColor, theme.palette.text.primary]);
-    const bodyTheme = useMemo(() => themeOnColor(cardColor), [cardColor]);
+    }, [inkBase, theme.palette.text.primary]);
+    const bodyTheme = useMemo(() => themeOnColor(inkBase), [inkBase]);
     const onCardColor = (node) => (bodyTheme ? <ThemeProvider theme={bodyTheme}>{node}</ThemeProvider> : node);
 
     const _isLightColor = colorData.isLight;
     const getOppositeColor = colorData.oppositeColor;
+
+    // Renaming in place (cards with onRename).
+    const [renaming, setRenaming] = useState(false);
+    const [nameDraft, setNameDraft] = useState(title || "");
+    const renameCancelled = useRef(false);
+    useEffect(() => {
+      if (!renaming) setNameDraft(title || "");
+    }, [title, renaming]);
+    const startRename = () => {
+      // An Escape that unmounted the last name box may have left this set.
+      renameCancelled.current = false;
+      setNameDraft(title || "");
+      setRenaming(true);
+    };
+    const commitRename = () => {
+      setRenaming(false);
+      if (nameDraft !== (title || "")) onRename(nameDraft);
+    };
+    const cancelRename = () => {
+      renameCancelled.current = true;
+      setNameDraft(title || "");
+      setRenaming(false);
+    };
 
 
     // Handle mouse down to implement custom double-click detection
@@ -149,7 +206,11 @@ const DashboardCardWrapper = React.forwardRef(
         // Double-click detected
         cs.count = 0;
         cs.lastTime = 0;
-        if (onToggleMinimize) {
+        if (onRename && !isMinimized && e.target.closest?.("[data-card-title]")) {
+          // Open the name box once this press is released: a press moves focus
+          // to what was pressed, which would close a box opened during it.
+          window.addEventListener("mouseup", () => startRename(), { once: true });
+        } else if (onToggleMinimize) {
           onToggleMinimize();
         }
       } else {
@@ -161,7 +222,7 @@ const DashboardCardWrapper = React.forwardRef(
           cs.lastTime = 0;
         }, 400);
       }
-    }, [onToggleMinimize]);
+    }, [onToggleMinimize, onRename, isMinimized, title]);
 
     // Cleanup timeout on unmount
     useEffect(() => {
@@ -171,31 +232,6 @@ const DashboardCardWrapper = React.forwardRef(
         }
       };
     }, []);
-
-    // Handle single click on title to navigate — only if mouse didn't move >5px (not a drag)
-    const dragDetectRef = useRef(false);
-    const mouseStartRef = useRef(null);
-    const handleTitleMouseDown = useCallback((e) => {
-      dragDetectRef.current = false;
-      mouseStartRef.current = { x: e.clientX, y: e.clientY };
-    }, []);
-    const handleTitleMouseMove = useCallback((e) => {
-      if (!mouseStartRef.current) return;
-      const dx = e.clientX - mouseStartRef.current.x;
-      const dy = e.clientY - mouseStartRef.current.y;
-      if (Math.sqrt(dx * dx + dy * dy) > 5) dragDetectRef.current = true;
-    }, []);
-    const handleTitleClick = useCallback((e) => {
-      e.stopPropagation();
-      // Don't navigate if this was a drag, or on CodeEditorPage
-      if (dragDetectRef.current) return;
-      if (window.location.pathname !== '/code-editor') {
-        const route = getCardRoute(cardId);
-        if (route && route !== "/") {
-          routerNavigate(route);
-        }
-      }
-    }, [cardId]);
 
     const handleColorChange = (e) => {
       const value = e.target.value;
@@ -214,7 +250,7 @@ const DashboardCardWrapper = React.forwardRef(
     const handleContextMenu = menuEnabled ? (e) => menu.open(e) : undefined;
 
     const buildMenuActions = () => {
-      const route = getCardRoute(cardId);
+      const route = cardRoute;
       const own = contextMenuActions.filter(Boolean);
       return [
         route !== "/" && { label: t("dashboard.cardWrapper.openPage"), onClick: () => routerNavigate(route) },
@@ -227,16 +263,16 @@ const DashboardCardWrapper = React.forwardRef(
     };
 
     // Conditionally render content based on isMinimized
-    const cardContent = isMinimized ? null : onCardColor(
+    const cardContent = isMinimized && !keepMounted ? null : onCardColor(
       <>
-        <Divider sx={{ mb: 0.5 }} /> {/* Reduced margin bottom from 1 to 0.5 */}
+        {!isMinimized && <Divider sx={{ mb: 0.5 }} />}
         <Box
           sx={{
             flexGrow: 1,
             overflowY: "auto",
             overflowX: "hidden",
             px: 0.5, // Reduced horizontal padding from 1 to 0.5
-            display: "flex",
+            display: isMinimized ? "none" : "flex",
             flexDirection: "column",
             height: "100%",
             color: getOppositeColor, // Use opposite color for better contrast
@@ -259,7 +295,7 @@ const DashboardCardWrapper = React.forwardRef(
             flexDirection: "column",
             height: isMinimized ? "auto" : "100%",
             maxHeight: "100%",
-            minHeight: isMinimized ? "unset" : "200px",
+            minHeight: isMinimized ? "unset" : `${minHeightPx}px`,
             p: 0.5, // Reduced base padding from 1 to 0.5
             overflow: "hidden", // Hide overflow
             // Body uses a normal cursor — only the header (.card-header-buttons,
@@ -284,7 +320,7 @@ const DashboardCardWrapper = React.forwardRef(
               backgroundColor: cardColor,
               color: getOppositeColor, // Use opposite color for better contrast
             }),
-            ...restProps.sx,
+            ...sxProp,
           }}
           onContextMenu={contextMenuArea === "card" ? handleContextMenu : undefined}
           {...restProps}
@@ -318,36 +354,95 @@ const DashboardCardWrapper = React.forwardRef(
             onContextMenu={contextMenuArea === "header" ? handleContextMenu : undefined}
             className="card-header-buttons" // Draggable handle for react-grid-layout
           >
-            {/* Title text - clickable to navigate to linked page */}
-            <Typography
-              variant="h6"
-              component="span"
-              onMouseDown={handleTitleMouseDown}
-              onMouseMove={handleTitleMouseMove}
-              onClick={handleTitleClick}
-              className="non-draggable"
-              sx={{
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                color: getOppositeColor,
-                userSelect: "none",
-                fontSize: "0.62rem",
-                fontWeight: "medium",
-                cursor: "pointer",
-                px: 0.4,
-                py: 0.15,
-                lineHeight: 1.2,
-                borderRadius: "3px",
-                border: "1px solid transparent",
-                transition: "border-color 0.15s ease",
-                "&:hover": {
-                  borderColor: `color-mix(in srgb, ${getOppositeColor} 75%, transparent)`,
-                },
-              }}
-            >
-              {title}
-            </Typography>
+            {/* A name the person gives the card: part of the drag handle, edited in place. */}
+            {onRename && renaming && (
+              <InputBase
+                autoFocus
+                className="non-draggable"
+                value={nameDraft}
+                placeholder={titlePlaceholder}
+                slotProps={{ htmlInput: { "aria-label": titlePlaceholder } }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onBlur={() => {
+                  if (renameCancelled.current) {
+                    renameCancelled.current = false;
+                    return;
+                  }
+                  commitRename();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    cancelRename();
+                  }
+                }}
+                // The caret goes after the name. The drag handle clears the page
+                // selection one frame after the press ends, so place it after that frame.
+                onFocus={(e) => {
+                  const input = e.target;
+                  requestAnimationFrame(() => {
+                    const end = input.value.length;
+                    input.setSelectionRange(end, end);
+                  });
+                }}
+                sx={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontSize: "0.77rem",
+                  fontWeight: 600,
+                  color: getOppositeColor,
+                  "& input": { p: 0, color: "inherit", userSelect: "text" },
+                }}
+              />
+            )}
+            {onRename && !renaming && (
+              <Typography
+                component="span"
+                data-card-title=""
+                sx={{
+                  minWidth: 0,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  color: getOppositeColor,
+                  userSelect: "none",
+                  fontSize: "0.77rem",
+                  fontWeight: 600,
+                  px: 0.4,
+                  opacity: title ? 1 : 0.3,
+                  fontStyle: title ? "normal" : "italic",
+                }}
+              >
+                {title || titlePlaceholder}
+              </Typography>
+            )}
+
+            {/* Otherwise a plain title; the card's page is in its right-click menu. */}
+            {!onRename && (
+              <Typography
+                variant="h6"
+                component="span"
+                sx={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  color: getOppositeColor,
+                  userSelect: "none",
+                  fontSize: "0.62rem",
+                  fontWeight: "medium",
+                  px: 0.4,
+                  py: 0.15,
+                  lineHeight: 1.2,
+                }}
+              >
+                {title}
+              </Typography>
+            )}
 
             {/* Custom title bar actions */}
             {titleBarActions && (
@@ -356,49 +451,15 @@ const DashboardCardWrapper = React.forwardRef(
               </Box>
             )}
 
-            {/* Drag grip — visible affordance for the draggable area */}
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', minWidth: '24px' }}>
-              <DragIndicatorIcon sx={{ fontSize: '0.75rem', opacity: 0.25, color: getOppositeColor }} />
-            </Box>
+            {/* The rest of the bar is empty and drags the card. */}
+            <Box sx={{ flex: 1, minWidth: "24px" }} />
 
             <Box sx={{ position: "relative" }}>
-              {/* Color Picker Button - smaller */}
-              <Tooltip title={t("dashboard.cardWrapper.changeColor")}>
-                <IconButton
-                  onClick={openPicker}
-                  sx={{
-                    width: "8px",
-                    height: "8px",
-                    minWidth: "8px",
-                    minHeight: "8px",
-                    padding: 0,
-                    borderRadius: "50%",
-                    backgroundColor: cardColor || theme.palette.primary.main,
-                    border: `1px solid ${getOppositeColor}`,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      transform: "scale(1.3)",
-                      boxShadow: `0 0 3px ${cardColor || theme.palette.primary.main}`,
-                    },
-                  }}
-                  className="non-draggable" // Prevent dragging when clicking color picker
-                >
-                  <Box
-                    sx={{
-                      width: "2px",
-                      height: "2px",
-                      borderRadius: "50%",
-                      backgroundColor: getOppositeColor,
-                    }}
-                  />
-                </IconButton>
-              </Tooltip>
-              
-              {/* Hidden file input for color picker */}
+              {/* The colour picker opens from the right-click menu. */}
               <input
                 ref={colorInputRef}
                 type="color"
-                value={cardColor || "#1976d2"}
+                value={cardColor ? toHexColor(cardColor) : "#1976d2"}
                 onChange={handleColorChange}
                 style={{
                   position: "absolute",
@@ -409,6 +470,66 @@ const DashboardCardWrapper = React.forwardRef(
                 }}
               />
             </Box>
+
+            {showMinimizeButton && onToggleMinimize && (
+              <Tooltip title={isMinimized ? t("dashboard.cardWrapper.expand") : t("dashboard.cardWrapper.minimize")}>
+                <IconButton
+                  aria-label={isMinimized ? t("dashboard.cardWrapper.expand") : t("dashboard.cardWrapper.minimize")}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleMinimize();
+                  }}
+                  className="non-draggable"
+                  size="small"
+                  sx={{ width: 20, height: 20, p: 0, ml: 0.5, color: getOppositeColor, opacity: 0.4, "&:hover": { opacity: 1 } }}
+                >
+                  {isMinimized ? <UnfoldMoreIcon sx={{ fontSize: 16 }} /> : <UnfoldLessIcon sx={{ fontSize: 16 }} />}
+                </IconButton>
+              </Tooltip>
+            )}
+            {onHideCard && !onClose && (
+              <Tooltip title={t("dashboard.cardWrapper.hideCard")}>
+                <IconButton
+                  aria-label={t("dashboard.cardWrapper.hideCard")}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onHideCard();
+                  }}
+                  className="non-draggable"
+                  size="small"
+                  sx={{ width: 18, height: 18, p: 0, ml: 0.5, color: getOppositeColor, opacity: 0.35, "&:hover": { opacity: 1 } }}
+                >
+                  <CloseIcon sx={{ fontSize: 13 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {onClose && (
+              <Tooltip title={closeLabel || t("common.close")}>
+                <IconButton
+                  aria-label={closeLabel || t("common.close")}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose();
+                  }}
+                  className="non-draggable"
+                  size="small"
+                  sx={{
+                    width: 20,
+                    height: 20,
+                    p: 0,
+                    ml: 0.5,
+                    color: getOppositeColor,
+                    opacity: 0.4,
+                    "&:hover": { opacity: 1, backgroundColor: "rgba(255,0,0,0.1)" },
+                  }}
+                >
+                  <CloseIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            )}
           </Box>
 
           {/* Compact summary shown in header area when minimized */}
@@ -435,7 +556,7 @@ const DashboardCardWrapper = React.forwardRef(
 DashboardCardWrapper.displayName = "DashboardCardWrapper";
 
 DashboardCardWrapper.propTypes = {
-  title: PropTypes.string.isRequired,
+  title: PropTypes.string,
   children: PropTypes.node.isRequired,
   cardColor: PropTypes.string,
   onCardColorChange: PropTypes.func,
@@ -445,6 +566,15 @@ DashboardCardWrapper.propTypes = {
   contextMenuActions: PropTypes.array,
   contextMenuArea: PropTypes.oneOf(["card", "header"]),
   onHideCard: PropTypes.func,
+  // The least height of an open card; a board that sizes cards itself passes 0.
+  minHeightPx: PropTypes.number,
+  route: PropTypes.string,
+  onRename: PropTypes.func,
+  titlePlaceholder: PropTypes.string,
+  onClose: PropTypes.func,
+  closeLabel: PropTypes.string,
+  showMinimizeButton: PropTypes.bool,
+  keepMounted: PropTypes.bool,
 };
 
 export default DashboardCardWrapper;

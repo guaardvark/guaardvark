@@ -49,7 +49,7 @@ describe("voice defaults", () => {
     expect(sliderValue("Longest single message")).toBe(engine.settings.maxSegmentDuration);
     expect(engine.settings.silenceThreshold).toBe(VOICE_DEFAULTS.silenceThreshold);
     expect(vadConfigFrom(settings).threshold).toBe(VOICE_DEFAULTS.silenceThreshold);
-    expect(screen.getByRole("checkbox", { name: /Hey Guaardvark/ })).not.toBeChecked();
+    expect(screen.getByLabelText(/Hey Guaardvark/)).not.toBeChecked();
     expect(engine.settings.wakeWordEnabled).toBe(false);
   });
 

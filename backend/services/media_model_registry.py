@@ -65,9 +65,38 @@ MEDIA_MODEL_REGISTRY: dict[str, dict[str, Any]] = {
         "train_backend": "peft_zimage",
         "train_ready": True,
         "train_status_note": (
-            "PEFT flow-matching LoRA on Z-Image Turbo (16GB-safe: cache latents, "
-            "768 default). Optional Ostris turbo adapter via ZIMAGE_TURBO_TRAIN_ADAPTER."
+            "PEFT flow-matching LoRA on Z-Image Turbo, 1024 px on a 16 GB card. "
+            "Install the Turbo training adapter on the Cast page for sharp results."
         ),
+        # What a Cast training run uses when the person set nothing. Measured
+        # 2026-11-19 on a 16 GB NVIDIA card, 31 pictures, with the training
+        # adapter fused, renders on the trigger word alone (6 prompts x 3 seeds):
+        # this recipe held the face, hair streaks, piercings and an arm sleeve;
+        # the 512 px / rank 16 / attention-only recipe it replaces held none of
+        # the marks. 1500 steps took 89 minutes (3.6 s a step).
+        "train_recipe": {
+            "resolution": 1024,
+            "rank": 32,
+            "alpha": 32,
+            "lora_targets": "attention_ffn",
+            "base_storage": "float8",
+            "steps_per_image": 80,
+            "steps_min": 400,
+            "steps_max": 1500,
+            "seconds_per_step": 3.6,
+        },
+        # Z-Image Turbo is distilled; training straight on it erodes the
+        # distillation and the LoRA renders soft (same measurement: without the
+        # adapter only hair and lip colour survived). The adapter is fused into
+        # the frozen base for training only; renders run on plain Turbo.
+        "train_adapter": {
+            "name": "Turbo training adapter",
+            "hf_repo": "ostris/zimage_turbo_training_adapter",
+            "filename": "zimage_turbo_training_adapter_v2.safetensors",
+            "size_mb": 340,
+            "license": "Apache-2.0",
+            "env": "ZIMAGE_TURBO_TRAIN_ADAPTER",
+        },
         # Peak 12818 MB for the trainer process (nvidia-smi, 0.5 s samples),
         # measured 2026-11-07 on a 16 GB NVIDIA card: 512 px, rank 16, bf16
         # transformer on the card for the whole run. The fit check adds 1 GB
@@ -269,6 +298,19 @@ IMAGE_FAMILY_SPECS: dict[str, dict[str, Any]] = {
         "prompt_style": "natural", "engine": "comfy",
         "vram_mb": _registry_vram_mb("flux3-klein", 9500), "ram_gb": 16.0,
     },
+    # MiniMax H3 stills through ComfyUI (video_model_registry "minimax-h3-t2i",
+    # where the measurements are). No CFG; sides in multiples of 32. The area is
+    # capped at the largest canvas rendered (1024x1024; 1344x768 also measured)
+    # and the short side at the smallest measured (768) until another size is
+    # rendered. prompt_style "natural": the Qwen3-VL encoder reads prose.
+    "minimax-h3-t2i": {
+        "max_side": 1344, "max_pixel_area": 1024 * 1024, "min_side": 768, "dimension_alignment": 32,
+        "width": 1024, "height": 1024, "default_steps": 30, "min_steps": 30, "cfg_when_unset": 0.0,
+        "prompt_style": "natural", "engine": "comfy",
+        # ram_gb: ComfyUI's resident RAM peaked at 27 GB on the H3 video render
+        # that loads the same files (video_model_registry); not measured for stills.
+        "vram_mb": _registry_vram_mb("minimax-h3-t2i", 11000), "ram_gb": 27.0,
+    },
     # SDXL loads whole onto cards of 10 GB and up (vram_mb 8000: ~6.9 GB of fp16
     # weights plus the working set). Below that it runs with CPU model offload,
     # one component on the card at a time. vram_mb_offload measured 2026-10-07 on
@@ -340,6 +382,11 @@ IMAGE_MODEL_LIMITS: dict[str, dict[str, Any]] = {
                     "distilled": True},
     "moss-image": {"family": "moss-image", "steps_range": (12, 50), "cfg_range": (2.5, 6.0),
                    "min_dimensions": (512, 512), "hard_clamp": False, "force_max_workers": 1},
+    # MiniMax H3 stills: 30 steps is the template's default and the only count
+    # rendered clean (the template says fewer steps lose fine texture first; the
+    # 8-step turbo LoRA garbled lettering, see video_model_registry). No CFG.
+    "minimax-h3-t2i": {"family": "minimax-h3-t2i", "steps_range": (30, 50), "cfg_range": (0.0, 0.0),
+                       "min_dimensions": (768, 768), "hard_clamp": False, "force_max_workers": 1},
     # SDXL: guidance above 9 renders black images, so its range is enforced.
     "sd-xl": {"family": "sdxl", "steps_range": (20, 40), "cfg_range": (4.0, 9.0),
               "min_dimensions": (768, 768)},
@@ -579,6 +626,21 @@ def train_base_missing_message(profile: dict[str, Any]) -> Optional[str]:
         "the Images page or Settings > Model libraries > Image, then train again. "
         "Training never downloads a base model on its own."
     )
+
+
+def train_recipe(base_model_id: str | None) -> dict[str, Any]:
+    """The base's declared training recipe; empty for a base that declares none."""
+    return dict((get_profile(base_model_id) or {}).get("train_recipe") or {})
+
+
+def default_train_steps(base_model_id: str | None, image_count: int) -> Optional[int]:
+    """Steps for a run that names none, from the base's recipe. None when the
+    base declares no recipe and the trainer's own rule applies."""
+    r = train_recipe(base_model_id)
+    if not r.get("steps_per_image"):
+        return None
+    steps = int(image_count) * int(r["steps_per_image"])
+    return min(int(r["steps_max"]), max(int(r["steps_min"]), steps))
 
 
 def lora_compatible_with_inference(base_model_id: str, inference_model: str | None) -> bool:

@@ -272,7 +272,7 @@
     "retryBatch": "Réessayer le lot",
     "noRetryData": "Les prompts et paramètres d'origine n'ont pas été sauvegardés pour ce lot (créé avant le support de réessai), il ne peut donc pas être réessayé automatiquement. Recréez-le à partir des paramètres ci-dessus.",
     "statusTitle": "Statut de génération",
-    "none": "Aucune génération active. Lancez une génération de vidéo ci-dessus pour voir la progression ici."
+    "none": "Aucune génération active. Lancez une génération de vidéo pour voir la progression ici."
   },
   "results": {
     "thumbAlt": "vignette",

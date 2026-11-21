@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -17,8 +16,6 @@ import {
   Snackbar,
   Alert,
   Alert as MuiAlert,
-  Tabs,
-  Tab,
   LinearProgress,
   Chip,
   Card,
@@ -29,8 +26,6 @@ import EditIcon from "@mui/icons-material/Edit";
 import CloseIcon from "@mui/icons-material/Close";
 import CancelIcon from "@mui/icons-material/Cancel";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import StorageIcon from "@mui/icons-material/Storage";
-import WorkIcon from "@mui/icons-material/Work";
 import ComputerIcon from "@mui/icons-material/Computer";
 import SchoolIcon from "@mui/icons-material/School";
 import SaveIcon from "@mui/icons-material/Save";
@@ -85,6 +80,7 @@ import {
   mergeServerValues,
   setFieldValue,
 } from "../utils/serverFormSync";
+import { CardWorkspace } from "../components/board";
 import { uiLocale, useUiTranslation, Trans } from "../i18n";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
@@ -158,6 +154,18 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
           <Typography variant="body2" sx={{ fontWeight: "medium" }}>
             {demo.name || t("training.demos.untitled")}
           </Typography>
+          {demo.lesson && (
+            <Tooltip title={t("training.demos.lessonSaved", { title: demo.lesson.title })}>
+              <Chip
+                icon={<SchoolIcon />}
+                label={t("training.demos.lesson")}
+                size="small"
+                variant="outlined"
+                color="success"
+                sx={{ height: 20, mt: 0.5 }}
+              />
+            </Tooltip>
+          )}
         </TableCell>
         <TableCell align="center">{demo.steps?.length ?? 0}</TableCell>
         <TableCell>
@@ -245,7 +253,6 @@ const TrainingPage = () => {
   // The Interactive Trainer is the app-wide floating window that records demonstrations.
   const setTrainerOpen = useAppStore((state) => state.setTrainerOpen);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => TAB_INDEX[searchParams.get("tab")] ?? 0);
 
   // Demonstrations state
   const [demonstrations, setDemonstrations] = useState([]);
@@ -402,6 +409,8 @@ const TrainingPage = () => {
   const handleAttemptDemo = async (demo) => {
     try {
       const res = await axios.post(`${LEARN_API}/demonstrations/${demo.id}/attempt`);
+      // The Trainer is where each step is approved and signed off.
+      setTrainerOpen(true);
       if (res.data.success) {
         showMessage(t("training.demos.attemptStarted", { mode: res.data.autonomy_level }), "info");
       }
@@ -418,11 +427,16 @@ const TrainingPage = () => {
     fetchBaseModels();
   }, [fetchDemonstrations, fetchDatasets, fetchJobs, fetchDeviceProfiles, fetchBaseModels]);
 
+  // The Trainer finished a replay or saved a Lesson: reload the table.
+  const demonstrationsVersion = useAppStore((state) => state.demonstrationsVersion);
+  useEffect(() => {
+    if (demonstrationsVersion > 0) fetchDemonstrations();
+  }, [demonstrationsVersion, fetchDemonstrations]);
+
   // Handle URL params for deep-linking from TrainingFloater
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab in TAB_INDEX) {
-      setActiveTab(TAB_INDEX[tab]);
       const demoId = searchParams.get("demo");
       if (tab === "demonstrations" && demoId) setExpandedDemoId(parseInt(demoId, 10));
       // Clear params after applying
@@ -430,15 +444,13 @@ const TrainingPage = () => {
     }
   }, []);
 
-  // Refresh jobs periodically when on jobs tab
+  // The Jobs card is always on the page, so its list is kept fresh.
   useEffect(() => {
-    if (activeTab === 2) {
-      const interval = setInterval(() => {
-        fetchJobs();
-      }, 5000); // Refresh every 5 seconds
-      return () => clearInterval(interval);
-    }
-  }, [activeTab, fetchJobs]);
+    const interval = setInterval(() => {
+      fetchJobs();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [fetchJobs]);
 
   const handleOpenEditModal = (item = null, prefill = null) => {
     setCurrentItem(item);
@@ -771,33 +783,39 @@ const TrainingPage = () => {
           }}
         />
       </Alert>
-      <Paper elevation={2}>
-        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-          <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
-            <Tab icon={<SchoolIcon />} iconPosition="start" label={t("training.tabs.demonstrations")} />
-            <Tab icon={<StorageIcon />} iconPosition="start" label={t("training.tabs.datasets")} />
-            <Tab icon={<WorkIcon />} iconPosition="start" label={t("training.tabs.jobs")} />
-            <Tab icon={<ComputerIcon />} iconPosition="start" label={t("training.tabs.devices")} />
-          </Tabs>
-        </Box>
-
-        {/* Demonstrations Tab */}
-        {activeTab === 0 && (
+      {/* The four sections are cards on the shared board. */}
+      <CardWorkspace
+        boardKey="training"
+        cards={[
+          {
+            id: "demonstrations",
+            title: t("training.tabs.demonstrations"),
+            layout: { x: 0, y: 0, w: 100, h: 46 },
+            body: (
           <Box sx={{ p: 2 }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-              <Typography variant="h6">
-                {t("training.demos.title")}
+              <Box>
                 {demonstrations.length > 0 && (
-                  <Chip label={demonstrations.length} size="small" sx={{ ml: 1, height: 20, fontSize: "0.75rem" }} />
+                  <Chip label={demonstrations.length} size="small" sx={{ height: 20, fontSize: "0.75rem" }} />
                 )}
-              </Typography>
-              <Tooltip title={t("training.common.refresh")}>
-                <span>
-                  <IconButton onClick={fetchDemonstrations} disabled={demosLoading}>
-                    <RefreshIcon />
-                  </IconButton>
-                </span>
-              </Tooltip>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<SchoolIcon />}
+                  onClick={() => setTrainerOpen(true)}
+                >
+                  {t("training.demos.openTrainer")}
+                </Button>
+                <Tooltip title={t("training.common.refresh")}>
+                  <span>
+                    <IconButton onClick={fetchDemonstrations} disabled={demosLoading}>
+                      <RefreshIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
             </Box>
             {demosLoading ? (
               <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
@@ -856,15 +874,17 @@ const TrainingPage = () => {
               </TableContainer>
             )}
           </Box>
-        )}
-
-        {/* Datasets Tab */}
-        {activeTab === 1 && (
+            ),
+          },
+          {
+            id: "datasets",
+            title: t("training.tabs.datasets"),
+            layout: { x: 100, y: 0, w: 75, h: 46 },
+            body: (
           <Box sx={{ p: 2 }}>
             <Box
-              sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}
+              sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", mb: 2 }}
             >
-              <Typography variant="h6">{t("training.datasets.title")}</Typography>
               <Box sx={{ display: "flex", gap: 1 }}>
                 <Button
                   variant="outlined"
@@ -966,15 +986,17 @@ const TrainingPage = () => {
               </TableContainer>
             )}
           </Box>
-        )}
-
-        {/* Jobs Tab */}
-        {activeTab === 2 && (
+            ),
+          },
+          {
+            id: "jobs",
+            title: t("training.tabs.jobs"),
+            layout: { x: 0, y: 46, w: 100, h: 50 },
+            body: (
           <Box sx={{ p: 2 }}>
             <Box
-              sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}
+              sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", mb: 2 }}
             >
-              <Typography variant="h6">{t("training.jobs.title")}</Typography>
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -1180,15 +1202,17 @@ const TrainingPage = () => {
               </Box>
             )}
           </Box>
-        )}
-
-        {/* Devices Tab */}
-        {activeTab === 3 && (
+            ),
+          },
+          {
+            id: "devices",
+            title: t("training.tabs.devices"),
+            layout: { x: 100, y: 46, w: 75, h: 50 },
+            body: (
           <Box sx={{ p: 2 }}>
             <Box
-              sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}
+              sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", mb: 2 }}
             >
-              <Typography variant="h6">{t("training.devices.title")}</Typography>
               <Box sx={{ display: "flex", gap: 1 }}>
                 <Button
                   variant="outlined"
@@ -1285,8 +1309,10 @@ const TrainingPage = () => {
               </TableContainer>
             )}
           </Box>
-        )}
-      </Paper>
+            ),
+          },
+        ]}
+      />
 
       {editModalOpen && (
         <TrainingDatasetModal

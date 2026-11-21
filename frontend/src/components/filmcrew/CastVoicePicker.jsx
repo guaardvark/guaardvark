@@ -12,13 +12,15 @@ import { useNavigate } from "react-router-dom";
 import { Alert, Box, Button, ListSubheader, MenuItem, TextField, Typography } from "@mui/material";
 
 import { getVoiceCatalog } from "../../api/audioFoundryService";
-import { catalogGroups, indexVoices, voiceStatus } from "../../utils/voiceCatalog";
+import { catalogGroups, indexVoices, needsLanguage, voiceStatus } from "../../utils/voiceCatalog";
 import { StatusPill } from "../settings/ui";
 import { useUiTranslation, translate } from "../../i18n";
 
 export const defaultVoiceLabel = () => translate("filmCrew.voicePicker.defaultVoice");
 // Audio Studio opens Manage models on the Kokoro row from this link.
 export const MANAGE_KOKORO_PATH = "/audio?models=kokoro";
+// The same, on the row that installs a voice's language.
+export const manageModelPath = (modelId) => `/audio?models=${encodeURIComponent(modelId || "kokoro")}`;
 
 const plainLabel = (label) => String(label || "").replace(/\s*\(default\)\s*$/i, "");
 
@@ -65,6 +67,9 @@ const CastVoicePicker = ({ value, onChange, disabled = false }) => {
   const renderValue = (selected) => {
     if (!selected) return defaultVoiceLabel();
     const voice = index?.get(selected);
+    if (voice && needsLanguage(voice)) {
+      return `${voice.label} (${voice.id}) · ${t("filmCrew.voicePicker.installLanguageFirst", { language: voice.language })}`;
+    }
     if (voice) return `${voice.label} (${voice.id})${voice.installed === false ? ` · ${t("filmCrew.voicePicker.notInstalledLower")}` : ""}`;
     return status.state === "invalid" ? t("filmCrew.voicePicker.notFoundryVoice", { id: selected }) : selected;
   };
@@ -114,7 +119,13 @@ const CastVoicePicker = ({ value, onChange, disabled = false }) => {
               <Box component="span" sx={{ display: "flex", alignItems: "center", width: "100%", gap: 1 }}>
                 <span>{voice.label}</span>
                 <Caption>{voice.id}</Caption>
-                {voice.installed === false && (
+                {group.language_installed === false ? (
+                  <StatusPill
+                    label={t("filmCrew.voicePicker.installLanguageFirst", { language: group.language })}
+                    tone="warn"
+                    sx={{ ml: "auto" }}
+                  />
+                ) : voice.installed === false && (
                   <StatusPill label={t("filmCrew.voicePicker.notInstalled")} tone="warn" sx={{ ml: "auto" }} />
                 )}
               </Box>
@@ -126,6 +137,27 @@ const CastVoicePicker = ({ value, onChange, disabled = false }) => {
       {status.state === "invalid" && (
         <Alert severity="error">
           {t("filmCrew.voicePicker.invalidAlert", { id: status.id })}
+        </Alert>
+      )}
+      {status.state === "language_not_installed" && (
+        <Alert
+          severity="warning"
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              sx={{ whiteSpace: "nowrap" }}
+              onClick={() => navigate(manageModelPath(status.voice.install?.id))}
+            >
+              {t("filmCrew.voicePicker.manageModels")}
+            </Button>
+          }
+        >
+          {t("filmCrew.voicePicker.languageNotInstalledAlert", {
+            voice: status.voice.label,
+            language: status.voice.language,
+            name: status.voice.install?.name || status.voice.language,
+          })}
         </Alert>
       )}
       {status.state === "not_installed" && (

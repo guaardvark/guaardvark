@@ -94,7 +94,8 @@
     "generate": "Gerar Prévia",
     "originalFrame": "Quadro Original",
     "upscaledFrame": "Quadro Aumentado",
-    "backToVideo": "Voltar para o Vídeo"
+    "backToVideo": "Voltar para o Vídeo",
+    "empty": "Nada para visualizar ainda."
   },
   "jobs": {
     "title": "Trabalhos de Aumento",

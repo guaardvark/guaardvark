@@ -406,3 +406,104 @@ class TestTrainerConfirmReachesTheReplay:
         svc = AgentControlService.__new__(AgentControlService)
         svc._apprentice_engine = None
         assert svc.confirm_apprentice_step({"step_index": 0}) is False
+
+
+def _answering(engine, answers):
+    """An emit_fn that sends the next answer shortly after each question."""
+    events = []
+    queue = list(answers)
+
+    def emit(name, data):
+        events.append((name, data))
+        if name in ("step_preview", "step_review") and queue:
+            threading.Timer(0.05, engine.confirm_step, args=(queue.pop(0),)).start()
+
+    return emit, events
+
+
+class TestReviewedReplay:
+    """A guided replay with a person signing off each finished step."""
+
+    GO, WORKED, RETRY, STOP = {"step_index": 0}, {"verdict": "ok"}, {"verdict": "retry"}, {"verdict": "stop"}
+
+    @pytest.fixture
+    def steps(self):
+        return [
+            {"step_index": 0, "action_type": "click", "precondition": "",
+             "target_description": 'The UI element at (104, 460) is a folder icon for "Pictures".',
+             "element_context": 'The UI element at (104, 460) is a folder icon for "Pictures".'},
+            {"step_index": 1, "action_type": "type", "text": "hello", "target_description": "", "precondition": ""},
+        ]
+
+    def test_every_step_signed_off(self, engine, mock_servo, steps):
+        emit, events = _answering(engine, [self.GO, self.WORKED, self.WORKED])
+
+        result = engine.execute(steps, autonomy_level="guided", emit_fn=emit, review=True)
+
+        assert result.success is True
+        assert [r["signed_off"] for r in result.step_results] == [True, True]
+        # Signing step 0 off approved step 1, which its review showed.
+        assert [name for name, _ in events].count("step_preview") == 1
+        review = next(data for name, data in events if name == "step_review")
+        assert review["next_description"] == 'Type "hello"'
+
+    def test_click_target_carries_no_coordinates(self, engine, mock_servo, steps):
+        emit, _ = _answering(engine, [self.GO, self.WORKED, self.WORKED])
+
+        engine.execute(steps, autonomy_level="guided", emit_fn=emit, review=True)
+
+        mock_servo.click_target.assert_called_once_with('a folder icon for "Pictures".')
+
+    def test_retry_runs_the_step_again(self, engine, mock_servo, steps):
+        emit, _ = _answering(engine, [self.GO, self.RETRY, self.WORKED, self.WORKED])
+
+        result = engine.execute(steps, autonomy_level="guided", emit_fn=emit, review=True)
+
+        assert result.success is True
+        assert mock_servo.click_target.call_count == 2
+        assert result.step_results[0]["retries"] == 1
+
+    def test_stop_ends_the_replay_before_the_next_step(self, engine, mock_screen, steps):
+        emit, _ = _answering(engine, [self.GO, self.STOP])
+
+        result = engine.execute(steps, autonomy_level="guided", emit_fn=emit, review=True)
+
+        assert result.success is False
+        assert result.failure_reason == "Stopped by the user at step 0"
+        mock_screen.type_text.assert_not_called()
+
+    def test_stop_at_the_preview_runs_nothing(self, engine, mock_servo, steps):
+        emit, _ = _answering(engine, [self.STOP])
+
+        result = engine.execute(steps, autonomy_level="guided", emit_fn=emit, review=True)
+
+        assert result.failure_reason == "Stopped by the user before step 0"
+        mock_servo.click_target.assert_not_called()
+
+    def test_the_person_overrules_a_failed_click_check(self, engine, mock_servo, steps):
+        mock_servo.click_target.return_value = {"success": True, "post_action_effect": "no_visible_change"}
+        emit, _ = _answering(engine, [self.GO, self.WORKED, self.WORKED])
+
+        result = engine.execute(steps, autonomy_level="guided", emit_fn=emit, review=True)
+
+        assert result.success is True
+        assert result.step_results[0]["machine_success"] is False
+        assert result.step_results[0]["signed_off"] is True
+
+    def test_no_verdict_ends_the_replay(self, engine, steps, monkeypatch):
+        monkeypatch.setattr("backend.services.apprentice_engine.SIGNOFF_TIMEOUT", 0.2)
+        emit, _ = _answering(engine, [self.GO])
+
+        result = engine.execute(steps, autonomy_level="guided", emit_fn=emit, review=True)
+
+        assert result.success is False
+        assert result.failure_reason == "No sign-off at step 0"
+
+    def test_a_reply_without_a_verdict_is_not_a_sign_off(self, engine):
+        threading.Timer(0.05, engine.confirm_step, args=({"step_index": 0},)).start()
+        assert engine._wait_for_signoff(0, timeout=0.3) is None
+
+    def test_a_verdict_for_another_step_is_ignored(self, engine):
+        threading.Timer(0.05, engine.confirm_step, args=({"verdict": "ok", "step_index": 4},)).start()
+        assert engine._wait_for_signoff(0, timeout=0.3) is None
+

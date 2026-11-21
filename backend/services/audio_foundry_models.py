@@ -12,6 +12,11 @@ rather than in the offline sidecar.
 a Kokoro cache holding the weights but only some voice packs used to show as
 installed while the missing voices were fetched mid-generation.
 
+Kokoro's Japanese and Mandarin voices need phonemizer packages the base
+install does not carry. Each is its own optional row (a language pack from the
+plugin's voice list): Install pip-installs its hash-pinned requirements file
+into the plugin venv, and until then those voices are listed as needing it.
+
 ACE-Step 1.5 is the one model outside that pattern: its loader reads a plain
 checkpoints folder and rewrites code files inside it, so Install puts its weights
 in data/models/ace-step-1.5/ rather than the shared cache, and first builds the
@@ -80,8 +85,9 @@ AUDIO_FOUNDRY_MODELS: List[Dict[str, Any]] = [
         "id": "kokoro",
         "name": "Kokoro-82M",
         "description": (
-            "Fast built-in voices (fallback when Chatterbox is off): weights, voice "
-            "packs and spaCy's English model. About 375 MB."
+            "53 built-in voices in 9 languages, and the narrator when Chatterbox is off. "
+            "Runs with or without a graphics card. Weights, voice packs and spaCy's "
+            "English model: about 375 MB."
         ),
         "group": "voice",
         "hf_repo": "hexgrad/Kokoro-82M",
@@ -123,8 +129,6 @@ AUDIO_FOUNDRY_MODELS: List[Dict[str, Any]] = [
         ),
         "group": "music",
         "license": "MIT",
-        # Measured 2026-10-04 on a 16 GB card: 30 s and 240 s renders.
-        "vram_note": "Takes the whole GPU while it runs: 14.4 GB at peak, measured on a 16 GB card.",
         "hf_repo": "ACE-Step/Ace-Step1.5",
         "probe_file": "acestep-v15-turbo/config.json",
         # The catalog names the files, the pinned Hugging Face revision, the folder
@@ -152,6 +156,43 @@ AUDIO_FOUNDRY_MODELS: List[Dict[str, Any]] = [
         "terms_url": "https://huggingface.co/stabilityai/stable-audio-open-1.0",
     },
 ]
+
+
+
+def _language_pack_rows() -> List[Dict[str, Any]]:
+    """One optional row per Kokoro language pack in the plugin's voice list."""
+    kokoro = next(e for e in AUDIO_FOUNDRY_MODELS if e["id"] == "kokoro")
+    with (PLUGIN_SOURCE_DIR / kokoro["voice_catalog"]).open("r", encoding="utf-8") as fh:
+        cat = json.load(fh)
+    rows = []
+    for pack_id, pack in cat["language_packs"].items():
+        voices = sum(len(g["voices"]) for g in cat["groups"]
+                     if cat["languages"][g["lang"]].get("pack") == pack_id)
+        built = pack.get("builds_from_source")
+        rows.append({
+            "id": pack_id,
+            "name": pack["name"],
+            "description": (
+                f"{pack['language']} for Kokoro: what its {voices} {pack['language']} voices "
+                f"need to read text. {pack['download_mb']} MB download."
+                + (" One package is compiled on this machine, which needs a C/C++ compiler."
+                   if built else "")
+            ),
+            "group": "voice",
+            "hf_repo": None,
+            "probe_file": None,
+            "language_pack": pack_id,
+            "pack_catalog": kokoro["voice_catalog"],
+            "size_gb": round(pack["download_mb"] / 1000, 2),
+            "gated": False,
+            # Its own Install button only: a stock install speaks the seven
+            # languages that need nothing extra.
+            "optional": True,
+        })
+    return rows
+
+
+AUDIO_FOUNDRY_MODELS[2:2] = _language_pack_rows()
 
 _download_lock = threading.Lock()
 _download_epoch = 0
@@ -244,34 +285,65 @@ def kokoro_voice_ids() -> List[str]:
     return [v["id"] for g in kokoro_catalog()["groups"] for v in g["voices"]]
 
 
-def kokoro_voice_groups() -> List[Dict[str, Any]]:
-    """The catalog's groups with each voice marked ``installed`` when its voice
-    pack is in the local Hugging Face cache: the Kokoro part of the plugin's
-    GET /voices, for when the plugin is not running."""
-    cat = kokoro_catalog()
+_kokoro_voices_module = None
+
+
+def kokoro_voices():
+    """The plugin's voice-list module (plugins/audio_foundry/backends/kokoro_voices.py),
+    loaded from the checkout by path like the consent rules. Standard library only."""
+    global _kokoro_voices_module
+    if _kokoro_voices_module is None:
+        import importlib.util
+        import sys
+
+        name = "guaardvark_audio_foundry_kokoro_voices"
+        spec = importlib.util.spec_from_file_location(
+            name, PLUGIN_SOURCE_DIR / "backends" / "kokoro_voices.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+        _kokoro_voices_module = module
+    return _kokoro_voices_module
+
+
+def missing_language_packages(lang_code: str) -> List[str]:
+    """Packages a Kokoro language needs that the plugin venv lacks.
+
+    English follows ``missing_venv_packages``: nothing is reported before the
+    venv exists. A language pack is missing until it is seen in the venv.
+    """
+    voices = kokoro_voices()
+    is_pack = voices.language_pack(lang_code) is not None
     return [
-        {
-            "label": group["label"],
-            "voices": [
-                {**voice,
-                 "installed": is_hub_cached(cat["hf_repo"], cat["voice_file"].format(voice=voice["id"]))}
-                for voice in group["voices"]
-            ],
-        }
-        for group in cat["groups"]
+        package for package in voices.language_packages(lang_code)
+        if (venv_has_package(package) is not True if is_pack else venv_has_package(package) is False)
     ]
+
+
+def kokoro_voice_groups() -> List[Dict[str, Any]]:
+    """The Kokoro part of the plugin's GET /voices, for when the plugin is not
+    running: each voice marked ``installed`` when its voice pack is in the
+    local Hugging Face cache and ``language_installed`` when the plugin venv
+    has what its language needs."""
+    cat = kokoro_catalog()
+    return kokoro_voices().voice_groups(
+        lambda voice_id: is_hub_cached(cat["hf_repo"], cat["voice_file"].format(voice=voice_id)),
+        missing_language_packages,
+    )
 
 
 def kokoro_voice_choices(installed_only: bool = True) -> List[Dict[str, str]]:
     """The Kokoro voices as ``{id, label, group}``, for a caller choosing one.
 
-    With ``installed_only`` only voices whose pack is on this machine are
-    listed: Audio Foundry refuses a voice that is not installed rather than
-    download it mid-generation.
+    With ``installed_only`` only voices whose pack is on this machine, in a
+    language that is installed, are listed: Audio Foundry refuses a voice that
+    is not installed rather than download it mid-generation.
     """
     cat = kokoro_catalog()
     choices = []
     for group in cat["groups"]:
+        if installed_only and missing_language_packages(group["lang"]):
+            continue
         for voice in group["voices"]:
             if installed_only and not is_hub_cached(
                     cat["hf_repo"], cat["voice_file"].format(voice=voice["id"])):
@@ -290,6 +362,8 @@ def required_hub_files(entry: Dict[str, Any]) -> List[str]:
         return [cat["config_file"], cat["weights_file"]] + [
             cat["voice_file"].format(voice=v) for v in voices
         ]
+    if entry.get("language_pack"):
+        return []
     return list(entry.get("required_files") or [entry["probe_file"]])
 
 
@@ -412,7 +486,11 @@ def venv_has_package(package: str) -> Optional[bool]:
 
 
 def required_venv_packages(entry: Dict[str, Any]) -> List[Dict[str, str]]:
-    """Python packages generation needs in the plugin venv: {package, wheel}."""
+    """Python packages generation needs in the plugin venv: {package, wheel},
+    or for a language pack {package, requirements} (one file for the pack)."""
+    if entry.get("language_pack"):
+        pack = load_voice_catalog(entry["pack_catalog"])["language_packs"][entry["language_pack"]]
+        return [{"package": name, "requirements": pack["requirements"]} for name in pack["packages"]]
     if not entry.get("voice_catalog"):
         return []
     g2p = load_voice_catalog(entry["voice_catalog"]).get("english_g2p")
@@ -424,8 +502,11 @@ def missing_venv_packages(entry: Dict[str, Any]) -> List[Dict[str, str]]:
 
     Before the plugin's first start there is no venv to check or install into,
     so nothing is reported missing; once it exists, a missing package makes
-    the model show as not installed and Install adds it.
+    the model show as not installed and Install adds it. A language pack is
+    nothing but packages, so it counts as missing until the venv has them.
     """
+    if entry.get("language_pack"):
+        return [p for p in required_venv_packages(entry) if venv_has_package(p["package"]) is not True]
     return [p for p in required_venv_packages(entry) if venv_has_package(p["package"]) is False]
 
 
@@ -482,6 +563,17 @@ def _minimax_row() -> Dict[str, Any]:
     }
 
 
+def vram_note(entry: Dict[str, Any]) -> Optional[str]:
+    """What the model holds on the GPU, from the measurement its catalog records."""
+    vram = None
+    if entry.get("required_files_catalog"):
+        vram = load_voice_catalog(entry["required_files_catalog"]).get("vram")
+    if not vram:
+        return entry.get("vram_note")
+    return (f"Takes the whole GPU while it runs: {vram['reserve_mb'] / 1000:.1f} GB at peak, "
+            f"measured on a {vram['card']}.")
+
+
 def _hub_row(entry: Dict[str, Any]) -> Dict[str, Any]:
     missing = (missing_environment(entry) + missing_hub_files(entry)
                + [p["package"] for p in missing_venv_packages(entry)])
@@ -497,8 +589,10 @@ def _hub_row(entry: Dict[str, Any]) -> Dict[str, Any]:
         "gated": bool(entry.get("gated")),
         "terms_url": entry.get("terms_url"),
         "license": entry.get("license"),
-        "vram_note": entry.get("vram_note"),
+        "vram_note": vram_note(entry),
         "optional": bool(entry.get("optional")),
+        # A Kokoro language add-on rather than a model of its own.
+        "language_pack": bool(entry.get("language_pack")),
         "installed": installed,
         "delegate": None,
         "missing_files": missing,
@@ -726,9 +820,90 @@ def pip_install_into_plugin_venv(wheel: str) -> None:
         raise VenvInstallFailed(f"pip could not install {wheel.split('#', 1)[0]}: {tail}")
 
 
+def pip_install_requirements_into_plugin_venv(requirements: Path) -> None:
+    """``pip install --no-deps --require-hashes -r <file>`` with the plugin venv's interpreter.
+
+    The file pins every package it names with the sha256 of each release file,
+    so pip installs exactly those or stops. --no-deps for the reason above.
+    """
+    python = plugin_venv_python()
+    if python is None:
+        raise VenvInstallFailed(
+            "Audio Foundry has no venv yet; start the plugin once, then Install again"
+        )
+    try:
+        proc = subprocess.run(
+            [str(python), "-m", "pip", "install", "--no-deps", "--require-hashes",
+             "--disable-pip-version-check", "-r", str(requirements)],
+            capture_output=True, text=True, timeout=_PIP_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise VenvInstallFailed(f"pip could not run in the Audio Foundry venv: {e}") from e
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip()[-400:]
+        raise VenvInstallFailed(f"pip could not install {requirements.name}: {tail}")
+
+
+def checksum_mismatches(entry: Dict[str, Any]) -> List[str]:
+    """Files of a voice-list model whose sha256 differs from the one its list records."""
+    if not entry.get("voice_catalog"):
+        return []
+    import hashlib
+
+    from backend.services.local_weights import cached_path
+
+    cat = load_voice_catalog(entry["voice_catalog"])
+    expected = {cat["weights_file"]: cat.get("weights_sha256")}
+    for group in cat["groups"]:
+        for voice in group["voices"]:
+            expected[cat["voice_file"].format(voice=voice["id"])] = voice.get("sha256")
+    wrong = []
+    for name, digest in expected.items():
+        path = cached_path(entry["hf_repo"], name)
+        if not digest or path is None:
+            continue
+        sha = hashlib.sha256()
+        with open(path, "rb") as fh:
+            for block in iter(lambda: fh.read(1024 * 1024), b""):
+                sha.update(block)
+        if sha.hexdigest() != digest:
+            wrong.append(name)
+    return wrong
+
+
+def _run_pack_install(entry: Dict[str, Any], epoch: int) -> None:
+    """Install thread for a language pack: one pip run, no model download."""
+    def _update(**kw) -> None:
+        with _download_lock:
+            if _download_state.get("epoch") == epoch:
+                _download_state.update(kw)
+                _download_state["updated_at"] = time.time()
+
+    try:
+        _update(status="installing")
+        for requirements in sorted({p["requirements"] for p in missing_venv_packages(entry)}):
+            pip_install_requirements_into_plugin_venv(PLUGIN_SOURCE_DIR / requirements)
+        leftover = missing_venv_packages(entry)
+        if leftover:
+            raise VenvInstallFailed(
+                f"pip finished but {leftover[0]['package']} is still not in the Audio Foundry venv"
+            )
+        _update(progress=100, downloaded_gb=float(entry["size_gb"]), status="completed",
+                is_downloading=False)
+        logger.info("Audio Foundry language pack installed: %s", entry["id"])
+    except Exception as e:
+        logger.error("Audio Foundry language pack install failed: %s", e, exc_info=True)
+        _update(status="failed", error=str(e), progress=0, is_downloading=False)
+    finally:
+        _update(is_downloading=False)
+
+
 def _run_install(entry: Dict[str, Any], epoch: int) -> None:
     """Install thread: the model's own environment when it has one, the repo
     snapshot when files are missing, then venv packages."""
+    if entry.get("language_pack"):
+        _run_pack_install(entry, epoch)
+        return
     os.environ.setdefault(_HF_XET_ENV, "1")
     repo_id = entry["hf_repo"]
     local = local_weights_dir(entry)
@@ -807,7 +982,8 @@ def _run_install(entry: Dict[str, Any], epoch: int) -> None:
         _update(status="downloading")
         started = time.time()
         monitor.start()
-        if missing_hub_files(entry):
+        fetched = bool(missing_hub_files(entry))
+        if fetched:
             from huggingface_hub import snapshot_download
 
             pinned: Dict[str, Any] = {}
@@ -824,6 +1000,12 @@ def _run_install(entry: Dict[str, Any], epoch: int) -> None:
         if still_missing:
             raise RuntimeError(
                 f"Download of {entry['id']} finished but {still_missing[0]} is still missing"
+            )
+        corrupt = checksum_mismatches(entry) if fetched else []
+        if corrupt:
+            raise RuntimeError(
+                f"Download of {entry['id']} finished but {corrupt[0]} does not match its "
+                "published checksum. Click Install to fetch it again."
             )
         if stalled.is_set():
             return

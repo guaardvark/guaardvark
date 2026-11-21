@@ -11,7 +11,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Typography,
-  Paper,
   Stack,
   TextField,
   Button,
@@ -24,7 +23,6 @@ import {
   FormControlLabel,
   Switch,
   Alert,
-  Grid,
 } from "@mui/material";
 import {
   TextFields as TextFieldsIcon,
@@ -33,6 +31,7 @@ import {
 import PageLayout from "../components/layout/PageLayout";
 import { listVideoDocuments, overlayText } from "../api/videoOverlayService";
 import { formatUiError } from "../utils/uiError";
+import { CardWorkspace } from "../components/board";
 import { useUiTranslation, translate } from "../i18n";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -145,11 +144,16 @@ const VideoTextOverlayPage = () => {
 
   return (
     <PageLayout title={t("videoTextOverlay.title")} subtitle={t("videoTextOverlay.subtitle")}>
-      <Box sx={{ maxWidth: 1200, mx: "auto", mt: 2, px: 2 }}>
-        <Grid container spacing={3}>
-          {/* Left: controls */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Paper elevation={4} sx={{ p: 3, borderRadius: 3 }}>
+      {/* The controls and the preview are cards on the shared board. */}
+      <CardWorkspace
+        boardKey="video-text"
+        cards={[
+          {
+            id: "settings",
+            title: t("layout.board.cards.settings"),
+            layout: { x: 0, y: 0, w: 75, h: 80 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
               <Stack spacing={2.5}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <TextFieldsIcon color="primary" />
@@ -266,12 +270,15 @@ const VideoTextOverlayPage = () => {
                   {rendering ? t("videoTextOverlay.rendering") : t("videoTextOverlay.render")}
                 </Button>
               </Stack>
-            </Paper>
-          </Grid>
-
-          {/* Right: preview */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Paper elevation={4} sx={{ p: 3, borderRadius: 3, minHeight: 360 }}>
+              </Box>
+            ),
+          },
+          {
+            id: "preview",
+            title: t("videoTextOverlay.preview"),
+            layout: { x: 75, y: 0, w: 100, h: 80 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
               <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
                 {result ? t("videoTextOverlay.result") : selectedVideo ? t("videoTextOverlay.source") : t("videoTextOverlay.preview")}
               </Typography>
@@ -325,10 +332,11 @@ const VideoTextOverlayPage = () => {
                   {t("videoTextOverlay.previewHint")}
                 </Typography>
               )}
-            </Paper>
-          </Grid>
-        </Grid>
-      </Box>
+              </Box>
+            ),
+          },
+        ]}
+      />
     </PageLayout>
   );
 };

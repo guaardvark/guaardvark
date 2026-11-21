@@ -218,6 +218,7 @@ const VoiceListeningSettings = ({ settings: settingsProp, onChange, systemName: 
             size="small"
             checked={settings.wakeWordEnabled}
             onChange={(e) => change("wakeWordEnabled", e.target.checked)}
+            inputProps={{ "aria-label": t("voice.listening.wakeToggle", { systemName }) }}
           />
         }
         label={

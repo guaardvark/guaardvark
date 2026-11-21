@@ -2,6 +2,8 @@
 
 A voice pack that is not cached, or spaCy's English model missing from the
 venv, is refused with the Manage-models hint instead of being downloaded. A
+Japanese or Mandarin voice without its language pack is listed, and refused
+with "Install <language> first". A
 voice id outside backends/kokoro_voices.json never reaches KPipeline, which
 would torch.load a value ending in '.pt' and split one containing commas. The
 kokoro package and the HF cache are not touched.
@@ -66,8 +68,92 @@ def test_english_voices_need_the_spacy_model(monkeypatch):
     monkeypatch.setattr(metadata, "distribution", hidden)
     for lang in ("a", "b"):
         with pytest.raises(WeightsNotInstalled, match="en_core_web_sm"):
-            vgk.KokoroBackend._require_english_g2p(lang)
-    vgk.KokoroBackend._require_english_g2p("e")  # Spanish uses espeak, not spaCy
+            vgk.KokoroBackend._require_language(lang)
+    for lang in ("e", "f", "h", "i", "p"):  # espeak-ng, which comes with kokoro
+        vgk.KokoroBackend._require_language(lang)
+
+
+def _hide_packages(monkeypatch, hidden_names):
+    real = metadata.distribution
+
+    def hidden(name):
+        if name in hidden_names:
+            raise metadata.PackageNotFoundError(name)
+        return real(name)
+
+    monkeypatch.setattr(metadata, "distribution", hidden)
+
+
+def _pack_packages():
+    return {name for pack in kokoro_voices.load_catalog()["language_packs"].values()
+            for name in pack["packages"]}
+
+
+@pytest.mark.parametrize("lang, language", [("j", "Japanese"), ("z", "Mandarin Chinese")])
+def test_a_language_without_its_pack_says_install_it_first(monkeypatch, lang, language):
+    _hide_packages(monkeypatch, _pack_packages())
+    with pytest.raises(WeightsNotInstalled, match=f"Install {language} first") as refused:
+        vgk.KokoroBackend._require_language(lang)
+    assert "Manage models" in str(refused.value)
+    assert kokoro_voices.language_pack(lang)["name"] in str(refused.value)
+
+
+def test_every_language_pack_is_a_pinned_requirements_file():
+    cat = kokoro_voices.load_catalog()
+    assert {v.get("pack") for v in cat["languages"].values()} - {None} == set(cat["language_packs"])
+    for pack in cat["language_packs"].values():
+        lines = (PLUGIN_ROOT / pack["requirements"]).read_text().splitlines()
+        pinned = [ln.split("==")[0] for ln in lines if "==" in ln and not ln.startswith(("#", " "))]
+        assert sorted(pinned) == sorted(pack["packages"])
+        # --require-hashes refuses a file where any requirement lacks one.
+        entries = "\n".join(ln for ln in lines if not ln.startswith("#")).split("\n\n")[0]
+        for block in entries.replace("\\\n", " ").splitlines():
+            assert "--hash=sha256:" in block, block
+
+
+def test_the_catalog_covers_nine_languages_and_leaves_out_withheld_voices():
+    cat = kokoro_voices.load_catalog()
+    ids = kokoro_voices.voice_ids()
+    assert len(ids) == len(set(ids)) == 53
+    assert {g["lang"] for g in cat["groups"]} == set(cat["languages"]) == set("abefhijpz")
+    for entry in cat["withheld"]:
+        assert entry["id"] not in ids and entry["reason"] and entry["measured"]
+        with pytest.raises(kokoro_voices.UnknownVoice):
+            kokoro_voices.check_voice_id(entry["id"])
+    for group in cat["groups"]:
+        for voice in group["voices"]:
+            assert len(voice["sha256"]) == 64
+
+
+def test_long_text_is_cut_at_sentences_and_never_over_the_limit():
+    count = len  # one phoneme a character
+    sentences = ["あ" * 120 + "。", "い" * 120 + "。", "う" * 30 + "。", "え" * 30 + "。"]
+    pieces = vgk.fit_to_phoneme_limit("".join(sentences), count, limit=510, pack=200)
+    # Whole sentences, joined only while they stay within the packing size.
+    assert pieces == [sentences[0], sentences[1] + sentences[2] + sentences[3]]
+    assert "".join(pieces) == "".join(sentences)
+
+
+def test_a_sentence_over_the_limit_is_cut_at_clauses_then_anywhere():
+    count = len
+    clauses = "か" * 300 + "、" + "き" * 300 + "。"
+    pieces = vgk.fit_to_phoneme_limit(clauses, count, limit=510, pack=200)
+    assert pieces == ["か" * 300 + "、", "き" * 300 + "。"]
+    unbroken = "x" * 1300
+    pieces = vgk.fit_to_phoneme_limit(unbroken, count, limit=510, pack=200)
+    assert "".join(pieces) == unbroken and all(len(p) <= 510 for p in pieces)
+
+
+def test_english_text_goes_to_the_pipeline_whole_and_other_languages_in_pieces():
+    class _Pipeline:
+        def g2p(self, piece):
+            return piece, None
+
+    text = "Uno. " * 150
+    assert vgk.KokoroBackend._text_for(_Pipeline(), "a", text) == text
+    pieces = vgk.KokoroBackend._text_for(_Pipeline(), "e", text)
+    assert isinstance(pieces, list) and len(pieces) > 1
+    assert all(len(p) <= kokoro_voices.pack_phonemes() for p in pieces)
 
 
 def test_catalog_ids_match_the_voice_id_shape():
@@ -90,3 +176,34 @@ def test_voices_route_marks_installed_packs_and_sends_no_cors(monkeypatch):
     voices = {v["id"]: v["installed"] for g in r.json()["kokoro"]["groups"] for v in g["voices"]}
     assert list(voices) == kokoro_voices.voice_ids()
     assert voices["af_heart"] is True and voices["bf_emma"] is False
+
+
+def test_voices_route_lists_a_language_that_needs_installing(monkeypatch):
+    from fastapi.testclient import TestClient
+    from service.app import app
+
+    _hide_packages(monkeypatch, _pack_packages())
+    monkeypatch.setattr("backends.hub_weights.cached_hub_file", lambda repo, f: "/cache/x")
+    groups = TestClient(app, base_url="http://127.0.0.1:8206").get("/voices").json()["kokoro"]["groups"]
+    by_label = {g["label"]: g for g in groups}
+
+    japanese = by_label["Japanese Female"]
+    assert japanese["language"] == "Japanese" and japanese["language_installed"] is False
+    assert japanese["install"] == {"id": "kokoro-japanese", "name": "Kokoro Japanese"}
+    # Listed, with its voice pack on disk, and marked as needing the language.
+    assert [v["id"] for v in japanese["voices"]][0] == "jf_alpha"
+    assert all(v["installed"] and v["language_installed"] is False for v in japanese["voices"])
+
+    french = by_label["French Female"]
+    assert french["language_installed"] is True and french["install"] is None
+
+
+def test_a_voice_whose_language_is_not_installed_is_refused_before_a_job(monkeypatch):
+    from fastapi.testclient import TestClient
+    from service.app import app
+
+    _hide_packages(monkeypatch, _pack_packages())
+    r = TestClient(app, base_url="http://127.0.0.1:8206").post(
+        "/generate/voice", json={"text": "こんにちは", "voice_id": "jf_alpha"})
+    assert r.status_code == 409
+    assert "Install Japanese first" in r.json()["detail"]

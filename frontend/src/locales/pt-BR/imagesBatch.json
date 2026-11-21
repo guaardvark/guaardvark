@@ -105,8 +105,11 @@
     "statusFailed": "Falha ao verificar o status do serviço"
   },
   "history": {
-    "cleared": "Lista de histórico de lotes limpa.",
+    "cleared": "Cada lote está oculto desta lista. Nada foi excluído.",
     "clear": "Limpar Lista de Lotes",
+    "hideAll": "Ocultar todos os lotes desta lista (nada é excluído)",
+    "viewRows": "Linhas",
+    "viewGrid": "Miniaturas",
     "title": "Lotes Recentes",
     "refresh": "Atualizar lotes",
     "retry": "Tentar novamente",
@@ -264,6 +267,7 @@
     "scale": "Escala de Guidance: {{guidance}}",
     "zimageHelp": "Z-Image roda sem CFG — o guidance é fixo em 0. Use Steps para a qualidade.",
     "qwenHelp": "Qwen-Image 2.1 roda com guidance 1 no caminho oficial. Aumente apenas junto com um prompt negativo.",
+    "flux3KleinHelp": "O FLUX 3 Klein é destilado: o guidance permanece em 1 no caminho oficial, e seu upsampler de prompt escreve a legenda completa.",
     "mossHelp": "O MOSS-Image roda com guidance 2.5 no modelo oficial. Até 6 também renderiza limpo, com um pouco mais de contraste.",
     "autoHelp": "Rotas automáticas por prompt. A escolha usual (Z-Image) é sem CFG — mantenha em 0, a menos que você espere uma rota SDXL."
   },
@@ -315,5 +319,8 @@
     "title": "Prévia de Prompts Gerados ({{count}})",
     "intro": "Estes são os prompts finais que serão enviados ao gerador de imagens:",
     "close": "Fechar"
+  },
+  "cards": {
+    "noSettings": "Este modo de entrada não possui Configurações aqui."
   }
 }

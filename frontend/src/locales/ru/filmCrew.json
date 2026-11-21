@@ -12,7 +12,8 @@
     "title": "Film Crew",
     "productionsTab": "Проекты",
     "castLibraryTab": "Библиотека актеров",
-    "newProduction": "Новый проект"
+    "newProduction": "Новый проект",
+    "productionCard": "Производство"
   },
   "list": {
     "failedAt": "ошибка: {{stage}}",

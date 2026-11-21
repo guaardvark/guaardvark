@@ -114,6 +114,23 @@ def test_models_blueprints_migrations_and_seed_run_through_the_hooks(root, app, 
     assert X.run_seeds(exts, app, stamp_dir=stamps) == {"acme": "skipped"}
 
 
+def test_a_read_only_extension_without_init_still_loads(root, app):
+    # docker-compose.yml mounts extensions/ read-only, so the loader cannot add
+    # a missing __init__.py there.
+    d = _install(root, "acme")
+    (d / "__init__.py").unlink()
+    os.chmod(d, 0o555)
+    try:
+        exts = X.discover(root, environ={})
+        assert X.import_models(exts) == {"acme": None}
+        disc = BlueprintDiscovery(app)
+        disc.auto_discover_and_register(app, directories=[], extension_directories=X.blueprint_directories(exts))
+        assert app.test_client().get("/api/template/ping").status_code == 200
+        assert not (d / "__init__.py").exists()
+    finally:
+        os.chmod(d, 0o755)
+
+
 def test_a_broken_extension_is_reported_and_the_rest_still_load(root, app):
     _install(root, "acme")
     broken = _install(root, "broken")

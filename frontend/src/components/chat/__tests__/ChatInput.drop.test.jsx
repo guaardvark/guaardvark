@@ -24,7 +24,12 @@ vi.mock("../../../contexts/VoiceSessionContext", () => ({
   useVoiceSessionState: (select) => select({ session: null, push: null, phase: null }),
 }));
 vi.mock("../../../stores/useAppStore", () => ({
-  useAppStore: (select) => select({ sessionModes: {}, setSessionMode: () => {} }),
+  useAppStore: (select) => select({
+    sessionModes: {},
+    setSessionMode: () => {},
+    sessionPlanModes: {},
+    setSessionPlanMode: () => {},
+  }),
 }));
 vi.mock("../../../utils/chatAttachment", async (importOriginal) => ({
   ...(await importOriginal()),

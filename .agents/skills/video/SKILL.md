@@ -60,13 +60,16 @@ B=${GUAARDVARK_URL:-http://localhost:5000}
 # text to video, one clip per prompt
 curl -s -X POST $B/api/batch-video/generate/text -H 'Content-Type: application/json' -d '{
   "prompts": ["a red kite over a grey sea", "the same kite at dusk"],
-  "model": "wan22-5b", "prompt_style": "cinematic", "enhance_prompt": true, "seed": 42
+  "model": "wan22-5b", "aspect_ratio": "9:16", "prompt_style": "cinematic", "enhance_prompt": true, "seed": 42
 }'
 # image to video
 curl -s -X POST $B/api/batch-video/generate/image -H 'Content-Type: application/json' -d '{
   "image_paths": ["/abs/path/frame.png"], "prompt": "slow push in, wind in the grass", "model": "wan22-5b"
 }'
 ```
+Frame shape: `aspect_ratio` (one the model declares, e.g. `16:9`, `9:16`, `1:1`) gives the model's own
+canvas in that shape; `width` + `height` set it exactly and win over it. With neither, the clip is the
+model's default 16:9 frame. Keys the server does not know are ignored, so spell them as written here.
 Optional keys the server honours: `negative_prompt`, `guidance_scale`, `motion_strength`,
 `interpolation_multiplier` (RIFE frame interpolation), `combine_frames`, `lora_name` +
 `lora_strength`, `adapters`, `guides` (per-prompt audio/image anchors on models that declare them),

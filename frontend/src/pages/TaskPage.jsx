@@ -66,6 +66,9 @@ import EntityContextMenu from "../components/common/EntityContextMenu";
 import useContextMenu from "../hooks/useContextMenu";
 import EmptyState from "../components/common/EmptyState";
 import { ContextualLoader } from "../components/common/LoadingStates";
+import { CardWorkspace } from "../components/board";
+import ScheduledJobsCard from "../components/jobs/ScheduledJobsCard";
+import useNightShift from "../hooks/useNightShift";
 import { translate, useUiTranslation } from "../i18n";
 
 // A video batch job's status as shown; the value from the API stays the one compared.
@@ -164,6 +167,8 @@ const TaskPage = () => {
   const pageMenu = useContextMenu();
   const contextItem = pageMenu.payload;
   const handleContextMenu = (e, task = null) => pageMenu.open(e, task);
+
+  const nightShift = useNightShift();
 
   const [videoGenJobs, setVideoGenJobs] = useState([]);
   const [videoGenLoading, setVideoGenLoading] = useState(false);
@@ -564,6 +569,25 @@ const TaskPage = () => {
     }
   };
 
+  // The Scheduled card names a job by its row; the task list has the full record.
+  const handleEditScheduled = (row) => {
+    const task = tasks.find((item) => item.id === row.id);
+    if (task) handleEditTask(task);
+  };
+
+  const handleRemoveScheduled = (row) => {
+    setPendingConfirm({
+      title: t("jobs.nightShift.removeTitle"),
+      description: t("jobs.nightShift.removeDescription", { name: row.name }),
+      keeps: t("jobs.nightShift.removeKeeps"),
+      confirmLabel: t("jobs.nightShift.remove"),
+      run: async () => {
+        await deleteTaskConfirmed(row.id);
+        nightShift.refresh();
+      },
+    });
+  };
+
   const handleStartSingleTask = async (taskId, task) => {
     if (!taskId || !task) {
       setFeedback({
@@ -909,16 +933,139 @@ const TaskPage = () => {
           />
         </DashboardStrip>
 
-        <Paper sx={{ p: 2, mb: 2, mt: 2, borderRadius: 2 }}>
-          <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                {t("tasks.video.title")}
-              </Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {t("tasks.video.intro")}
-              </Typography>
+        {/* The job list and the video batches are cards on the shared board. */}
+        <CardWorkspace
+          boardKey="jobs"
+          version={2}
+          cards={[
+            {
+              id: "jobs",
+              title: t("tasks.title"),
+              layout: { x: 0, y: 55, w: 115, h: 90 },
+              body: (
+                <Box sx={{ p: 1.5 }}>
+        <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap", alignItems: "center" }}>
+          {entityFilterLabel && (
+            <Chip
+              label={entityFilterLabel}
+              size="small"
+              color="primary"
+              onDelete={() => dropParams(TASK_PARAMS.project, TASK_PARAMS.client, TASK_PARAMS.website)}
+            />
+          )}
+          <Box data-native-contextmenu data-testid="task-status-filter">
+            <ChoiceChips
+              ariaLabel={t("tasks.filter.status")}
+              options={statusOptions}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
+          </Box>
+          <Box data-native-contextmenu data-testid="task-type-filter">
+            <ChoiceChips
+              ariaLabel={t("tasks.typeFilter.label")}
+              options={typeOptions}
+              value={typeFilter}
+              onChange={setTypeFilter}
+            />
+          </Box>
+        </Box>
+
+        {/* Tasks Display */}
+        {isLoading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 6 }}>
+            <ContextualLoader loading message={t("tasks.loading")} showProgress={false} inline />
+          </Box>
+        ) : sortedTasks.length === 0 ? (
+          <Paper sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
+            <EmptyState
+              icon={<AssignmentOutlined />}
+              title={tasks.length === 0 ? t("tasks.emptyTitle") : t("tasks.emptyFilteredTitle")}
+              description={tasks.length === 0 ? t("tasks.emptyDescription") : t("tasks.emptyFilteredDescription")}
+            />
+            {tasks.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <ActionButton onClick={() => { setStatusFilter("all"); setTypeFilter("all"); }}>
+                  {t("tasks.clearFilters")}
+                </ActionButton>
+              </Box>
+            )}
+          </Paper>
+        ) : (
+          <>
+            {/* Task Cards Grid */}
+            <Box
+              sx={{
+                display: "grid",
+                // Sized by the card it sits in, not by the window.
+                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                gap: 2,
+                mb: 2,
+              }}
+            >
+              {sortedTasks.map((task) => (
+                <div key={task.id} onContextMenu={(e) => handleContextMenu(e, task)}>
+                  <TaskCard
+                    task={task}
+                    onEdit={handleEditTask}
+                    onStartJob={handleStartSingleTask}
+                    onStopJob={handleStopTask}
+                    availableProjects={availableProjects}
+                  />
+                </div>
+              ))}
             </Box>
+          </>
+        )}
+
+        {tasks.length > 0 && !isLoading && (
+          <Box sx={{ mt: 2 }}>
+            <SettingsPanel
+              danger
+              title={t("tasks.clear.title")}
+              description={t("tasks.clear.description")}
+            >
+              <Box>
+                <ActionButton
+                  kind="destructive"
+                  startIcon={<ClearAllIcon />}
+                  onClick={handleClearAllTasks}
+                  disabled={isSaving}
+                >
+                  {t("tasks.clearAll")}
+                </ActionButton>
+              </Box>
+            </SettingsPanel>
+          </Box>
+        )}
+                </Box>
+              ),
+            },
+            {
+              id: "scheduled",
+              title: t("jobs.nightShift.cardTitle"),
+              layout: { x: 0, y: 0, w: 175, h: 55 },
+              body: (
+                <ScheduledJobsCard
+                  status={nightShift.status}
+                  error={nightShift.error}
+                  refresh={nightShift.refresh}
+                  onEdit={handleEditScheduled}
+                  onRemove={handleRemoveScheduled}
+                  onChanged={fetchTasks}
+                />
+              ),
+            },
+            {
+              id: "video",
+              title: t("tasks.video.title"),
+              layout: { x: 115, y: 55, w: 60, h: 90 },
+              body: (
+                <Box sx={{ p: 1.5 }}>
+          <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              {t("tasks.video.intro")}
+            </Typography>
             <IconButton size="small" onClick={fetchVideoGenJobs} title={t("tasks.video.refresh")}>
               <RefreshIcon fontSize="small" />
             </IconButton>
@@ -981,106 +1128,11 @@ const TaskPage = () => {
               </TableBody>
             </Table>
           )}
-        </Paper>
-
-        <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap", alignItems: "center" }}>
-          {entityFilterLabel && (
-            <Chip
-              label={entityFilterLabel}
-              size="small"
-              color="primary"
-              onDelete={() => dropParams(TASK_PARAMS.project, TASK_PARAMS.client, TASK_PARAMS.website)}
-            />
-          )}
-          <Box data-native-contextmenu data-testid="task-status-filter">
-            <ChoiceChips
-              ariaLabel={t("tasks.filter.status")}
-              options={statusOptions}
-              value={statusFilter}
-              onChange={setStatusFilter}
-            />
-          </Box>
-          <Box data-native-contextmenu data-testid="task-type-filter">
-            <ChoiceChips
-              ariaLabel={t("tasks.typeFilter.label")}
-              options={typeOptions}
-              value={typeFilter}
-              onChange={setTypeFilter}
-            />
-          </Box>
-        </Box>
-
-        {/* Tasks Display */}
-        {isLoading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 6 }}>
-            <ContextualLoader loading message={t("tasks.loading")} showProgress={false} inline />
-          </Box>
-        ) : sortedTasks.length === 0 ? (
-          <Paper sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
-            <EmptyState
-              icon={<AssignmentOutlined />}
-              title={tasks.length === 0 ? t("tasks.emptyTitle") : t("tasks.emptyFilteredTitle")}
-              description={tasks.length === 0 ? t("tasks.emptyDescription") : t("tasks.emptyFilteredDescription")}
-            />
-            {tasks.length > 0 && (
-              <Box sx={{ mt: 2 }}>
-                <ActionButton onClick={() => { setStatusFilter("all"); setTypeFilter("all"); }}>
-                  {t("tasks.clearFilters")}
-                </ActionButton>
-              </Box>
-            )}
-          </Paper>
-        ) : (
-          <>
-            {/* Task Cards Grid */}
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: {
-                  xs: "1fr",
-                  sm: "repeat(2, 1fr)",
-                  md: "repeat(3, 1fr)",
-                  lg: "repeat(4, 1fr)",
-                },
-                gap: 2,
-                mb: 2,
-              }}
-            >
-              {sortedTasks.map((task) => (
-                <div key={task.id} onContextMenu={(e) => handleContextMenu(e, task)}>
-                  <TaskCard
-                    task={task}
-                    onEdit={handleEditTask}
-                    onStartJob={handleStartSingleTask}
-                    onStopJob={handleStopTask}
-                    availableProjects={availableProjects}
-                  />
-                </div>
-              ))}
-            </Box>
-          </>
-        )}
-
-        {tasks.length > 0 && !isLoading && (
-          <Box sx={{ mt: 2 }}>
-            <SettingsPanel
-              danger
-              title={t("tasks.clear.title")}
-              description={t("tasks.clear.description")}
-            >
-              <Box>
-                <ActionButton
-                  kind="destructive"
-                  startIcon={<ClearAllIcon />}
-                  onClick={handleClearAllTasks}
-                  disabled={isSaving}
-                >
-                  {t("tasks.clearAll")}
-                </ActionButton>
-              </Box>
-            </SettingsPanel>
-          </Box>
-        )}
+                </Box>
+              ),
+            },
+          ]}
+        />
 
       </Box>
 

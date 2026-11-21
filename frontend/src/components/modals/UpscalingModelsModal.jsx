@@ -42,6 +42,7 @@ function buildRows(payload) {
     scale: m.scale,
     size_mb: m.size_mb,
     is_downloaded: false,
+    incomplete: m.incomplete,
   }));
   const rows = [...downloaded, ...available];
   rows.sort((a, b) => a.name.localeCompare(b.name));
@@ -152,9 +153,15 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
                       </Box>
                     }
                     secondary={
-                      model.is_downloaded
-                        ? t("models.upscalingModels.ready")
-                        : t("models.upscalingModels.notInstalled")
+                      model.is_downloaded ? (
+                        t("models.upscalingModels.ready")
+                      ) : model.incomplete ? (
+                        <Typography variant="body2" component="span" title={model.incomplete} sx={{ color: "warning.main" }}>
+                          {t("models.shared.filesIncomplete", { count: 1 })}
+                        </Typography>
+                      ) : (
+                        t("models.upscalingModels.notInstalled")
+                      )
                     }
                   />
 

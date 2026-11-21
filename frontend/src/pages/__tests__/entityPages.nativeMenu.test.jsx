@@ -4,6 +4,21 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
+// The page lays its cards out on the shared board, which reads the grid from the layout context.
+vi.mock("../../contexts/LayoutContext", () => {
+  const layout = {
+    gridSettings: {
+      CONTAINER_PADDING_PX: 4,
+      CARD_MARGIN_PX: 8,
+      COLS_COUNT: 175,
+      ROW_HEIGHT_PX: 10,
+      cardGridW: 35,
+      cardGridH: 49,
+      cardMinGridW: 30,
+    },
+  };
+  return { useDashboardWidth: () => 1750, useLayout: () => layout };
+});
 vi.mock("../../api", () => ({
   getClients: vi.fn(async () => [{ id: 3, name: "Acme", project_count: 0 }]),
   getProjects: vi.fn(async () => [{ id: 7, name: "Launch", description: "" }]),
@@ -135,7 +150,8 @@ describe("entity pages keep the browser menu where it is needed", () => {
   it("Tasks: right-click on the page itself still opens the page menu", async () => {
     renderPage(<TaskPage />);
     await screen.findByText("Write copy");
-    expect(rightClick(screen.getByText("Video Batch Jobs"))).toBe(false);
+    // The card's title bar has the card menu; the page menu is inside the card.
+    expect(rightClick(screen.getByText("Queued and running batches from Video and Batch Video."))).toBe(false);
     expect(screen.getByRole("menuitem", { name: "New Custom Job" })).toBeInTheDocument();
   });
 });

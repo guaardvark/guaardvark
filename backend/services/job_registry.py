@@ -52,8 +52,20 @@ def adapt_task(row, *, started_at: datetime | None = None) -> Job:
             "schedule_type": getattr(row, "schedule_type", None),
             "next_run_at": _iso(getattr(row, "next_run_at", None)),
             "celery_task_id": getattr(row, "job_id", None),  # Task.job_id is the Celery task UUID
+            **_waiting_metadata(row),
         },
     )
+
+
+def _waiting_metadata(row) -> dict:
+    """Marks a Task row held for the night shift or for a time."""
+    if getattr(row, "status", None) != "waiting":
+        return {}
+    return {
+        "waiting": True,
+        "due_date": _iso(getattr(row, "due_date", None)),
+        "queue_rank": getattr(row, "queue_rank", None),
+    }
 
 
 def adapt_publish_task(row) -> Job:
@@ -83,6 +95,7 @@ def adapt_publish_task(row) -> Job:
             "task_id": row.id,
             "task_job_id": getattr(row, "job_id", None),
             "platform": platform,
+            **_waiting_metadata(row),
         },
     )
 
@@ -110,6 +123,7 @@ def adapt_outreach_task(row) -> Job:
             "task_id": row.id,
             "task_job_id": getattr(row, "job_id", None),
             "workflow_config": _safe_json(getattr(row, "workflow_config", None)),
+            **_waiting_metadata(row),
         },
     )
 
@@ -139,6 +153,7 @@ def adapt_website_task(row) -> Job:
             "target_website": getattr(row, "target_website", None),
             "task_job_id": getattr(row, "job_id", None),
             "workflow_config": _safe_json(getattr(row, "workflow_config", None)),
+            **_waiting_metadata(row),
         },
     )
 

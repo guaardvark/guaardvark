@@ -84,7 +84,7 @@ const DesktopToolbar = ({ view, onViewChange, onSort, kinds, itemCount, onSearch
             onSort({ by, dir: by === "date" || by === "size" ? "desc" : "asc" });
           }}
           sx={{ fontSize: "0.8rem", "& .MuiSelect-select": { py: 0.5 } }}
-          inputProps={{ "aria-label": t("documents.page.sortLabel") }}
+          aria-label={t("documents.page.sortLabel")}
         >
           {SORT_FIELDS.map((field) => (
             <MenuItem key={field} value={field}>{t(`documents.page.columns.${field}`)}</MenuItem>

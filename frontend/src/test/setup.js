@@ -48,3 +48,12 @@ vi.mock('dompurify', () => ({
     sanitize: (input) => input,
   },
 }));
+
+// jsdom has no ResizeObserver; components that measure themselves need one to exist.
+if (!global.ResizeObserver) {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}

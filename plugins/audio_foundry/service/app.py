@@ -145,6 +145,7 @@ _orch_client = OrchestratorClient(
 )
 
 _dispatcher = Dispatcher(orchestrator=_orch_client)
+_dispatcher.gpu_wait_s = float(_gpu_cfg.get("wait_for_gpu_s", _dispatcher.gpu_wait_s) or 0)
 threading.Thread(target=_dispatcher.forget_slots_from_before, name="audio-forget-slots", daemon=True).start()
 _dispatcher.start_idle_unloader(int(_gpu_cfg.get("idle_unload_s", 0) or 0))
 bootstrap(_dispatcher, _config)
@@ -309,10 +310,12 @@ def list_voices() -> dict[str, Any]:
     """Return the available voice catalog grouped by backend.
 
     Kokoro voices come from backends/kokoro_voices.json; each carries
-    ``installed``, true when its voice pack is in the local Hugging Face cache
-    (a voice that is not installed is refused at generation with an Install
-    hint rather than downloaded). Chatterbox voices come from reference clips
-    at request-time, so the Chatterbox section just describes the contract.
+    ``installed``, true when its voice pack is in the local Hugging Face cache,
+    and ``language_installed``, false when its language's phonemizer is not in
+    this environment (the group then names the Manage-models row to Install).
+    A voice missing either is refused at generation with an Install hint
+    rather than downloaded. Chatterbox voices come from reference clips at
+    request-time, so the Chatterbox section just describes the contract.
 
     Frontend uses this to render the voice picker dropdown so we don't have
     to redeploy the UI when the catalog changes.
@@ -322,17 +325,9 @@ def list_voices() -> dict[str, Any]:
 
     catalog = kokoro_voices.load_catalog()
     repo = kokoro_voices.hf_repo()
-    groups = [
-        {
-            "label": group["label"],
-            "voices": [
-                {**voice,
-                 "installed": cached_hub_file(repo, kokoro_voices.voice_file(voice["id"])) is not None}
-                for voice in group["voices"]
-            ],
-        }
-        for group in catalog["groups"]
-    ]
+    groups = kokoro_voices.voice_groups(
+        lambda voice_id: cached_hub_file(repo, kokoro_voices.voice_file(voice_id)) is not None
+    )
     return {
         "kokoro": {"default": catalog["default"], "groups": groups},
         "chatterbox": {
@@ -375,10 +370,24 @@ def _checked_voice_request(req: VoiceRequest) -> VoiceRequest:
                 "used with backend 'chatterbox'. Use backend 'kokoro' or 'auto' for a "
                 "built-in voice, or a reference clip to clone one."))
         try:
-            check_voice_id(req.voice_id)
+            voice_id = check_voice_id(req.voice_id)
         except UnknownVoice as e:
             raise HTTPException(status_code=400, detail=str(e))
+        _require_voice_language(voice_id)
     return req
+
+
+def _require_voice_language(voice_id: str) -> None:
+    """409 before a job is accepted when the voice's language is not installed
+    (Japanese and Mandarin are their own Install in Manage models)."""
+    from backends import kokoro_voices
+    from backends.hub_weights import WeightsNotInstalled
+    from backends.voice_gen_kokoro import KokoroBackend
+
+    try:
+        KokoroBackend._require_language(kokoro_voices.voice_language(voice_id))
+    except WeightsNotInstalled as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @app.post("/generate/voice")
@@ -400,10 +409,14 @@ def generate_voice_stream(req: VoiceRequest) -> Any:
     with _http_errors(Intent.VOICE):
         # Force inline load for stream path (chat texts are short)
         with _dispatcher._intent_locks[Intent.VOICE]:
+            _dispatcher.wait_for_gpu(Intent.VOICE)
             with _dispatcher._state_lock:
                 backend = _dispatcher._backends.get(Intent.VOICE)
                 if backend is None:
                     raise NotWired("No voice backend registered")
+                select = getattr(backend, "select_for_request", None)
+                if select is not None:
+                    select(params)
                 if not backend.is_loaded:
                     _dispatcher._load_with_orchestrator(Intent.VOICE, backend)
         _dispatcher._last_used[Intent.VOICE] = __import__("time").monotonic()

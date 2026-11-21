@@ -103,6 +103,22 @@ def test_route_names_handler_callers_and_pages(mapped):
     assert "Pages that reach it: frontend/src/pages/ImagesPage.jsx" in text
 
 
+def test_route_says_callers_were_not_checked_without_frontend_sources(tmp_path, monkeypatch):
+    # A Docker backend container: the routes are there, frontend/src is not.
+    monkeypatch.setenv("GUAARDVARK_STORAGE_DIR", str(tmp_path / "storage"))
+    root = tmp_path / "checkout"
+    _write(root, "backend/__init__.py")
+    _write(root, "backend/api/chat_api.py",
+           "from flask import Blueprint\n"
+           "bp = Blueprint('chat', __name__, url_prefix='/api/chat')\n"
+           "@bp.route('/unified', methods=['POST'])\n"
+           "def unified_chat():\n    return {}\n")
+    snapshot = store.build(root)
+    text = query.answer(root, snapshot, store.load_index(root, snapshot), "route", "/api/chat/unified")
+    assert "Frontend callers: not checked" in text
+    assert "none found" not in text
+
+
 def test_impact_lists_dependents_and_tests_to_run(mapped):
     text = _ask(mapped, "impact", "backend/services/chat_turn.py")
     assert "backend/services/engine.py" in text

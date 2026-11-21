@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.6.0 — Card workspaces on every page, AMD Radeon cards, your own ComfyUI, every Kokoro voice
+
+- **Every studio page is a card workspace.** Video Gen, Image Gen, Image Edit, Music Video, Film Crew, Cast Library,
+  Agents, Jobs, Plugins and the rest are boards of cards you arrange, hide and restore, with ready-made layouts
+  behind a Layout button in each page header. The dashboard shows recent media and pending approvals, its header
+  opens the Sticky Notes board in one click, and the top bar has a full screen button. The frontend now runs on
+  React 19.
+- **AMD Radeon cards.** The GPU coordinator, metrics and video preflight read AMD cards through rocm-smi, so Radeon
+  cards render video the way NVIDIA cards do.
+- **Run ComfyUI yourself.** A switch on the ComfyUI card points Guaardvark at a ComfyUI you already run, as the
+  Ollama card already does, and the Docker guide covers ComfyUI and Ollama in their own containers.
+- **Voices and upscaling.** Every Kokoro voice and language is offered, and narration runs on machines with no
+  GPU. Images and videos in the library have an Upscale action.
+- **Video.** Music videos and multi-clip edits fill every cut exactly, with no blank frame between clips; Wan keeps
+  its native size under Low VRAM; music videos estimate their render time for the chosen model on this machine.
+- **Search and chat.** Web search reads Bing's results page directly, Settings offers a re-index for better search,
+  and the chat model keeps the context window it was loaded with on the GPU. The MCP server has named toolsets
+  and `guaardvark mcp list-tools --json`.
+- **Safer by default.** The inbound guard's review dialog shows dates, selection and Approve all; credential-file
+  reads through command options are closed; API key changes, swarm launches and output registrations take this
+  machine or a key holder only; aiohttp, urllib3, Werkzeug, mcp and Pillow are past their published advisories.
+
 ## 3.5.2 — PyTorch 2.14.1 on NVIDIA cards, in native installs and the Docker image
 
 - **PyTorch 2.14.1.** The backend now picks its PyTorch build from your card and your driver, and on a current

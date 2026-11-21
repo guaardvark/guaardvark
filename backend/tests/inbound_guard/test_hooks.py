@@ -126,3 +126,34 @@ def test_fetch_is_recorded(clone, tmp_path):
     assert "origin/main" in proc.stderr and "HOLD" in proc.stderr
     log = json.loads(_run(clone, "python3", "scripts/check_inbound.py", "log", "--json").stdout)
     assert log[-1]["source"] == "fetch" and log[-1]["verdict"] == "hold"
+
+
+def _log(work):
+    return json.loads(_run(work, "python3", "scripts/check_inbound.py", "log", "-n", "50", "--json").stdout)
+
+
+def test_records_name_the_commits_that_arrived(clone, tmp_path):
+    _git(clone, "config", "inboundguard.mode", "observe")
+    _risky_branch(clone)
+    incoming, before = _git(clone, "rev-parse", "incoming").stdout.strip(), _head(clone)
+    _git(clone, "merge", "--no-ff", "incoming", "-m", "merge")
+    merge = next(r for r in reversed(_log(clone)) if r.get("source") == "git-merge")
+    assert (merge["old_sha"], merge["new_sha"]) == (before, incoming)
+    assert merge["ts"][-3] == ":"
+
+    other = tmp_path / "other"
+    _git(tmp_path, "clone", "-q", str(tmp_path / "origin.git"), str(other))
+    (other / "risky2.py").write_text("import subprocess\nsubprocess.run(cmd, shell" + "=True)\n")
+    _git(other, "add", "-A")
+    _git(other, "commit", "-q", "-m", "upstream", "--no-verify")
+    _git(other, "push", "-q", "origin", "main")
+    old_remote = _git(clone, "rev-parse", "origin/main").stdout.strip()
+    _git(clone, "fetch", "-q", "origin")
+    fetch = next(r for r in reversed(_log(clone)) if r.get("source") == "fetch")
+    assert (fetch["old_sha"], fetch["new_sha"]) == (old_remote, _git(other, "rev-parse", "HEAD").stdout.strip())
+
+    _run(clone, "python3", "scripts/check_inbound.py", "scan", "--range", "main...incoming", "--record",
+         "--exit-zero")
+    scan = _log(clone)[-1]
+    assert scan["source"] == "cli"
+    assert (scan["old_sha"], scan["new_sha"]) == (_head(clone), incoming)

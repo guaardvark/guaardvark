@@ -10,7 +10,8 @@
     "title": "Film Crew",
     "productionsTab": "作品",
     "castLibraryTab": "演员库",
-    "newProduction": "新建作品"
+    "newProduction": "新建作品",
+    "productionCard": "生产"
   },
   "list": {
     "failedAt": "失败：{{stage}}",

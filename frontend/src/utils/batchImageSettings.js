@@ -22,6 +22,8 @@ export function modelFamily(model) {
   // Shipped `moss-image` and user `user-moss-image-<slug>`; tested before FLUX
   // because a MOSS repack can carry the FLUX.2 VAE's name.
   if (m.includes('moss-image')) return 'moss-image';
+  // MiniMax H3 stills (one frame from the H3 video model).
+  if (m.includes('minimax-h3-t2i')) return 'minimax-h3-t2i';
   // FLUX 3 Image Klein; its ids also contain 'flux', so it is tested first.
   if (m.includes('flux3')) return 'flux3-klein';
   if (m.includes('flux')) return 'flux';
@@ -61,7 +63,7 @@ export function promptStyleFor(model, modelOptions = [], autoPromptStyle = null)
   const opt = (modelOptions || []).find((o) => o.value === m);
   if (opt?.promptStyle) return opt.promptStyle;
   const fam = modelFamily(m);
-  return ['zimage', 'qwen-image-21', 'moss-image', 'flux3-klein'].includes(fam) ? 'natural' : 'tags';
+  return ['zimage', 'qwen-image-21', 'moss-image', 'flux3-klein', 'minimax-h3-t2i'].includes(fam) ? 'natural' : 'tags';
 }
 
 // Qwen-Image 2.1 guidance range. The official ComfyUI template
@@ -81,6 +83,10 @@ export const MOSS_IMAGE_GUIDANCE_MAX = 6;
 // FLUX 3 Image Klein is step-distilled: the official template samples at cfg 1
 // and the ComfyUI docs say raising it does not help, so guidance is fixed.
 export const FLUX3_KLEIN_GUIDANCE = 1.0;
+
+// MiniMax H3 stills sample with no CFG (BasicGuider in the official template),
+// so guidance is fixed.
+export const H3_STILL_GUIDANCE = 0;
 
 export const ZIMAGE_STEPS = 9;
 export const ZIMAGE_GUIDANCE = 0;
@@ -150,6 +156,11 @@ const PRESETS_BY_FAMILY = {
   ],
   // FLUX 3 Image Klein numbers come from the official ComfyUI template
   // (image_flux3_klein_distilled_t2i.json: 15 steps, cfg 1, er_sde/simple).
+  // MiniMax H3 stills: the official template's 30 steps, no CFG
+  // (video_model_registry minimax-h3-t2i, where the measurements are).
+  'minimax-h3-t2i': [
+    { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 30, guidance: 0, get description() { return translate('options.imagePresets.descriptions.h3Still.standard'); } },
+  ],
   'flux3-klein': [
     { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 15, guidance: 1.0, get description() { return translate('options.imagePresets.descriptions.flux3Klein.standard'); } },
   ],
@@ -182,6 +193,7 @@ const DEFAULT_PRESET_BY_FAMILY = {
   'qwen-image-21': 'standard',
   'moss-image': 'standard',
   'flux3-klein': 'standard',
+  'minimax-h3-t2i': 'standard',
   sdxl: 'standard',
   sd: 'standard',
 };

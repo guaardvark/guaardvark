@@ -98,20 +98,22 @@ _pt_stage_wheels() {  # usage: _pt_stage_wheels <index-url|""> <pkg...>
 # original network install so behaviour is unchanged if staging was skipped.
 _pt_repin_pillow() {
     # torch/torchvision depend on pillow, and --force-reinstall re-resolves it from
-    # download.pytorch.org, whose index tops out at Pillow 12.2.0. That release has 10
-    # HIGH CVEs (heap OOB writes in Image.paste/crop/RankFilter/ImageCmsTransform, plus
-    # decompression-bomb bypasses), so every torch install silently un-patched them.
+    # download.pytorch.org, whose index tops out at Pillow 12.2.0. Every 12.x release
+    # carries published advisories (heap OOB writes in Image.paste/crop/RankFilter/
+    # ImageCmsTransform, decompression-bomb bypasses); 13.0.0 is the fixed release, so
+    # every torch install silently un-patches them.
     #
-    # This CANNOT be fixed with PIP_CONSTRAINT: constraining Pillow>=12.3.0 during the
+    # This CANNOT be fixed with PIP_CONSTRAINT: constraining Pillow>=13.0.0 during the
     # torch install makes it unsatisfiable from that index and aborts the whole run -
     # exactly the failure the old setuptools pin used to cause. So re-pin AFTER, from
-    # PyPI, with --no-deps so torch's own resolution is left untouched.
+    # PyPI, with --no-deps so torch's own resolution is left untouched. The <14 cap
+    # matches backend/constraints.txt.
     command -v pip >/dev/null 2>&1 || return 0
     vader_info "Re-pinning Pillow (torch index caps it at a vulnerable 12.2.0)..."
-    if pip install --no-deps --upgrade 'Pillow>=12.3.0' >/dev/null 2>&1; then
+    if pip install --no-deps --upgrade 'Pillow>=13.0.0,<14' >/dev/null 2>&1; then
         vader_success "Pillow $(pip show Pillow 2>/dev/null | awk '/^Version/{print $2}') re-pinned"
     else
-        vader_warn "Could not re-pin Pillow - 12.2.0 has 10 HIGH CVEs. Run: pip install --upgrade 'Pillow>=12.3.0'"
+        vader_warn "Could not re-pin Pillow - releases below 13.0.0 carry published advisories. Run: pip install --upgrade 'Pillow>=13.0.0,<14'"
     fi
 }
 
@@ -139,6 +141,18 @@ else
     fi
     vader_info "Using active virtualenv: $VIRTUAL_ENV"
 fi
+
+# Uninstalls the CUDA runtime wheels a previous torch build pulled in, through
+# the pip chosen above. Piping the names to `xargs pip` would start whichever
+# pip is first on PATH: none at all, or an activated venv that is not the
+# --venv target.
+_pt_purge_cuda_libs() {
+    local pkgs
+    pkgs="$(pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' || true)"
+    [ -n "$pkgs" ] || return 0
+    # shellcheck disable=SC2086
+    pip uninstall -y $pkgs 2>/dev/null | tail -3 || true
+}
 
 # --- fast path: skip the swap when the right build is already in place -------
 # Every branch below force-reinstalls, because pip treats +cu128 / +cpu / +rocm
@@ -377,7 +391,7 @@ if command -v rocm-smi &> /dev/null || _hardware_json_says_amd; then
     _pt_skip_if_current "$ROCM_WHL" cuda "$PT_ROCM_CODEC"
     _pt_stage_wheels "https://download.pytorch.org/whl/${ROCM_WHL}" torch torchvision torchaudio || exit 1
     pip uninstall -y torch torchvision torchaudio torchcodec 2>/dev/null | tail -3 || true
-    pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
+    _pt_purge_cuda_libs
     # Purge flash-attn/xformers/pynvml for the same reasons as CUDA/CPU paths (shared
     # backend/venv contract; custom nodes and some plugin reqs inject incompatible
     # versions leading to diffusers import crashes with aten schema errors).
@@ -519,7 +533,7 @@ if command -v nvidia-smi &> /dev/null; then
             _pt_stage_wheels "https://download.pytorch.org/whl/cpu" $PT_PKGS || exit 1
         fi
         pip uninstall -y torch torchvision torchaudio torchcodec 2>/dev/null | tail -3 || true
-        pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
+        _pt_purge_cuda_libs
         # Purge flash-attn / xformers (the #1 source of "Current Torch with Flash-Attention 2.5.7
         # doesnt have a compatible aten::_flash_attention_forward schema (philox_seed vs rng_state)"
         # errors on diffusers import in batch_image_generation_api / offline_image_generator).
@@ -621,7 +635,7 @@ else
     _pt_skip_if_current cpu none "$(_pt_pins cpu)"
     _pt_stage_wheels "https://download.pytorch.org/whl/cpu" $(_pt_pins cpu) || exit 1
     pip uninstall -y torch torchvision torchaudio torchcodec 2>/dev/null | tail -3 || true
-    pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
+    _pt_purge_cuda_libs
     # Also purge flash/xformers/pynvml here (see main CUDA clean comment for rationale:
     # prevents schema mismatch on diffusers import + repeated FutureWarnings from plugins).
     pip uninstall -y flash-attn flash_attn xformers pynvml nvidia-ml-py 2>/dev/null | tail -3 || true

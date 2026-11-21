@@ -94,7 +94,8 @@
     "generate": "Generar vista previa",
     "originalFrame": "Fotograma original",
     "upscaledFrame": "Fotograma escalado",
-    "backToVideo": "Volver al video"
+    "backToVideo": "Volver al video",
+    "empty": "Aún no hay nada para previsualizar."
   },
   "jobs": {
     "title": "Tareas de escalado",

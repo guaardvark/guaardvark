@@ -81,6 +81,7 @@ import {
 } from "../components/settings/ui";
 import IndexProfileChips from "../components/settings/IndexProfileChips";
 import RerankerControl from "../components/settings/RerankerControl";
+import DoclingModelsControl from "../components/settings/DoclingModelsControl";
 import IdentityCheckControl from "../components/settings/IdentityCheckControl";
 import RebuildIndexDialog from "../components/settings/RebuildIndexDialog";
 import IndexProfileEditDialog from "../components/settings/IndexProfileEditDialog";
@@ -1639,6 +1640,8 @@ const SettingsPage = () => {
       const parts = [];
       if (d.images?.batches) parts.push(t("settings.history.imageBatches", { count: d.images.batches }));
       if (d.videos?.batches) parts.push(t("settings.history.videoBatches", { count: d.videos.batches }));
+      if (d.loose?.files) parts.push(t("settings.history.looseFiles", { count: d.loose.files }));
+      if (d.infographics?.files) parts.push(t("settings.history.infographics", { count: d.infographics.files }));
       if (d.audio?.files || d.audio?.jobs)
         parts.push(
           t("settings.history.audio", { files: d.audio.files || 0, jobs: d.audio.jobs || 0 }),
@@ -3564,6 +3567,12 @@ const SettingsPage = () => {
         <RerankerControl showMessage={showMessage} />
       </Cluster>
       <Cluster
+        label={t("settings.knowledgePanel.doclingModels")}
+        help={t("settings.knowledgePanel.doclingModelsHelp")}
+      >
+        <DoclingModelsControl showMessage={showMessage} />
+      </Cluster>
+      <Cluster
         label={t("settings.knowledgePanel.autoresearch")}
         help={t("settings.knowledgePanel.autoresearchHelp")}
       >
@@ -4089,6 +4098,20 @@ const SettingsPage = () => {
             batches: deleteHistoryCounts.videos?.batches || 0,
             files: deleteHistoryCounts.videos?.files || 0,
             size: formatByteSize(deleteHistoryCounts.videos?.bytes),
+          }),
+        },
+        {
+          label: t("settings.deleteHistory.loose"),
+          value: t("settings.deleteHistory.filesValue", {
+            files: deleteHistoryCounts.loose?.files || 0,
+            size: formatByteSize(deleteHistoryCounts.loose?.bytes),
+          }),
+        },
+        {
+          label: t("settings.deleteHistory.infographics"),
+          value: t("settings.deleteHistory.filesValue", {
+            files: deleteHistoryCounts.infographics?.files || 0,
+            size: formatByteSize(deleteHistoryCounts.infographics?.bytes),
           }),
         },
         {

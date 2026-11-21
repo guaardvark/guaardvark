@@ -1,7 +1,7 @@
 // frontend/src/components/layout/PageLayout.jsx
 // Shared page layout component — standardizes page chrome across all pages.
 
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
   Box,
   Paper,
@@ -19,6 +19,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useLocation, useNavigate } from "react-router-dom";
 import { spacing, typography as typoTokens } from "../../theme/tokens";
 import brand from "../../config/brand";
+import { PageHeaderSlotContext } from "./pageHeaderSlot";
 
 /**
  * Colour for the current route from the active theme's `moduleAccents` map,
@@ -72,11 +73,22 @@ const PageLayout = ({
     accent ?? accentForPath(theme.palette.moduleAccents, pathname);
   const showHeader = variant !== "fullscreen" && !hideHeader;
   // The buttons only step the browser's own history, which the router fills
-  // on every navigation; a brand that turns them off keeps back and forward.
-  const showHistoryButtons = brand.pageHistoryButtons !== false;
+  // on every navigation, so they are off unless a brand turns them on.
+  const showHistoryButtons = brand.pageHistoryButtons === true;
+  // A page embedded without a header hands its controls to the header above it.
+  const outerSlots = React.useContext(PageHeaderSlotContext);
+  const [actionsSlot, setActionsSlot] = useState(null);
+  const [statusSlot, setStatusSlot] = useState(null);
+  const [primarySlot, setPrimarySlot] = useState(null);
+  const ownSlots = useMemo(
+    () => ({ actions: actionsSlot, status: statusSlot, primary: primarySlot }),
+    [actionsSlot, statusSlot, primarySlot],
+  );
+  const headerSlots = showHeader ? ownSlots : outerSlots;
   const contentPadding = noPadding || variant === "grid" ? 0 : { xs: 1.5, sm: spacing.sectionGap };
 
   return (
+    <PageHeaderSlotContext.Provider value={headerSlots}>
     <Box
       sx={{
         display: "flex",
@@ -112,7 +124,7 @@ const PageLayout = ({
               columnGap: 1,
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, minWidth: 0 }}>
               {showHistoryButtons && (
                 <>
                   <IconButton
@@ -131,7 +143,21 @@ const PageLayout = ({
                   </IconButton>
                 </>
               )}
+              {/* A page's status takes the title's place. */}
+              <Box
+                ref={setStatusSlot}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 0.75,
+                  minWidth: 0,
+                  "&:empty": { display: "none" },
+                  "&:not(:empty) ~ .page-title": { display: "none" },
+                }}
+              />
               <Typography
+                className="page-title"
                 variant={typoTokens.pageTitle.variant}
                 sx={{
                   fontWeight: typoTokens.pageTitle.fontWeight,
@@ -167,6 +193,9 @@ const PageLayout = ({
                   </ToggleButton>
                 </ToggleButtonGroup>
               )}
+              {/* The page's main action, set apart from the other buttons so it is always in one place. */}
+              <Box ref={setPrimarySlot} sx={{ display: "flex", mr: 10, "&:empty": { display: "none" } }} />
+              <Box ref={setActionsSlot} sx={{ display: "contents" }} />
               {actions}
               {modelStatus && activeModel && (
                 <Chip
@@ -197,6 +226,7 @@ const PageLayout = ({
         {children}
       </Box>
     </Box>
+    </PageHeaderSlotContext.Provider>
   );
 };
 

@@ -105,8 +105,11 @@
     "statusFailed": "Échec de la vérification du statut du service"
   },
   "history": {
-    "cleared": "Liste de l'historique des lots effacée.",
+    "cleared": "Chaque lot est masqué de cette liste. Rien n'a été supprimé.",
     "clear": "Effacer la liste des lots",
+    "hideAll": "Masquer tous les lots de cette liste (rien n'est supprimé)",
+    "viewRows": "Lignes",
+    "viewGrid": "Vignettes",
     "title": "Lots récents",
     "refresh": "Actualiser les lots",
     "retry": "Réessayer",
@@ -264,6 +267,7 @@
     "scale": "Échelle de Guidance : {{guidance}}",
     "zimageHelp": "Z-Image fonctionne sans CFG — la guidance est fixée à 0. Utilisez les Étapes pour la qualité.",
     "qwenHelp": "Qwen-Image 2.1 fonctionne à une guidance de 1 sur le chemin officiel. Augmentez-la uniquement avec un prompt négatif.",
+    "flux3KleinHelp": "FLUX 3 Klein est distillé : la guidance reste à 1 sur le chemin officiel, et son upsampler de prompt écrit la légende complète.",
     "mossHelp": "MOSS-Image fonctionne avec un guidage de 2.5 sur le modèle officiel. Jusqu'à 6 produit également un rendu propre, avec un peu plus de contraste.",
     "autoHelp": "Routes automatiques par prompt. Le choix habituel (Z-Image) est sans CFG — gardez 0 à moins d'attendre une route SDXL."
   },
@@ -315,5 +319,8 @@
     "title": "Aperçu des prompts générés ({{count}})",
     "intro": "Voici les prompts finaux qui seront envoyés au générateur d'images :",
     "close": "Fermer"
+  },
+  "cards": {
+    "noSettings": "Ce mode d'entrée n'a aucun Paramètres ici."
   }
 }

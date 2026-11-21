@@ -15,15 +15,19 @@ import {
 } from "@mui/icons-material";
 import { useUiTranslation } from "../../i18n";
 import { formatVideoStamp } from "../../utils/videoBatchStamp";
+import useGrowingList, { growMarkerStyle } from "../../hooks/useGrowingList";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
 function BatchLibraryGrid({ batches, onOpen, onOpenMenu, onDelete, statusLabel }) {
   const { t } = useUiTranslation();
+  // Four cards to a row at full width; six rows fill the library's scroll area.
+  const { shown, markerRef, hasMore } = useGrowingList(batches, { initial: 24, step: 24 });
 
   return (
+    <Box sx={{ position: "relative" }}>
     <Grid container spacing={2}>
-      {batches.map((b) => {
+      {shown.map((b) => {
         // Date and time, as Image Gen's cards show it: cards are named
         // after the first prompt, so two runs of one prompt tell apart here.
         const dateStr = formatVideoStamp(b.start_time || b.end_time);
@@ -153,6 +157,8 @@ function BatchLibraryGrid({ batches, onOpen, onOpenMenu, onDelete, statusLabel }
         );
       })}
     </Grid>
+    {hasMore && <div ref={markerRef} style={growMarkerStyle} data-testid="grow-marker" />}
+    </Box>
   );
 }
 

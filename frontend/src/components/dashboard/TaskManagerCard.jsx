@@ -29,6 +29,8 @@ import useContextMenu from "../../hooks/useContextMenu";
 // Import API functions - getTasks (functional), createTask (now functional)
 import { getTasks, createTask } from "../../api";
 import { uiLocale, useUiTranslation } from "../../i18n";
+import NightShiftSummary from "../jobs/NightShiftSummary";
+import useNightShift from "../../hooks/useNightShift";
 
 // Helper component to render task status chip
 const TaskStatusChip = ({ status }) => {
@@ -92,6 +94,7 @@ const TaskManagerCard = React.forwardRef(
     ref,
   ) => {
     const { t } = useUiTranslation();
+    const nightShift = useNightShift(60000);
     const [tasks, setTasks] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -234,6 +237,8 @@ const TaskManagerCard = React.forwardRef(
             </Alert>
           ) : (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {/* What the last night shift did, failures first. */}
+              <NightShiftSummary shift={nightShift.status?.shift} dense limit={4} />
               {/* Add Task Button */}
               <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
                 <Button

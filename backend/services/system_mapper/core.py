@@ -45,6 +45,7 @@ class FindingKind(str, Enum):
     HOT_PATH_SPIKE = "hot-path-spike"          # unusually high recent hit rate
     CONTEXTUAL_DISCOVERY = "contextual-discovery"  # fired at runtime but no static importer
     NO_SUBSYSTEM = "no-subsystem"              # source files subsystems.json does not claim
+    FRONTEND_NOT_MAPPED = "frontend-not-mapped"  # no frontend/src, route callers not checked
 
 
 @dataclass
@@ -94,7 +95,7 @@ class SystemMap:
     node_meta: dict = field(default_factory=dict)   # module -> {path, lang, lifecycle, importers, subsystem, ...}
     reachability: dict = field(default_factory=dict)
     tool_graph: dict = field(default_factory=dict)
-    celery_tasks: list = field(default_factory=list)      # [{name, module, file, function, line}]
+    celery_tasks: list = field(default_factory=list)      # see dispatch_graph.celery_tasks
     subsystems: dict = field(default_factory=dict)        # {name: {description, files, ...}}
 
     # Flat findings — the bridge to self-improvement

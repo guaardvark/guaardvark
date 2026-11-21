@@ -26,9 +26,6 @@ import {
   DialogActions,
   Button,
 } from "@mui/material";
-import ReactGridLayout from "react-grid-layout/legacy";
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
 
 import {
   ViewModule,
@@ -60,12 +57,25 @@ import {
 import { useNavigate } from "react-router-dom";
 import PageLayout from "../components/layout/PageLayout";
 import ClosedNotesDrawer from "../components/notes/ClosedNotesDrawer";
+import DashboardCardWrapper from "../components/dashboard/DashboardCardWrapper";
 import TextInputDialog from "../components/common/TextInputDialog";
 import { pinnedToTop, pinnedFirst, isEditableTarget } from "../components/notes/notesBoard";
+import {
+  CardBoard,
+  DRAG_CANCEL,
+  barRows,
+  barsPreset,
+  compactPreset,
+  loadBoardState,
+  nextMode,
+  saveBoardState,
+  useBoardGestures,
+  useBoardWidth,
+  useCardStacking,
+} from "../components/board";
 import { useLayout, useDashboardWidth } from "../contexts/LayoutContext";
 import { ContextualLoader } from "../components/common/LoadingStates";
 import { opaqueMenuPaperSx } from "../components/common/opaqueMenuPaper";
-import { toHexColor } from "../utils/colorHex";
 import copyText from "../utils/copyText";
 import { guardHtmlMedia, unguardHtmlMedia } from "../utils/assetGuard";
 import { useUiTranslation, translate } from "../i18n";
@@ -82,19 +92,8 @@ const LAYOUT_MODE_ICONS = {
   collapsed: ViewList,
 };
 
-// The drag placeholder is the grid cell, so a minimized note has to occupy
-// the header bar. Row math matches react-grid-layout's pixel height:
-// rows * rowHeight + (rows - 1) * margin. 40px is the note header.
-function minimizedBarRows(rowHeight, margin) {
-  const target = 40;
-  let rows = 1;
-  while (rows < 12) {
-    const px = Math.round(rowHeight * rows + Math.max(0, rows - 1) * margin);
-    if (px >= target) return rows;
-    rows += 1;
-  }
-  return rows;
-}
+// Height given to each bar's slot in the Collapsed stack.
+const COLLAPSED_BAR_PX = 50;
 
 const NOTE_COLORS = [
   "rgba(0, 128, 128, 0.15)",   // teal glass (primary)
@@ -130,15 +129,16 @@ const getContrastColor = (bgColor) => {
   return yiq > 186 ? "rgba(0, 0, 0, 0.87)" : "rgba(255, 255, 255, 0.95)";
 };
 
-// ─── Inline StickyNote component ────────────────────────────────────────────
+// ─── A note: the shared card frame around a small rich-text editor ───────────
+
+const toolbarButtonSx = { width: 22, height: 22, p: 0, color: "inherit", opacity: 0.5, "&:hover": { opacity: 1 } };
 
 const StickyNote = React.memo(
   ({
-    _noteId,
+    noteId,
     title,
     content,
     color,
-    textColor,
     isMinimized,
     isPinned,
     onToggleMinimize,
@@ -146,22 +146,16 @@ const StickyNote = React.memo(
     onTitleChange,
     onColorChange,
     onContentChange,
-    _onDeleteRequest,
     onFormat,
     onInsertLink,
-    theme,
     noteRef,
   }) => {
     const { t } = useUiTranslation();
-    const colorInputRef = useRef(null);
     const contentRef = useRef(null);
     const contentPropRef = useRef(content);
-    const titleCancelRef = useRef(false);
-    const [editingTitle, setEditingTitle] = useState(false);
-    const [titleDraft, setTitleDraft] = useState(title || "");
     contentPropRef.current = content;
 
-    // Keep the editor mounted across minimize. Write props into an empty node
+    // The editor stays mounted across minimize. Write props into an empty node
     // (first mount, or a remount after collapsed layout) and follow external
     // updates only while the caret is not in the note.
     useEffect(() => {
@@ -173,23 +167,6 @@ const StickyNote = React.memo(
       // change `content` from outside and must rewrite the editor.
       if (el.innerHTML !== next) el.innerHTML = next;
     }, [content]);
-
-    useEffect(() => {
-      if (!editingTitle) setTitleDraft(title || "");
-    }, [title, editingTitle]);
-
-    // A double-click anywhere on the bar names the note, except on its buttons.
-    const startRename = useCallback(
-      (e) => {
-        if (editingTitle || e.target.closest("button, input")) return;
-        e.preventDefault();
-        // An Escape that unmounted the last input may have left this set.
-        titleCancelRef.current = false;
-        setTitleDraft(title || "");
-        setEditingTitle(true);
-      },
-      [editingTitle, title],
-    );
 
     // Ignore a disconnected node, and ignore an unfocused editor that just
     // became empty while state still holds text. That is the minimize wipe.
@@ -205,333 +182,93 @@ const StickyNote = React.memo(
       onContentChange(html);
     }, [onContentChange]);
 
-    const commitTitle = useCallback(() => {
-      setEditingTitle(false);
-      const next = titleDraft;
-      if (next !== (title || "")) onTitleChange(next);
-    }, [titleDraft, title, onTitleChange]);
-
-    const cancelTitle = useCallback(() => {
-      titleCancelRef.current = true;
-      setTitleDraft(title || "");
-      setEditingTitle(false);
-    }, [title]);
-
-
-    const dividerColor = "rgba(255,255,255,0.08)";
-    const placeholderColor = "rgba(255,255,255,0.2)";
-
     return (
-      <Paper
-        elevation={3}
-        className={`draggable-card ${isMinimized ? "minimized" : ""}`}
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          height: isMinimized ? "auto" : "100%",
-          minHeight: isMinimized ? 0 : "120px",
-          overflow: "hidden",
-          borderRadius: "8px",
-          backgroundColor: color,
-          backdropFilter: "blur(12px)",
-          border: `1px solid rgba(255,255,255,0.06)`,
-          color: textColor,
-          transition: theme.transitions.create(["height", "min-height"], {
-            duration: theme.transitions.duration.standard,
-          }),
-        }}
+      <DashboardCardWrapper
+        id={noteId}
+        title={title}
+        titlePlaceholder={t("notes.untitled")}
+        onRename={onTitleChange}
+        cardColor={color}
+        onCardColorChange={onColorChange}
+        isMinimized={isMinimized}
+        onToggleMinimize={onToggleMinimize}
+        showMinimizeButton
+        onClose={onClose}
+        closeLabel={t("notes.note.closeNote")}
+        keepMounted
+        titleBarActions={isPinned ? <PushPin sx={{ fontSize: 14, opacity: 0.5 }} /> : null}
+        // Note colours are translucent; the blur keeps overlapping notes readable.
+        sx={{ backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.06)", minHeight: isMinimized ? 0 : "120px" }}
       >
-        {/* ── Header — drag handle + title (always visible) ──────── */}
-        <Box
-          className="note-header"
-          onDoubleClick={startRename}
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            pl: 1,
-            pr: 2,
-            minHeight: "40px",
-            cursor: "grab",
-            userSelect: "none",
-            "&:active": { cursor: "grabbing" },
-            "&:hover": {
-              backgroundColor: "rgba(255,255,255,0.04)",
-              borderRadius: "8px 8px 0 0",
-            },
-          }}
-        >
-          {/* Pin indicator */}
-          {isPinned && (
-            <PushPin sx={{ fontSize: 14, color: textColor, opacity: 0.5, mr: 0.5 }} />
-          )}
-
-          {/* The title is part of the drag handle; the whole bar renames on
-              double-click. */}
-          <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
-            {editingTitle ? (
-              <InputBase
-                autoFocus
-                className="non-draggable"
-                value={titleDraft}
-                placeholder={t("notes.untitled")}
-                onMouseDown={(e) => e.stopPropagation()}
-                onChange={(e) => setTitleDraft(e.target.value)}
-                onBlur={() => {
-                  if (titleCancelRef.current) {
-                    titleCancelRef.current = false;
-                    return;
-                  }
-                  commitTitle();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    e.currentTarget.blur();
-                  } else if (e.key === "Escape") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    cancelTitle();
-                  }
-                }}
-                // The caret goes after the name. The drag handle clears the page
-                // selection one frame after the press ends, so place it after that frame.
-                onFocus={(e) => {
-                  const input = e.target;
-                  requestAnimationFrame(() => {
-                    const end = input.value.length;
-                    input.setSelectionRange(end, end);
-                  });
-                }}
-                sx={{
-                  flex: 1,
-                  fontSize: "0.77rem",
-                  fontWeight: 600,
-                  color: textColor,
-                  "& input": { p: 0, color: "inherit", userSelect: "text" },
-                }}
-              />
-            ) : (
-              <Typography
-                data-note-title=""
-                sx={{
-                  maxWidth: "100%",
-                  fontWeight: 600,
-                  fontSize: "0.77rem",
-                  color: textColor,
-                  overflow: "hidden",
-                  whiteSpace: "nowrap",
-                  textOverflow: "ellipsis",
-                  opacity: title ? 1 : 0.3,
-                  fontStyle: title ? "normal" : "italic",
-                }}
-              >
-                {title || t("notes.untitled")}
-              </Typography>
-            )}
-          </Box>
-
-          {/* Color picker dot — matches DashboardCardWrapper (8x8) */}
-          <Box sx={{ position: "relative", ml: 0.5 }}>
-            <Tooltip title={t("notes.note.changeColor")}>
+        {/* Formatting toolbar */}
+        <Box sx={{ display: "flex", gap: 0.25, px: 0.5, pb: 0.25, borderBottom: 1, borderColor: "divider" }}>
+          {[
+            { cmd: "bold", icon: <FormatBold sx={{ fontSize: 14 }} />, tip: t("notes.note.bold") },
+            { cmd: "italic", icon: <FormatItalic sx={{ fontSize: 14 }} />, tip: t("notes.note.italic") },
+            { cmd: "underline", icon: <FormatUnderlined sx={{ fontSize: 14 }} />, tip: t("notes.note.underline") },
+          ].map(({ cmd, icon, tip }) => (
+            <Tooltip key={cmd} title={tip}>
               <IconButton
-                onClick={() => colorInputRef.current?.click()}
-                className="non-draggable"
-                sx={{
-                  width: 8,
-                  height: 8,
-                  minWidth: 8,
-                  minHeight: 8,
-                  p: 0,
-                  borderRadius: "50%",
-                  backgroundColor: color,
-                  border: `1px solid ${textColor}`,
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    transform: "scale(1.3)",
-                    boxShadow: `0 0 3px ${color}`,
-                  },
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onFormat(cmd);
                 }}
+                className="non-draggable"
+                size="small"
+                sx={toolbarButtonSx}
               >
-                <Box
-                  sx={{
-                    width: 2,
-                    height: 2,
-                    borderRadius: "50%",
-                    backgroundColor: textColor,
-                  }}
-                />
+                {icon}
               </IconButton>
             </Tooltip>
-            <input
-              ref={colorInputRef}
-              type="color"
-              value={toHexColor(color)}
-              onChange={(e) => onColorChange(e.target.value)}
-              style={{
-                position: "absolute",
-                opacity: 0,
-                pointerEvents: "none",
-                width: 1,
-                height: 1,
-              }}
-            />
-          </Box>
-
-          <Tooltip title={isMinimized ? t("dashboard.cardWrapper.expand") : t("dashboard.cardWrapper.minimize")}>
+          ))}
+          <Tooltip title={t("notes.note.insertLink")}>
             <IconButton
-              aria-label={isMinimized ? t("dashboard.cardWrapper.expand") : t("dashboard.cardWrapper.minimize")}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleMinimize();
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onInsertLink();
               }}
               className="non-draggable"
               size="small"
-              sx={{
-                width: 20,
-                height: 20,
-                p: 0,
-                ml: 0.5,
-                color: textColor,
-                opacity: 0.4,
-                "&:hover": { opacity: 1 },
-              }}
+              sx={toolbarButtonSx}
             >
-              {isMinimized ? <UnfoldMore sx={{ fontSize: 16 }} /> : <UnfoldLess sx={{ fontSize: 16 }} />}
-            </IconButton>
-          </Tooltip>
-
-          {/* Close parks the note. The button sits clear of the corner resize handle. */}
-          <Tooltip title={t("notes.note.close")}>
-            <IconButton
-              aria-label={t("notes.note.closeNote")}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose();
-              }}
-              className="non-draggable"
-              size="small"
-              sx={{
-                width: 20,
-                height: 20,
-                p: 0,
-                ml: 0.5,
-                color: textColor,
-                opacity: 0.4,
-                "&:hover": { opacity: 1, backgroundColor: "rgba(255,0,0,0.1)" },
-              }}
-            >
-              <Close sx={{ fontSize: 16 }} />
+              <InsertLink sx={{ fontSize: 14 }} />
             </IconButton>
           </Tooltip>
         </Box>
 
-        {/* Body stays mounted while minimized so its HTML is not discarded. */}
+        {/* Editable content */}
         <Box
-          sx={{
-            display: isMinimized ? "none" : "flex",
-            flexDirection: "column",
-            flexGrow: 1,
-            minHeight: 0,
+          ref={(el) => {
+            contentRef.current = el;
+            if (noteRef) noteRef(el);
+            if (el && !el.innerHTML && contentPropRef.current) {
+              el.innerHTML = guardHtmlMedia(contentPropRef.current);
+            }
           }}
-        >
-            {/* Formatting toolbar */}
-            <Box
-              sx={{
-                display: "flex",
-                gap: 0.25,
-                px: 1,
-                py: 0.25,
-                borderTop: `1px solid ${dividerColor}`,
-                borderBottom: `1px solid ${dividerColor}`,
-              }}
-            >
-              {[
-                { cmd: "bold", icon: <FormatBold sx={{ fontSize: 14 }} />, tip: t("notes.note.bold") },
-                { cmd: "italic", icon: <FormatItalic sx={{ fontSize: 14 }} />, tip: t("notes.note.italic") },
-                { cmd: "underline", icon: <FormatUnderlined sx={{ fontSize: 14 }} />, tip: t("notes.note.underline") },
-              ].map(({ cmd, icon, tip }) => (
-                <Tooltip key={cmd} title={tip}>
-                  <IconButton
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      onFormat(cmd);
-                    }}
-                    className="non-draggable"
-                    size="small"
-                    sx={{
-                      width: 22,
-                      height: 22,
-                      p: 0,
-                      color: textColor,
-                      opacity: 0.5,
-                      "&:hover": { opacity: 1 },
-                    }}
-                  >
-                    {icon}
-                  </IconButton>
-                </Tooltip>
-              ))}
-              <Tooltip title={t("notes.note.insertLink")}>
-                <IconButton
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onInsertLink();
-                  }}
-                  className="non-draggable"
-                  size="small"
-                  sx={{
-                    width: 22,
-                    height: 22,
-                    p: 0,
-                    color: textColor,
-                    opacity: 0.5,
-                    "&:hover": { opacity: 1 },
-                  }}
-                >
-                  <InsertLink sx={{ fontSize: 14 }} />
-                </IconButton>
-              </Tooltip>
-            </Box>
-
-            {/* Editable content */}
-            <Box
-              ref={(el) => {
-                contentRef.current = el;
-                if (noteRef) noteRef(el);
-                if (el && !el.innerHTML && contentPropRef.current) {
-                  el.innerHTML = guardHtmlMedia(contentPropRef.current);
-                }
-              }}
-              className="note-content non-draggable"
-              contentEditable
-              suppressContentEditableWarning
-              onBlur={publishContent}
-              onInput={publishContent}
-              sx={{
-                flexGrow: 1,
-                p: 1,
-                overflow: "auto",
-                outline: "none",
-                fontSize: "0.85rem",
-                lineHeight: 1.5,
-                color: textColor,
-                cursor: "text",
-                minHeight: 60,
-                "& a": {
-                  color: theme.palette.primary.light,
-                  textDecoration: "underline",
-                },
-                "&:empty::before": {
-                  content: JSON.stringify(t("notes.note.bodyPlaceholder")),
-                  color: placeholderColor,
-                  fontStyle: "italic",
-                },
-              }}
-            />
-        </Box>
-      </Paper>
+          className="note-content non-draggable"
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={publishContent}
+          onInput={publishContent}
+          sx={{
+            flexGrow: 1,
+            p: 1,
+            overflow: "auto",
+            outline: "none",
+            fontSize: "0.85rem",
+            lineHeight: 1.5,
+            cursor: "text",
+            userSelect: "text",
+            minHeight: 60,
+            "& a": { color: "primary.light", textDecoration: "underline" },
+            "&:empty::before": {
+              content: JSON.stringify(t("notes.note.bodyPlaceholder")),
+              color: "text.disabled",
+              fontStyle: "italic",
+            },
+          }}
+        />
+      </DashboardCardWrapper>
     );
   },
 );
@@ -548,13 +285,11 @@ const StickyNotesPage = () => {
   const dashboardWidth = useDashboardWidth();
 
   const {
-    CONTAINER_PADDING_PX,
     CARD_MARGIN_PX,
     COLS_COUNT,
     ROW_HEIGHT_PX,
     cardMinGridW,
     cardGridW,
-    cardGridH,
   } = gridSettings;
 
   const [initialStateLoaded, setInitialStateLoaded] = useState(false);
@@ -562,8 +297,6 @@ const StickyNotesPage = () => {
   const [notes, setNotes] = useState({});
   const [noteColors, setNoteColors] = useState({});
   const [minimizedCards, setMinimizedCards] = useState({});
-  const [_cardZIndex, setCardZIndex] = useState({});
-  const [maxZIndex, setMaxZIndex] = useState(0);
   const [layoutMode, setLayoutMode] = useState("normal");
   const [pinnedNotes, setPinnedNotes] = useState({});
   const [closedNotes, setClosedNotes] = useState({});
@@ -574,14 +307,9 @@ const StickyNotesPage = () => {
   const [saveIndicator, setSaveIndicator] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { noteId, source }
   const [renameTarget, setRenameTarget] = useState(null); // { noteId, title }
-  const gridContainerRef = useRef(null);
-  const [gridWidth, setGridWidth] = useState(dashboardWidth);
-  const isTogglingRef = useRef(false);
-  // Minimized flags at drag start: the drag reports the bar height of a
-  // minimized note. Pre-flip bits from a toggle during the press are merged in
-  // so expand still stores the full height.
-  const dragMinRef = useRef(null);
-  const draggingRef = useRef(false);
+  const renameInputRef = useRef(null);
+  const [gridContainerRef, gridWidth] = useBoardWidth(dashboardWidth);
+  const stacking = useCardStacking();
   const noteRefs = useRef({});
   const editRangeRef = useRef(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -608,25 +336,6 @@ const StickyNotesPage = () => {
   closedNotesRef.current = closedNotes;
   layoutModeRef.current = layoutMode;
 
-  // ── Grid width tracking ──────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (dashboardWidth > 0) setGridWidth(dashboardWidth);
-  }, [dashboardWidth]);
-
-  useEffect(() => {
-    const el = gridContainerRef.current;
-    if (!el) return;
-    const measure = () => {
-      const w = el.clientWidth;
-      if (w > 0) setGridWidth(w);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   // ── Layout helpers ───────────────────────────────────────────────────────
 
   // Default note size: square (width × width in grid units)
@@ -646,6 +355,10 @@ const StickyNotesPage = () => {
 
   const [layout, setLayout] = useState([]);
   useEffect(() => { layoutRef.current = layout; }, [layout]);
+  const gestures = useBoardGestures(
+    useCallback(() => layoutRef.current || [], []),
+    useCallback(() => minimizedCardsRef.current, []),
+  );
   const normalLayoutRef = useRef(null);
   // Last mode this effect applied. A title edit used to rebuild the packed
   // layouts and this effect then called setLayout, which parks every note
@@ -664,46 +377,15 @@ const StickyNotesPage = () => {
     return pinnedFirst(ids, pinned);
   }, [noteIdsKey, pinnedKey]);
 
-  // Compact layout (derived)
-  const compactLayout = useMemo(() => {
-    const noteIds = orderedNoteIds;
-    const compactW = Math.round(cardGridW * 0.71);
-    const compactH = Math.round(cardGridH * 0.71);
-    const colWidthPx = gridWidth / COLS_COUNT;
-    const cardPixelW = compactW * colWidthPx;
-    const cardsPerRow = Math.max(1, Math.floor(gridWidth / cardPixelW));
-
-    return noteIds.map((id, idx) => ({
-      i: id,
-      x: (idx % cardsPerRow) * compactW,
-      y: Math.floor(idx / cardsPerRow) * compactH,
-      w: compactW,
-      h: compactH,
-      minW: cardMinGridW,
-      isDraggable: true,
-      isResizable: false,
-    }));
-  }, [orderedNoteIds, cardGridW, cardGridH, gridWidth, COLS_COUNT, cardMinGridW]);
-
-  // Collapsed layout (derived)
-  const collapsedLayout = useMemo(() => {
-    const noteIds = orderedNoteIds;
-    const colWidthPx = gridWidth / COLS_COUNT;
-    const barW = Math.round(300 / colWidthPx);
-    const barH = Math.round(50 / ROW_HEIGHT_PX);
-    const barX = Math.max(0, COLS_COUNT - barW);
-
-    return noteIds.map((id, idx) => ({
-      i: id,
-      x: barX,
-      y: idx * barH,
-      w: barW,
-      h: barH,
-      minW: cardMinGridW,
-      isDraggable: true,
-      isResizable: false,
-    }));
-  }, [orderedNoteIds, gridWidth, COLS_COUNT, ROW_HEIGHT_PX, cardMinGridW]);
+  // Compact and Collapsed are derived from the note order; notes in them move but do not resize.
+  const compactLayout = useMemo(
+    () => compactPreset(orderedNoteIds, gridSettings, gridWidth, { isResizable: false }),
+    [orderedNoteIds, gridSettings, gridWidth],
+  );
+  const collapsedLayout = useMemo(
+    () => barsPreset(orderedNoteIds, gridSettings, gridWidth, COLLAPSED_BAR_PX, { isResizable: false }),
+    [orderedNoteIds, gridSettings, gridWidth],
+  );
 
   // ── Load saved state ─────────────────────────────────────────────────────
 
@@ -711,25 +393,19 @@ const StickyNotesPage = () => {
     const fetchState = async () => {
       setLayoutError(null);
       try {
-        const res = await fetch("/api/state/sticky-notes");
-        if (!res.ok) {
-          if (res.status === 404) {
-            // First visit — one default note
-            const id = `note-${Date.now()}`;
-            const defaultNotes = { [id]: { content: "", title: "" } };
-            const defaultColors = { [id]: NOTE_COLORS[0] };
-            const defaultLayout = [makeLayoutItem(id, 0)];
-            setNotes(defaultNotes);
-            setNoteColors(defaultColors);
-            normalLayoutRef.current = defaultLayout;
-            setLayout(defaultLayout);
-            setLayoutMode("normal");
-          } else {
-            throw new Error(`${res.statusText} (${res.status})`);
-          }
+        const saved = await loadBoardState("sticky-notes");
+        if (!saved) {
+          // First visit — one default note
+          const id = `note-${Date.now()}`;
+          const defaultNotes = { [id]: { content: "", title: "" } };
+          const defaultColors = { [id]: NOTE_COLORS[0] };
+          const defaultLayout = [makeLayoutItem(id, 0)];
+          setNotes(defaultNotes);
+          setNoteColors(defaultColors);
+          normalLayoutRef.current = defaultLayout;
+          setLayout(defaultLayout);
+          setLayoutMode("normal");
         } else {
-          const saved = await res.json();
-
           if (saved.layoutMode && LAYOUT_MODES.includes(saved.layoutMode)) {
             setLayoutMode(saved.layoutMode);
           }
@@ -798,12 +474,9 @@ const StickyNotesPage = () => {
       if (modeChanged) setLayout(normalLayoutRef.current || []);
       return;
     }
-    isTogglingRef.current = true;
+    gestures.suspendFrame();
     setLayout(layoutMode === "compact" ? compactLayout : collapsedLayout);
-    requestAnimationFrame(() => {
-      isTogglingRef.current = false;
-    });
-  }, [layoutMode, initialStateLoaded, compactLayout, collapsedLayout]);
+  }, [layoutMode, initialStateLoaded, compactLayout, collapsedLayout, gestures]);
 
   // ── Persistence ──────────────────────────────────────────────────────────
 
@@ -822,12 +495,7 @@ const StickyNotesPage = () => {
             newLayoutMode !== undefined ? newLayoutMode : layoutModeRef.current,
           lastSaved: new Date().toISOString(),
         };
-        const res = await fetch("/api/state/sticky-notes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error(`(${res.status})`);
+        await saveBoardState("sticky-notes", body);
         setLayoutError(null);
         setSaveIndicator("saved");
         setTimeout(() => setSaveIndicator(null), 2000);
@@ -969,25 +637,8 @@ const StickyNotesPage = () => {
 
   const commitGridLayout = useCallback(
     (newLayout, fromDrag) => {
-      draggingRef.current = false;
-      if (isTogglingRef.current) {
-        dragMinRef.current = null;
-        return;
-      }
-      const prevById = new Map((layoutRef.current || []).map((item) => [item.i, item]));
-      const minimizedAtStart = fromDrag
-        ? (dragMinRef.current || minimizedCardsRef.current)
-        : minimizedCardsRef.current;
-      dragMinRef.current = null;
-      // Minimized notes are handed to the grid at bar height. Keep the stored
-      // height so expand still opens the size the note had before.
-      const validLayout = newLayout.filter((item) => item && item.i).map((item) => {
-        const prev = prevById.get(item.i);
-        if (!prev) return item;
-        const next = { ...prev, x: item.x, y: item.y, w: item.w };
-        if (!minimizedAtStart[item.i]) next.h = item.h;
-        return next;
-      });
+      const validLayout = gestures.settle(newLayout, fromDrag);
+      if (!validLayout) return;
       if (layoutMode === "normal") normalLayoutRef.current = validLayout;
       setLayout(validLayout);
       // Flush any pending debounced save to prevent content loss
@@ -998,7 +649,7 @@ const StickyNotesPage = () => {
       // Pass notes explicitly from ref to ensure latest content is saved
       saveState(validLayout, noteColorsRef.current, minimizedCardsRef.current, undefined, notesRef.current);
     },
-    [saveState, layoutMode],
+    [saveState, layoutMode, gestures],
   );
 
   const handleNoteColorChange = useCallback(
@@ -1022,12 +673,9 @@ const StickyNotesPage = () => {
       if (layoutModeRef.current !== "normal") return;
       cancelDebouncedSave();
       const liveNotes = flushNoteDom(noteId);
-      isTogglingRef.current = true;
+      gestures.beginToggle(noteId);
 
       const prevMin = minimizedCardsRef.current;
-      const snap = { ...(dragMinRef.current || {}) };
-      snap[noteId] = !!prevMin[noteId];
-      dragMinRef.current = snap;
       const newMin = { ...prevMin, [noteId]: !prevMin[noteId] };
       minimizedCardsRef.current = newMin;
       setMinimizedCards(newMin);
@@ -1035,29 +683,12 @@ const StickyNotesPage = () => {
       // Leave x/y/w/h alone. The grid renders a bar-height copy while the
       // flag is set, and the stored height is what expand opens.
       saveState(layoutRef.current, noteColorsRef.current, newMin, undefined, liveNotes);
-      requestAnimationFrame(() => {
-        isTogglingRef.current = false;
-        if (!draggingRef.current) dragMinRef.current = null;
-      });
     },
-    [saveState, cancelDebouncedSave, flushNoteDom],
-  );
-
-  const handleCardClick = useCallback(
-    (noteId) => {
-      const z = maxZIndex + 1;
-      setMaxZIndex(z);
-      setCardZIndex((prev) => ({ ...prev, [noteId]: z }));
-      const el = document.querySelector(`[data-card-id="${noteId}"]`);
-      const gridItem = el?.closest(".react-grid-item") || el;
-      if (gridItem) gridItem.style.zIndex = z;
-    },
-    [maxZIndex],
+    [saveState, cancelDebouncedSave, flushNoteDom, gestures],
   );
 
   const handleCycleLayoutMode = useCallback(() => {
-    const idx = LAYOUT_MODES.indexOf(layoutMode);
-    const next = LAYOUT_MODES[(idx + 1) % LAYOUT_MODES.length];
+    const next = nextMode(LAYOUT_MODES, layoutMode);
     if (layoutMode === "normal") normalLayoutRef.current = layout;
     setLayoutMode(next);
     saveState(normalLayoutRef.current || layout, noteColors, minimizedCards, next);
@@ -1271,9 +902,9 @@ const StickyNotesPage = () => {
 
       let newLayout = normalLayoutRef.current || layoutRef.current || [];
       if (pinning) {
-        const barRows = minimizedBarRows(ROW_HEIGHT_PX, CARD_MARGIN_PX);
+        const rows = barRows(ROW_HEIGHT_PX, CARD_MARGIN_PX);
         newLayout = pinnedToTop(newLayout, newPinned, COLS_COUNT, (item) =>
-          minimizedCardsRef.current[item.i] ? barRows : item.h,
+          minimizedCardsRef.current[item.i] ? rows : item.h,
         );
         normalLayoutRef.current = newLayout;
         if (layoutModeRef.current === "normal") setLayout(newLayout);
@@ -1396,6 +1027,15 @@ const StickyNotesPage = () => {
   const LayoutModeIcon = LAYOUT_MODE_ICONS[layoutMode];
   const _isCompact = layoutMode === "compact";
   const isCollapsed = layoutMode === "collapsed";
+  const isSearching = filteredNoteIds !== null;
+  // The notes on the board, pinned ones first: a later note draws over an earlier one.
+  const shownLayout = layout.filter(
+    (item) => notes[item.i] && (filteredNoteIds === null || filteredNoteIds.has(item.i)),
+  );
+  const boardLayout = [
+    ...shownLayout.filter((item) => pinnedNotes[item.i]),
+    ...shownLayout.filter((item) => !pinnedNotes[item.i]),
+  ];
   const deleteSource = deleteConfirm?.source === "closed" ? closedNotes : notes;
   const deleteNoteTitle = (deleteConfirm && deleteSource[deleteConfirm.noteId]?.title) || t("notes.untitled");
   const layoutModeLabel = layoutModeLabels()[layoutMode];
@@ -1573,205 +1213,133 @@ const StickyNotesPage = () => {
           </MuiAlert>
         )}
 
-        <Box
-          ref={gridContainerRef}
-          sx={{
-            width: "100%",
-            "& .react-grid-item": {
-              transition: "transform 0.2s ease-out !important",
-              "&.react-draggable-dragging": {
-                transition: "none !important",
-                opacity: 0.9,
-                // Outline the note, not the grid cell, so a minimized bar
-                // does not drag an expanded-card frame.
-                "& > div": {
-                  outline: `2px solid ${theme.palette.primary.main}`,
-                  borderRadius: "4px",
-                },
-              },
+        <CardBoard
+          containerRef={gridContainerRef}
+          width={gridWidth}
+          grid={gridSettings}
+          layout={boardLayout}
+          minimized={minimizedCards}
+          stacking={stacking}
+          dragHandle=".card-header-buttons"
+          dragCancel={`${DRAG_CANCEL}, .note-content`}
+          // While a search filters the board, moves are not kept.
+          onDragStart={isSearching ? undefined : gestures.onDragStart}
+          onDragStop={isSearching ? undefined : (next) => commitGridLayout(next, true)}
+          onResizeStop={isSearching ? undefined : (next) => commitGridLayout(next, false)}
+          cardProps={(noteId) => ({
+            onContextMenu: (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const contentEl = e.target.closest?.(".note-content");
+              const inContent = Boolean(contentEl);
+              editRangeRef.current = null;
+              if (inContent) {
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0 && contentEl.contains(sel.anchorNode)) {
+                  editRangeRef.current = sel.getRangeAt(0).cloneRange();
+                }
+              }
+              setContextMenu({ noteId, x: e.clientX, y: e.clientY, inContent });
             },
-          }}
-        >
-          {(() => {
-            // Filter layout to match visible children — prevents RGL from dropping hidden note positions
-            const barRows = minimizedBarRows(ROW_HEIGHT_PX, CARD_MARGIN_PX);
-            const visibleLayout = layout
-              .filter(
-                (item) => notes[item.i] && (filteredNoteIds === null || filteredNoteIds.has(item.i)),
-              )
-              .map((item) =>
-                minimizedCards[item.i]
-                  ? { ...item, h: barRows, minH: barRows, maxH: barRows }
-                  : item,
-              );
-            const isSearching = filteredNoteIds !== null;
+          })}
+          renderCard={(layoutItem, isMinimized) => {
+            const noteId = layoutItem.i;
+            const note = notes[noteId];
+            const noteColor = noteColors[noteId] || NOTE_COLORS[0];
+            const textColor = getContrastColor(noteColor);
             return (
-            <ReactGridLayout
-              className="layout"
-              layout={visibleLayout}
-              style={{ transition: "all 0.2s ease-out" }}
-              cols={COLS_COUNT}
-              rowHeight={ROW_HEIGHT_PX}
-              width={gridWidth}
-              containerPadding={[CONTAINER_PADDING_PX, CONTAINER_PADDING_PX]}
-              margin={[CARD_MARGIN_PX, CARD_MARGIN_PX]}
-              isDraggable={true}
-              isResizable={true}
-              compactType={null}
-              preventCollision={false}
-              useCSSTransforms={false}
-              allowOverlap={true}
-              draggableHandle=".note-header"
-              draggableCancel="button, input, textarea, select, option, .non-draggable, .note-content"
-              onDragStart={isSearching ? undefined : () => {
-                draggingRef.current = true;
-                const live = { ...minimizedCardsRef.current };
-                // A toggle on this same press may already have stored the
-                // pre-flip flag. That bit wins over the live map.
-                dragMinRef.current = dragMinRef.current
-                  ? { ...live, ...dragMinRef.current }
-                  : live;
-              }}
-              onDragStop={isSearching ? undefined : (next) => commitGridLayout(next, true)}
-              onResizeStop={isSearching ? undefined : (next) => commitGridLayout(next, false)}
-              resizeHandles={["s", "w", "e", "n", "sw", "nw", "se", "ne"]}
-            >
-            {visibleLayout
-              .sort((a, b) => {
-                const aPin = pinnedNotes[a.i] ? 1 : 0;
-                const bPin = pinnedNotes[b.i] ? 1 : 0;
-                return bPin - aPin;
-              })
-              .map((layoutItem) => {
-                const noteId = layoutItem.i;
-                const note = notes[noteId];
-                const isMinimized = minimizedCards[noteId] || false;
-                const noteColor = noteColors[noteId] || NOTE_COLORS[0];
-                const textColor = getContrastColor(noteColor);
-
-                return (
-                  <div
-                    key={noteId}
-                    data-card-id={noteId}
-                    style={{
+              <>
+                {isCollapsed ? (
+                  <Paper
+                    elevation={1}
+                    className="card-header-buttons"
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      height: "100%",
+                      px: 2,
+                      cursor: "grab",
+                      userSelect: "none",
+                      borderRadius: "8px",
+                      backgroundColor: noteColor,
+                      backdropFilter: "blur(12px)",
+                      border: "1px solid rgba(255,255,255,0.06)",
                       transition:
-                        "transform 0.2s ease-out, box-shadow 0.2s ease-out",
-                      height: isMinimized ? "auto" : "100%",
-                      maxHeight: "100%",
-                      overflow: "hidden",
+                        "background-color 0.15s ease, box-shadow 0.15s ease",
+                      "&:hover": { boxShadow: theme.shadows[4], backgroundColor: "rgba(255,255,255,0.04)" },
+                      "&:active": { cursor: "grabbing" },
                     }}
-                    onMouseDown={() => handleCardClick(noteId)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const contentEl = e.target.closest?.(".note-content");
-                      const inContent = Boolean(contentEl);
-                      editRangeRef.current = null;
-                      if (inContent) {
-                        const sel = window.getSelection();
-                        if (sel && sel.rangeCount > 0 && contentEl.contains(sel.anchorNode)) {
-                          editRangeRef.current = sel.getRangeAt(0).cloneRange();
-                        }
-                      }
-                      setContextMenu({ noteId, x: e.clientX, y: e.clientY, inContent });
+                    onClick={() => {
+                      setLayoutMode("normal");
+                      saveState(normalLayoutRef.current || layout, noteColors, minimizedCards, "normal");
                     }}
                   >
-                    {isCollapsed ? (
-                      <Paper
-                        elevation={1}
-                        className="note-header"
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          height: "100%",
-                          px: 2,
-                          cursor: "grab",
-                          userSelect: "none",
-                          borderRadius: "8px",
-                          backgroundColor: noteColor,
-                          backdropFilter: "blur(12px)",
-                          border: "1px solid rgba(255,255,255,0.06)",
-                          transition:
-                            "background-color 0.15s ease, box-shadow 0.15s ease",
-                          "&:hover": { boxShadow: theme.shadows[4], backgroundColor: "rgba(255,255,255,0.04)" },
-                          "&:active": { cursor: "grabbing" },
-                        }}
-                        onClick={() => {
-                          setLayoutMode("normal");
-                          saveState(normalLayoutRef.current || layout, noteColors, minimizedCards, "normal");
-                        }}
-                      >
-                        {pinnedNotes[noteId] && (
-                          <PushPin sx={{ fontSize: 12, color: textColor, opacity: 0.5, mr: 0.5 }} />
-                        )}
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 500,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            color: textColor,
-                            pointerEvents: "none",
-                            flex: 1,
-                          }}
-                        >
-                          {note.title || (note.content
-                            ? note.content.replace(/<[^>]*>/g, "").substring(0, 40) || t("notes.emptyNote")
-                            : t("notes.emptyNote"))}
-                        </Typography>
-                        <IconButton
-                          aria-label={t("notes.note.closeNote")}
-                          size="small"
-                          className="non-draggable"
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCloseNote(noteId);
-                          }}
-                          sx={{ ml: 0.5, width: 20, height: 20, p: 0, color: textColor, opacity: 0.5 }}
-                        >
-                          <Close sx={{ fontSize: 16 }} />
-                        </IconButton>
-                      </Paper>
-                    ) : (
-                      <StickyNote
-                        noteId={noteId}
-                        title={note.title || ""}
-                        content={note.content}
-                        color={noteColor}
-                        textColor={textColor}
-                        isMinimized={isMinimized}
-                        isPinned={!!pinnedNotes[noteId]}
-                        onToggleMinimize={() =>
-                          handleToggleMinimize(noteId)
-                        }
-                        onClose={() => handleCloseNote(noteId)}
-                        onTitleChange={(nextTitle) =>
-                          handleNoteTitleChange(noteId, nextTitle)
-                        }
-                        onColorChange={(color) =>
-                          handleNoteColorChange(noteId, color)
-                        }
-                        onContentChange={(content) =>
-                          handleNoteContentChange(noteId, content)
-                        }
-                        onDeleteRequest={() => setDeleteConfirm({ noteId, source: "open" })}
-                        onFormat={handleFormat}
-                        onInsertLink={handleInsertLink}
-                        theme={theme}
-                        noteRef={(el) => {
-                          noteRefs.current[noteId] = el;
-                        }}
-                      />
+                    {pinnedNotes[noteId] && (
+                      <PushPin sx={{ fontSize: 12, color: textColor, opacity: 0.5, mr: 0.5 }} />
                     )}
-                  </div>
-                );
-              })}
-          </ReactGridLayout>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 500,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        color: textColor,
+                        pointerEvents: "none",
+                        flex: 1,
+                      }}
+                    >
+                      {note.title || (note.content
+                        ? note.content.replace(/<[^>]*>/g, "").substring(0, 40) || t("notes.emptyNote")
+                        : t("notes.emptyNote"))}
+                    </Typography>
+                    <IconButton
+                      aria-label={t("notes.note.closeNote")}
+                      size="small"
+                      className="non-draggable"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCloseNote(noteId);
+                      }}
+                      sx={{ ml: 0.5, width: 20, height: 20, p: 0, color: textColor, opacity: 0.5 }}
+                    >
+                      <Close sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Paper>
+                ) : (
+                  <StickyNote
+                    noteId={noteId}
+                    title={note.title || ""}
+                    content={note.content}
+                    color={noteColor}
+                    isMinimized={isMinimized}
+                    isPinned={!!pinnedNotes[noteId]}
+                    onToggleMinimize={() =>
+                      handleToggleMinimize(noteId)
+                    }
+                    onClose={() => handleCloseNote(noteId)}
+                    onTitleChange={(nextTitle) =>
+                      handleNoteTitleChange(noteId, nextTitle)
+                    }
+                    onColorChange={(color) =>
+                      handleNoteColorChange(noteId, color)
+                    }
+                    onContentChange={(content) =>
+                      handleNoteContentChange(noteId, content)
+                    }
+                    onDeleteRequest={() => setDeleteConfirm({ noteId, source: "open" })}
+                    onFormat={handleFormat}
+                    onInsertLink={handleInsertLink}
+                    noteRef={(el) => {
+                      noteRefs.current[noteId] = el;
+                    }}
+                  />
+                )}
+              </>
             );
-          })()}
-        </Box>
+          }}
+        />
       </Box>
 
       {/* ── Right-click context menu ───────────────────────────────── */}
@@ -1934,11 +1502,23 @@ const StickyNotesPage = () => {
         onClose={() => setRenameTarget(null)}
         maxWidth="xs"
         fullWidth
+        // The menu that opened this hands focus back to the note as it closes,
+        // which takes it from the field's autoFocus. Put the caret after the
+        // name once the dialog is up, so typing starts at once.
+        slotProps={{ transition: {
+          onEntered: () => {
+            const input = renameInputRef.current;
+            if (!input) return;
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+          },
+        } }}
       >
         <DialogTitle sx={{ fontSize: "0.9rem" }}>{t("notes.renameDialog.title")}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
+            inputRef={renameInputRef}
             fullWidth
             size="small"
             value={renameTarget?.title || ""}

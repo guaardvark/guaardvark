@@ -119,9 +119,9 @@ class ACEStep15Backend(ACEStepBackend):
     """ACE-Step 1.5 turbo with its 1.7B planner. Driven via subprocess."""
 
     name = "ace_step_1.5_turbo"
-    # Peak 14.4 GB (nvidia-smi, the daemon process) for 30 s and 240 s renders on a
-    # 16 GB card, 2026-10-04; about 10 GB of that is bf16 weights. It takes the whole GPU.
-    vram_mb_estimate = 14400
+    # The measured peak and how it was measured live in the catalog's "vram" block,
+    # which Audio Studio's model list reads as well.
+    vram_mb_estimate = int(load_catalog()["vram"]["reserve_mb"])
     requires_exclusive_vram = True
 
     MODEL_ID = "ACE-Step/Ace-Step1.5"

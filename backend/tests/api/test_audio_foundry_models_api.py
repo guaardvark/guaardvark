@@ -58,6 +58,8 @@ def test_list_models_shape(client):
     assert ids == [
         "chatterbox",
         "kokoro",
+        "kokoro-japanese",
+        "kokoro-mandarin",
         "ace-step",
         "ace-step-1.5",
         "stable-audio-open",

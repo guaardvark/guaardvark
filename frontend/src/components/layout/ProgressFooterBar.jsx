@@ -18,6 +18,8 @@ import {
     typeLabel,
 } from './progressFooterModel';
 import { useUiTranslation } from '../../i18n';
+import ScheduledFooterChip from './ScheduledFooterChip';
+import useNightShift, { scheduledCount } from '../../hooks/useNightShift';
 
 const VIDEO_SEED_REFRESH_MS = 30000;
 const VIDEO_SEED_FINAL_READ_MS = 3000;
@@ -137,6 +139,7 @@ const ProgressFooterBar = () => {
     // Hover shows every job in flight; a click keeps the list open until dismissed.
     // It closes once nothing is in flight, so the next job never reopens it unanchored.
     const jobsRef = useRef(null);
+    const scheduled = scheduledCount(useNightShift(60000).status);
     const [listOpen, setListOpen] = useState(false);
     const [listPinned, setListPinned] = useState(false);
     const closeList = () => {
@@ -156,7 +159,28 @@ const ProgressFooterBar = () => {
     const drawerWidth = navChromeWidth(navChrome, sidebarExpanded);
 
     if (!view && !lingering) {
-        return null;
+        // Nothing in flight: the bar shows only when jobs are scheduled for later.
+        if (!scheduled) return null;
+        return (
+            <Box
+                sx={{
+                    position: 'fixed',
+                    bottom: 0,
+                    left: drawerWidth,
+                    right: 0,
+                    height: '24px',
+                    zIndex: 9999,
+                    backgroundColor: theme.palette.background.paper,
+                    borderTop: `1px solid ${theme.palette.divider}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    px: 2,
+                }}
+            >
+                <ScheduledFooterChip count={scheduled} />
+            </Box>
+        );
     }
 
     const failed = !view && Boolean(lingering?.failed);
@@ -275,6 +299,12 @@ const ProgressFooterBar = () => {
                     ))}
                 </Box>
 
+                {scheduled > 0 && (
+                    <>
+                        <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 16, alignSelf: 'center' }} />
+                        <ScheduledFooterChip count={scheduled} />
+                    </>
+                )}
                 <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 16, alignSelf: 'center' }} />
                 <TaskQueueIndicator compact={true} />
 

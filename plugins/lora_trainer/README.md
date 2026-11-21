@@ -24,7 +24,17 @@ The plugin selects between:
 - **real SDXL (legacy)** — `scripts/run_trainer.py` + `venv-torch/` PEFT UNet.
 - **mock** (pytest only) — refused outside pytest (NO-MOCKS policy).
 
-Optional: set `ZIMAGE_TURBO_TRAIN_ADAPTER=/path/to/ostris_adapter.safetensors` to load a turbo train adapter before PEFT.
+Z-Image Turbo is distilled, so a LoRA trained straight on it renders soft. The
+Turbo training adapter (`ostris/zimage_turbo_training_adapter`, Apache-2.0,
+340 MB) is fused into the frozen base while training and is not needed to
+render. Install it from the Cast page (Training Data > Train the LoRA); training
+uses it once it is on disk and never downloads it. `ZIMAGE_TURBO_TRAIN_ADAPTER=/path/to/file.safetensors`
+points at a copy elsewhere.
+
+A run that sets nothing uses the base's `train_recipe` in
+`backend/services/media_model_registry.py` (Z-Image Turbo: 1024 px, rank 32,
+attention and feed-forward layers, base stored in float8; about 90 minutes for
+1500 steps on a 16 GB card).
 
 Selection priority:
   1. `GUAARDVARK_LORA_BACKEND=real|auto|mock` env var (default: `auto`)

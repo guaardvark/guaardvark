@@ -390,6 +390,8 @@ class OfflineImageGenerator:
             "moss-image": "comfy:moss-image",
             # FLUX 3 Image Klein — text-to-image via ComfyUI 0.41+; gated download.
             "flux3-klein": "comfy:flux3-klein",
+            # MiniMax H3 stills — one frame from the H3 video model via ComfyUI 0.46+.
+            "minimax-h3-t2i": "comfy:minimax-h3-t2i",
             # ComfyUI generic backend — chat/batch route to the reachable ComfyUI
             # and pick whichever image engine is installed (Z-Image / FLUX).
             "comfyui": "comfy:comfyui",
@@ -407,7 +409,8 @@ class OfflineImageGenerator:
         # get_available_models() and model_recommender still honour it.
         self.hidden_models: set[str] = set()
         # Offline Diffusers cannot load these — batch/API must route to ComfyUI.
-        self.comfy_only_models = {"flux-dev", "qwen-image-21", "moss-image", "flux3-klein", "comfyui"}
+        self.comfy_only_models = {"flux-dev", "qwen-image-21", "moss-image", "flux3-klein",
+                                  "minimax-h3-t2i", "comfyui"}
         # User-added entries (backend/services/user_image_models.py): family by id
         # or repo, file-kind entries keyed by their "user:<id>" sentinel, and the
         # catalog rows themselves. Filled by load_user_catalog() below.
@@ -425,6 +428,7 @@ class OfflineImageGenerator:
             "qwen-image-21": {"label": "Qwen-Image 2.1 (ComfyUI)", "description": "Prose prompts, native 2K, transparent renders; 25 steps, cfg 1 (official template). Needs ComfyUI 0.37+. Qwen Research License: non-commercial research and evaluation only.", "recommended": False, "order": 1, "engine": "comfy"},
             "moss-image": {"label": "MOSS-Image (ComfyUI)", "description": "Exact lettering in English and Chinese, posters and layouts from long prose prompts; 25 steps, cfg 2.5 (official template). Needs ComfyUI 0.42+. Apache 2.0.", "recommended": False, "order": 1, "engine": "comfy"},
             "flux3-klein": {"label": "FLUX 3 Image Klein (ComfyUI)", "description": "BFL's FLUX 3 open-weights model with its prompt upsampler; 15 steps, cfg 1 (official template). Needs ComfyUI 0.41+ and a Hugging Face login. FLUX Kommunity Licence: commercial use only under US$5M annual revenue.", "recommended": False, "order": 1, "engine": "comfy"},
+            "minimax-h3-t2i": {"label": "MiniMax H3 Stills (ComfyUI)", "description": "Still pictures from the MiniMax H3 video model, with the files the H3 video model installs; 30 steps, no CFG (official template). Needs ComfyUI 0.46+. MiniMax H3 Community License: the USA, EU, UK and South Korea are Excluded Territories; commercial products must display 'MiniMax H3'.", "recommended": False, "order": 1, "engine": "comfy"},
             "comfyui": {"label": "ComfyUI (auto backend)", "description": "Routes image generation to the running ComfyUI plugin and picks the installed engine (Z-Image or FLUX).", "recommended": False, "order": 1, "engine": "comfy"},
             "krea2-turbo": {"label": "Krea 2 Turbo", "description": "12B aesthetic-first model, native 2K, 8 steps CFG-free. Fast inference.", "recommended": False, "order": 2},
             "krea2-raw": {"label": "Krea 2 Raw", "description": "Base 12B checkpoint — less post-trained than Turbo (~52 steps, CFG 3.5). Use for mature/creative prompts or LoRA base.", "recommended": False, "order": 3},
@@ -655,6 +659,7 @@ class OfflineImageGenerator:
         files, so they finish last. A sharded component also ships an index naming
         every piece, which makes "is this complete?" exactly checkable.
         """
+        from backend.utils.model_file_integrity import file_incomplete, file_problem
         try:
             import json
             with open(model_path / "model_index.json") as f:
@@ -684,16 +689,23 @@ class OfflineImageGenerator:
                 except Exception:
                     return False
                 for shard in set(weight_map.values()):
-                    if not (comp_dir / shard).is_file():
+                    problem = file_problem(comp_dir / shard)
+                    if problem:
                         logger.debug(
-                            f"{model_path.name}: '{component}' missing shard {shard}"
+                            f"{model_path.name}: '{component}' shard {shard}: {problem}"
                         )
                         return False
                 continue
 
-            if not any(comp_dir.glob("*.safetensors")) and not any(comp_dir.glob("*.bin")):
+            weights = [*comp_dir.glob("*.safetensors"), *comp_dir.glob("*.bin")]
+            if not weights:
                 logger.debug(f"{model_path.name}: '{component}' has no weight file")
                 return False
+            for weight in weights:
+                problem = file_incomplete(weight)
+                if problem:
+                    logger.debug(f"{model_path.name}: '{component}' {weight.name}: {problem}")
+                    return False
 
         return True
 
@@ -715,8 +727,9 @@ class OfflineImageGenerator:
             root / "clip" / "t5" / t5_name,
             root / "text_encoders" / t5_name,
         ]
-        t5_ok = any(p.is_file() and p.stat().st_size > 0 for p in t5_candidates)
-        return all(p.is_file() and p.stat().st_size > 0 for p in (unet, vae, clip)) and t5_ok
+        from backend.utils.model_file_integrity import file_complete
+        t5_ok = any(file_complete(p) for p in t5_candidates)
+        return all(file_complete(p) for p in (unet, vae, clip)) and t5_ok
 
     @staticmethod
     def _comfyui_assets_present() -> bool:
@@ -769,6 +782,24 @@ class OfflineImageGenerator:
         except Exception as e:  # noqa: BLE001 — a listing must not fail on one row
             logger.debug("missing_files_for(%s) failed: %s", model_key, e)
         return []
+
+    def incomplete_files_for(self, model_key: str) -> Dict[str, str]:
+        """``{"<entry>:<file>": reason}`` for the missing_files_for entries that
+        are on disk but cut short or unreadable."""
+        if not self.is_comfy_only_model(model_key):
+            return {}
+        try:
+            if self._user_file_entry(model_key) is not None:
+                from backend.services.user_image_models import user_incomplete_files
+                return user_incomplete_files(self, model_key)
+            mid = str(self.available_models.get(model_key) or model_key)
+            catalog_key = mid.split(":", 1)[1] if mid.startswith("comfy:") else model_key
+            from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY, incomplete_plan_files
+            if catalog_key in VIDEO_MODEL_REGISTRY:
+                return incomplete_plan_files(catalog_key)
+        except Exception as e:  # noqa: BLE001 — a listing must not fail on one row
+            logger.debug("incomplete_files_for(%s) failed: %s", model_key, e)
+        return {}
 
     # How long a repo-access verdict stays good. The menu asks per model, so without
     # a cache every dropdown open would fan out HTTP requests.
@@ -942,13 +973,45 @@ class OfflineImageGenerator:
         GPU admission, which would evict the chat model for a request about to
         be refused.
         """
-        if not model_key or model_key == "auto" or self.is_comfy_only_model(model_key):
+        if not model_key or model_key == "auto":
+            return None if self._auto_has_model() else self._no_model_failure()
+        if self.is_comfy_only_model(model_key):
             return None
         model_id = self.available_models.get(model_key)
         if not model_id or self._is_model_downloaded(model_id):
             return None
         self._install_needed = model_id
         return self._load_failure_reason(model_key, model_id)
+
+    def _auto_has_model(self) -> bool:
+        """Whether Auto has anything to render with: an offline model on disk, or
+        a Stills default from Settings that can run here (ComfyUI ones included)."""
+        for key, model_id in self.available_models.items():
+            if key in self.comfy_only_models:
+                continue
+            if self._is_model_downloaded(model_id):
+                return True
+        return bool(self.configured_default_for_auto())
+
+    def _no_model_failure(self):
+        """The typed failure for an Auto request on a machine with no image model."""
+        from backend.services.job_types import RenderErrorKind, RenderFailure
+        if self._device not in ("cuda", "mps"):
+            # The recommended models refuse to run on the processor (see the
+            # family guard in _generate), so suggesting one here would waste
+            # the download.
+            message = (
+                "No image model is downloaded, and image generation has no GPU "
+                "to use on this machine (no working NVIDIA or Apple silicon "
+                "device). The recommended models, Z-Image Turbo and Krea 2, "
+                "do not run on the processor. See docs/HARDWARE.md."
+            )
+        else:
+            message = (
+                "No image model is downloaded yet. Open Settings → Image Models "
+                "and download one (Z-Image Turbo is the recommended default)."
+            )
+        return RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, message)
 
     def _resolve_model_ref(self, model_ref: str) -> str:
         """Catalog key (e.g. krea2-turbo) → HF repo id; pass through HF ids and auto."""
@@ -1006,6 +1069,8 @@ class OfflineImageGenerator:
             return "qwen-image-21"
         if "moss-image" in mid or key.startswith("moss-image"):
             return "moss-image"
+        if "minimax-h3-t2i" in mid or key.startswith("minimax-h3-t2i"):
+            return "minimax-h3-t2i"
         if "flux3" in mid or key.startswith("flux3"):
             return "flux3-klein"
         if "flux" in mid or key.startswith("flux"):
@@ -1645,6 +1710,29 @@ class OfflineImageGenerator:
             f for f in files
             if "/" not in f and f.endswith((".safetensors", ".ckpt", ".pt", ".bin"))
         ]
+
+    def snapshot_download_bytes(self, model_id: str) -> int:
+        """Bytes ``_snapshot_with_retry`` fetches for a repo, from the Hub's file listing.
+
+        Applies the same filters as the download (ignore patterns, redundant root
+        checkpoints). Returns 0 when the listing cannot be read.
+        """
+        try:
+            from huggingface_hub import HfApi
+            from huggingface_hub.utils import filter_repo_objects
+            # The install thread waits on this before its stall monitor starts.
+            info = HfApi().model_info(model_id, files_metadata=True, timeout=15, token=self._hf_token())
+            sizes = {s.rfilename: int(s.size or 0) for s in (info.siblings or [])}
+        except Exception as e:
+            logger.debug(f"Could not read file sizes for {model_id}: {e}")
+            return 0
+        ignore = list(self._SNAPSHOT_IGNORE_PATTERNS)
+        if "model_index.json" in sizes:
+            ignore.extend(
+                f for f in sizes
+                if "/" not in f and f.endswith((".safetensors", ".ckpt", ".pt", ".bin"))
+            )
+        return sum(sizes[f] for f in filter_repo_objects(sizes, ignore_patterns=ignore))
 
     def _snapshot_with_retry(self, model_id: str, model_path: Path) -> tuple[bool, str | None]:
         """snapshot_download with weight-only filtering and resume-on-failure.
@@ -2787,21 +2875,7 @@ Negative Prompt: {negative_prompt}""",
             if request.model in (None, "", "auto"):
                 request.model = self._auto_select_model(request.prompt, request.style)
                 if not request.model:
-                    if self._device not in ("cuda", "mps"):
-                        # The recommended models refuse to run on the processor
-                        # (see the family guard in _generate), so suggesting a
-                        # download here would only waste it.
-                        result.error = (
-                            "No image model is downloaded, and image generation has no GPU "
-                            "to use on this machine (no working NVIDIA or Apple silicon "
-                            "device). The recommended models, Z-Image Turbo and Krea 2, "
-                            "do not run on the processor. See docs/HARDWARE.md."
-                        )
-                    else:
-                        result.error = (
-                            "No image model is downloaded yet. Open Settings → Image Models "
-                            "and download one (Z-Image Turbo is the recommended default)."
-                        )
+                    result.error = self._no_model_failure()
                     return result
             if (
                 self._has_text_intent(request.prompt)
@@ -4225,10 +4299,17 @@ Negative Prompt: {negative_prompt}""",
             except Exception as e:
                 logger.debug(f"Model availability probe failed: {e}")
 
+        from backend.services.comfyui_version import comfyui_version, offered
+        comfy_ver = comfyui_version()
         for model_key, model_id in self.available_models.items():
             if model_key in self.hidden_models:
                 continue
             meta = self.model_meta.get(model_key, {})
+            # A ComfyUI graph whose registry entry (the key, else its family)
+            # needs a newer ComfyUI than this install runs is not offered.
+            if not (offered(model_key, comfy_ver)
+                    and offered(meta.get("family") or self._model_family(model_key), comfy_ver)):
+                continue
             downloaded = self._is_model_downloaded(model_id)
             gated = False
             if downloaded:
@@ -4266,13 +4347,16 @@ Negative Prompt: {negative_prompt}""",
                 # ComfyUI rows say which files are still missing (model + companions),
                 # the way the editing packs do; offline rows have no file list.
                 "missing_files": [] if downloaded else self.missing_files_for(model_key),
+                # Of those, the files that are on disk but cut short or unreadable.
+                "incomplete_files": {} if downloaded else self.incomplete_files_for(model_key),
                 "size_estimate": (
                     "28-36GB" if "krea" in model_id.lower()
                     else "23GB+Comfy" if "flux" in model_key or "flux" in model_id.lower()
                     else "17GB+Comfy" if "qwen-image-21" in model_key
                     else "13GB+Comfy" if "moss-image" in model_key
                     else "18GB+Comfy" if "flux3" in model_key
-                    else "16GB" if "z-image" in model_id.lower() or "zimage" in model_key
+                    else "42GB+Comfy" if "minimax-h3-t2i" in model_key
+                    else "31GB" if "z-image" in model_id.lower() or "zimage" in model_key
                     else "Comfy backend" if model_key == "comfyui"
                     else "12-15GB" if "xl" in model_id.lower()
                     else "4-7GB"

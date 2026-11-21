@@ -12,7 +12,8 @@
     "title": "Film Crew",
     "productionsTab": "Produkcje",
     "castLibraryTab": "Biblioteka obsady",
-    "newProduction": "Nowa produkcja"
+    "newProduction": "Nowa produkcja",
+    "productionCard": "Produkcja"
   },
   "list": {
     "failedAt": "błąd: {{stage}}",

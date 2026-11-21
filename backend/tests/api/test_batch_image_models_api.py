@@ -8,6 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from backend.tests.fixtures.model_files import write_model_file
+
 try:
     from flask import Flask
     from backend.api import batch_image_generation_api as api
@@ -336,8 +338,7 @@ def test_generator_missing_files_reads_the_registry_plan(monkeypatch, tmp_path):
     for eid in vmr.install_plan("qwen-image-21"):
         entry = vmr.VIDEO_MODEL_REGISTRY[eid]
         p = vmr.resolve_entry_dir(entry) / entry["check_files"][0]
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_bytes(b"x")
+        write_model_file(p)
     assert gen._is_model_downloaded("comfy:qwen-image-21") is True
     assert gen.missing_files_for("qwen-image-21") == []
 

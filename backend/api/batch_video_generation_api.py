@@ -14,7 +14,7 @@ import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 from urllib.parse import quote
 
 from flask import Blueprint, request, send_file
@@ -191,9 +191,53 @@ def _resolve_request_model(data, role: str):
     return model_id, None
 
 
+def _canvas_for_ratio(ratio: str, model_id: str, default_w: int, default_h: int) -> tuple:
+    """(width, height) for an ``aspect_ratio`` like "9:16": the model's own canvas
+    in that shape. A ratio the model does not declare is refused with the same
+    words as the generate_video tool. A model with a declared canvas takes its
+    size for the ratio; any other keeps the default frame's pixel area,
+    aligned to its grid, so 9:16 on a 1312x736 default renders 736x1312."""
+    import math
+    from backend.services.video_model_registry import declared_canvas
+
+    try:
+        w_part, h_part = (float(x) for x in str(ratio).split(":"))
+        if w_part <= 0 or h_part <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        raise _BadField(f"aspect_ratio must look like 16:9, got {ratio!r}.")
+    caps = model_capabilities(model_id) or {}
+    ratios = caps.get("aspect_ratios") or []
+    if ratios and ratio not in ratios:
+        name = (VIDEO_MODEL_REGISTRY.get(model_id) or {}).get("name") or model_id
+        raise _BadField(f"{name} renders {', '.join(ratios)}; {ratio} is not one of them.")
+    from backend.services.video_render_limits import ASPECT_TOLERANCE
+    r = w_part / h_part
+    if abs((default_w / default_h) / r - 1.0) <= ASPECT_TOLERANCE:
+        return default_w, default_h
+    if declared_canvas(model_id, default_w, default_h) == (default_w, default_h):
+        fixed = declared_canvas(model_id, int(w_part * 100), int(h_part * 100))
+        if fixed:
+            return fixed
+    align = int(caps.get("dimension_alignment") or 16) or 16
+    width = math.sqrt(default_w * default_h * r)
+    height = width / r
+    return (max(align, int(round(width / align)) * align),
+            max(align, int(round(height / align)) * align))
+
+
 def _clip_params(data, model_id: str) -> dict:
-    """Fill omitted fps/frames/steps/canvas from the model's native defaults."""
+    """Fill omitted fps/frames/steps/canvas from the model's native defaults.
+
+    ``aspect_ratio`` sets the canvas when neither width nor height is given;
+    an explicit width or height wins."""
     defaults = clip_defaults_for(model_id)
+    ratio = str(data.get("aspect_ratio") or "").strip()
+    if ratio and data.get("width") in (None, "") and data.get("height") in (None, ""):
+        defaults = dict(defaults)
+        defaults["width"], defaults["height"] = _canvas_for_ratio(
+            ratio, model_id, int(defaults["width"]), int(defaults["height"]),
+        )
     def _num(key, fallback):
         raw = data.get(key)
         if raw in (None, ""):
@@ -1283,17 +1327,24 @@ _reconcile_download_status_on_load()
 
 
 def _check_model_downloaded(model_id: str) -> bool:
-    """Check if a video model's files exist and are non-empty (wherever the
+    """Check if a video model's files exist and are whole (wherever the
     entry's `dest` says they live; see video_model_registry.resolve_entry_dir)."""
     from backend.services.video_model_registry import entry_files_present
     return entry_files_present(VIDEO_MODEL_REGISTRY.get(model_id))
 
 
 def _missing_check_files(model_id: str) -> List[str]:
-    """The check_files (model + companions) absent on disk: the precise reason a
-    model is not ready (video_model_registry.missing_plan_files)."""
+    """The check_files (model + companions) absent or cut short on disk: the
+    precise reason a model is not ready (video_model_registry.missing_plan_files)."""
     from backend.services.video_model_registry import missing_plan_files
     return missing_plan_files(model_id)
+
+
+def _incomplete_check_files(model_id: str) -> Dict[str, str]:
+    """Of the missing files, those on disk but truncated or unreadable, with the
+    reason (video_model_registry.incomplete_plan_files)."""
+    from backend.services.video_model_registry import incomplete_plan_files
+    return incomplete_plan_files(model_id)
 
 
 def _resolve_download_plan(model_id: str) -> List[str]:
@@ -1321,7 +1372,13 @@ def list_video_models():
         total_vram_mb = _detected_total_vram_mb()
         active_t2v, _ = resolve_active_video_model("t2v", comfyui_down_ok=True)
         active_i2v, _ = resolve_active_video_model("i2v", comfyui_down_ok=True)
+        from backend.services.comfyui_version import comfyui_version, offered
+        comfy_ver = comfyui_version()
         for model_id, info in VIDEO_MODEL_REGISTRY.items():
+            # A model whose graph needs a newer ComfyUI than this install runs
+            # is neither offered nor installable until ComfyUI is updated.
+            if not offered(model_id, comfy_ver):
+                continue
             plan = _resolve_download_plan(model_id)
             requires = info.get("requires", [])
             caps = model_capabilities(model_id)
@@ -1342,6 +1399,9 @@ def list_video_models():
                 # The exact files still missing (model + companions) — empty when
                 # ready. Makes a partial/wrong-quant install diagnosable (issue #36).
                 "missing_files": _missing_check_files(model_id),
+                # Of those, the files that are on disk but cut short or
+                # unreadable, with the reason; Install fetches them again.
+                "incomplete_files": _incomplete_check_files(model_id),
                 "requires": requires,
                 # Total bytes an Install click will fetch (model + missing deps).
                 "install_size_gb": round(
@@ -1433,6 +1493,10 @@ def start_video_model_download(model_id):
     try:
         if model_id not in VIDEO_MODEL_REGISTRY:
             return error_response(f"Unknown model: {model_id}", 400)
+        from backend.services.comfyui_version import refusal as comfyui_too_old
+        too_old = comfyui_too_old(model_id, VIDEO_MODEL_REGISTRY[model_id].get("name"))
+        if too_old:
+            return error_response(too_old, 409)
 
         # Build the install plan: the model itself plus any required companion
         # models (a WAN unet needs its VAE + text encoder, etc.). Dedupe while

@@ -6,8 +6,10 @@ frontend file(s) that hit that path via fetch / axios / apiClient. Surfaces:
   * GHOST_ENDPOINT       — a backend route nothing in the frontend calls
   * GHOST_API_CALLER     — a frontend call to a path the backend doesn't serve
   * URL_PATH_COLLISION   — two backend files registering the same exact path
-  * URL_PREFIX_COLLISION — two backend files registering /api/foo/* (the audit's
-                           '/api/meta' class of bugs)
+  * URL_PREFIX_COLLISION — two backend files sharing /api/foo/* where a
+                           variable route in one also matches a fixed path the
+                           other serves. Files that share a prefix without such
+                           a pair are counted (`shared_prefixes`), not reported.
 
 Path matching is template-aware: `/api/users/<int:id>` matches a frontend call
 to `/api/users/${userId}` after both are normalized to `/api/users/<param>`.
@@ -18,10 +20,22 @@ apiClient) has its calls resolved against /api/plugins, and other module-level
 constants (`const CODE_EXEC_BASE = "/code-execution"`) are substituted the
 same way, including ones imported from another file. A template that ends in an
 expression glued to a word (`/api/social-outreach${path}`, a query string
-`${plan ? "?plan=1" : ""}`) is matched as a prefix. Test files are not callers.
+`${plan ? "?plan=1" : ""}`) is matched as a prefix. Test files and comments
+are not callers.
+
+A URL built from the enclosing function's parameter (`fetch(`/api/meta/${name}`)`
+inside `run(name)`) is judged by the literals its call sites pass
+(`run("selftest")`): each becomes a caller of its own, and the ones no route
+serves are reported by their full path. With no literal call site the URL is
+matched as written.
 
 Each page under frontend/src/pages is linked to the endpoints its own code and
 the modules it imports call (`page_endpoints`).
+
+A tree without frontend/src (the backend container of a Docker install, which
+carries no frontend sources, or a backend-only repository) has no callers to
+match, so the two ghost checks are skipped and one FRONTEND_NOT_MAPPED note
+says so, instead of every route being reported as uncalled.
 """
 from __future__ import annotations
 
@@ -184,6 +198,7 @@ def _frontend_callers(root: Path, extra_excludes: frozenset[str], corpus=None) -
 
     base_url = _read_base_url_default(root)
     cache: dict[str, dict] = {}
+    sites = _literal_call_sites(corpus)
     out: list[dict] = []
     for rel in corpus.js_files():
         if not rel.startswith("frontend/src/") or is_test_path(rel):
@@ -211,13 +226,73 @@ def _frontend_callers(root: Path, extra_excludes: frozenset[str], corpus=None) -
             )
             if not keep:
                 continue
-            out.append({
+            entry = {
                 "raw": raw,
                 "resolved": resolved,
                 "file": rel,
                 "line": call["line"],
-            })
+            }
+            passed = _passed_urls(corpus, rel, call["line"], resolved, sites)
+            if passed:
+                entry["passed"] = passed
+            out.append(entry)
     return out
+
+
+_MAX_PASSED = 40
+
+
+def _literal_call_sites(corpus) -> dict[str, list[tuple[str, str, list]]]:
+    """{function name: [(file, callee as written, arguments)]} for the calls
+    in frontend/src that pass a string or template literal."""
+    from .corpus import is_test_path
+
+    sites: dict[str, list[tuple[str, str, list]]] = defaultdict(list)
+    for rel in corpus.js_files():
+        if not rel.startswith("frontend/src/") or is_test_path(rel):
+            continue
+        for callee, args in (corpus.facts[rel].get("literal_args") or []):
+            sites[callee.rsplit(".", 1)[-1]].append((rel, callee, args))
+    return sites
+
+
+def _passed_urls(corpus, rel: str, line: int, resolved: str, sites: dict) -> list[str]:
+    """``resolved`` with the enclosing function's parameters replaced by the
+    literals its call sites pass, one URL per literal. Empty when the URL uses
+    no parameter or no call site passes a literal."""
+    names = set(_TEMPLATE_NAME.findall(resolved))
+    if not names:
+        return []
+    f = corpus.facts.get(rel) or {}
+    inner = None
+    for d in f.get("defs", []):
+        if d["line"] <= line <= d["end"] and d["name"] in (f.get("params") or {}):
+            if inner is None or d["line"] >= inner["line"]:
+                inner = d
+    if inner is None:
+        return []
+    params = f["params"][inner["name"]]
+    urls = [resolved]
+    for name in sorted(names):
+        if name not in params:
+            continue
+        position = params.index(name)
+        values: list[str] = []
+        for site_rel, callee, args in sites.get(inner["name"], []):
+            if position >= len(args) or args[position] is None:
+                continue
+            if site_rel != rel and "." not in callee:
+                # The same name in another file counts only when imported under it.
+                target = corpus.bindings(site_rel).get(callee)
+                if not target or target[1] != inner["name"]:
+                    continue
+            if args[position] not in values:
+                values.append(args[position])
+        if not values:
+            continue
+        pattern = re.compile(r"\$\{\s*" + re.escape(name) + r"\s*\}")
+        urls = [pattern.sub(lambda _m, v=v: v, u) for u in urls for v in values][:_MAX_PASSED]
+    return [u for u in urls if u != resolved]
 
 
 # ── Path normalization: turn `/api/u/123` and `/api/u/<int:id>` into a common shape ──
@@ -258,13 +333,70 @@ def _caller_key(call: dict) -> tuple[str, bool]:
     return _normalize(stripped), cut
 
 
-def _served_by(norm_path: str, prefix: bool, served: set[str], served_list: list[str]) -> bool:
+def _served_by(norm_path: str, prefix: bool, served: set[str], served_list: list[str],
+               catch_alls: list[str] = ()) -> bool:
+    """Whether a route answers ``norm_path``. ``catch_alls`` are the fixed
+    heads of routes ending in ``<path:...>``, which take any deeper path."""
     if norm_path in served:
         return True
     if prefix and any(s.startswith(norm_path + "/") or s == norm_path for s in served_list):
         return True
-    # A served route that is a strict prefix of the caller (a catch-all).
-    return any(norm_path.startswith(s + "/") for s in served_list)
+    if _served_literal(norm_path, served_list):
+        return True
+    parts = norm_path.split("/")
+    for head in catch_alls:
+        head_parts = head.split("/")
+        if len(parts) > len(head_parts) and _route_takes(head_parts, parts[:len(head_parts)]):
+            return True
+    return False
+
+
+def _catch_alls(routes: list[dict]) -> list[str]:
+    out = set()
+    for r in routes:
+        tail = r["path"].find("<path:")
+        if tail >= 0:
+            out.add(_normalize(r["path"][:tail]))
+    return sorted(out)
+
+
+def _segments_match(a: list[str], b: list[str]) -> bool:
+    return len(a) == len(b) and all(x == y or "<param>" in (x, y) for x, y in zip(a, b))
+
+
+def _route_takes(route: list[str], path: list[str]) -> bool:
+    """Whether a route's segments accept a caller's: a variable segment of the
+    route stands for any segment of the path, never the reverse."""
+    return len(route) == len(path) and all(r == p or r == "<param>" for r, p in zip(route, path))
+
+
+def _served_literal(norm_path: str, served_list: list[str]) -> bool:
+    parts = norm_path.split("/")
+    return any(_route_takes(s.split("/"), parts) for s in served_list)
+
+
+def _overlapping_rules(routes: list[dict]) -> list[tuple[dict, dict]]:
+    """Pairs of routes from different files that answer the same method and
+    can match the same URL without being the same rule: a variable segment in
+    one where the other has a fixed one, or a ``<path:...>`` tail."""
+    shaped = []
+    for r in routes:
+        raw = r["path"].split("?")[0].rstrip("/")
+        tail = raw.find("<path:")
+        head = _normalize(raw if tail < 0 else raw[:tail]).split("/")
+        shaped.append((r, _normalize(raw).split("/"), head if tail >= 0 else None))
+    out: list[tuple[dict, dict]] = []
+    for i, (ra, na, ta) in enumerate(shaped):
+        for rb, nb, tb in shaped[i + 1:]:
+            if ra["file"] == rb["file"] or na == nb or not set(ra["methods"]) & set(rb["methods"]):
+                continue
+            hit = _segments_match(na, nb)
+            for tail, other in ((ta, nb), (tb, na)):
+                if tail is not None and len(other) > len(tail) and _segments_match(tail, other[:len(tail)]):
+                    hit = True
+            if hit:
+                out.append((ra, rb))
+    return out
 
 
 def _js_reach(corpus, start: str, is_page) -> list[tuple[str, dict]]:
@@ -315,7 +447,8 @@ def _js_reach(corpus, start: str, is_page) -> list[tuple[str, dict]]:
     return out
 
 
-def _page_endpoints(corpus, callers: list[dict], norm_routes: dict[str, list[dict]]) -> dict[str, list[dict]]:
+def _page_endpoints(corpus, callers: list[dict], norm_routes: dict[str, list[dict]],
+                    catch_alls: list[str] = ()) -> dict[str, list[dict]]:
     """{page file: [{path, served, routes, via}]}: the endpoints each page under
     frontend/src/pages reaches through its own calls and the functions and
     components it uses from other modules (other pages are not followed; each
@@ -346,7 +479,7 @@ def _page_endpoints(corpus, callers: list[dict], norm_routes: dict[str, list[dic
                 matches = [r for p, rs in norm_routes.items() if p.startswith(norm + "/") for r in rs][:3]
             endpoints[norm] = {
                 "path": norm,
-                "served": bool(matches) or _served_by(norm, prefix, served, served_list),
+                "served": bool(matches) or _served_by(norm, prefix, served, served_list, catch_alls),
                 "routes": sorted({f"{r['file']}:{r['line']}" for r in matches})[:3],
                 "via": f"{c['file']}:{c['line']}",
             }
@@ -364,6 +497,7 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
     if corpus is None and (root / "frontend" / "src").is_dir():
         corpus = Corpus.build(root, extra_excludes)
     routes = _backend_routes(root, extra_excludes, corpus)
+    frontend_sources = (root / "frontend" / "src").is_dir()
     callers = _frontend_callers(root, extra_excludes, corpus)
 
     # Index routes by normalized path
@@ -374,11 +508,20 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
     # Index callers by normalized path (constants substituted, glued tails cut).
     norm_calls: dict[str, list[dict]] = defaultdict(list)
     prefix_calls: set[str] = set()
+    # A caller whose URL comes from its function's argument is indexed under
+    # each literal URL its call sites pass, and under the URL as written.
+    passed_calls: dict[str, list[dict]] = defaultdict(list)
+    passed_prefixes: set[str] = set()
     for c in callers:
         norm, prefix = _caller_key(c)
         norm_calls[norm].append(c)
         if prefix:
             prefix_calls.add(norm)
+        for url in c.get("passed", []):
+            passed_norm, cut = _caller_key({"raw": url, "resolved": url})
+            passed_calls[passed_norm].append(c)
+            if cut:
+                passed_prefixes.add(passed_norm)
 
     findings: list[Finding] = []
 
@@ -404,30 +547,58 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
             ))
 
     # 2. URL_PREFIX_COLLISION: /api/<segment> claimed by 2+ files
-    prefix_to_files: dict[str, set[str]] = defaultdict(set)
+    # Sharing a prefix is how a large area is split over files; Flask matches
+    # whole rules, so it only matters when a rule in one file also matches a
+    # path another file serves.
+    prefix_to_routes: dict[str, list[dict]] = defaultdict(list)
     for r in routes:
         norm = _normalize(r["path"])
         parts = norm.strip("/").split("/")
         if len(parts) >= 2:
-            prefix_to_files["/" + "/".join(parts[:2])].add(r["file"])
-    for prefix, files in prefix_to_files.items():
-        if len(files) > 1:
-            findings.append(Finding(
-                kind=FindingKind.URL_PREFIX_COLLISION,
-                severity=Severity.MEDIUM,
-                summary=f"{prefix}/* shared by {len(files)} blueprint files (load-order dependent)",
-                paths=sorted(files),
-                evidence={"prefix": prefix, "file_count": len(files), "key": prefix},
-            ))
+            prefix_to_routes["/" + "/".join(parts[:2])].append(r)
+    shared_prefixes = 0
+    for prefix, prefix_routes in prefix_to_routes.items():
+        if len({r["file"] for r in prefix_routes}) < 2:
+            continue
+        shared_prefixes += 1
+        pairs = _overlapping_rules(prefix_routes)
+        if not pairs:
+            continue
+        files = sorted({r["file"] for pair in pairs for r in pair})
+        first_a, first_b = pairs[0]
+        findings.append(Finding(
+            kind=FindingKind.URL_PREFIX_COLLISION,
+            severity=Severity.MEDIUM,
+            summary=(f"{prefix}/*: {len(pairs)} route pair(s) in different files match the same URL "
+                     f"(e.g. {first_a['path']} and {first_b['path']})"),
+            paths=files,
+            evidence={"prefix": prefix, "file_count": len(files), "key": prefix,
+                      "pairs": [[f"{a['file']}:{a['line']} {a['path']}",
+                                 f"{b['file']}:{b['line']} {b['path']}"] for a, b in pairs[:5]]},
+        ))
 
     # 3. GHOST_ENDPOINT: route exists, no caller normalizes to it.
     # Collect candidates first, sort by path, then emit at most GHOST_LIMIT (LOW)
     # plus one INFO rollup if there are more — keeps the findings panel signal-rich.
     called_paths = set(norm_calls.keys())
     called_prefixes = sorted(prefix_calls)
+    passed_parts = [p.split("/") for p in passed_calls]
     ghost_candidates: list[tuple[str, list[str], list[str]]] = []
-    for norm_path, route_list in norm_routes.items():
+    if not frontend_sources:
+        findings.append(Finding(
+            kind=FindingKind.FRONTEND_NOT_MAPPED,
+            severity=Severity.INFO,
+            summary=("frontend/src is not in this tree, so backend routes were not matched "
+                     "against frontend callers (a Docker install's backend container has no "
+                     "frontend sources; the web UI is built into its own image)"),
+            paths=[],
+            evidence={"key": "frontend-not-mapped", "routes": len(routes)},
+        ))
+    for norm_path, route_list in (norm_routes.items() if frontend_sources else ()):
         if norm_path in called_paths:
+            continue
+        route_parts = norm_path.split("/")
+        if any(_route_takes(route_parts, p) for p in passed_parts):
             continue
         if any(norm_path == p or norm_path.startswith(p + "/") for p in called_prefixes):
             continue
@@ -466,10 +637,22 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
     # route at all, so it is counted as unresolved rather than reported.
     served = set(norm_routes.keys())
     served_list = sorted(served)
+    catch_alls = _catch_alls(routes)
     unresolved = 0
+    candidates: list[tuple[str, list[dict]]] = []
     for norm_path, call_list in norm_calls.items():
-        if _served_by(norm_path, norm_path in prefix_calls, served, served_list):
+        if _served_by(norm_path, norm_path in prefix_calls, served, served_list, catch_alls):
             continue
+        # Calls judged by the literal URLs passed to them are handled below.
+        call_list = [c for c in call_list if not c.get("passed")]
+        if call_list:
+            candidates.append((norm_path, call_list))
+    for norm_path, call_list in passed_calls.items():
+        if norm_path in norm_calls and not all(c.get("passed") for c in norm_calls[norm_path]):
+            continue  # already judged as written
+        if not _served_by(norm_path, norm_path in passed_prefixes, served, served_list, catch_alls):
+            candidates.append((norm_path, call_list))
+    for norm_path, call_list in candidates:
         if not any(seg and seg != "<param>" for seg in norm_path.split("/")[2:]):
             unresolved += len(call_list)
             continue
@@ -483,7 +666,7 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
                       "callers": [c["file"] + ":" + str(c["line"]) for c in call_list[:5]]},
         ))
 
-    page_endpoints = _page_endpoints(corpus, callers, norm_routes)
+    page_endpoints = _page_endpoints(corpus, callers, norm_routes, catch_alls)
 
     return {
         "graph": {
@@ -494,6 +677,7 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
                 for p, rs in norm_routes.items()
             ],
             "page_endpoints": page_endpoints,
+            "frontend_sources": frontend_sources,
         },
         "findings": findings,
         "stats": {
@@ -503,6 +687,7 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
             "unique_called_paths": len(norm_calls),
             "prefix_callers": len(prefix_calls),
             "unresolved_callers": unresolved,
+            "frontend_sources": frontend_sources,
             "pages_linked": len(page_endpoints),
             "ghost_endpoints": sum(1 for f in findings if f.kind == FindingKind.GHOST_ENDPOINT),
             "ghost_endpoints_total": ghost_total,
@@ -510,5 +695,6 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=Non
             "ghost_callers": sum(1 for f in findings if f.kind == FindingKind.GHOST_API_CALLER),
             "path_collisions": sum(1 for f in findings if f.kind == FindingKind.URL_PATH_COLLISION),
             "prefix_collisions": sum(1 for f in findings if f.kind == FindingKind.URL_PREFIX_COLLISION),
+            "shared_prefixes": shared_prefixes,
         },
     }

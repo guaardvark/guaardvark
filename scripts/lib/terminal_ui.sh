@@ -1,7 +1,7 @@
 #!/bin/bash
 # scripts/lib/terminal_ui.sh — pinned boot feed for start.sh and stop.sh.
 #
-# One palette, one painter. On a terminal the mascot plays once, then a fixed
+# One palette, one painter. On a terminal the mark plays once, then a fixed
 # phase board is redrawn in place (one bar, no step numbers, one activity
 # line). Pip, apt, and the boot children feed that line; their transcripts stay
 # in the log. NO_COLOR, TERM=dumb, and a pipe print plain scrolling lines.
@@ -114,7 +114,7 @@ _VADER_DIR=""
 _VADER_TAIL_SHOWN=0
 _VADER_FRAMES=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
 
-# Pixel mascot, 19 cells wide. Eyes are the two gaps in the face row.
+# Block plate for the row painters below. The splash draws banner_art.sh.
 _VADER_MASCOT=(
     '    ...     ..     '
     '    .... . ....    '
@@ -482,7 +482,7 @@ _vader_centered() {
     printf '%*s%s\n' "$pad" '' "$colored"
 }
 
-# Place a label on the same centerline as the mascot plate.
+# Place a label on the same centerline as the plate.
 _vader_under_plate() {
     local plain="$1" colored="$2" ppad inner
     if [ "${_VADER_PLATE_ON:-0}" = 1 ]; then
@@ -497,7 +497,130 @@ _vader_under_plate() {
     fi
 }
 
-vader_boot_banner() {
+# COLORFGBG's last field is the background. 8-15 is a light palette.
+_vader_mark_light() {
+    local bg="${COLORFGBG:-}"
+    [ -n "$bg" ] || return 1
+    bg=${bg##*;}
+    case "$bg" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$bg" -ge 8 ]
+}
+
+_vader_load_mark() {
+    if [ "${_GV_MARK_LOADED:-0}" = 1 ]; then
+        return 0
+    fi
+    local f="${_VADER_LIB_DIR}/banner_art.sh"
+    [ -f "$f" ] || return 1
+    # shellcheck source=scripts/lib/banner_art.sh
+    . "$f" || return 1
+    case "${_GV_PLATE_ROWS:-}" in ''|*[!0-9]*) return 1 ;; esac
+    case "${_GV_PLATE_COLS:-}" in ''|*[!0-9]*) return 1 ;; esac
+    case "${_GV_COMPACT_ROWS:-}" in ''|*[!0-9]*) return 1 ;; esac
+    case "${_GV_COMPACT_COLS:-}" in ''|*[!0-9]*) return 1 ;; esac
+    if [ "${#_GV_FT_D[@]}" -lt 2 ] || [ "${#_GV_COMPACT[@]}" -lt 1 ]; then
+        return 1
+    fi
+    _GV_MARK_LOADED=1
+    return 0
+}
+
+# Ink from banner_art.sh, so the caption matches the plate on a light terminal.
+_vader_mark_colors() {
+    if _vader_mark_light; then
+        if [ "$_VADER_TRUE" = 1 ]; then
+            _GV_MARK_INK=$_GV_INK_FT_L
+            _GV_MARK_DIM=$_GV_DIM_FT_L
+        else
+            _GV_MARK_INK=$_GV_INK_F8_L
+            _GV_MARK_DIM=$_GV_DIM_F8_L
+        fi
+    elif [ "$_VADER_TRUE" = 1 ]; then
+        _GV_MARK_INK=$_GV_INK_FT_D
+        _GV_MARK_DIM=$_GV_DIM_FT_D
+    else
+        _GV_MARK_INK=$_GV_INK_F8_D
+        _GV_MARK_DIM=$_GV_DIM_F8_D
+    fi
+}
+
+_gv_load_frame() {
+    local i="$1"
+    if _vader_mark_light; then
+        if [ "$_VADER_TRUE" = 1 ]; then
+            _GV_BLOB=${_GV_FT_L[$i]}
+        else
+            _GV_BLOB=${_GV_F8_L[$i]}
+        fi
+    elif [ "$_VADER_TRUE" = 1 ]; then
+        _GV_BLOB=${_GV_FT_D[$i]}
+    else
+        _GV_BLOB=${_GV_F8_D[$i]}
+    fi
+}
+
+_vader_print_blob() {
+    local pad="$1" blob="$2" line
+    while IFS= read -r line || [ -n "$line" ]; do
+        printf '%s%s\033[K\n' "$pad" "$line"
+    done <<< "$blob"
+}
+
+# Full plate draws itself, then the power mark pulses once. Compact is still:
+# the stroke belongs to the full plate. No key reader; sudo follows.
+_vader_play_dot_plate() {
+    local mode="$1" pad rows i n delay
+    _vader_mark_colors
+    if [ "$mode" = "compact" ]; then
+        _VADER_PLATE_WIDTH=$_GV_COMPACT_COLS
+        pad=$(_vader_pad "$_VADER_PLATE_WIDTH")
+        local line
+        for line in "${_GV_COMPACT[@]}"; do
+            printf '%s%b%s%b\033[K\n' "$pad" "$_GV_MARK_INK" "$line" "$VADER_RESET"
+        done
+        return
+    fi
+    _VADER_PLATE_WIDTH=$_GV_PLATE_COLS
+    rows=$_GV_PLATE_ROWS
+    pad=$(_vader_pad "$_VADER_PLATE_WIDTH")
+    _gv_load_frame "$_GV_DONE_INDEX"
+    if [ "$_VADER_TTY" != 1 ]; then
+        _vader_print_blob "$pad" "$_GV_BLOB"
+        return
+    fi
+    if [ "$_VADER_TRUE" = 1 ]; then
+        n=${#_GV_FT_D[@]}
+    else
+        n=${#_GV_F8_D[@]}
+    fi
+    printf '\033[?25l'
+    for ((i=0; i<n; i++)); do
+        if [ "$i" -gt 0 ]; then
+            printf '\033[%dA' "$rows"
+        fi
+        _gv_load_frame "$i"
+        _vader_print_blob "$pad" "$_GV_BLOB"
+        if [ "$i" -eq "$_GV_PULSE_INDEX" ]; then
+            delay=$_GV_PULSE_S
+        else
+            delay=$_GV_STEP_S
+        fi
+        _vader_nap "$delay"
+    done
+    printf '\033[%dA' "$rows"
+    _gv_load_frame "$_GV_DONE_INDEX"
+    _vader_print_blob "$pad" "$_GV_BLOB"
+    printf '\033[?25h'
+}
+
+# The dot mark, wordmark, tagline and rule, shared by start.sh and stop.sh.
+# Full plate when its 24 rows fit on screen (the stroke animation moves the
+# cursor up over them); otherwise the compact plate, which prints once and may
+# scroll into the scrollback under the board. Text only when the pane is too
+# narrow for either plate, or there is no color.
+_vader_mark_banner() {
     local mode="text" cols lines ver tag plain colored rulepad
     echo ""
     if [ "$_VADER_COLOR" != 1 ]; then
@@ -505,28 +628,38 @@ vader_boot_banner() {
         echo "  Guaardvark"
         echo "  local AI studio  ·  v${ver}"
         echo ""
-        return
+        return 1
     fi
-    cols=$(_vader_cols)
-    lines=$(_vader_lines)
-    # Full plate is 22 rows. It only plays when the phase board still fits under it.
-    if [ "$cols" -ge 52 ] && [ "$lines" -ge 44 ]; then
-        mode="full"
-    elif [ "$cols" -ge 36 ] && [ "$lines" -ge 28 ]; then
-        mode="half"
-    fi
+    _vader_read_winsize
+    cols=$_VADER_COLS
+    lines=$_VADER_ROWS
     _VADER_PLATE_ON=0
-    if [ "$mode" != "text" ]; then
-        _vader_play_plate "$mode"
-        _VADER_PLATE_ON=1
-        echo ""
+    if _vader_load_mark; then
+        _vader_mark_colors
+        if [ "$cols" -ge $((_GV_PLATE_COLS + 6)) ] && [ "$lines" -ge $((_GV_PLATE_ROWS + 2)) ]; then
+            mode="full"
+        elif [ "$cols" -ge $((_GV_COMPACT_COLS + 8)) ]; then
+            mode="compact"
+        fi
+        if [ "$mode" != "text" ]; then
+            _vader_play_dot_plate "$mode"
+            _VADER_PLATE_ON=1
+            echo ""
+        fi
+        plain="$_GV_WORDMARK"
+        colored=$(printf '%b%b%s%b' "$VADER_BOLD" "$_GV_MARK_INK" "$plain" "$VADER_RESET")
+    else
+        plain="GUAARDVARK"
+        colored=$(_vader_gradient "$plain" 48 32 210 196 188 255)
     fi
-    plain="GUAARDVARK"
-    colored=$(_vader_gradient "$plain" 48 32 210 196 188 255)
     _vader_under_plate "$plain" "$colored"
     ver=$(_vader_version)
     tag="local AI studio   ·   v${ver}"
-    colored=$(printf '%b%s%b' "$VADER_DIM" "$tag" "$VADER_RESET")
+    if [ "${_GV_MARK_LOADED:-0}" = 1 ]; then
+        colored=$(printf '%b%s%b' "$_GV_MARK_DIM" "$tag" "$VADER_RESET")
+    else
+        colored=$(printf '%b%s%b' "$VADER_DIM" "$tag" "$VADER_RESET")
+    fi
     _vader_under_plate "$tag" "$colored"
     echo ""
     if [ "$_VADER_PLATE_ON" = 1 ]; then
@@ -538,6 +671,11 @@ vader_boot_banner() {
         printf '%s' "$rulepad"
         _vader_rule "$(_vader_rule_width)"
     fi
+    return 0
+}
+
+vader_boot_banner() {
+    _vader_mark_banner || return 0
     echo ""
     if [ "$_VADER_TTY" = 1 ]; then
         local root
@@ -1567,6 +1705,7 @@ vader_stop_begin() {
         echo "  stopping"
         return 0
     fi
+    _vader_mark_banner && echo ""
     _vader_board_open
     _vader_status_write
 }

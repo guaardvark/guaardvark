@@ -46,10 +46,21 @@ def get_active_lesson_id(session_id: str) -> str | None:
         return rec["id"] if rec else None
 
 
-def _distill_lesson_pearls(app, lesson_id: str, session_id: str) -> dict | None:
+def _distill_lesson_pearls(
+    app,
+    lesson_id: str,
+    session_id: str | None,
+    title_hint: str = "",
+    extra_metadata: dict | None = None,
+) -> dict | None:
     """Run one structured distillation over all positive pearls captured
     during a lesson. Returns the parsed {title, steps, memory_id} payload
     or None on failure.
+
+    A lesson that did not come from a chat (a signed-off demonstration) has
+    no session_id and is saved for every session. title_hint is the name the
+    person gave the task, when they gave one; extra_metadata is kept on the
+    saved memory beside the lesson itself.
 
     Unlike the per-👍 distiller (_distill_pearl_memory), this one asks the
     LLM for strict JSON so the frontend can render steps as editable rows
@@ -149,6 +160,7 @@ def _distill_lesson_pearls(app, lesson_id: str, session_id: str) -> dict | None:
                 + "\n".join(pearl_lines)
                 + ("\n\n=== Things that went wrong (thumbs-down) ===\n" + "\n".join(negative_lines)
                    if negative_lines else "")
+                + (f"\n\n=== The user named this task ===\n{title_hint[:120]}" if title_hint else "")
                 + "\n\n=== Recent conversation ===\n"
                 + ("\n".join(convo_lines) if convo_lines else "(no prior turns loaded)")
                 + "\n\nJSON:"
@@ -196,7 +208,7 @@ def _distill_lesson_pearls(app, lesson_id: str, session_id: str) -> dict | None:
             if not parsed or "steps" not in parsed:
                 logger.info(f"[LESSON-DISTILL] fallback to raw-pearl synthesis for {lesson_id[:12]}")
                 parsed = {
-                    "title": (pearl_tasks[0][:60] or "Lesson") if pearl_tasks else "Lesson",
+                    "title": title_hint[:60] or pearl_tasks[0][:60] or "Lesson",
                     "steps": [
                         {"order": i + 1, "text": (t[:200] or f"Step {i+1}")}
                         for i, t in enumerate(pearl_tasks)
@@ -260,7 +272,7 @@ def _distill_lesson_pearls(app, lesson_id: str, session_id: str) -> dict | None:
                 memory_type="lesson",
                 importance=0.85,
                 tags=["lesson", title.lower().replace(" ", "-")[:40]],
-                metadata={"lesson": summary},
+                metadata={**(extra_metadata or {}), "lesson": summary},
             )
             if mem is None:
                 raise RuntimeError("lesson memory was rejected")

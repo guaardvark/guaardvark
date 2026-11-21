@@ -92,5 +92,38 @@
     "exitKiosk": "Salir del modo kiosco (F11)",
     "minimize": "Minimizar ventana (Ocultar contenido)",
     "close": "Cerrar aplicación (Ctrl+Q o Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "Restablecer diseño de tarjetas",
+    "layout": "Diseño",
+    "cards": {
+      "prompt": "Prompt",
+      "settings": "Ajustes",
+      "queue": "Cola",
+      "results": "Resultados",
+      "status": "Estado"
+    },
+    "queueEmpty": "No hay nada en cola ni renderizando.",
+    "useLayout": "Diseño: {{name}}",
+    "layouts": {
+      "columns": "Columnas",
+      "library": "Biblioteca ancha",
+      "compose": "Componer",
+      "tiles": "Mosaico",
+      "stacked": "Apilado"
+    },
+    "status": {
+      "model": "Modelo",
+      "size": "Tamaño",
+      "steps": "Pasos",
+      "queue": "Cola",
+      "idle": "Inactivo",
+      "active": "{{count}} activos",
+      "running": "Ejecutando",
+      "queued": "En cola",
+      "none": "Ninguno elegido"
+    },
+    "fullScreen": "Pantalla completa",
+    "exitFullScreen": "Salir de pantalla completa"
   }
 }

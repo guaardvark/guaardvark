@@ -284,7 +284,8 @@ class ImageGeneratorTool(BaseTool):
                 "render is refused. "
                 "Only override when the user names a specific model: 'krea2-turbo', 'zimage-turbo', "
                 "'sd-xl', 'sdxl-turbo', 'realistic-vision', 'epic-realism', 'sana-sprint', "
-                "'sana-sprint-0.6b', 'qwen-image-21' (Qwen-Image 2.1 through ComfyUI), 'moss-image' (MOSS-Image through ComfyUI), 'flux3-klein' (FLUX 3 Image Klein through ComfyUI). A model that is not "
+                "'sana-sprint-0.6b', 'qwen-image-21' (Qwen-Image 2.1 through ComfyUI), 'moss-image' (MOSS-Image through ComfyUI), 'flux3-klein' (FLUX 3 Image Klein through ComfyUI), "
+                "'minimax-h3-t2i' (MiniMax H3 stills through ComfyUI). A model that is not "
                 "installed is refused with where to install it; nothing is downloaded."
             ),
             required=False,

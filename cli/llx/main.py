@@ -103,7 +103,9 @@ def _maybe_bootstrap_backend() -> None:
             pass
         if console:
             console.print(f"[llx.warning]Could not auto-start backend: {e}[/llx.warning]")
-            console.print("[llx.dim]Try: guaardvark start --backend-only or ./start.sh[/llx.dim]")
+            # A Docker install's message already says how to start it.
+            if "start-docker.sh" not in str(e):
+                console.print("[llx.dim]Try: guaardvark start --backend-only or ./start.sh[/llx.dim]")
 
 
 app.command("health")(health)

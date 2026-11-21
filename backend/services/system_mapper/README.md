@@ -17,7 +17,7 @@ or run.
 | `node_meta` | `dependency_graph.py`, `subsystems.py` | every module: path, language, lifecycle, importer counts (load time, inside functions, tests), lines, subsystem, the scripts that start it |
 | `reachability` | `reachability.py` | Flask routes, frontend HTTP calls with their URLs resolved, and `page_endpoints`: the endpoints each page reaches |
 | `tool_graph` | `tool_graph.py` | every registered tool: class, file and line, registering function and its conditions, how the chat reaches it, MCP exposure |
-| `celery_tasks` | `dispatch_graph.py` | name, module, file, function and line of every task |
+| `celery_tasks` | `dispatch_graph.py` | name, module, file, function and line of every task, plus what starts it (`started_by`: schedule, route, code) |
 | `subsystems` | `subsystems.py`, `subsystems.json` | the named areas and how many files and lines each holds |
 | `findings` | all of the above | flat, ranked list of `Finding` |
 | `stats` | all of the above | counts, and how long each analyzer took (`timings_s`) |
@@ -71,9 +71,9 @@ A module a script or manifest starts (`uvicorn service.app:app` in a plugin's
 | `kind` | `severity` | What it means |
 |---|---|---|
 | `url-path-collision` | `high` | Two files register the same path with an overlapping method |
-| `url-prefix-collision` | `medium` | Two files register routes under the same `/api/<segment>` |
+| `url-prefix-collision` | `medium` | Two files share `/api/<segment>` and a variable route in one also matches a fixed path the other serves. Sharing a prefix alone is counted in `stats.reachability.shared_prefixes` |
 | `ghost-endpoint` | `low` | A backend route no frontend call reaches (25 listed, then one rollup); it may be called by scripts, MCP or the CLI |
-| `ghost-api-caller` | `medium` | A frontend call to a path no route serves. A URL with no fixed segment after `/api` is counted in `stats.reachability.unresolved_callers` instead |
+| `ghost-api-caller` | `medium` | A frontend call to a path no route serves. A URL built from a function's parameter is judged by the literals its call sites pass. A URL with no fixed segment after `/api` is counted in `stats.reachability.unresolved_callers` instead |
 | `import-cycle` | `medium` (≤5 modules) / `low` | Modules that import each other at load time |
 | `over-coupled` | `medium` | A module on five or more import cycles of at most four modules |
 | `unwired-tool` | `high` | A tool registered for chat that no list, pin, route, slash command or the semantic selector can offer |
@@ -83,7 +83,7 @@ A module a script or manifest starts (`uvicorn service.app:app` in a plugin's
 | `backup-artifact` | `low` | `_BACK` / `.BACK` / `.bak` / `__BACKUP` / `/backs/` / `/_archive/` paths in the tree |
 | `dead-symbol` | `info`/`low` | A function referenced nowhere, not even in a string (100 listed, then one rollup) |
 | `no-subsystem` | `info` | Source files `subsystems.json` does not claim (one finding, with a sample) |
-| `runtime-zombie` / `contextual-discovery` / `hot-path-spike` | | Runtime liveness, from the 12-hour audit (`liveness.py`) |
+| `runtime-zombie` / `contextual-discovery` / `hot-path-spike` | | Runtime liveness, from the 12-hour audit (`liveness.py`). A zombie is high, or low when the task is started only from a route handler |
 
 A finding's `id` is a hash of its kind, its paths and `evidence["key"]`, the
 analyzer's name for the defect (a route, a tool, a module); counts in the

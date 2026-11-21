@@ -435,7 +435,7 @@ def emit_learning_question(question_id: str, question_type: str, text: str,
 
 def emit_step_preview(demonstration_id: int, step_index: int,
                       target_description: str, action_type: str,
-                      confidence: float):
+                      confidence: float, precondition_ok: bool = True):
     """Preview the next action for GUIDED mode confirmation."""
     socketio.emit("agent:step_preview", {
         "demonstration_id": demonstration_id,
@@ -443,6 +443,45 @@ def emit_step_preview(demonstration_id: int, step_index: int,
         "target_description": target_description,
         "action_type": action_type,
         "confidence": confidence,
+        "precondition_ok": precondition_ok,
+    })
+
+
+def emit_step_review(demonstration_id: int, step_index: int,
+                     target_description: str, machine_success: bool,
+                     error: str = "", next_description: str = ""):
+    """Put a finished step to the person for their verdict."""
+    socketio.emit("agent:step_review", {
+        "demonstration_id": demonstration_id,
+        "step_index": step_index,
+        "target_description": target_description,
+        "machine_success": machine_success,
+        "error": error,
+        "next_description": next_description,
+    })
+
+
+def emit_step_signed(demonstration_id: int, step_index: int, description: str,
+                     lesson_id: str, pearl_id: int = None):
+    """A step the person signed off, now a pearl of the attempt's lesson."""
+    socketio.emit("agent:step_signed", {
+        "demonstration_id": demonstration_id,
+        "step_index": step_index,
+        "description": description,
+        "lesson_id": lesson_id,
+        "pearl_id": pearl_id,
+    })
+
+
+def emit_lesson_saved(demonstration_id: int, lesson: dict = None):
+    """The outcome of turning a fully signed-off attempt into a Lesson.
+
+    lesson is {memory_id, title, steps, already_saved}, or None when no
+    lesson could be made.
+    """
+    socketio.emit("agent:lesson_saved", {
+        "demonstration_id": demonstration_id,
+        "lesson": lesson,
     })
 
 
@@ -488,9 +527,9 @@ def handle_step_confirm(data):
 
 @socketio.on("agent:step_correct")
 def handle_step_correct(data):
-    """User corrects a previewed step in GUIDED mode."""
+    """User rejects a previewed step: the replay ends instead of running it."""
     from backend.services.agent_control_service import get_agent_control_service
-    delivered = get_agent_control_service().confirm_apprentice_step(data)
+    delivered = get_agent_control_service().confirm_apprentice_step({**(data or {}), "verdict": "stop"})
     logger.info(f"Step corrected: step_index={data.get('step_index')}, correction={data.get('correction')} "
                 f"delivered={delivered}")
 

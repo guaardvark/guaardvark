@@ -1241,24 +1241,10 @@ def _switch_model_background(app, new_model_name: str):
                 "message": f"Warming up {new_model_name} (this may take a moment)..."
             }, namespace="/")
 
-            # Force Ollama to load the model and generate one token.
-            # Using raw /api/generate bypasses the llama_index/ollama-python/httpx
-            # stack (whose default timeouts silently failed on slow hardware) and
-            # uses Ollama's canonical warmup primitive. 15-min read timeout covers
-            # worst-case cold load on pre-AVX2 CPUs with spinning disks.
-            warmup_resp = requests.post(
-                f"{OLLAMA_BASE_URL}/api/generate",
-                json={
-                    "model": new_model_name,
-                    "prompt": "ok",
-                    "stream": False,
-                    "options": {"num_predict": 1},
-                    "keep_alive": "30m",
-                },
-                timeout=(10.0, 900.0),
-            )
-            warmup_resp.raise_for_status()
-            load_ns = warmup_resp.json().get("load_duration", 0) or 0
+            # Raw /api/generate rather than the llama_index client, whose
+            # default timeouts gave up on slow hardware mid-load.
+            from backend.utils.ollama_resource_manager import warm_chat_model
+            load_ns = warm_chat_model(new_llm, keep_alive="30m").get("load_duration", 0) or 0
             logger.info(
                 f"Successfully warmed Ollama for {new_model_name} "
                 f"(load={load_ns // 1_000_000_000}s)"

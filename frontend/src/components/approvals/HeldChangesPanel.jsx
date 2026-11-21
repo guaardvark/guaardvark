@@ -22,7 +22,8 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { inboundGuardService } from "../../api/inboundGuardService";
 import { approveHeldChange, isActionable, rejectHeldChange } from "../../api/heldChanges";
-import { FindingList, scanSize } from "../settings/InboundGuardSection";
+import { scanSize } from "../settings/InboundGuardSection";
+import { FindingList } from "../settings/InboundFindingList";
 import { ConfirmActionDialog } from "../settings/ui";
 import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
@@ -47,6 +48,8 @@ const verdictLabel = (verdict) =>
 // the digest, so the same change passes when it is made again.
 const APPROVAL_EFFECT = (scan) => {
   if (!scan) return "apply";
+  if (scan.approve_effect === "apply" || scan.approve_effect === "accept") return scan.approve_effect;
+  if (scan.approve_effect) return "allow-again";
   if (scan.source === "watch") return "accept";
   if (scan.pending_fix_id || scan.landable) return "apply";
   return "allow-again";

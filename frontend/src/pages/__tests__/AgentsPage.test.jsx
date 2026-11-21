@@ -1,6 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import AgentsPage from "../AgentsPage";
 import * as agentsService from "../../api/agentsService";
@@ -13,6 +14,21 @@ vi.mock("../../components/layout/PageLayout", () => ({
     </div>
   ),
 }));
+
+vi.mock("../../contexts/LayoutContext", () => {
+  const layout = {
+    gridSettings: {
+      CONTAINER_PADDING_PX: 4,
+      CARD_MARGIN_PX: 8,
+      COLS_COUNT: 175,
+      ROW_HEIGHT_PX: 10,
+      cardGridW: 35,
+      cardGridH: 49,
+      cardMinGridW: 30,
+    },
+  };
+  return { useDashboardWidth: () => 1750, useLayout: () => layout };
+});
 
 vi.mock("../../contexts/StatusContext", () => ({
   useStatus: () => ({ activeModel: "chat:latest", isLoadingModel: false, modelError: null }),
@@ -70,7 +86,9 @@ const detail = (a) => ({
 function renderPage() {
   return render(
     <ThemeProvider theme={createTheme({ palette: { mode: "dark" } })}>
-      <AgentsPage />
+      <MemoryRouter>
+        <AgentsPage />
+      </MemoryRouter>
     </ThemeProvider>,
   );
 }
@@ -81,6 +99,12 @@ const rightClick = (id) => fireEvent.contextMenu(tile(id), { clientX: 20, client
 describe("AgentsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    global.ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    };
+    // The board finds no saved arrangement and shows its default.
+    global.fetch = vi.fn(async () => ({ ok: false, status: 404, statusText: "NOT FOUND", json: async () => ({}) }));
     agentsService.getAgents.mockResolvedValue({ success: true, agents: AGENTS });
     agentsService.getAgent.mockImplementation(async (id) => ({
       success: true,

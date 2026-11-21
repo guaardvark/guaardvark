@@ -29,6 +29,7 @@ import {
   Slider,
 } from "@mui/material";
 import PageLayout from "../components/layout/PageLayout";
+import PageStatus, { StatusChip } from "../components/layout/PageStatus";
 import {
   Upload as UploadIcon,
   AutoFixHigh as EnhanceIcon,
@@ -50,6 +51,7 @@ import { formatUiError } from "../utils/uiError";
 import { enablePlugin, listPlugins, pluginGateRefusal, startPlugin } from "../api/pluginsService";
 import lazyWithReload from "../utils/lazyWithReload";
 import { translate, useUiTranslation } from "../i18n";
+import { CardWorkspace } from "../components/board";
 
 const UpscalingModelsModal = lazyWithReload(() =>
   import("../components/modals/UpscalingModelsModal")
@@ -559,6 +561,7 @@ const UpscalingPage = ({ embedded = false }) => {
     }
   };
 
+  const activeJobCount = jobs.filter((j) => j.status === "pending" || j.status === "running").length;
   const finishedCount = jobs.filter(
     (j) => j.status === "completed" || j.status === "failed" || j.status === "cancelled"
   ).length;
@@ -654,6 +657,12 @@ const UpscalingPage = ({ embedded = false }) => {
     ),
   };
 
+  // The panels were cards of their own on the old two-column page; in a card frame they are plain sections.
+  const cardBodySx = {
+    p: 0.5,
+    "& > .MuiCard-root": { boxShadow: "none", backgroundColor: "transparent", backgroundImage: "none", mb: 1 },
+  };
+
   return (
     <Wrapper {...wrapperProps}>
       {/* Service Status */}
@@ -693,9 +702,28 @@ const UpscalingPage = ({ embedded = false }) => {
         </Alert>
       )}
 
-      <Grid container spacing={3}>
-        {/* Left: Upload & Settings */}
-        <Grid size={{ xs: 12, lg: 5 }}>
+      <PageStatus>
+        <StatusChip
+          label={t("layout.board.status.model")}
+          value={selectedModel || t("layout.board.status.none")}
+          tone={selectedModel ? "ok" : "off"}
+        />
+        <StatusChip
+          label={t("layout.board.status.queue")}
+          value={activeJobCount ? t("layout.board.status.active", { count: activeJobCount }) : t("layout.board.status.idle")}
+          tone={activeJobCount ? "warn" : "ok"}
+        />
+      </PageStatus>
+      {/* Three cards on the shared board: what to upscale and how, the picture, and the jobs. */}
+      <CardWorkspace
+        boardKey="upscaling"
+        cards={[
+          {
+            id: "upload",
+            title: isImageMode ? t("upscaling.upload.imagesTitle") : t("upscaling.upload.videoTitle"),
+            layout: { x: 0, y: 0, w: 65, h: 86 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card sx={{ boxShadow: 2, borderRadius: 2, mb: 3 }}>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
@@ -1060,10 +1088,20 @@ const UpscalingPage = ({ embedded = false }) => {
               </CardContent>
             </Card>
           )}
-        </Grid>
-
-        {/* Right: Preview & Job History */}
-        <Grid size={{ xs: 12, lg: 7 }}>
+              </Box>
+            ),
+          },
+          {
+            id: "preview",
+            title: t("upscaling.preview.title"),
+            layout: { x: 65, y: 0, w: 110, h: 44 },
+            body: (
+              <Box sx={cardBodySx}>
+                {!imageResult && !previewFile && (
+                  <Typography variant="body2" sx={{ color: "text.secondary", p: 1 }}>
+                    {t("upscaling.preview.empty")}
+                  </Typography>
+                )}
           {imageResult && (
             <Card sx={{ boxShadow: 2, borderRadius: 2, mb: 3 }}>
               <CardContent sx={{ p: 3 }}>
@@ -1198,6 +1236,15 @@ const UpscalingPage = ({ embedded = false }) => {
             </Card>
           )}
 
+              </Box>
+            ),
+          },
+          {
+            id: "jobs",
+            title: t("upscaling.jobs.title"),
+            layout: { x: 65, y: 44, w: 110, h: 42 },
+            body: (
+              <Box sx={cardBodySx}>
           <Card sx={{ boxShadow: 2, borderRadius: 2 }}>
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
@@ -1359,8 +1406,11 @@ const UpscalingPage = ({ embedded = false }) => {
               )}
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+              </Box>
+            ),
+          },
+        ]}
+      />
 
       <Suspense fallback={null}>
         <UpscalingModelsModal

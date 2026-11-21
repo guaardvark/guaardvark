@@ -20,6 +20,7 @@ import ClientsDashboardCard from "../ClientsDashboardCard";
 import WebsiteDataCard from "../WebsiteDataCard";
 import TaskManagerCard from "../TaskManagerCard";
 import ImageGenerationCard from "../ImageGenerationCard";
+import { SnackbarProvider } from "../../common/SnackbarProvider";
 import {
   entityFilesFilter,
   entityFilesPath,
@@ -35,12 +36,14 @@ const Where = () => {
 
 const renderCard = (card) =>
   render(
-    <MemoryRouter initialEntries={["/"]}>
-      <Routes>
-        <Route path="/" element={card} />
-        <Route path="*" element={<Where />} />
-      </Routes>
-    </MemoryRouter>,
+    <SnackbarProvider>
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={card} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>
+    </SnackbarProvider>,
   );
 
 const rightClick = (el) => fireEvent.contextMenu(el, { clientX: 20, clientY: 20 });

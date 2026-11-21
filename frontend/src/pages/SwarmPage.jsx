@@ -61,6 +61,7 @@ import {
 } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
 
+import { CardWorkspace } from "../components/board";
 import { useUiTranslation, translate, Trans } from "../i18n";
 import PageLayout from "../components/layout/PageLayout";
 import { useSnackbar } from "../components/common/SnackbarProvider";
@@ -572,12 +573,18 @@ const SwarmPage = () => {
         </Alert>
       )}
 
-      {/* Active Swarms */}
-      {swarms.length > 0 && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-            {t("swarm.sections.activeSwarms")}
-          </Typography>
+      {/* Running swarms, templates and past swarms are cards on the shared board. */}
+      <CardWorkspace
+        boardKey="swarm"
+        cards={[
+          {
+            id: "active",
+            title: t("swarm.sections.activeSwarms"),
+            layout: { x: 0, y: 0, w: 110, h: 90 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
+      {swarms.length > 0 ? (
+        <Box>
           <Stack spacing={2}>
             {swarms.map((swarm) => (
               <SwarmCard
@@ -598,17 +605,49 @@ const SwarmPage = () => {
                 />            ))}
           </Stack>
         </Box>
-      )}
-
-      {/* Templates */}
-      {templates.length > 0 && swarms.length === 0 && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-            {t("swarm.sections.quickLaunchTemplates")}
+      ) : !loading && (
+        <Paper
+          sx={{
+            p: 6,
+            textAlign: "center",
+            border: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <FlightIcon
+            sx={{ fontSize: 64, color: "text.secondary", mb: 2 }}
+          />
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            {t("swarm.empty.title")}
           </Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
+            {t("swarm.empty.description")}
+            {!serviceOnline && ` ${t("swarm.empty.startPlugin")}`}
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<LaunchIcon />}
+            onClick={() => setLaunchOpen(true)}
+            disabled={!serviceOnline}
+          >
+            {t("swarm.empty.launchFirst")}
+          </Button>
+        </Paper>
+      )}
+              </Box>
+            ),
+          },
+          {
+            id: "templates",
+            title: t("swarm.sections.quickLaunchTemplates"),
+            layout: { x: 110, y: 0, w: 65, h: 45 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
+      {templates.length > 0 ? (
+        <Box>
           <Grid container spacing={2}>
             {templates.map((tmpl) => (
-              <Grid key={tmpl.filename} size={{ xs: 12, sm: 6, md: 3 }}>
+              <Grid key={tmpl.filename} size={{ xs: 12, sm: 6 }}>
                 <Card
                   sx={{
                     cursor: "pointer",
@@ -647,14 +686,20 @@ const SwarmPage = () => {
             ))}
           </Grid>
         </Box>
+      ) : (
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("swarm.sections.noTemplates")}</Typography>
       )}
-
-      {/* History */}
-      {history.length > 0 && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-            {t("swarm.sections.recentSwarms")}
-          </Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "history",
+            title: t("swarm.sections.recentSwarms"),
+            layout: { x: 110, y: 45, w: 65, h: 45 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
+      {history.length > 0 ? (
+        <Box>
           <Stack spacing={1}>
             {history.map((h) => (
               <Paper
@@ -695,38 +740,14 @@ const SwarmPage = () => {
             ))}
           </Stack>
         </Box>
+      ) : (
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("swarm.sections.noHistory")}</Typography>
       )}
-
-      {/* Empty state */}
-      {!loading && swarms.length === 0 && history.length === 0 && (
-        <Paper
-          sx={{
-            p: 6,
-            textAlign: "center",
-            border: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <FlightIcon
-            sx={{ fontSize: 64, color: "text.secondary", mb: 2 }}
-          />
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            {t("swarm.empty.title")}
-          </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
-            {t("swarm.empty.description")}
-            {!serviceOnline && ` ${t("swarm.empty.startPlugin")}`}
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<LaunchIcon />}
-            onClick={() => setLaunchOpen(true)}
-            disabled={!serviceOnline}
-          >
-            {t("swarm.empty.launchFirst")}
-          </Button>
-        </Paper>
-      )}
+              </Box>
+            ),
+          },
+        ]}
+      />
 
       {/* ─── Launch Dialog ──────────────────────────────────────── */}
       <Dialog

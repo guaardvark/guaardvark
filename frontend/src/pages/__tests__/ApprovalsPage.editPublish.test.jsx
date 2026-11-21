@@ -1,12 +1,28 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 const { hook, messages } = vi.hoisted(() => ({
   hook: { rows: [], next: null },
   messages: [],
 }));
 
+// The page lays its cards out on the shared board, which reads the grid from the layout context.
+vi.mock("../../contexts/LayoutContext", () => {
+  const layout = {
+    gridSettings: {
+      CONTAINER_PADDING_PX: 4,
+      CARD_MARGIN_PX: 8,
+      COLS_COUNT: 175,
+      ROW_HEIGHT_PX: 10,
+      cardGridW: 35,
+      cardGridH: 49,
+      cardMinGridW: 30,
+    },
+  };
+  return { useDashboardWidth: () => 1750, useLayout: () => layout };
+});
 vi.mock("../../hooks/usePendingApprovals", async () => {
   const actual = await vi.importActual("react");
   const ReactActual = actual.default || actual;
@@ -113,7 +129,11 @@ const preflightEcho = (required = false) => (id, changes) =>
   });
 
 const openCard = async () => {
-  render(<ApprovalsPage />);
+  render(
+    <MemoryRouter>
+      <ApprovalsPage />
+    </MemoryRouter>,
+  );
   fireEvent.click(await screen.findByText("Team Discord"));
 };
 

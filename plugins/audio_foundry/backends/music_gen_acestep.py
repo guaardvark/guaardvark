@@ -4,7 +4,7 @@ Full-song generation with vocals + instrumental from a style prompt + lyrics.
 ~3.5B params, ~10 GB VRAM at fp16 — the heaviest backend in the plugin.
 
 ACE-Step pins transformers==4.50.0 and accelerate==1.6.0, which conflicts
-with chatterbox-tts (transformers==5.2.0) in the main audio_foundry venv.
+with the voice backends (transformers 5.x) in the main audio_foundry venv.
 The two cannot coexist in one Python environment, so ACE-Step lives in a
 sibling venv (`plugins/audio_foundry/venv-music/`) and we drive it via a
 long-lived subprocess.

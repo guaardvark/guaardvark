@@ -1,9 +1,9 @@
 """web_search names the services a query really goes to, sends a query to the
 search engine and nowhere else, says so when the engine finds nothing or cannot
 be asked, asks the engine for the number of results the caller wanted, and
-sends no ~/.netrc login to the fixed hosts it calls. The search client's HTTP
-call and requests' transport are both replaced, and where a fetch is
-public-only its name lookup is answered too; nothing is sent."""
+sends no ~/.netrc login to the fixed hosts it calls. The search's HTTP client
+and requests' transport are both replaced, and where a fetch is public-only
+its name lookup is answered too; nothing is sent."""
 
 import json
 import socket
@@ -16,15 +16,12 @@ from requests.adapters import HTTPAdapter
 
 from backend.api import web_search_api
 from backend.tools import web_tools
+from backend.utils import bing_search
 from backend.utils.web_search_sources import (
     DEFAULT_SEARCH_RESULTS, MAX_SEARCH_RESULTS, SEARCH_ENGINE, WEATHER_SOURCE,
 )
 
-duckduckgo_search = pytest.importorskip("duckduckgo_search")
-DDGS = duckduckgo_search.DDGS
-from duckduckgo_search.exceptions import (  # noqa: E402
-    DuckDuckGoSearchException, RatelimitException, TimeoutException,
-)
+primp = pytest.importorskip("primp")
 
 WEATHER_JSON = json.dumps({"current_condition": [{
     "weatherDesc": [{"value": "Clear"}], "temp_C": "18", "temp_F": "64", "humidity": "50"}]}).encode()
@@ -32,17 +29,42 @@ WEATHER_JSON = json.dumps({"current_condition": [{
 
 @pytest.fixture
 def engine(monkeypatch):
-    """Replace the client's search with canned rows; record what was asked."""
+    """Replace the engine search with canned rows; record what was asked."""
     asked = []
     state = {"rows": 30}
 
-    def fake_text(self, keywords, backend="auto", max_results=None, **kwargs):
+    def fake_search(query, max_results=10):
         asked.append(max_results)
         return [{"title": f"Result {i}", "href": f"https://example.org/{i}", "body": f"snippet {i}"}
                 for i in range(min(max_results or 10, state["rows"]))]
 
-    monkeypatch.setattr(DDGS, "text", fake_text)
+    monkeypatch.setattr(bing_search, "search", fake_search)
     return asked, state
+
+
+class _Page:
+    def __init__(self, url, status=200, text=""):
+        self.url, self.status_code, self.text = url, status, text
+
+
+@pytest.fixture
+def client(monkeypatch):
+    """Replace the search's HTTP client; record every address it is asked for.
+    ``state["answer"]`` is called with the address and returns the page, or
+    raises."""
+    called = []
+    state = {"answer": lambda url: _Page(url)}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+        def get(self, url, params=None, **kwargs):
+            called.append(url)
+            return state["answer"](url)
+
+    monkeypatch.setattr(primp, "Client", FakeClient)
+    return called, state
 
 
 @pytest.fixture
@@ -80,24 +102,14 @@ def test_the_netrc_fixture_would_leak_through_a_plain_request(transport, monkeyp
     assert prepared.headers.get("Authorization", "").startswith("Basic ")
 
 
-def test_the_installed_client_searches_the_engine_the_label_names(monkeypatch, transport):
-    """The client decides where a text search goes. This runs the search the
-    way web_search does, with only the client's HTTP call replaced. If it fails
-    after a version change, SEARCH_ENGINE and the web_search description must
-    be brought in line with where queries now go."""
-    called = []
-
-    class _NoResults:
-        text = "There are no results for this"
-        content = b""
-
-    def fake_get_url(self, method, url, **kwargs):
-        called.append(urlsplit(url).hostname)
-        return _NoResults()
-
-    monkeypatch.setattr(DDGS, "_get_url", fake_get_url)
+def test_a_search_calls_the_engine_the_label_names_and_no_other_host(client, transport):
+    """This runs the search the way web_search does, with only the HTTP client
+    replaced. If it fails after a change to where searches go, SEARCH_ENGINE,
+    the web_search description and scripts/inbound_guard/egress.json must be
+    brought in line with it."""
+    called, _ = client
     result = web_search_api.perform_duckduckgo_search("probe query")
-    assert called and set(called) == {"www.bing.com"}
+    assert called and {urlsplit(url).hostname for url in called} == {"www.bing.com"}
     assert SEARCH_ENGINE == "Bing"
     assert result["source"] == SEARCH_ENGINE
     assert transport == []                      # nothing went anywhere but the engine
@@ -145,36 +157,43 @@ def test_the_tool_returns_no_results_as_an_empty_answer(engine, transport, monke
     assert "no results" in result.output["summary"]
 
 
-@pytest.mark.parametrize("raised,expected,attempts", [
-    (RatelimitException("https://www.bing.com/search?q=secret 429 Ratelimit"),
-     f"{SEARCH_ENGINE} refused the search (HTTP 429)", 1),
-    (RatelimitException("https://www.bing.com/search?q=secret 403 Ratelimit"),
-     f"{SEARCH_ENGINE} refused the search (HTTP 403)", 1),
-    (TimeoutException("https://www.bing.com/search RequestTimeout: timed out"),
-     f"{SEARCH_ENGINE} did not answer in time.", web_search_api._SEARCH_ATTEMPTS),
-    (DuckDuckGoSearchException("https://www.bing.com/search?q=secret return None. params={'q': 'secret'}"),
-     f"{SEARCH_ENGINE} answered the search with an error.", web_search_api._SEARCH_ATTEMPTS),
+@pytest.mark.parametrize("answer,expected,attempts,requests_per_ask", [
+    (lambda url: _Page(url, status=429), f"{SEARCH_ENGINE} refused the search (HTTP 429)", 1, 1),
+    (lambda url: _Page(url, status=403), f"{SEARCH_ENGINE} refused the search (HTTP 403)", 1, 1),
+    (lambda url: (_ for _ in ()).throw(primp.TimeoutError("https://www.bing.com/search?q=secret timed out")),
+     f"{SEARCH_ENGINE} did not answer in time.", web_search_api._SEARCH_ATTEMPTS, 1),
+    (lambda url: (_ for _ in ()).throw(primp.ConnectError("https://www.bing.com/search?q=secret refused")),
+     f"{SEARCH_ENGINE} could not be reached", web_search_api._SEARCH_ATTEMPTS, 1),
+    (lambda url: _Page(url, status=503), f"{SEARCH_ENGINE} answered the search with an error (HTTP 503).",
+     web_search_api._SEARCH_ATTEMPTS, 1),
+    (lambda url: _Page(url, text="<html><body><h1>One last step</h1><form id='challenge'></form></body></html>"),
+     f"{SEARCH_ENGINE} did not answer the search: it sent a page with no result list",
+     web_search_api._SEARCH_ATTEMPTS, 2),
 ])
-def test_a_failed_search_says_why(monkeypatch, transport, raised, expected, attempts):
-    """The error is raised by the client's own HTTP call and passes through its
-    text(), which wraps it; the reason is still told apart. A refused search is
-    not asked again at once."""
-    calls = []
-
-    def fake_get_url(self, method, url, **kwargs):
-        calls.append(url)
-        raise raised
-
-    monkeypatch.setattr(DDGS, "_get_url", fake_get_url)
+def test_a_failed_search_says_why(monkeypatch, client, transport, answer, expected, attempts,
+                                  requests_per_ask):
+    """Each reason is told apart and none is reported as "no results". A
+    refused search is not asked again at once. The home page is asked first, so
+    a failure there is one request per ask; a challenge page comes after it."""
+    called, state = client
+    state["answer"] = answer
     monkeypatch.setattr(web_tools, "_web_access_block_reason", lambda action: None)
     result = web_search_api.perform_duckduckgo_search("secret")
     assert not result["success"] and "no_results" not in result
     assert result["error"].startswith(expected)
     assert "secret" not in result["error"]
-    assert len(calls) == attempts
+    assert len(called) == attempts * requests_per_ask
     tool = web_tools.WebSearchTool().execute(query="secret")
     assert not tool.success and tool.error.startswith(expected)
     assert transport == []
+
+
+def test_a_failed_search_keeps_the_query_out_of_the_log(client, caplog):
+    _, state = client
+    state["answer"] = lambda url: (_ for _ in ()).throw(primp.TimeoutError("https://www.bing.com/search?q=secret"))
+    with caplog.at_level("WARNING"):
+        web_search_api.perform_duckduckgo_search("secret")
+    assert caplog.text and "secret" not in caplog.text
 
 
 def test_the_command_route_searches_only_with_web_access_on(engine, transport, monkeypatch):
@@ -201,7 +220,7 @@ def test_the_command_route_searches_only_with_web_access_on(engine, transport, m
 
 
 def test_a_missing_client_is_reported_not_hidden(monkeypatch, transport):
-    monkeypatch.setitem(sys.modules, "duckduckgo_search", None)
+    monkeypatch.setitem(sys.modules, "primp", None)
     result = web_search_api.perform_duckduckgo_search("rust vs go")
     assert not result["success"]
     assert result["error"].startswith("Web search is not available")

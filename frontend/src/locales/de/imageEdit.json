@@ -156,12 +156,12 @@
     "help": "Nach dem Rendern mit dem Gesichtserkennungsmodell gemessen, das PuLID verwendet: das Gesicht im Ergebnis im Vergleich zu den Fotos. Wo das Gesicht übernommen wurde, lagen die Werte bei 0.56 bis 0.78; bei einer anderen Person bei 0.2 oder darunter.",
     "onMany": "Dieses Gesicht ist bei {{count}} Personen gelandet. Um es nur einer davon zu geben, schalte „Mit anderen Personen“ ein.",
     "retryPulid": "Mit PuLID erneut versuchen",
-    "retryPulidHelp": "Kontext hat das Gesicht verändert. PuLID malt ein neues Bild um das Gesicht aus deinen Fotos: Im Test mit Detektivporträts behielt es das Gesicht in 9 von 9, Kontext in 1."
+    "retryPulidHelp": "Kontext hat das Gesicht geändert. PuLID zeichnet ein neues Bild um das Gesicht in deinen Fotos."
   },
   "identityEngine": {
     "pulid": "Neues Bild (PuLID)",
     "kontext": "Foto neu inszenieren (Kontext)",
-    "pulidHelp": "Malt ein neues Bild um das Gesicht. Am besten für Kostüme und Rollen: Es behielt das Gesicht in 9 von 9 Detektivporträts.",
-    "kontextHelp": "Verwandelt dein Foto in die neue Szene. Am besten, um die Person an einen neuen Ort oder neben andere Menschen zu stellen (das Gesicht blieb in 18 von 18 erhalten); als Rolle verkleidet blieb es nur in 1 von 9. Nutzt das erste Foto; beschreibe weitere Personen in der Szene."
+    "pulidHelp": "Zeichnet ein neues Bild um das Gesicht. Ideal für Kostüme und Charaktere.",
+    "kontextHelp": "Verwandelt dein Foto in eine neue Szene. Ideal, um die Person an einen neuen Ort oder neben andere Personen zu setzen. Nutzt das erste Foto; beschreibe alle anderen Personen in der Szene."
   }
 }

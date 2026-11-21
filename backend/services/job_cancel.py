@@ -46,6 +46,15 @@ def _cancel_task(native_id: str) -> bool:
         # Already terminal — nothing to cancel, but caller's intent is satisfied.
         return True
 
+    # A render batch handed to the backend's own queue is stopped there; its
+    # Celery task ended when it handed the batch over.
+    try:
+        from backend.services import job_handoff
+        if job_handoff.is_handoff(task.type):
+            job_handoff.cancel(task.type, task.handler_config)
+    except Exception as e:
+        logger.warning("cancel_task: could not cancel the batch of Task #%s: %s", task.id, e)
+
     # (a) Try Celery revoke first if the Task carries a celery task id.
     celery_task_id = getattr(task, "job_id", None)
     if celery_task_id:

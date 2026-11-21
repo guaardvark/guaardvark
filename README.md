@@ -55,7 +55,7 @@ Then open **http://localhost:5173**. The script is [install.sh](install.sh) from
 /plugin install guaardvark@guaardvark
 ```
 
-Other ways in: [Windows 11 through WSL2](INSTALL.md#install-windows-11-through-wsl2) · [Docker](INSTALL.md#alternative-docker-linux) · [macOS on Apple Silicon](INSTALL.md#install-macos-apple-silicon) · [the CLI from PyPI](#cli) · [the full install guide](INSTALL.md). The current release is in the [VERSION](VERSION) file.
+Other ways in: [Windows 11 through WSL2](INSTALL.md#install-windows-11-through-wsl2) · [Docker, on Linux or Docker Desktop for Windows 11](INSTALL.md#alternative-docker-linux) · [macOS on Apple Silicon](INSTALL.md#install-macos-apple-silicon) · [the CLI from PyPI](#cli) · [the full install guide](INSTALL.md). The current release is in the [VERSION](VERSION) file.
 
 ## Features
 
@@ -83,7 +83,7 @@ Upload documents, build a knowledge base per project, and ask questions. Answers
 
 - **Hybrid retrieval.** Postgres full-text keyword search and vector search, fused with a per-query weighting that leans toward keywords for identifier-like queries and toward meaning for prose.
 - **Cross-encoder reranking.** A reranker (one Install in Settings) reads the query and passage together and reorders the candidates. It is admitted against free VRAM and falls back to CPU rather than competing with image or video generation.
-- **Layout-aware parsing.** PDF, DOCX and PPTX are parsed for reading order and section headers, and PDF passages carry the page they came from. (Scanned documents need OCR, which is not installed by default; they say so rather than indexing as empty.)
+- **Layout-aware parsing.** PDF, DOCX and PPTX are parsed for reading order and section headers, and PDF passages carry the page they came from. PDF layout needs its models (one Install in Settings); until then PDFs are indexed as plain text, without sections or page numbers. (Scanned documents need OCR, which is not installed by default; they say so rather than indexing as empty.)
 - **Grounded citations.** Every chunk carries its source file and section breadcrumb (and, for PDFs, the page), written into the embedded text as well, so a passage lifted from the middle of a document still says where it came from.
 - **Smart chunking.** Code gets AST-informed chunks, so a function stays one chunk; prose gets semantic splitting.
 - **Postgres-backed vector store.** Embeddings live in pgvector next to the rest of your data, with an ANN index and a persisted full-text index, covered by the same backups.
@@ -381,7 +381,7 @@ More screenshots are on [guaardvark.com](https://guaardvark.com).
 
 \* The Wan 2.2 5B declares an 11 GB floor: an 11 GB card can select it by hand, and from 12 GB the automatic pick chooses it. A full render on 12 GB has not been confirmed yet. Every other video family needs a 16 GB-class card; see [docs/HARDWARE.md](docs/HARDWARE.md).
 
-**Platforms.** Linux with one NVIDIA card is the primary target. Apple Silicon is supported, with GPU features arriving through Metal (what works today is in [INSTALL.md](INSTALL.md#install-macos-apple-silicon)). Windows 11 runs it through WSL2 or Docker Desktop on an NVIDIA card ([INSTALL.md](INSTALL.md#install-windows-11-through-wsl2)).
+**Platforms.** Linux with one NVIDIA card is the primary target. Apple Silicon is supported, with GPU features arriving through Metal (what works today is in [INSTALL.md](INSTALL.md#install-macos-apple-silicon)). Windows 11 runs it through WSL2 or Docker Desktop on an NVIDIA card ([INSTALL.md](INSTALL.md#install-windows-11-through-wsl2)). AMD Radeon cards on Linux run the published ROCm image, `guaardvark/guaardvark:latest-rocm`: on an RX 7900 XTX it ran chat with a 27B model, document search, SDXL Turbo pictures and Wan 2.2 14B video ([AMD in HARDWARE.md](docs/HARDWARE.md#amd-rocm), [Podman Quadlet setup](docker/quadlet/README.md)).
 
 ## Running Guaardvark
 
@@ -542,10 +542,10 @@ No, not unless you turn something on. Models run locally, and every outbound pat
 Yes, once the models you use are downloaded. Only features that reach other services by design, such as web search, posting and the Discord bot, need a connection.
 
 **What hardware do I need?**
-Linux with one NVIDIA GPU. Chat, RAG, voice and the coding swarm run CPU-only; 8–12 GB adds vector RAG, screen agents, images, upscaling and music; video generation needs a 16 GB-class card. Details in [docs/HARDWARE.md](docs/HARDWARE.md).
+Linux with one NVIDIA GPU, or an AMD Radeon card through the ROCm image (`latest-rocm`). Chat, RAG, voice and the coding swarm run CPU-only; 8–12 GB adds vector RAG, screen agents, images, upscaling and music; video generation needs a 16 GB-class card. Details in [docs/HARDWARE.md](docs/HARDWARE.md).
 
 **Does it run on macOS or Windows?**
-Apple Silicon is supported, with GPU features arriving through Metal; see [INSTALL.md](INSTALL.md#install-macos-apple-silicon). Windows 11 runs it through WSL2 on an NVIDIA card; see [INSTALL.md](INSTALL.md#install-windows-11-through-wsl2).
+Apple Silicon is supported, with GPU features arriving through Metal; see [INSTALL.md](INSTALL.md#install-macos-apple-silicon). Windows 11 runs it on an NVIDIA card two ways, both on WSL2, the Linux system Windows 11 includes: the one-line installer in Ubuntu ([INSTALL.md](INSTALL.md#install-windows-11-through-wsl2)), or Docker Desktop with the images from Docker Hub ([INSTALL.md](INSTALL.md#alternative-docker-linux)). On Windows 11 Home with an RTX 5060 Ti 16 GB, both ran chat on Gemma 4, Z-Image Turbo pictures and Wan 2.2 5B video on the card.
 
 **Can I use it from Claude Code, Cursor or Codex?**
 Yes. Install the Claude Code plugin with the two lines in [Quick start](#quick-start), or run `python -m backend.mcp install` to wire the MCP server into every agent client it finds. See [MCP server, agent skills and agent plugins](#mcp-server-agent-skills-and-agent-plugins).

@@ -91,7 +91,8 @@
     "musicTab": "Música",
     "fxTab": "Laboratorio de FX",
     "retryLoaded": "Se cargaron los Ajustes de la canción. Cambia algo y luego pulsa Generar.",
-    "retryFailed": "No se pudieron cargar los Ajustes de esa canción."
+    "retryFailed": "No se pudieron cargar los Ajustes de esa canción.",
+    "createCard": "Crear"
   },
   "voice": {
     "title": "Locución Neuronal",

@@ -83,6 +83,34 @@
     "empty": "Aucun lot d'images pour le moment.",
     "viewAll": "Voir tous les lots"
   },
+  "videogen": {
+    "title": "Vidéos",
+    "newVideo": "Nouvelle vidéo",
+    "library": "Bibliothèque de Médias",
+    "empty": "Aucune vidéo pour le moment."
+  },
+  "approvals": {
+    "title": "En attente de vous",
+    "summary_one": "{{count}} élément attend votre décision.",
+    "summary_other": "{{count}} éléments attendent votre décision.",
+    "empty": "Rien n'est en attente.",
+    "showAll": "Cliquez pour lire le brouillon complet",
+    "more": "{{count}} de plus sur la page Approbations",
+    "openOn": "Ouvrir sur la page Approbations, onglet {{tab}}",
+    "sections": {
+      "outreach": "Brouillons de Prospection",
+      "ready": "Approuvés, prêts à être publiés",
+      "publishes": "Publications",
+      "code": "Modifications de code en attente"
+    }
+  },
+  "media": {
+    "open": "Ouvrir {{name}}",
+    "loadFailed": {
+      "image": "Impossible de charger les dernières images : {{message}}",
+      "video": "Impossible de charger les dernières vidéos : {{message}}"
+    }
+  },
   "files": {
     "title": "Gestionnaire de fichiers"
   },

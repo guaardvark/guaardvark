@@ -58,8 +58,11 @@ curl -s -X POST $B/api/infographic/generate -H 'Content-Type: application/json' 
 }'
 ```
 Styles: `editorial`, `flat_vector`, `photo_real`, `comic`; aspects `16:9`, `1:1`, `9:16`, `4:5`, `3:2`.
-The call waits for the GPU and returns when the PNG is saved (`image_url`, also filed in the Library
-under Images › Infographics). `model` is optional: Krea 2 Turbo when installed, else Z-Image Turbo;
+With the GPU free, the call returns when the PNG is saved (`image_url`, also filed in the Library
+under Images › Infographics). If another job holds the GPU (a video render, training), it answers
+202 with `queued: true`, `batch_id` and `status_url` instead; follow `GET $B/api/batch-image/status/<batch_id>`,
+and the image is filed under Images › <batch id> when it finishes. `"queue_if_busy": false` waits in
+the call instead (up to 10 minutes, then 503). `model` is optional: Krea 2 Turbo when installed, else Z-Image Turbo;
 `qwen-image-21` is non-commercial. `GET $B/api/infographic/status` lists the models and which is installed.
 
 ## Rules

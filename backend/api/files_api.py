@@ -16,7 +16,7 @@ from flask import Blueprint, current_app, jsonify, request, send_file
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.utils import secure_filename
 
-from sqlalchemy import false as sa_false, func as sa_func, literal as sa_literal
+from sqlalchemy import false as sa_false, func as sa_func, literal as sa_literal, or_ as sa_or
 
 from backend.celery_dispatch import TaskNotStarted
 from backend.config import GUAARDVARK_PROJECT_NAME
@@ -311,6 +311,29 @@ def _browse_live_repo_folder(folder_path: str) -> dict:
         },
     })
     return listing
+
+
+@files_bp.route("/live-repo/code-map", methods=["GET"])
+def live_repo_code_map():
+    """
+    GET /api/files/live-repo/code-map
+    The repository map and import graph of the live repo mount. Built from
+    disk on the first request and reused until a source file changes, so it is
+    kept out of the browse listing and fetched only when someone asks for it.
+    """
+    from backend.services.repository_analysis_service import project_code_map
+
+    try:
+        data = project_code_map("self", str(default_repo_root()))
+    except Exception as e:  # noqa: BLE001 - reported to the caller
+        logger.error("Mapping the live repo failed: %s", e, exc_info=True)
+        return error_response(f"Could not map the repository: {e}", 500, "CODE_MAP_FAILED")
+    return success_response({
+        "repository_map": data.get("repository_map") or "",
+        "dependency_graph": data.get("dependency_graph") or {},
+        "analyzed_at": data.get("analyzed_at"),
+        "file_count": data.get("file_count", 0),
+    })
 
 
 @files_bp.route("/browse", methods=["GET"])
@@ -2114,13 +2137,32 @@ def search_files():
         return error_response("Search failed", 500, "SEARCH_ERROR")
 
 
+# File extensions behind /recent?kind=...
+_RECENT_KINDS = {
+    "image": (".png", ".jpg", ".jpeg", ".webp", ".gif"),
+    "video": (".mp4", ".webm", ".mov", ".mkv", ".m4v"),
+}
+
+
 @files_bp.route("/recent", methods=["GET"])
 def get_recent_files():
-    """GET /api/files/recent?limit=20 - Get recently uploaded files"""
+    """GET /api/files/recent?limit=20&kind=image - Newest files first.
+
+    kind (optional): "image" or "video" keeps only files of that kind, so a
+    library full of documents still answers with its latest pictures or clips.
+    """
     logger.info("API: Get recent files request")
     try:
-        limit = request.args.get("limit", 20, type=int)
-        documents = DBDocument.query.order_by(DBDocument.uploaded_at.desc()).limit(limit).all()
+        limit = max(1, min(request.args.get("limit", 20, type=int), 500))
+        kind = request.args.get("kind", "").strip().lower()
+        query = DBDocument.query
+        if kind:
+            extensions = _RECENT_KINDS.get(kind)
+            if extensions is None:
+                return error_response("kind must be image or video", 400, "INVALID_KIND")
+            name = sa_func.lower(DBDocument.filename)
+            query = query.filter(sa_or(*[name.like(f"%{ext}") for ext in extensions]))
+        documents = query.order_by(DBDocument.uploaded_at.desc()).limit(limit).all()
         return success_response({"documents": [d.to_dict() for d in documents]})
     except Exception as e:
         logger.error(f"Error getting recent files: {e}", exc_info=True)

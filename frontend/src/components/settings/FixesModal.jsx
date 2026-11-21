@@ -31,7 +31,7 @@ import {
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { selfImprovementService } from "../../api/selfImprovementService";
-import { FindingList } from "./InboundGuardSection";
+import { FindingList } from "./InboundFindingList";
 import { translate, useUiTranslation } from "../../i18n";
 
 // severity → chip color. The backend uses critical/high/medium/low; anything else falls to default.

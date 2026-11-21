@@ -30,6 +30,9 @@ export function createFullTheme(config) {
     // Route prefix -> colour, so each area of the app can carry its own hue.
     // Themes that omit it simply get no accent rule.
     moduleAccents = {},
+    // Px of page left showing round each card on an edge-to-edge (TILED)
+    // board, so the cards read as separate; 0 tiles them flush.
+    boardCardInset = 0,
   } = config;
 
   const dividerColor = divider || (mode === "light" ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.08)");
@@ -39,6 +42,7 @@ export function createFullTheme(config) {
   const infoColor = info || accent;
 
   const base = muiCreateTheme({
+    board: { cardInset: boardCardInset },
     palette: {
       mode,
       primary: {
@@ -89,7 +93,11 @@ export function createFullTheme(config) {
       MuiCssBaseline: {
         styleOverrides: {
           body: {
-            scrollbarColor: `${dividerColor} transparent`,
+            // Firefox only: in Chromium a scrollbar-color replaces the
+            // ::-webkit-scrollbar rules and its hover thumb turns near-black.
+            "@supports not selector(::-webkit-scrollbar)": {
+              scrollbarColor: `${dividerColor} transparent`,
+            },
             "&::-webkit-scrollbar": { width: 8, height: 8 },
             "&::-webkit-scrollbar-thumb": {
               backgroundColor: dividerColor,

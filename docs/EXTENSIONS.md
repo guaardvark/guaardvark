@@ -102,8 +102,28 @@ export default {
   layout:       { header: AcmeHeaderBar },     // rendered above every page
   logo:         AcmeLogo,
   landingRoute: "/acme",
+  cards:        [{ id: "orders", title: "Orders", component: OrdersCard, w: 2, h: 1 }], // on the Dashboard
 };
 ```
+
+A `cards` entry adds a card to the Dashboard. `component` receives the same props as a core
+card (`id`, `cardColor`, `onCardColorChange`, `isMinimized`, `onToggleMinimize`,
+`contextMenuActions`, `onHideCard`) and passes them to the shared frame, so it drags, resizes,
+minimizes, takes a colour and hides like every other card:
+
+```jsx
+import DashboardCardWrapper from "@/components/dashboard/DashboardCardWrapper";
+
+const OrdersCard = React.forwardRef((props, ref) => (
+  <DashboardCardWrapper ref={ref} title="Orders" route="/acme/orders" {...props}>
+    {/* what the card shows */}
+  </DashboardCardWrapper>
+));
+```
+
+`w` and `h` are in default-card units. The card's id is prefixed with the extension's id. It
+arrives under the core cards on a default layout, and in a new row along the top of a layout
+someone has already arranged.
 
 Import core through the `@` alias (`@/api/apiClient`, `@/components/layout/PageLayout`,
 `@/theme/createTheme`) and lazy-import pages. The extension uses core's dependencies;

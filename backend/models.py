@@ -24,7 +24,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship  # Ensure relationship is imported
 
-from backend.utils.clock import utcnow
+from backend.utils.clock import iso_local, iso_utc, utcnow
 
 logger = logging.getLogger(__name__)
 db = SQLAlchemy()
@@ -449,6 +449,8 @@ class Task(db.Model):
     task_handler = db.Column(db.String(100), nullable=True, index=True)
     handler_config = db.Column(db.JSON, nullable=True)
     progress = db.Column(db.Integer, nullable=True, default=0)  # 0-100
+    # Place in the night shift's line, set by dragging; lowest runs first.
+    queue_rank = db.Column(db.Float, nullable=True)
     # Generated output from the task handler — LLM reply, tool output, etc.
     # Written by unified_task_executor.update_task_result() on successful runs.
     result = db.Column(db.Text, nullable=True)
@@ -505,6 +507,7 @@ class Task(db.Model):
             "competitor_url": self.competitor_url,
             # Scheduler fields
             "schedule_type": self.schedule_type,
+            "queue_rank": self.queue_rank,
             "cron_expression": self.cron_expression,
             "next_run_at": self.next_run_at.isoformat() if self.next_run_at else None,
             "last_run_at": self.last_run_at.isoformat() if self.last_run_at else None,
@@ -3985,13 +3988,14 @@ class InboundScan(db.Model):
     payload = db.Column(db.Text)
     pending_fix_id = db.Column(db.Integer, index=True)
     decided_by = db.Column(db.String(80))
-    decided_at = db.Column(db.DateTime)
+    decided_at = db.Column(db.DateTime)  # local wall time (datetime.now()); created_at is naive UTC
     decision_note = db.Column(db.Text)
 
     def to_dict(self, include_payload: bool = False) -> dict:
+        """The row for the API; every time carries an explicit offset."""
         out = {
             "id": self.id,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": iso_utc(self.created_at),
             "source": self.source,
             "subject": self.subject,
             "mode": self.mode,
@@ -4006,7 +4010,7 @@ class InboundScan(db.Model):
             "status": self.status,
             "pending_fix_id": self.pending_fix_id,
             "decided_by": self.decided_by,
-            "decided_at": self.decided_at.isoformat() if self.decided_at else None,
+            "decided_at": iso_local(self.decided_at),
             "decision_note": self.decision_note,
             "landable": bool(self.payload),
         }

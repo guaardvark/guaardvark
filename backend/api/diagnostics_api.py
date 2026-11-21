@@ -315,7 +315,8 @@ def get_system_metrics():
 
     nvidia_cmd = shutil.which("nvidia-smi")
     nvitop_cmd = shutil.which("nvitop")
-    metrics["gpu_tools_available"] = bool(nvidia_cmd or nvitop_cmd)
+    rocm_cmd = shutil.which("rocm-smi")
+    metrics["gpu_tools_available"] = bool(nvidia_cmd or nvitop_cmd or rocm_cmd)
     gpu_error = None
     if nvidia_cmd:
         try:
@@ -347,8 +348,22 @@ def get_system_metrics():
         except Exception as e_gpu:
             gpu_error = f"nvitop error: {e_gpu}"
             logger.debug(f"GPU check via nvitop failed: {e_gpu}")
+    elif rocm_cmd:
+        from backend.utils.gpu_metrics import rocm_smi_metrics
+        rocm = rocm_smi_metrics(rocm_cmd)
+        if rocm.get("available"):
+            metrics["gpu_temp"] = rocm.get("temperature")
+            metrics["gpu_percent"] = rocm.get("utilization")
+            used_mb = rocm.get("memory_used_mb")
+            total_mb = rocm.get("memory_total_mb")
+            if used_mb is not None and total_mb:
+                metrics["gpu_mem_used_gb"] = round(used_mb / 1024.0, 2)
+                metrics["gpu_mem_total_gb"] = round(total_mb / 1024.0, 2)
+                metrics["gpu_mem"] = rocm.get("memory_percent")
+        else:
+            gpu_error = rocm.get("error")
     else:
-        gpu_error = "nvidia-smi and nvitop not found"
+        gpu_error = "nvidia-smi, nvitop and rocm-smi not found"
 
     if gpu_error:
         metrics["gpu_check_error"] = gpu_error

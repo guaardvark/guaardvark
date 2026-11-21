@@ -24,8 +24,6 @@ import {
   DialogContent,
   DialogActions,
   Paper,
-  Tabs,
-  Tab,
   Divider,
   InputAdornment,
   ToggleButtonGroup,
@@ -41,7 +39,6 @@ import {
 import {
   Refresh,
   PlayArrow,
-  Code,
   Search,
   ContentCopy,
   CheckCircle,
@@ -64,6 +61,7 @@ import copyText from "../utils/copyText";
 import { ApiKeyRefusalAlert } from "../components/common/ApiKeyRefusalNotice";
 import { useStatus } from "../contexts/StatusContext";
 import { ContextualLoader } from "../components/common/LoadingStates";
+import { CardWorkspace } from "../components/board";
 import { useUiTranslation } from "../i18n";
 
 // A parameter the test dialog has no value for yet. A false checkbox or a
@@ -94,7 +92,6 @@ const ToolsPage = () => {
   const [schemaFormat, setSchemaFormat] = useState("xml");
   const [schemas, setSchemas] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState(0);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -153,10 +150,8 @@ const ToolsPage = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 1) {
-      loadSchemas(schemaFormat);
-    }
-  }, [activeTab, schemaFormat]);
+    loadSchemas(schemaFormat);
+  }, [schemaFormat]);
 
   const handleTestTool = (tool) => {
     setSelectedTool(tool);
@@ -583,17 +578,6 @@ const ToolsPage = () => {
       modelStatus
       activeModel={isLoadingModel ? t("common.loading") : modelError ? t("common.error") : activeModel}
     >
-      {/* Tabs */}
-      <Tabs
-        value={activeTab}
-        onChange={(e, v) => setActiveTab(v)}
-        sx={{ mb: 3 }}
-      >
-        <Tab label={t("tools.tabs.tools", { count: tools.length })} icon={<Build />} iconPosition="start" />
-        <Tab label={t("tools.tabs.schemas")} icon={<Code />} iconPosition="start" />
-        <Tab label={t("tools.tabs.categories")} icon={<Category />} iconPosition="start" />
-      </Tabs>
-
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
@@ -601,9 +585,16 @@ const ToolsPage = () => {
         </Alert>
       )}
 
-      {/* Tab Content */}
-      {activeTab === 0 && (
-        <>
+      {/* The three sections are cards on the shared board. */}
+      <CardWorkspace
+        boardKey="tools"
+        cards={[
+          {
+            id: "tools",
+            title: t("tools.tabs.tools", { count: tools.length }),
+            layout: { x: 0, y: 0, w: 110, h: 90 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
           {/* Search and View Toggle */}
           <Box sx={{ display: "flex", gap: 2, mb: 3, alignItems: "center" }}>
             <TextField
@@ -666,10 +657,15 @@ const ToolsPage = () => {
           ) : (
             renderToolTable()
           )}
-        </>
-      )}
-
-      {activeTab === 1 && (
+              </Box>
+            ),
+          },
+          {
+            id: "schemas",
+            title: t("tools.tabs.schemas"),
+            layout: { x: 110, y: 0, w: 65, h: 45 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         <Box>
           <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
             <Button
@@ -707,9 +703,15 @@ const ToolsPage = () => {
             {schemas || t("tools.schemas.loading")}
           </Paper>
         </Box>
-      )}
-
-      {activeTab === 2 && (
+              </Box>
+            ),
+          },
+          {
+            id: "categories",
+            title: t("tools.tabs.categories"),
+            layout: { x: 110, y: 45, w: 65, h: 45 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         <Grid container spacing={3}>
           {Object.entries(categories).map(([category, toolList]) => (
             <Grid key={category} size={{ xs: 12, md: 6 }}>
@@ -745,7 +747,11 @@ const ToolsPage = () => {
             </Grid>
           ))}
         </Grid>
-      )}
+              </Box>
+            ),
+          },
+        ]}
+      />
 
       <EntityContextMenu
         anchorPosition={toolMenu.anchorPosition}

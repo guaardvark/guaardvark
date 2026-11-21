@@ -45,6 +45,10 @@ def _resolve_ref_path(p: str) -> str | None:
     '../../etc/passwd' reaching send_file."""
     if not p:
         return None
+    # A reference is an image. Without this the roots below made every file
+    # of the install servable, the .env that holds the API key included.
+    if os.path.splitext(str(p))[1].lower() not in _ALLOWED_REF_EXTS:
+        return None
     roots = [_PROJECT_ROOT]
     try:
         storage = current_app.config.get("STORAGE_DIR")  # registered key (NOT "DATA_DIR")
@@ -87,6 +91,14 @@ def _cast_ref_dir(subject_id: int) -> Path:
     return target
 
 
+def _effective_training_settings(s: Subject) -> dict:
+    from backend.services.lora_training_settings import settings_for_subject
+    try:
+        return settings_for_subject(s)
+    except Exception:  # noqa: BLE001 — a listing never fails on one member's settings
+        return {}
+
+
 def _serialize(s: Subject) -> dict:
     try:
         from backend.services.media_model_registry import (
@@ -119,6 +131,8 @@ def _serialize(s: Subject) -> dict:
         "last_trained_at": getattr(s, 'last_trained_at', None).isoformat() if getattr(s, 'last_trained_at', None) else None,
         "bible": getattr(s, 'bible', None),
         "training_settings_json": getattr(s, "training_settings_json", None) or {},
+        # What a run started now would use: stored values over the base's recipe.
+        "training_settings": _effective_training_settings(s),
         # Media model registry — LoRA train/inference base (Z-Image default; SDXL legacy)
         "base_model_id": base_id,
         "base_model_name": base_prof.get("name"),
@@ -768,6 +782,25 @@ def sample_image(subject_id: int, sample_id: int):
     if not resolved:
         return jsonify({"error": "no_image"}), 404
     return send_file(resolved, max_age=3600)
+
+
+@bp.get("/train-adapter")
+def train_adapter_status():
+    """Whether the train base needs a training adapter and has it (Cast page)."""
+    from backend.services import cast_train_adapter
+    from backend.services.media_model_registry import get_cast_train_base_setting
+    base_id = request.args.get("base_model_id") or get_cast_train_base_setting()
+    return jsonify(cast_train_adapter.status(base_id)), 200
+
+
+@bp.post("/train-adapter/install")
+def train_adapter_install():
+    """Download the base's training adapter (Cast page > Install). Training never does."""
+    from backend.services import cast_train_adapter
+    from backend.services.media_model_registry import get_cast_train_base_setting
+    body = request.get_json(silent=True) or {}
+    base_id = body.get("base_model_id") or get_cast_train_base_setting()
+    return jsonify(cast_train_adapter.start_install(base_id)), 202
 
 
 @bp.post("/subjects/<int:subject_id>/train")

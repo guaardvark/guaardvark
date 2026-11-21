@@ -3,7 +3,7 @@ import { formatUiError } from "../utils/uiError";
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUnifiedProgress } from '../contexts/UnifiedProgressContext';
 import {
-  Box, Tabs, Tab, Typography, Button, TextField, Card, CardMedia, CardContent,
+  Box, Typography, Button, TextField, Card, CardMedia, CardContent,
   CardActions, Chip, CircularProgress, Alert, Dialog, DialogTitle, DialogContent,
   DialogActions, Grid, IconButton, Tooltip, Divider, Link, LinearProgress, MenuItem,
 } from '@mui/material';
@@ -23,11 +23,13 @@ import {
 import { SubjectThumb } from '../components/filmcrew/CastLibraryView';
 import DragDropImageUpload from '../components/filmcrew/DragDropImageUpload';
 import CastVoicePicker from '../components/filmcrew/CastVoicePicker';
+import TrainAdapterInstall from '../components/filmcrew/TrainAdapterInstall';
 import ChangedElsewhereNotice from '../components/common/ChangedElsewhereNotice';
 import EntityContextMenu from '../components/common/EntityContextMenu';
 import useContextMenu from '../hooks/useContextMenu';
 import useServerSyncedForm from '../hooks/useServerSyncedForm';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
+import { CardWorkspace } from '../components/board';
 import { translate, useUiTranslation, Trans } from '../i18n';
 
 const POLL_MS = 5000;
@@ -73,17 +75,19 @@ const trainingLabels = () => ({
   steps: translate('cast.fields.steps'),
 });
 
+// Blank until the server answers: the numbers come from the train base's recipe
+// (subject.training_settings), which the server also applies to a blank field.
 const DEFAULT_TRAINING_SETTINGS = {
-  resolution: 768,
-  rank: 16,
-  alpha: 16,
+  resolution: '',
+  rank: '',
+  alpha: '',
   learning_rate: 1e-4,
   steps: '',
   base_model_id: 'zimage-turbo',
 };
 
 const trainingSettingsFromSubject = (subject) => {
-  const raw = subject?.training_settings_json || {};
+  const raw = subject?.training_settings || subject?.training_settings_json || {};
   return {
     resolution: raw.resolution ?? DEFAULT_TRAINING_SETTINGS.resolution,
     rank: raw.rank ?? DEFAULT_TRAINING_SETTINGS.rank,
@@ -146,7 +150,6 @@ const CastMemberPage = () => {
   const [subject, setSubject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [tab, setTab] = useState(0);
 
   // Overview edit form. Server copies merge into it field by field and never
   // overwrite an unsaved edit (hooks/useServerSyncedForm).
@@ -656,9 +659,9 @@ const CastMemberPage = () => {
     const stepsRaw = trainingSettings.steps;
     const steps = stepsRaw === '' || stepsRaw == null ? null : Number(stepsRaw);
     return {
-      resolution: Number(trainingSettings.resolution) || 768,
-      rank: Number(trainingSettings.rank) || 16,
-      alpha: Number(trainingSettings.alpha) || 16,
+      resolution: Number(trainingSettings.resolution) || null,
+      rank: Number(trainingSettings.rank) || null,
+      alpha: Number(trainingSettings.alpha) || null,
       learning_rate: Number(trainingSettings.learning_rate) || 1e-4,
       steps: Number.isFinite(steps) && steps > 0 ? steps : null,
       base_model_id: trainingSettings.base_model_id || subject?.base_model_id || 'zimage-turbo',
@@ -848,15 +851,16 @@ const CastMemberPage = () => {
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Tab label={t('cast.tabs.overview')} />
-        <Tab label={t('cast.tabs.trainingData')} />
-        <Tab label={t('cast.tabs.generate')} />
-        <Tab label={t('cast.tabs.versions')} />
-      </Tabs>
-
-      {/* ── Overview ───────────────────────────────────────────────────────── */}
-      {tab === 0 && (
+      {/* The four sections are cards on the shared board. */}
+      <CardWorkspace
+        boardKey="cast-member"
+        cards={[
+          {
+            id: "overview",
+            title: t('cast.tabs.overview'),
+            layout: { x: 0, y: 0, w: 85, h: 60 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, sm: 4, md: 3 }}>
             <Box sx={{ borderRadius: 1, overflow: 'hidden' }}><SubjectThumb subject={subject} /></Box>
@@ -937,10 +941,15 @@ const CastMemberPage = () => {
             </Box>
           </Grid>
         </Grid>
-      )}
-
-      {/* ── Training Data ──────────────────────────────────────────────────── */}
-      {tab === 1 && (
+              </Box>
+            ),
+          },
+          {
+            id: "training",
+            title: t('cast.tabs.trainingData'),
+            layout: { x: 85, y: 0, w: 90, h: 60 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         <Box sx={{ maxWidth: 1100, mx: 'auto', pb: 6, width: '100%' }}>
           {/* Intro and status info stay at top */}
           <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
@@ -1090,6 +1099,9 @@ const CastMemberPage = () => {
                 })}
             </Typography>
           )}
+          <TrainAdapterInstall
+            baseModelId={trainingSettings.base_model_id || subject?.base_model_id || 'zimage-turbo'}
+          />
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <Button variant="contained" color="secondary" onClick={handleTrainClick}
                     disabled={busy || training || !trainable}>
@@ -1153,10 +1165,15 @@ const CastMemberPage = () => {
             </Alert>
           )}
         </Box>
-      )}
-
-      {/* ── Generate Character ─────────────────────────────────────────────── */}
-      {tab === 2 && (
+              </Box>
+            ),
+          },
+          {
+            id: "generate",
+            title: t('cast.tabs.generate'),
+            layout: { x: 0, y: 60, w: 115, h: 70 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 2 }}>
             <Button variant="outlined" startIcon={<AutoAwesomeIcon />} onClick={handlePlan} disabled={planning || busy}>
@@ -1390,10 +1407,15 @@ const CastMemberPage = () => {
             </Typography>
           </Box>
         </Box>
-      )}
-
-      {/* ── Versions ───────────────────────────────────────────────────────── */}
-      {tab === 3 && (
+              </Box>
+            ),
+          },
+          {
+            id: "versions",
+            title: t('cast.tabs.versions'),
+            layout: { x: 115, y: 60, w: 60, h: 70 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         <Box sx={{ maxWidth: 560 }}>
           <Typography variant="subtitle2" gutterBottom>{t('cast.versions.title')}</Typography>
           <Typography variant="body2"><Trans i18nKey="cast.versions.status" components={{ bold: <b /> }} values={{ status: subject.training_status }} /></Typography>
@@ -1474,7 +1496,11 @@ const CastMemberPage = () => {
             </Box>
           )}
         </Box>
-      )}
+              </Box>
+            ),
+          },
+        ]}
+      />
 
       {/* Regenerate dialog */}
       <Dialog open={!!regenTarget} onClose={() => setRegenTarget(null)} maxWidth="sm" fullWidth>

@@ -18,6 +18,10 @@
  *   layout        { header: Component }   rendered inside AppLayout above the page
  *   logo          Component   replaces the brand logo
  *   landingRoute  string      where "/" goes when no profile says otherwise
+ *   cards         [{ id, title, component, w = 1, h = 1 }]   cards added to the Dashboard. `component`
+ *                 gets a core card's props and renders the shared card frame; `title` is a string or a
+ *                 function returning one; w and h are in default-card units. Ids are prefixed with the
+ *                 extension's id, so they cannot collide with core's or another extension's.
  *
  * Import core from an extension through the `@` alias (`@/api/apiClient`,
  * `@/theme/createTheme`); lazy-import pages so nothing heavy runs at load.
@@ -47,6 +51,9 @@ export const normalizeExtension = (id, mod) => {
     layout: spec.layout || {},
     logo: spec.logo || null,
     landingRoute: spec.landingRoute || null,
+    cards: (spec.cards || [])
+      .filter((card) => card && card.id && card.component)
+      .map((card) => ({ w: 1, h: 1, ...card, id: `${spec.id || id}-${card.id}` })),
   };
 };
 
@@ -70,4 +77,5 @@ export const extensionChatSurfaces = () => extensions.flatMap((e) => e.chatSurfa
 export const extensionStoreSlices = () => extensions.map((e) => e.storeSlice).filter(Boolean);
 export const extensionHeaders = () => extensions.map((e) => e.layout?.header).filter(Boolean);
 export const extensionLogo = () => extensions.map((e) => e.logo).find(Boolean) || null;
+export const extensionCards = () => extensions.flatMap((e) => e.cards);
 export const extensionLandingRoute = () => extensions.map((e) => e.landingRoute).find(Boolean) || null;

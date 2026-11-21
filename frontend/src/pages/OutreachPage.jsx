@@ -47,6 +47,10 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import * as outreachApi from "../api/outreachService";
+import { CardWorkspace } from "../components/board";
+import ChoiceChips from "../components/settings/ui/ChoiceChips";
+import { AtTimeDialog } from "../components/jobs/ScheduleButton";
+import { NIGHT_SHIFT_CHANGED_EVENT, WHEN } from "../api/nightShiftService";
 import { translate, uiLocale, useUiTranslation, Trans } from "../i18n";
 
 // Per-platform character soft-caps used by the pre-flight panel.
@@ -535,6 +539,10 @@ const OutreachPage = () => {
     }
   };
 
+  // When the pass buttons below start their run: now, in the night shift, or at a time.
+  const [passWhen, setPassWhen] = useState({ when: WHEN.NOW });
+  const [passAtOpen, setPassAtOpen] = useState(false);
+
   const handleRunPass = async (passPlatform) => {
     setBusy(true);
     setError(null); setInfo(null);
@@ -550,6 +558,18 @@ const OutreachPage = () => {
         .filter(Boolean);
       if (topicList.length && (passPlatform === "youtube" || passPlatform === "reddit")) {
         body.topics = topicList;
+      }
+      if (passWhen.when !== WHEN.NOW) {
+        body.when = passWhen.when;
+        if (passWhen.when === WHEN.AT) body.at = passWhen.at;
+        await outreachApi.runPass(body);
+        window.dispatchEvent(new Event(NIGHT_SHIFT_CHANGED_EVENT));
+        setInfo(
+          passWhen.when === WHEN.AT
+            ? t("jobs.nightShift.addedAt", { time: new Date(passWhen.at).toLocaleString(uiLocale()) })
+            : t("jobs.nightShift.added"),
+        );
+        return;
       }
       const out = await outreachApi.runPass(body);
       if (out.task_id != null) setLastTaskId(out.task_id);
@@ -805,19 +825,18 @@ const OutreachPage = () => {
 
       {busy && <LinearProgress sx={{ mb: 1 }} />}
 
-      <Box sx={{
-        display: "grid",
-        gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "320px minmax(0, 1fr) 320px" },
-        gap: 2,
-        alignItems: "start",
-      }}>
-        {/* ── Source / Context Zone ─────────────────────────────────── */}
-        <Stack spacing={2}>
-          <Paper sx={{ p: 2 }}>
+      {/* Each panel is a card on the shared board. */}
+      <CardWorkspace
+        boardKey="outreach"
+        cards={[
+          {
+            id: "profile",
+            title: t("outreach.profile.title"),
+            layout: { x: 0, y: 0, w: 45, h: 16 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack direction="row" sx={{ alignItems: "center", mb: 1 }}>
-              <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                {t("outreach.profile.title")}
-              </Typography>
+              <Box sx={{ flex: 1 }} />
               {profile && (
                 <Button
                   size="small"
@@ -883,13 +902,17 @@ const OutreachPage = () => {
                 {t("outreach.profile.empty")}
               </Typography>
             )}
-          </Paper>
-
-          <Paper sx={{ p: 2 }}>
+              </Box>
+            ),
+          },
+          {
+            id: "queue",
+            title: t("outreach.queue.title", { count: queue.length }),
+            layout: { x: 0, y: 16, w: 45, h: 40 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack direction="row" sx={{ alignItems: "center", mb: 1 }}>
-              <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                {t("outreach.queue.title", { count: queue.length })}
-              </Typography>
+              <Box sx={{ flex: 1 }} />
               <Tooltip title={t("outreach.queue.newTooltip")}>
                 <Button
                   size="small"
@@ -949,6 +972,29 @@ const OutreachPage = () => {
                 </span>
               </Tooltip>
             </Stack>
+            <Box sx={{ mb: 1 }} data-testid="outreach-pass-when">
+              <ChoiceChips
+                ariaLabel={t("jobs.nightShift.whenLabel")}
+                options={[
+                  { value: WHEN.NOW, label: t("jobs.nightShift.whenNow") },
+                  { value: WHEN.NIGHT_SHIFT, label: t("jobs.nightShift.when.night") },
+                  {
+                    value: WHEN.AT,
+                    label: passWhen.when === WHEN.AT ? new Date(passWhen.at).toLocaleString(uiLocale()) : t("jobs.nightShift.atMenu"),
+                  },
+                ]}
+                value={passWhen.when}
+                onChange={(next) => (next === WHEN.AT ? setPassAtOpen(true) : setPassWhen({ when: next }))}
+              />
+              <AtTimeDialog
+                open={passAtOpen}
+                onClose={() => setPassAtOpen(false)}
+                onPick={(at) => {
+                  setPassAtOpen(false);
+                  setPassWhen({ when: WHEN.AT, at });
+                }}
+              />
+            </Box>
             <TextField
               size="small"
               fullWidth
@@ -1068,10 +1114,15 @@ const OutreachPage = () => {
                 ))}
               </List>
             )}
-          </Paper>
-
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.source.title")}</Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "source",
+            title: t("outreach.source.title"),
+            layout: { x: 0, y: 56, w: 45, h: 18 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             {selected ? (
               <Stack spacing={1}>
                 <Typography variant="caption" sx={{ color: "text.secondary" }}>
@@ -1096,10 +1147,15 @@ const OutreachPage = () => {
                 {t("outreach.source.empty")}
               </Typography>
             )}
-          </Paper>
-
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.snippets.title")}</Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "snippets",
+            title: t("outreach.snippets.title"),
+            layout: { x: 0, y: 74, w: 45, h: 22 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             {loadingSnippets ? (
               <CircularProgress size={20} />
             ) : snippets && (snippets.pitch || snippets.site_url || snippets.repo_url || snippets.videos?.length || Object.keys(snippets.feature_blurbs || {}).length) ? (
@@ -1147,12 +1203,15 @@ const OutreachPage = () => {
             ) : (
               <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("outreach.snippets.unavailable")}</Typography>
             )}
-          </Paper>
-        </Stack>
-
-        {/* ── Drafting Zone ─────────────────────────────────────────── */}
-        <Stack spacing={2}>
-          <Paper sx={{ p: 2 }}>
+              </Box>
+            ),
+          },
+          {
+            id: "draft",
+            title: t("outreach.newDraft.body"),
+            layout: { x: 45, y: 0, w: 85, h: 66 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
               <FormControl size="small" sx={{ minWidth: 220 }}>
                 <InputLabel>{t("outreach.drafting.platform")}</InputLabel>
@@ -1205,10 +1264,15 @@ const OutreachPage = () => {
                 {t("outreach.drafting.linkCount", { count: urls.length })}
               </Typography>
             </Stack>
-          </Paper>
-
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.citation.title")}</Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "citation",
+            title: t("outreach.citation.title"),
+            layout: { x: 45, y: 66, w: 130, h: 30 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
               <TextField
                 size="small"
@@ -1238,13 +1302,15 @@ const OutreachPage = () => {
                 </Box>
               </Stack>
             )}
-          </Paper>
-        </Stack>
-
-        {/* ── Task / Output Zone ─────────────────────────────────────── */}
-        <Stack spacing={2}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.preflight.title")}</Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "preflight",
+            title: t("outreach.preflight.title"),
+            layout: { x: 130, y: 0, w: 45, h: 24 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack spacing={0.75}>
               <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 {formatGate(draftPresent)}
@@ -1276,10 +1342,15 @@ const OutreachPage = () => {
                 </Typography>
               </Stack>
             </Stack>
-          </Paper>
-
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.action.title")}</Typography>
+              </Box>
+            ),
+          },
+          {
+            id: "action",
+            title: t("outreach.action.title"),
+            layout: { x: 130, y: 24, w: 45, h: 42 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
             <Stack spacing={1}>
               <Button
                 fullWidth
@@ -1318,10 +1389,9 @@ const OutreachPage = () => {
                 {t("outreach.action.note")}
               </Typography>
             </Stack>
-          </Paper>
 
           {selected && (
-            <Paper sx={{ p: 2 }}>
+            <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.selected.title")}</Typography>
               <Stack spacing={0.5}>
                 <Typography variant="caption" sx={{ color: "text.secondary" }}>
@@ -1345,17 +1415,19 @@ const OutreachPage = () => {
                   </Typography>
                 )}
               </Stack>
-            </Paper>
+            </Box>
           )}
-        </Stack>
-      </Box>
-
-      {/* ── History (read-only audit trail) ─────────────────────────── */}
-      <Paper sx={{ p: 2, mt: 2 }}>
+              </Box>
+            ),
+          },
+          {
+            id: "history",
+            title: t("outreach.history.title"),
+            layout: { x: 0, y: 96, w: 175, h: 40 },
+            body: (
+              <Box sx={{ p: 1.5 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1.5 }}>
-          <Typography variant="subtitle2" sx={{ flex: 1 }}>
-            {t("outreach.history.title")}
-          </Typography>
+          <Box sx={{ flex: 1 }} />
           {[...HISTORY_STATUSES, "all"].map((f) => (
             <Chip
               key={f}
@@ -1473,7 +1545,11 @@ const OutreachPage = () => {
             </Box>
           );
         })()}
-      </Paper>
+              </Box>
+            ),
+          },
+        ]}
+      />
 
       {/* ── New Draft modal ─────────────────────────────────────────── */}
       <Dialog

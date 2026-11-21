@@ -61,6 +61,11 @@ gpu:
   # Seconds of backend idle before auto-unload (frees VRAM for other plugins).
   # 0 disables auto-unload. Measured from last successful generation.
   idle_unload_s: 300
+  # Longest a background job waits while another job (a video render, training)
+  # holds the GPU, before it fails with "GPU is held by ...". Music always waits
+  # for such a job; voice and effects wait only when cold and the card is short.
+  # 0 refuses at once instead of waiting.
+  wait_for_gpu_s: 3600
 
 async:
   enabled: true

@@ -92,5 +92,38 @@
     "exitKiosk": "退出全屏模式 (F11)",
     "minimize": "最小化窗口 (隐藏内容)",
     "close": "关闭应用程序 (Ctrl+Q 或 Alt+F4)"
+  },
+  "board": {
+    "resetLayout": "重置卡片布局",
+    "layout": "布局",
+    "cards": {
+      "prompt": "提示词",
+      "settings": "设置",
+      "queue": "队列",
+      "results": "结果",
+      "status": "状态"
+    },
+    "queueEmpty": "队列为空或正在渲染中。",
+    "useLayout": "布局：{{name}}",
+    "layouts": {
+      "columns": "列",
+      "library": "宽库",
+      "compose": "组合",
+      "tiles": "平铺",
+      "stacked": "堆叠"
+    },
+    "status": {
+      "model": "模型",
+      "size": "尺寸",
+      "steps": "步数",
+      "queue": "队列",
+      "idle": "空闲",
+      "active": "{{count}} 个活动中",
+      "running": "运行中",
+      "queued": "排队中",
+      "none": "未选择"
+    },
+    "fullScreen": "全屏",
+    "exitFullScreen": "退出全屏"
   }
 }

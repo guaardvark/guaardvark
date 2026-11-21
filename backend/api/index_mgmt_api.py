@@ -867,3 +867,17 @@ def reranker_score():
     if model is not None and not isinstance(model, str):
         return jsonify({"error": "model must be a string"}), 400
     return jsonify(reranker.score_on_gpu(query, passages, model=model)), 200
+
+
+@index_mgmt_bp.route("/docling", methods=["GET"])
+def docling_models_status():
+    """The PDF layout models Docling reads: installed or not, and any install in progress."""
+    from backend.utils import docling_loader
+    return jsonify(docling_loader.install_status()), 200
+
+
+@index_mgmt_bp.route("/docling/install", methods=["POST"])
+def docling_models_install():
+    """Download the PDF layout models (Settings > Knowledge > Install). Indexing never does."""
+    from backend.utils import docling_loader
+    return jsonify(docling_loader.start_install()), 202

@@ -54,14 +54,10 @@ import {
   saveProjectAs,
   renameProject,
 } from "../api/videoEditorService";
-import ReactGridLayout, { WidthProvider } from "react-grid-layout/legacy";
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
+import { CardBoard, TILED, loadBoardState, saveBoardState, useBoardGestures, useCardStacking } from "../components/board";
 import DashboardCardWrapper from "../components/dashboard/DashboardCardWrapper";
 import { useLayout, useDashboardWidth } from "../contexts/LayoutContext";
 import { useUiTranslation, translate, uiLocale } from "../i18n";
-
-const GridLayout = WidthProvider(ReactGridLayout);
 
 // Bumped whenever DEFAULT_VE_LAYOUT changes shape — a saved layout from an older
 // version is discarded so everyone picks up the improved tiling once (otherwise
@@ -147,16 +143,23 @@ const VideoEditorPage = () => {
   // automatically. Cleared on completion or error.
   const [quickRenderPending, setQuickRenderPending] = useState(false);
 
-  // --- Card grid layout (resizable/draggable windows, same system as the Code
-  // Editor & Documents pages). Persisted to /api/state/video-editor. ---
+  // --- The cards sit on the shared card board (components/board), tiled edge
+  // to edge. Their arrangement is saved to /api/state/video-editor. ---
   const { gridSettings } = useLayout();
-  const { COLS_COUNT, ROW_HEIGHT_PX, CARD_MARGIN_PX, CONTAINER_PADDING_PX } = gridSettings;
   const gridWidth = useDashboardWidth();
   const [layout, setLayout] = useState(DEFAULT_VE_LAYOUT);
   const [cardColors, setCardColors] = useState({});
   const [minimizedCards, setMinimizedCards] = useState({});
   const layoutLoadedRef = useRef(false);
-  const MIN_ROW = Math.max(1, Math.round(48 / ROW_HEIGHT_PX));
+  const stacking = useCardStacking();
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const minimizedRef = useRef(minimizedCards);
+  minimizedRef.current = minimizedCards;
+  const gestures = useBoardGestures(
+    useCallback(() => layoutRef.current, []),
+    useCallback(() => minimizedRef.current, []),
+  );
 
   // SaveState indicator (same UX as CodeEditor/Dashboard/Documents): a "Saving…/
   // Saved" chip backed by both the layout save and the session (content) save.
@@ -167,8 +170,7 @@ const VideoEditorPage = () => {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/state/video-editor")
-      .then((r) => (r.ok ? r.json() : null))
+    loadBoardState("video-editor")
       .then((saved) => {
         if (cancelled) return;
         if (saved && saved.version === LAYOUT_VERSION && Array.isArray(saved.layout) && saved.layout.length) {
@@ -192,16 +194,12 @@ const VideoEditorPage = () => {
     if (!layoutLoadedRef.current) return;  // don't clobber saved state on first paint
     setIsSaving(true);
     try {
-      await fetch("/api/state/video-editor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          version: LAYOUT_VERSION,
-          layout: nextLayout,
-          cardColors: nextColors,
-          minimizedCards: nextMin,
-          lastSaved: new Date().toISOString(),
-        }),
+      await saveBoardState("video-editor", {
+        version: LAYOUT_VERSION,
+        layout: nextLayout,
+        cardColors: nextColors,
+        minimizedCards: nextMin,
+        lastSaved: new Date().toISOString(),
       });
       setLastSaveTime(new Date());
     } catch (e) {
@@ -360,17 +358,14 @@ const VideoEditorPage = () => {
     } catch (e) { applyServerError(e, t("videoEditor.page.renameFailed")); }
   }, [currentProjectId, applyServerError]);
 
-  const onLayoutChange = useCallback((next) => {
+  // A drag or resize ended: keep where the cards are now.
+  const onUserLayoutChange = useCallback((reported, fromDrag) => {
     if (!layoutLoadedRef.current) return;
-    // A minimized card reports its collapsed height — preserve its stored
-    // (expanded) height so un-minimizing restores the real size.
-    const prevById = Object.fromEntries(layout.map((l) => [l.i, l]));
-    const merged = next.map((l) =>
-      minimizedCards[l.i] && prevById[l.i] ? { ...l, h: prevById[l.i].h } : l,
-    );
-    setLayout(merged);
-    saveLayoutState(merged, cardColors, minimizedCards);
-  }, [layout, minimizedCards, cardColors, saveLayoutState]);
+    const settled = gestures.settle(reported, fromDrag);
+    if (!settled) return;
+    setLayout(settled);
+    saveLayoutState(settled, cardColors, minimizedCards);
+  }, [gestures, minimizedCards, cardColors, saveLayoutState]);
 
   const handleCardColorChange = useCallback((cardId, color) => {
     const next = { ...cardColors, [cardId]: color };
@@ -379,10 +374,11 @@ const VideoEditorPage = () => {
   }, [cardColors, layout, minimizedCards, saveLayoutState]);
 
   const handleToggleMinimize = useCallback((cardId) => {
+    gestures.beginToggle(cardId);
     const next = { ...minimizedCards, [cardId]: !minimizedCards[cardId] };
     setMinimizedCards(next);
     saveLayoutState(layout, cardColors, next);
-  }, [minimizedCards, layout, cardColors, saveLayoutState]);
+  }, [minimizedCards, layout, cardColors, saveLayoutState, gestures]);
 
   // Pull video + audio + image Documents into the media library. Three
   // tabs in the panel each render their own icon-grid.
@@ -957,51 +953,34 @@ const VideoEditorPage = () => {
         onOpenProject={handleOpenProjectById}
         currentId={currentProjectId}
       />
-      {/* Window/card system — drag by the title bar, resize from any edge,
-          double-click a header to minimize. Layout persists per-machine via
-          /api/state/video-editor. Same pattern as the Documents & Code Editor pages. */}
+      {/* Drag a card by its title bar, resize it from any edge, double-click
+          the bar to minimize. */}
       <Box sx={{ height: "calc(100vh - 136px)", overflow: "auto", p: 0.5 }}>
-        <GridLayout
-          className="layout"
-          layout={layout}
-          cols={COLS_COUNT}
-          rowHeight={ROW_HEIGHT_PX}
+        <CardBoard
+          fitWidth
           width={gridWidth}
-          containerPadding={[CONTAINER_PADDING_PX / 10, CONTAINER_PADDING_PX / 10]}
-          margin={[CARD_MARGIN_PX / 20, CARD_MARGIN_PX / 20]}
-          isDraggable
-          isResizable
-          compactType={null}
-          preventCollision={false}
-          useCSSTransforms={false}
-          allowOverlap={true}
-          draggableHandle=".card-header-buttons"
-          draggableCancel="button, input, textarea, select, option, .non-draggable"
-          onLayoutChange={onLayoutChange}
-          resizeHandles={["s", "w", "e", "n", "sw", "nw", "se", "ne"]}
-        >
-          {layout.map((item) => {
-            const cardId = item.i;
-            const isMin = !!minimizedCards[cardId];
-            const dataGrid = isMin
-              ? { ...item, h: MIN_ROW, minH: MIN_ROW, maxH: MIN_ROW, isResizable: false }
-              : { ...item, isResizable: true };
-            return (
-              <div key={cardId} data-grid={dataGrid}>
-                <DashboardCardWrapper
-                  id={cardId}
-                  title={veCardTitles()[cardId] || cardId}
-                  cardColor={cardColors[cardId]}
-                  onCardColorChange={(c) => handleCardColorChange(cardId, c)}
-                  isMinimized={isMin}
-                  onToggleMinimize={() => handleToggleMinimize(cardId)}
-                >
-                  {renderCardBody(cardId)}
-                </DashboardCardWrapper>
-              </div>
-            );
-          })}
-        </GridLayout>
+          grid={gridSettings}
+          spacing={TILED}
+          layout={layout}
+          minimized={minimizedCards}
+          stacking={stacking}
+          dragHandle=".card-header-buttons"
+          onDragStart={gestures.onDragStart}
+          onDragStop={(reported) => onUserLayoutChange(reported, true)}
+          onResizeStop={(reported) => onUserLayoutChange(reported, false)}
+          renderCard={(item, isMinimized) => (
+            <DashboardCardWrapper
+              id={item.i}
+              title={veCardTitles()[item.i] || item.i}
+              cardColor={cardColors[item.i]}
+              onCardColorChange={(c) => handleCardColorChange(item.i, c)}
+              isMinimized={isMinimized}
+              onToggleMinimize={() => handleToggleMinimize(item.i)}
+            >
+              {renderCardBody(item.i)}
+            </DashboardCardWrapper>
+          )}
+        />
       </Box>
     </PageLayout>
   );

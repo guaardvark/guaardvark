@@ -11,7 +11,8 @@
     "title": "Film Crew",
     "productionsTab": "Productions",
     "castLibraryTab": "Cast Library",
-    "newProduction": "New Production"
+    "newProduction": "New Production",
+    "productionCard": "Production"
   },
   "list": {
     "failedAt": "failed: {{stage}}",
@@ -153,7 +154,9 @@
     "invalidAlert": "The saved voice “{{id}}” is not an Audio Foundry voice, so renders leave it out and this character speaks in the default voice. Pick a voice from the list, then save.",
     "manageModels": "Manage models",
     "notInstalledAlert": "{{voice}} is not installed on this machine. Until it is, Audio Foundry refuses it and this character’s lines render without a voiceover. Install Kokoro in Audio Studio → Manage models.",
-    "loadFailed": "The voice list could not be loaded, so only the default voice is offered and the saved voice is not checked. It is kept as it is."
+    "loadFailed": "The voice list could not be loaded, so only the default voice is offered and the saved voice is not checked. It is kept as it is.",
+    "installLanguageFirst": "Install {{language}} first",
+    "languageNotInstalledAlert": "{{voice}} speaks {{language}}, which is not installed on this machine. Until it is, Audio Foundry refuses this voice and this character’s lines render without a voiceover. Install {{name}} in Audio Studio → Manage models."
   },
   "storyboard": {
     "noStoryboard": "No storyboard",

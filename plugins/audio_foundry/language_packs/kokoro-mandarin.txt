@@ -1,0 +1,21 @@
+# Kokoro Mandarin Chinese: the packages misaki[zh] reads for lang_code "z" (kokoro_voices.json).
+# Installed by Audio Studio -> Manage models, with --no-deps --require-hashes.
+# proces is cn2an's one dependency.
+# Hashes cover every file of each release on PyPI (read 2026-11-17).
+cn2an==0.5.24 \
+    --hash=sha256:3d57d862a56133070ba6a737b8095bfc94716b41b7684e7a98d2d5b049495db7 \
+    --hash=sha256:c276cfc4b3c9e758214841de597502eb178de50b8da2633ed345564f90705f0e
+jieba==0.42.1 \
+    --hash=sha256:055ca12f62674fafed09427f176506079bc135638a14e23e25be909131928db2
+ordered-set==4.1.0 \
+    --hash=sha256:046e1132c71fcf3330438a539928932caf51ddbc582496833e23de611de14562 \
+    --hash=sha256:694a8e44c87657c59292ede72891eb91d34131f6531463aab3009191c77364a8
+proces==0.1.7 \
+    --hash=sha256:308325bbc96877263f06e57e5e9c760c4b42cc722887ad60be6b18fc37d68762 \
+    --hash=sha256:70a05d9e973dd685f7a9092c58be695a8181a411d63796c213232fd3fdc43775
+pypinyin==0.55.0 \
+    --hash=sha256:b5711b3a0c6f76e67408ec6b2e3c4987a3a806b7c528076e7c7b86fcf0eaa66b \
+    --hash=sha256:d53b1e8ad2cdb815fb2cb604ed3123372f5a28c6f447571244aca36fc62a286f
+pypinyin-dict==0.9.0 \
+    --hash=sha256:10cfbe40af87d704b867533177be8cd72837da9e224755dd275798e88097067a \
+    --hash=sha256:8c491396baa1567311f2ec759cbc154638f3bcefdc711d34e53e373e3a429fa5

@@ -226,6 +226,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
 
   // Install / Installed / progress cell, shared by model rows and LoRA rows.
   const renderInstallCell = (model) => {
+    const incomplete = Object.entries(model.incomplete_files || {});
     const isThis = isDownloading && modelMatchesDownload(model, currentModel);
     if (isThis) {
       return (
@@ -260,6 +261,15 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
           >
             {t("dialogs.shared.install")}
           </Button>
+        )}
+        {incomplete.length > 0 && (
+          <Typography
+            variant="caption"
+            color="warning.main"
+            title={incomplete.map(([file, reason]) => `${file}: ${reason}`).join("\n")}
+          >
+            {t("models.shared.filesIncomplete", { count: incomplete.length })}
+          </Typography>
         )}
         {model.user && (
           <ActionButton kind="destructive" onClick={() => setRemoveTarget(model)} disabled={isDownloading}>
