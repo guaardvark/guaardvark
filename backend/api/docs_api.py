@@ -579,10 +579,17 @@ def get_document_content_raw(doc_id):
                 }
             )
 
-        # Try to read from file system
-        if document.path and current_app.config.get("UPLOAD_FOLDER"):
-            full_path = os.path.join(current_app.config["UPLOAD_FOLDER"], document.path)
-            if os.path.exists(full_path):
+        # Try to read from file system. Like the content write and the delete,
+        # only a file inside uploads or outputs is this document's to serve.
+        upload_root = current_app.config.get("UPLOAD_FOLDER")
+        if document.path and upload_root:
+            full_path = os.path.join(upload_root, document.path)
+            storage_roots = [upload_root, current_app.config.get("OUTPUT_DIR")]
+            if not is_within(full_path, storage_roots):
+                logger.warning(
+                    f"Not serving document {doc_id}: its path resolves outside uploads and outputs"
+                )
+            elif os.path.exists(full_path):
                 file_content = _read_file_content(full_path, max_size_mb=100)
                 if file_content is not None:
                     from flask import Response
