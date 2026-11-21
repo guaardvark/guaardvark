@@ -3,6 +3,7 @@ in-app training path (ref images + approved samples, not a flat dataset dir)."""
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 
 from backend.models import Subject, SubjectSample
@@ -127,6 +128,48 @@ def _caption_for_path(
     return bare
 
 
+# Features a character keeps in every picture. A caption that names one binds it
+# to that word, and the trigger word then carries nothing: measured 2026-11-20 on
+# Z-Image Turbo with the training adapter (31 pictures, 1024 px, rank 32, 1500
+# steps, renders prompted with the trigger word alone). Captions naming the hair
+# streaks, tattoos and piercing gave a LoRA that drew none of them and no stable
+# face; the same pictures captioned with framing, pose, clothing and setting only
+# gave the same face and streaks in 15 of 15 renders and the arm tattoos in 9 of 9.
+_PERMANENT_FEATURE_RE = re.compile(
+    r"\b(hair\w*|\w*haired|tattoo\w*|inked|eyes?|\w+-eyed|skin\w*|complexion|freckle\w*|"
+    r"scar(?:s|red)?|birthmark\w*|moles?|beauty mark\w*|piercing\w*|pierced|septum|"
+    r"nose (?:ring|hoop|stud)\w*|lips?|lipstick|makeup|eyeliner|eyeshadow|"
+    r"beard\w*|bearded|stubble|mustache\w*|moustache\w*|sideburns)\b",
+    re.I,
+)
+
+
+def _identity_mark_tags(subject: Subject) -> set[str]:
+    cfg = getattr(subject, "training_settings_json", None) or {}
+    tags = [t for t in (cfg.get("bible_identity_marks") or "").split(",")]
+    tags += [str(t) for t in (cfg.get("bible_vision_tags") or [])]
+    return {t.strip().lower() for t in tags if t and t.strip()}
+
+
+def caption_without_identity(caption: str, subject: Subject) -> str:
+    """The caption with the character's permanent features taken out, leaving the
+    trigger word, the class and what changes between pictures. Other kinds of
+    subject pass through unchanged (not measured)."""
+    if (getattr(subject, "kind", None) or "character") != "character":
+        return caption
+    tags = [t.strip() for t in (caption or "").split(",")]
+    tags = [t for t in tags if t]
+    if len(tags) <= 2:
+        return caption
+    marks = _identity_mark_tags(subject)
+    # The first two tags are "a photo of <trigger>" and the class.
+    kept = tags[:2] + [
+        t for t in tags[2:]
+        if t.lower() not in marks and not _PERMANENT_FEATURE_RE.search(t)
+    ]
+    return ", ".join(kept)
+
+
 def build_training_captions(
     subject: Subject,
     train_images: list[str],
@@ -138,7 +181,10 @@ def build_training_captions(
         .all()
     )
     sample_by_path = {s.image_path: s for s in approved if s.image_path}
-    return [_caption_for_path(subject, p, sample_by_path) for p in train_images]
+    return [
+        caption_without_identity(_caption_for_path(subject, p, sample_by_path), subject)
+        for p in train_images
+    ]
 
 
 def caption_coverage_stats(

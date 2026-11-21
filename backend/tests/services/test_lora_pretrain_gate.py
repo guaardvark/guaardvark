@@ -196,3 +196,41 @@ def test_an_unverified_angle_is_left_out_of_the_framing_tally(app):
             assert gate["angle_unverified"] == 1
             assert gate["full_body_count"] == 3
             assert sum(gate["framing"].values()) == 3
+
+def test_training_captions_leave_out_what_the_character_always_has(app):
+    with app.app_context():
+        with tempfile.TemporaryDirectory() as td:
+            p = _write_image(Path(td), "ref_0.png")
+            marks = "long wavy black hair, gold hoop earrings, koi tattoos on right arm"
+            Path(p).with_suffix(".txt").write_text(
+                "a photo of tok, woman, upper body, facing forward, red satin dress, "
+                "black hair with teal highlights, floral arm tattoos, gray studio background, "
+                f"soft studio lighting, {marks}\n"
+            )
+            s = Subject(
+                name="Hero", kind="character", trigger_word="tok", ref_image_paths=[p],
+                training_settings_json={"class_token": "woman", "bible_identity_marks": marks},
+            )
+            db.session.add(s)
+            db.session.commit()
+
+            assert build_training_captions(s, [p]) == [
+                "a photo of tok, woman, upper body, facing forward, red satin dress, "
+                "gray studio background, soft studio lighting"
+            ]
+
+
+def test_training_captions_of_a_prop_keep_their_marks(app):
+    with app.app_context():
+        with tempfile.TemporaryDirectory() as td:
+            p = _write_image(Path(td), "ref_0.png")
+            text = "a photo of tok, car, three-quarter view, front, city street, red paint with black hair-line stripe"
+            Path(p).with_suffix(".txt").write_text(text + "\n")
+            s = Subject(
+                name="Car", kind="prop", trigger_word="tok", ref_image_paths=[p],
+                training_settings_json={"class_token": "car"},
+            )
+            db.session.add(s)
+            db.session.commit()
+
+            assert build_training_captions(s, [p]) == [text]
