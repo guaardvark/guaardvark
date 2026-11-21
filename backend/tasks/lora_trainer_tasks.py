@@ -179,9 +179,10 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
         from backend.services.job_types import JobKind
         from backend.services.gpu_resource_policy import gpu_session_when_free
         from backend.services.plugin_bridge import ensure_plugins_for_stage
-        # The base's measured training peak from the media registry, not one
-        # figure shared by every base.
-        train_vram_mb = int(train_profile.get("vram_train_mb") or 12000)
+        # The base's measured training peak from the media registry, for the
+        # storage format this run uses, not one figure shared by every base.
+        from backend.services.media_model_registry import train_vram_mb as _train_vram_mb
+        train_vram_mb = _train_vram_mb(train_profile, train_settings["base_storage"])
         try:
             # Cast train stage is reclaim-only (empty plugin list) — symmetry hook
             # for future requirements; lora_trainer is a tool, not a sidecar.
