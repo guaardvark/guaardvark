@@ -743,10 +743,10 @@ def _query_memories(
         if recall_query:
             clauses = []
             for term in query_terms(recall_query)[:MAX_PREFILTER_TERMS]:
-                search_term = f"%{term}%"
+                search_term = _contains(term)
                 clauses.extend([
-                    AgentMemory.content.ilike(search_term),
-                    AgentMemory.tags.ilike(search_term),
+                    AgentMemory.content.ilike(search_term, escape="\\"),
+                    AgentMemory.tags.ilike(search_term, escape="\\"),
                 ])
             if clauses:
                 q = q.filter(or_(*clauses))
