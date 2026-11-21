@@ -83,6 +83,27 @@ def test_read_ast_node_rejects_paths_outside_repo(app):
         assert "outside" in result.error
 
 
+def test_read_ast_node_refuses_credential_file_names(app):
+    with app.app_context():
+        folder = Folder(name="Repo", path="Repo", is_repository=True)
+        db.session.add(folder)
+        db.session.commit()
+
+        from pathlib import Path
+
+        repo_root = Path(app.config["UPLOAD_FOLDER"]) / "Repo"
+        repo_root.mkdir(parents=True)
+        (repo_root / "credentials.py").write_text("TOKEN = 'x'\n", encoding="utf-8")
+
+        from backend.tools.agent_tools.code_manipulation_tools import ReadASTNodeTool
+
+        result = ReadASTNodeTool().execute(
+            folder_id=folder.id, filepath="credentials.py", node_name="TOKEN",
+        )
+
+        assert result.success is False
+        assert "Credential" in result.error
+
 def test_dependency_graph_resolves_python_and_javascript_import_targets(app):
     with app.app_context():
         folder = Folder(name="Repo", path="Repo", is_repository=True)
