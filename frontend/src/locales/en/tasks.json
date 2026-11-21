@@ -20,7 +20,7 @@
     "cancelRefused": "Could not cancel VideoGen job",
     "cancelFailed": "Cancel failed",
     "title": "Video Batch Jobs",
-    "intro": "Queued and running batches from Video and Batch Video.",
+    "intro": "Queued, running and paused batches from Video and Batch Video.",
     "cancelTitle": "Cancel {{label}}",
     "cancelDescription": "This batch stops. A clip that is rendering now is interrupted.",
     "cancelKeeps": "clips already written",
@@ -30,7 +30,18 @@
     "status": "Status",
     "progress": "Progress",
     "actions": "Actions",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "pause": "Pause",
+    "resume": "Resume",
+    "keepGoing": "Keep going",
+    "paused": "Video batch paused",
+    "pausing": "The batch pauses after the clip in progress",
+    "resumed": "Video batch resumed. It is at the back of the queue.",
+    "pauseRefused": "This batch could not be paused or resumed",
+    "pauseHelp": "Gives up its place in the queue until you resume it. Nothing is lost.",
+    "pauseRunningHelp": "Stops after the clip in progress and frees the GPU. The finished clips are kept.",
+    "resumeHelp": "Goes to the back of the queue and renders the clips it has not finished.",
+    "keepGoingHelp": "Calls off the pause; the batch carries on."
   },
   "notFound": "Task {{id}} was not found",
   "queue": {

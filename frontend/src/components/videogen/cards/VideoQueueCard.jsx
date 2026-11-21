@@ -33,6 +33,7 @@ import {
   DriveFileRenameOutline as RenameIcon,
   Settings as SettingsIcon,
   Close as CloseIcon,
+  Pause as PauseIcon,
   OpenInNew as OpenInNewIcon,
 } from "@mui/icons-material";
 import { formatUiError } from "../../../utils/uiError";
@@ -50,6 +51,8 @@ function VideoQueueCard({
   handleAdjustRetry,
   handleApproveClip,
   handleCancelBatch,
+  handlePauseBatch,
+  handleResumeBatch,
   handleClearCompletedQueue,
   handleCombineFrames,
   handleDeleteBatch,
@@ -121,8 +124,12 @@ function VideoQueueCard({
                 q.status === 'queued' ? 'default' :
                 q.status === 'completed' ? 'success' :
                 q.status === 'cancelled' ? 'warning' :
+                q.status === 'paused' ? 'warning' :
                 q.status === 'error' ? 'error' : 'default';
-              const cancellable = q.status === 'queued' || q.status === 'running';
+              const cancellable = q.status === 'queued' || q.status === 'running' || q.status === 'paused';
+              const pausing = Boolean(q.pause_requested);
+              const pausable = (q.status === 'queued' || q.status === 'running') && !pausing;
+              const resumable = q.status === 'paused' || pausing;
               return (
                 <Box
                   key={q.batch_id}
@@ -151,10 +158,37 @@ function VideoQueueCard({
                       </Typography>
                     </Box>
                     <Chip
-                      label={batchStatusLabel(q.status).toUpperCase()}
+                      label={(pausing ? t("videoGenerator.queue.pausing") : batchStatusLabel(q.status)).toUpperCase()}
                       size="small"
                       color={chipColor}
                     />
+                    {pausable && (
+                      <Tooltip
+                        title={q.status === 'running' ? t("videoGenerator.queue.pauseRunning") : t("videoGenerator.queue.pause")}
+                        arrow
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={() => handlePauseBatch(q.batch_id)}
+                          aria-label={t("videoGenerator.queue.pauseAria")}
+                          data-testid={`batch-pause-${q.batch_id}`}
+                        >
+                          <PauseIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {resumable && (
+                      <Tooltip title={pausing ? t("videoGenerator.queue.keepGoing") : t("videoGenerator.queue.resume")} arrow>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleResumeBatch(q.batch_id)}
+                          aria-label={t("videoGenerator.queue.resumeAria")}
+                          data-testid={`batch-resume-${q.batch_id}`}
+                        >
+                          <PlayIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                     {cancellable && (
                       <Tooltip
                         title={q.status === 'running' ? t("videoGenerator.queue.cancelRunning") : t("videoGenerator.queue.remove")}

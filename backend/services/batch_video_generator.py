@@ -426,6 +426,8 @@ class BatchVideoGenerator:
         # Queue plumbing — one batch runs at a time, the rest stack up.
         self.batch_queue: "queue.Queue[tuple]" = queue.Queue()
         self.cancel_events: Dict[str, threading.Event] = {}
+        # Running batches asked to pause: they stop after the clip in progress.
+        self._pause_requested: set = set()
         self.queue_order: List[str] = []  # batch_ids in submission order, oldest first
         self._running_batch_id: Optional[str] = None
 
@@ -475,16 +477,24 @@ class BatchVideoGenerator:
                     continue
 
                 status = data.get("status")
+                batch_id = data.get("batch_id") or batch_dir.name
+                if status == "paused":
+                    # Stays paused across a restart, listed so it can be resumed.
+                    loaded = self.get_batch_status(batch_id)
+                    if loaded is not None:
+                        with self.batch_lock:
+                            self.active_batches.setdefault(batch_id, loaded)
+                            if batch_id not in self.queue_order:
+                                self.queue_order.append(batch_id)
+                    continue
                 if status not in self._ACTIVE_STATUSES:
                     continue
 
-                batch_id = data.get("batch_id") or batch_dir.name
                 with self.batch_lock:
                     if batch_id in self.active_batches:
                         continue
 
-                rd = data.get("retry_data")
-                if not rd:
+                if not data.get("retry_data"):
                     logger.warning("Cannot restore batch %s: no retry_data", batch_id)
                     if status in ("running", "processing"):
                         data["status"] = "error"
@@ -496,34 +506,9 @@ class BatchVideoGenerator:
                         except Exception:
                             pass
                     continue
-
-                params = dict(rd.get("params") or {})
-                params["batch_id"] = batch_id
-                # Keep the clips that finished before the restart: same item ids,
-                # their results carried over, only the rest rendered.
-                item_ids = list(rd.get("item_ids") or [])
-                if item_ids:
-                    params["item_ids"] = item_ids
-                    params["carried_results"] = _finished_results(data.get("results"), item_ids, batch_dir)
-                mode = rd.get("mode")
                 try:
-                    if mode == "text":
-                        prompts = rd.get("prompts") or []
-                        if not prompts:
-                            continue
-                        self.start_batch_from_prompts(prompts=prompts, **params)
-                    elif mode == "image":
-                        image_paths = rd.get("image_paths") or []
-                        if not image_paths:
-                            continue
-                        prompt = rd.get("prompt", "") or ""
-                        if prompt:
-                            params["prompt"] = prompt
-                        self.start_batch_from_images(image_paths=image_paths, **params)
-                    else:
-                        logger.warning("Cannot restore batch %s: unknown mode %s", batch_id, mode)
-                        continue
-                    restored += 1
+                    if self._enqueue_from_disk(batch_id, batch_dir, data):
+                        restored += 1
                 except Exception as e:
                     logger.warning("Failed to restore batch %s: %s", batch_id, e)
         except Exception as e:
@@ -531,6 +516,36 @@ class BatchVideoGenerator:
 
         if restored:
             logger.info("Restored %d pending video batch(es) from disk", restored)
+
+    def _enqueue_from_disk(self, batch_id: str, batch_dir: Path, data: Dict) -> bool:
+        """Queue a batch again from its saved request, at the back of the line.
+        The clips it already finished keep their results and are not rendered
+        again. Used after a restart and when a paused batch is resumed."""
+        rd = data.get("retry_data") or {}
+        params = dict(rd.get("params") or {})
+        params["batch_id"] = batch_id
+        item_ids = list(rd.get("item_ids") or [])
+        if item_ids:
+            params["item_ids"] = item_ids
+            params["carried_results"] = _finished_results(data.get("results"), item_ids, batch_dir)
+        mode = rd.get("mode")
+        if mode == "text":
+            prompts = rd.get("prompts") or []
+            if not prompts:
+                return False
+            self.start_batch_from_prompts(prompts=prompts, **params)
+        elif mode == "image":
+            image_paths = rd.get("image_paths") or []
+            if not image_paths:
+                return False
+            prompt = rd.get("prompt", "") or ""
+            if prompt:
+                params["prompt"] = prompt
+            self.start_batch_from_images(image_paths=image_paths, **params)
+        else:
+            logger.warning("Cannot restore batch %s: unknown mode %s", batch_id, mode)
+            return False
+        return True
 
     def _queue_worker(self) -> None:
         """Pulls one batch off the queue at a time. Bouncer at the GPU door."""
@@ -542,6 +557,8 @@ class BatchVideoGenerator:
                 continue
 
             try:
+                if self._skip_if_paused(batch_request.batch_id, status):
+                    continue
                 if self._skip_if_cancelled(batch_request.batch_id, status):
                     continue
 
@@ -563,6 +580,37 @@ class BatchVideoGenerator:
                         # so the UI can show recent history. _cleanup_stale_batches
                         # already trims old data.
                         pass
+
+    def _skip_if_paused(self, batch_id: str, status: "BatchVideoStatus") -> bool:
+        """True for a queue entry that must not render: its batch was paused
+        while it waited, or was paused and resumed, which put a fresh entry
+        further back and left this one behind."""
+        with self.batch_lock:
+            current = self.active_batches.get(batch_id)
+        if current is not status:
+            logger.info(f"Skipped superseded queue entry for batch {batch_id}")
+            return True
+        if status.status == "paused":
+            logger.info(f"Skipped paused batch {batch_id}")
+            return True
+        return False
+
+    def _pause_wanted(self, batch_id: str) -> bool:
+        with self.batch_lock:
+            return batch_id in self._pause_requested
+
+    def _mark_paused(self, status: "BatchVideoStatus") -> None:
+        """The batch has stopped and holds no GPU; its finished clips stay."""
+        with self.batch_lock:
+            self._pause_requested.discard(status.batch_id)
+        status.status = "paused"
+        status.metadata = dict(status.metadata or {})
+        status.metadata.pop("pause_requested", None)
+        status.metadata.pop("gpu_wait_reason", None)
+        status.current_item = None
+        self._save_metadata(status)
+        logger.info(f"Batch {status.batch_id} paused "
+                    f"({status.completed_videos} of {status.total_videos} clips done)")
 
     def _skip_if_cancelled(self, batch_id: str, status: "BatchVideoStatus") -> bool:
         """The worker's check as it dequeues a batch: True when the batch was
@@ -1174,10 +1222,14 @@ class BatchVideoGenerator:
                 self._set_stage(status, "done", save=False)
                 self._save_metadata(status)
                 return
+            if status.status == "paused":
+                self._mark_paused(status)
+                return
 
             snap = vram_probe_snapshot()
             wait_msg = gpu_wait_message(last_refusal, snap.get("free_mb"), need_mb)
-            status.status = status.status if status.status in ("running", "queued", "pending") else "queued"
+            status.status = (status.status if status.status in ("running", "queued", "pending", "paused")
+                             else "queued")
             if status.status == "pending":
                 status.status = "queued"
             status.metadata = dict(status.metadata or {})
@@ -1203,6 +1255,9 @@ class BatchVideoGenerator:
                 ):
                     # Clear wait metadata once admitted.
                     status.metadata.pop("gpu_wait_reason", None)
+                    if status.status == "paused":
+                        self._mark_paused(status)
+                        return
                     self._run_batch_inner(
                         batch_request,
                         status,
@@ -1257,7 +1312,7 @@ class BatchVideoGenerator:
                 end_sleep = time.time() + sleep_for
                 with get_gate().waiting_for_gpu(JobKind.VIDEO_RENDER, batch_request.batch_id):
                     while time.time() < end_sleep:
-                        if cancel_event and cancel_event.is_set():
+                        if (cancel_event and cancel_event.is_set()) or status.status == "paused":
                             break
                         time.sleep(min(1.0, end_sleep - time.time()))
                 backoff_s = min(15.0, backoff_s * 1.5)
@@ -1408,6 +1463,8 @@ class BatchVideoGenerator:
                     if cancel_event and cancel_event.is_set():
                         return (BatchVideoResult(item_id=item.id, success=False, error="cancelled before start",
                                              error_kind=RenderErrorKind.CANCELLED.value), 0, 0, False)
+                    if self._pause_wanted(batch_request.batch_id):
+                        return (None, 0, 0, False)  # left for resume_batch
 
                     try:
                         meta = dict(item.metadata or {})
@@ -1670,6 +1727,8 @@ class BatchVideoGenerator:
                             break
                         try:
                             br, dc, df, oom = fut.result()
+                            if br is None:
+                                continue
                             status.results.append(br)
                             status.completed_videos += dc
                             status.failed_videos += df
@@ -1686,6 +1745,12 @@ class BatchVideoGenerator:
                         finally:
                             self._save_metadata(status)
 
+            if (status.status != "cancelled" and self._pause_wanted(batch_request.batch_id)
+                    and len(status.results) < status.total_videos):
+                self._mark_paused(status)
+                return
+            with self.batch_lock:
+                self._pause_requested.discard(batch_request.batch_id)
             if status.status != "cancelled":
                 status.status = "completed" if status.failed_videos == 0 else "error"
             status.end_time = datetime.now()
@@ -2016,6 +2081,59 @@ class BatchVideoGenerator:
                 return None
         return None
 
+    def pause_batch(self, batch_id: str) -> bool:
+        """Hold a queued or running batch without losing it.
+
+        A queued batch gives up its place in line at once. A running one
+        finishes the clip in progress, then stops before the next and frees
+        the GPU; its status reads ``running`` with ``metadata.pause_requested``
+        until then. ``resume_batch`` puts it at the back of the line, where it
+        renders only the clips it has not finished.
+        """
+        with self.batch_lock:
+            status = self.active_batches.get(batch_id)
+        if status is None or status.status not in ("queued", "pending", "running", "processing"):
+            return False
+        if status.status in ("running", "processing"):
+            with self.batch_lock:
+                self._pause_requested.add(batch_id)
+            status.metadata = dict(status.metadata or {})
+            status.metadata["pause_requested"] = True
+            self._save_metadata(status)
+            logger.info(f"Pause batch {batch_id}: running, stops after the clip in progress")
+            return True
+        self._mark_paused(status)
+        return True
+
+    def resume_batch(self, batch_id: str) -> bool:
+        """Let a paused batch run again: back of the line, unfinished clips only."""
+        with self.batch_lock:
+            status = self.active_batches.get(batch_id)
+            if status is not None and batch_id in self._pause_requested:
+                # Still on the clip it was finishing: the pause is called off.
+                self._pause_requested.discard(batch_id)
+                status.metadata = dict(status.metadata or {})
+                status.metadata.pop("pause_requested", None)
+                return True
+        batch_dir = self._get_batch_dir(batch_id)
+        try:
+            with open(batch_dir / "batch_metadata.json", "r") as f:
+                data = json.load(f)
+        except Exception:
+            return False
+        if data.get("status") != "paused" or not data.get("retry_data"):
+            return False
+        with self.batch_lock:
+            self.active_batches.pop(batch_id, None)
+            self.cancel_events.pop(batch_id, None)
+            if batch_id in self.queue_order:
+                self.queue_order.remove(batch_id)
+        try:
+            return self._enqueue_from_disk(batch_id, batch_dir, data)
+        except Exception as e:
+            logger.error(f"Failed to resume batch {batch_id}: {e}")
+            return False
+
     def cancel_batch(self, batch_id: str) -> bool:
         """Cancel a queued or running batch.
 
@@ -2023,12 +2141,13 @@ class BatchVideoGenerator:
         between items) and, if the batch is mid-render, yell at ComfyUI's
         /interrupt endpoint so the current sampler aborts immediately.
         """
-        cancellable = ("queued", "running", "pending", "processing")
+        cancellable = ("queued", "running", "pending", "processing", "paused")
 
         # In-memory path — covers anything queued or running
         with self.batch_lock:
             status = self.active_batches.get(batch_id)
             event = self.cancel_events.get(batch_id)
+            self._pause_requested.discard(batch_id)
 
         if status and status.status in cancellable:
             if event:
@@ -2277,6 +2396,8 @@ class BatchVideoGenerator:
                 "end_time": status.end_time.isoformat() if status.end_time else None,
                 "display_name": (status.metadata or {}).get("display_name"),
                 "error": status.error,
+                # A running batch asked to pause, still on the clip it is finishing.
+                "pause_requested": bool((status.metadata or {}).get("pause_requested")),
             })
         return snapshot
 

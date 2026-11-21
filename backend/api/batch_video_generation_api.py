@@ -1035,6 +1035,38 @@ def cancel_batch(batch_id: str):
         return error_response(str(e), 500)
 
 
+@batch_video_bp.route("/batch/<batch_id>/pause", methods=["POST"])
+def pause_batch(batch_id: str):
+    """Hold a queued or running batch. A running one finishes the clip in
+    progress first; the reply says which."""
+    try:
+        generator = get_batch_video_generator()
+        if not generator.pause_batch(batch_id):
+            return error_response("Batch not found, or not queued or running", 404)
+        status = generator.get_batch_status(batch_id)
+        paused = bool(status and status.status == "paused")
+        return success_response({
+            "batch_id": batch_id, "status": "paused" if paused else "pausing",
+            "message": "Batch paused" if paused else "The batch pauses after the clip in progress",
+        })
+    except Exception as e:
+        logger.error(f"Failed to pause batch: {e}")
+        return error_response(str(e), 500)
+
+
+@batch_video_bp.route("/batch/<batch_id>/resume", methods=["POST"])
+def resume_batch(batch_id: str):
+    """Put a paused batch back in line; it renders the clips it has not finished."""
+    try:
+        generator = get_batch_video_generator()
+        if generator.resume_batch(batch_id):
+            return success_response({"batch_id": batch_id, "message": "Batch resumed"})
+        return error_response("Batch not found or not paused", 404)
+    except Exception as e:
+        logger.error(f"Failed to resume batch: {e}")
+        return error_response(str(e), 500)
+
+
 @batch_video_bp.route("/retry/<batch_id>", methods=["POST"])
 def retry_batch(batch_id: str):
     """

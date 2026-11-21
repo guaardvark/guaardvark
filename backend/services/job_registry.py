@@ -53,8 +53,18 @@ def adapt_task(row, *, started_at: datetime | None = None) -> Job:
             "next_run_at": _iso(getattr(row, "next_run_at", None)),
             "celery_task_id": getattr(row, "job_id", None),  # Task.job_id is the Celery task UUID
             **_waiting_metadata(row),
+            **_pause_metadata(row),
         },
     )
+
+
+def _pause_metadata(row) -> dict:
+    """Whether the row can be paused or resumed (backend/services/job_pause.py)."""
+    try:
+        from backend.services.job_pause import task_flags
+        return {k: v for k, v in task_flags(row).items() if v}
+    except Exception:  # noqa: BLE001 - a flag must not break the jobs list
+        return {}
 
 
 def _waiting_metadata(row) -> dict:
@@ -503,6 +513,12 @@ def adapt_video_gen(status) -> Job:
             "gpu_wait_reason": metadata.get("gpu_wait_reason"),
             "current_item": current_item,
             "failure": failure,
+            # Pause holds the batch and keeps its finished clips; a running
+            # batch stops after the clip in progress (pause_requested until then).
+            "pausable": native_status in ("queued", "pending", "running", "processing")
+            and not metadata.get("pause_requested"),
+            "pause_requested": bool(metadata.get("pause_requested")),
+            "resumable": native_status == "paused" or bool(metadata.get("pause_requested")),
         },
     )
 

@@ -223,6 +223,25 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
     }
   }, [activeBatchId, fetchBatches, fetchQueue, startPollingStatus, setError]);
 
+  // Pause holds a batch and keeps its finished clips; a running batch stops
+  // after the clip in progress. Resume sends it to the back of the queue.
+  const setBatchPaused = useCallback(async (batchId, paused) => {
+    try {
+      const res = await fetch(`${API_BASE}/batch-video/batch/${batchId}/${paused ? "pause" : "resume"}`, { method: "POST" });
+      const data = await handleResponse(res, { quiet: true });
+      const body = data?.data ?? data;
+      if (paused && body?.status === "pausing") setSuccess?.(translate("messages.batchVideo.pausing"));
+      await fetchBatches();
+      await fetchQueue();
+      if (activeBatchId === batchId) startPollingStatus(batchId);
+    } catch (e) {
+      setError?.(translate(paused ? "messages.batchVideo.pauseFailed" : "messages.batchVideo.resumeFailed",
+        { reason: formatUiError(e) || translate("messages.batchVideo.requestFailed") }));
+    }
+  }, [activeBatchId, fetchBatches, fetchQueue, startPollingStatus, setError, setSuccess]);
+  const handlePauseBatch = useCallback((batchId) => setBatchPaused(batchId, true), [setBatchPaused]);
+  const handleResumeBatch = useCallback((batchId) => setBatchPaused(batchId, false), [setBatchPaused]);
+
   const handleRetryBatch = useCallback(async (batchId) => {
     try {
       setError?.("");
@@ -304,6 +323,8 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
     handleCombineFrames,
     handleDeleteBatch,
     handleCancelBatch,
+    handlePauseBatch,
+    handleResumeBatch,
     handleRetryBatch,
     handleApproveClip,
     handleRerenderClip,

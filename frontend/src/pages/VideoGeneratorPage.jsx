@@ -1056,6 +1056,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     handleCombineFrames,
     handleDeleteBatch,
     handleCancelBatch,
+    handlePauseBatch,
+    handleResumeBatch,
     handleRetryBatch,
     handleApproveClip,
     handleRerenderClip,
@@ -1883,6 +1885,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     handleApproveClip,
     handleAudioGuideUpload,
     handleCancelBatch,
+    handlePauseBatch,
+    handleResumeBatch,
     handleClearCompletedQueue,
     handleCombineFrames,
     handleDeleteBatch,
@@ -2178,6 +2182,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   handleAdjustRetry={actions.handleAdjustRetry}
                   handleApproveClip={actions.handleApproveClip}
                   handleCancelBatch={actions.handleCancelBatch}
+                  handlePauseBatch={actions.handlePauseBatch}
+                  handleResumeBatch={actions.handleResumeBatch}
                   handleClearCompletedQueue={actions.handleClearCompletedQueue}
                   handleCombineFrames={actions.handleCombineFrames}
                   handleDeleteBatch={actions.handleDeleteBatch}
