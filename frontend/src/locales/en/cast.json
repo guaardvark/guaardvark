@@ -156,7 +156,8 @@
     "jobRef": "job {{id}}...",
     "busyNote": "(health/celery may report busy/503; this is expected for long GPU tasks)",
     "failed": "Training failed",
-    "failedHelp": "Fix the problem, then click “Train LoRA” again. New training data (additional outfits etc.) will be incorporated on the next run (amend)."
+    "failedHelp": "Fix the problem, then click “Train LoRA” again. New training data (additional outfits etc.) will be incorporated on the next run (amend).",
+    "scheduledName": "Train LoRA: {{name}}"
   },
   "page": {
     "backToStudio": "Back to studio",

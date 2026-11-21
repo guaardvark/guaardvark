@@ -30,6 +30,8 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import SettingChip from "../settings/ui/SettingChip";
 import StatusPill from "../settings/ui/StatusPill";
 import NightShiftSummary from "./NightShiftSummary";
+import ScheduleJobDialog from "./ScheduleJobDialog";
+import ActionButton from "../settings/ui/ActionButton";
 import { AtTimeDialog, toLocalInput } from "./ScheduleButton";
 import {
   scheduleJob,
@@ -40,11 +42,17 @@ import {
 } from "../../api/nightShiftService";
 import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
+const HANDOFF_KINDS = new Set([
+  "infographic", "cast_lora", "model_training", "music_video", "music", "upscale", "swarm", "lesson_replay",
+  "tool_call",
+]);
+
 // The kind column. Types without an entry show their own name.
 const kindLabel = (type) => {
   if (!type) return "";
   if (type === "image_batch") return translate("jobs.nightShift.kind.images");
   if (type === "video_batch") return translate("jobs.nightShift.kind.video");
+  if (HANDOFF_KINDS.has(type)) return translate(`jobs.nightShift.kind.${type}`);
   if (type.startsWith("social_outreach_")) return translate("jobs.nightShift.kind.outreach");
   if (type.startsWith("website_")) return translate("jobs.nightShift.kind.website");
   const known = {
@@ -58,8 +66,9 @@ const kindLabel = (type) => {
   return known ? translate(known) : type.replace(/_/g, " ");
 };
 
-// Render batches keep their settings in the page that made them.
-const editableInModal = (type) => type !== "image_batch" && type !== "video_batch";
+// Render batches and the other kinds started from their own pages keep their
+// settings in the page that made them (backend/services/job_handoff.py).
+const editableInModal = (type) => type !== "image_batch" && type !== "video_batch" && !HANDOFF_KINDS.has(type);
 
 const formatTime = (iso) =>
   iso
@@ -128,6 +137,7 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
   const [actionError, setActionError] = useState(null);
   const [whenMenu, setWhenMenu] = useState(null); // { anchor, row }
   const [atRow, setAtRow] = useState(null);
+  const [addOpen, setAddOpen] = useState(false);
   const rowRefs = useRef(new Map());
   const orderRef = useRef(null);
 
@@ -317,6 +327,13 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
           {t("jobs.nightShift.count", { count: night.length })}
         </Typography>
         <Box sx={{ flex: 1 }} />
+        <ActionButton
+          onClick={() => setAddOpen(true)}
+          tooltip={t("jobs.nightShift.scheduleJobHelp")}
+          data-testid="schedule-job-open"
+        >
+          {t("jobs.nightShift.scheduleJob")}
+        </ActionButton>
         <SettingChip
           label={t("jobs.nightShift.pauseChip")}
           on={Boolean(paused)}
@@ -368,6 +385,7 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
         </Table>
       )}
 
+      <ScheduleJobDialog open={addOpen} onClose={() => setAddOpen(false)} onScheduled={() => act(async () => {})} />
       <Menu anchorEl={whenMenu?.anchor} open={Boolean(whenMenu)} onClose={() => setWhenMenu(null)}>
         {whenMenu?.row?.when !== WHEN.NIGHT_SHIFT && (
           <MenuItem

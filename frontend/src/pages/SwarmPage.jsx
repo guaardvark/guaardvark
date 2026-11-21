@@ -62,6 +62,7 @@ import {
 import { useTheme } from "@mui/material/styles";
 
 import { CardWorkspace } from "../components/board";
+import ScheduleRequestButton from "../components/jobs/ScheduleRequestButton";
 import { useUiTranslation, translate, Trans } from "../i18n";
 import PageLayout from "../components/layout/PageLayout";
 import { useSnackbar } from "../components/common/SnackbarProvider";
@@ -839,6 +840,23 @@ const SwarmPage = () => {
           <Button onClick={() => setLaunchOpen(false)} disabled={launching}>
             {t("swarm.launchDialog.cancel")}
           </Button>
+          <ScheduleRequestButton
+            disabled={launching || !planPath.trim()}
+            onScheduled={() => setLaunchOpen(false)}
+            job={() => ({
+              type: "swarm",
+              name: t("swarm.launchDialog.scheduledName", { plan: planPath.trim().split("/").pop() }),
+              request: {
+                plan_path: planPath.trim(),
+                flight_mode: flightMode,
+                max_agents: maxAgents,
+                auto_merge: autoMerge,
+                dry_run: false,
+                self_code: false,
+                acknowledge_dirty_tree: false,
+              },
+            })}
+          />
           <Button
             onClick={handleLaunch}
             variant="contained"

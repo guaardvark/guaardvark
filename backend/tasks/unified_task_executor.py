@@ -538,7 +538,8 @@ def execute_unified_task(self, task_id: int):
                     progress_system.complete_process(process_id, f"Started: {task['name']}")
                 logger.info(f"Task {task_id} handed off: {started['handoff']}")
                 return {'task_id': task_id, 'status': 'handed_off', 'handoff': started['handoff']}
-            output = started
+            # Nothing to follow: the job is under way and the row ends here.
+            output = started.get("output") or started
             handler_used = task_type
 
         # Handlers an extension registered for its own task types run first,

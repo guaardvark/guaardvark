@@ -100,7 +100,7 @@
     "holdReason": "Not starting yet: {{reason}}.",
     "noDesktopIdle": "Desktop idle time is not available here, so only activity in Guaardvark counts as someone being at the machine.",
     "loadFailed": "The schedule could not be read: {{error}}",
-    "empty": "Nothing is scheduled. Use Add to night shift on Video, Images, Outreach or a new job.",
+    "empty": "Nothing is scheduled. Use Schedule a job here, Add to night shift on a feature's page, or ask in chat.",
     "col": {
       "name": "Job",
       "kind": "Kind",
@@ -111,7 +111,16 @@
       "images": "Images",
       "video": "Video",
       "outreach": "Outreach",
-      "website": "Website"
+      "website": "Website",
+      "infographic": "Infographic",
+      "cast_lora": "LoRA training",
+      "model_training": "Model training",
+      "music_video": "Music video",
+      "upscale": "Upscale",
+      "swarm": "Swarm",
+      "lesson_replay": "Lesson replay",
+      "tool_call": "Tool",
+      "music": "Song"
     },
     "when": {
       "night": "Night shift",
@@ -153,6 +162,20 @@
     "footerHelp": "Jobs waiting for the night shift or for a set time. Opens the Jobs page.",
     "cardTitle": "Scheduled",
     "whenLabel": "When",
-    "whenNow": "Now"
+    "whenNow": "Now",
+    "scheduleJob": "Schedule a job",
+    "scheduleJobHelp": "Pick a feature, describe it and say when it should run."
+  },
+  "schedule": {
+    "title": "Schedule a job",
+    "intro": "Pick what to make and describe it. It is saved here and made later: on the night shift, or at the time you set.",
+    "feature": "What to make",
+    "prompt": "Describe it",
+    "count": "How many",
+    "countHelp": "Each one is saved as its own job.",
+    "defaults": "Runs with that feature's current defaults. For the model, size and other settings, schedule it from its page:",
+    "openPage": "open {{page}}",
+    "onPages": "Scheduled from their own pages:",
+    "loadFailed": "The list of features could not be read: {{error}}"
   }
 }

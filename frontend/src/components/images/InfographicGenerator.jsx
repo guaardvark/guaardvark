@@ -37,6 +37,7 @@ import {
   INFOGRAPHIC_ASPECTS,
 } from '../../api/infographicService';
 import BatchQueuePanel from './BatchQueuePanel';
+import ScheduleRequestButton from '../jobs/ScheduleRequestButton';
 import { CardWorkspace } from '../board';
 import PageStatus, { PagePrimaryAction, StatusChip } from '../layout/PageStatus';
 import BatchHistoryCard from './BatchHistoryCard';
@@ -312,21 +313,29 @@ const InfographicGenerator = () => {
     return scene.trim().length > 0;
   })();
 
+  // The request Generate sends now and a scheduled job sends later.
+  const batchRequest = () => {
+    const fields = mode === 'freeform'
+      ? { raw_prompt: rawPrompt, style, aspect, model }
+      : { title, scene, footer, hashtags, callouts, style, aspect, model };
+    const seed = parseImageSeed(seedText);
+    return { ...fields, quantity, ...(seed != null ? { seed } : {}), ui_config: formConfig() };
+  };
+
+  const scheduledJob = () => ({
+    type: 'infographic',
+    name: t('images.infographic.scheduledName', {
+      title: (mode === 'freeform' ? rawPrompt : title || scene).trim().split('\n')[0].slice(0, 80),
+    }),
+    request: batchRequest(),
+  });
+
   const handleGenerate = async () => {
     setError('');
     setNotice('');
     setQueuing(true);
     try {
-      const fields = mode === 'freeform'
-        ? { raw_prompt: rawPrompt, style, aspect, model }
-        : { title, scene, footer, hashtags, callouts, style, aspect, model };
-      const seed = parseImageSeed(seedText);
-      const data = await queueInfographicBatch({
-        ...fields,
-        quantity,
-        ...(seed != null ? { seed } : {}),
-        ui_config: formConfig(),
-      });
+      const data = await queueInfographicBatch(batchRequest());
       setNotice(t('images.infographic.queued', { count: data.total_images }));
       setCurrentBatch(null);
       setCurrentBatchId(data.batch_id);
@@ -489,6 +498,7 @@ const InfographicGenerator = () => {
         />
       </PageStatus>
       <PagePrimaryAction>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Button
           variant="contained"
           size="small"
@@ -501,6 +511,8 @@ const InfographicGenerator = () => {
             ? t('images.infographic.queuing')
             : queueBusy ? t('images.infographic.addToQueue') : t('images.shared.generate')}
         </Button>
+        <ScheduleRequestButton job={scheduledJob} disabled={!canGenerate} />
+        </Box>
       </PagePrimaryAction>
 
       {/* Four cards on the shared board: what to draw, what is rendering, what came out, and earlier ones. */}

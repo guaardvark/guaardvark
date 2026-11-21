@@ -169,7 +169,8 @@
     "retryLoadedImage": "Loaded one infographic from \"{{name}}\" with its seed. Change anything, then Generate.",
     "retryNoSettings": "This batch did not store its settings.",
     "retryFailed": "Could not load the settings: {{error}}",
-    "quantity": "Quantity"
+    "quantity": "Quantity",
+    "scheduledName": "Infographic: {{title}}"
   },
   "tokenCounter": {
     "longest": "Longest prompt: {{tokens}} of {{limit}} tokens",

@@ -296,6 +296,22 @@ def execute_tool():
         # The MCP server forwards some tools here (run_tool_in_backend); they
         # keep the input rules they have for MCP clients.
         for_mcp = data.get(CALLER_TRANSPORT_FIELD) == "mcp"
+        if data.get("as_job"):
+            # Answer at once with a job id to read at /api/tools/jobs/<id>: for a
+            # caller that must not wait on a render (a scheduled job's worker).
+            from backend.services import tool_jobs
+
+            def _run():
+                with trusted_caller("rest:tools_api"):
+                    return registry.execute_tool(tool_name, **parameters)
+
+            try:
+                snapshot = tool_jobs.submit(tool_name, _run, for_mcp=for_mcp,
+                                            title=str(data.get("title") or "") or None,
+                                            footer_type="task_processing")
+            except tool_jobs.ToolJobsBusy as e:
+                return jsonify({"success": False, "error": str(e)}), 429
+            return jsonify({"success": True, "data": snapshot}), 202
         with trusted_caller("rest:tools_api"), calls_for_mcp_client(for_mcp):
             result = registry.execute_tool(tool_name, **parameters)
 

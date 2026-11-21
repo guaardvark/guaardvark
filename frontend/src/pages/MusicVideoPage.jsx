@@ -67,6 +67,7 @@ import MusicVideoProgress from "../components/videogen/MusicVideoProgress";
 import { getAllPluginStatus } from "../api/pluginsService";
 import { getAvailableModels } from "../api/modelService";
 import GpuGateBanner from "../components/common/GpuGateBanner";
+import ScheduleRequestButton from "../components/jobs/ScheduleRequestButton";
 import useJobsGate from "../hooks/useJobsGate";
 import { useUnifiedProgress } from "../contexts/UnifiedProgressContext";
 import LiveLatentPreview from "../components/videogen/LiveLatentPreview";
@@ -2321,6 +2322,15 @@ const MusicVideoPage = () => {
                       <Button variant="contained" color="warning" onClick={handleApprove} disabled={busy || gpuSubmitBlocked}>
                         {busy ? <CircularProgress size={20} /> : t("musicVideo.detail.approve")}
                       </Button>
+                      <ScheduleRequestButton
+                        disabled={busy}
+                        job={() => ({
+                          type: "music_video",
+                          name: t("musicVideo.detail.scheduledName", { name: detail.name || detail.id }),
+                          path: { mv_id: detail.id },
+                          request: {},
+                        })}
+                      />
                       <Button
                         size="small"
                         variant="outlined"

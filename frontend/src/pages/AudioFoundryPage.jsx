@@ -40,6 +40,7 @@ import {
 } from "@mui/icons-material";
 import { useSearchParams } from "react-router-dom";
 import Ace15TextCounter from "../components/audio/Ace15TextCounter";
+import ScheduleRequestButton from "../components/jobs/ScheduleRequestButton";
 import PageLayout from "../components/layout/PageLayout";
 import WaveformPlayer from "../components/audio/WaveformPlayer";
 import axios from "axios";
@@ -1038,7 +1039,10 @@ const AudioFoundryPage = () => {
   // preview if one exists, otherwise from the raw chip+text composition.
   // ACE-Step 1.5 sends the edited arrangement and does not plan a second time.
   // Direct sends the description box as typed; the chips are hidden in that mode.
-  const generateMusic = async () => {
+  // The song request as the form stands, or null after saying what is
+  // missing. `forLater` is a scheduled song: Audio Foundry need not be running
+  // yet, it only has to be when the job starts.
+  const musicPayload = ({ forLater = false } = {}) => {
     const intent = direct
       ? musicExtra.trim()
       : isAce15
@@ -1046,11 +1050,11 @@ const AudioFoundryPage = () => {
         : composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra);
     if (!intent && !musicPreview && !(arrangement && !direct)) {
       setError(t("audio.page.needMusicInput"));
-      return;
+      return null;
     }
     if (isAce15 && !direct && !arrangement?.caption?.trim()) {
       setError(t("audio.page.arrangeFirst"));
-      return;
+      return null;
     }
 
     let stylePrompt = intent;
@@ -1062,60 +1066,76 @@ const AudioFoundryPage = () => {
       negativePrompt = musicPreview.negative_prompt || "";
     }
 
-    if (musicModel !== "minimax-music3-int8" && !pluginRunning) {
+    if (!forLater && musicModel !== "minimax-music3-int8" && !pluginRunning) {
       setError(t(pluginStarting ? "audio.page.startingAlert" : "audio.page.notRunning"));
-      return;
+      return null;
     }
     if (missingRows.length) {
       setError(t("audio.page.notInstalled", { name: missingRows[0].name }));
       openModels(missingRows[0].id);
-      return;
+      return null;
     }
     const card = direct ? directFields : arrangement;
     if (isAce15 && card?.bpm) {
       const bpm = Number(card.bpm);
       if (!Number.isInteger(bpm) || bpm < 30 || bpm > 300) {
         setError(t("audio.page.badTempo"));
-        return;
+        return null;
       }
     }
     if (direct && directFields.seed !== "" && Number(directFields.seed) > MAX_SEED) {
       setError(t("audio.page.badSeed"));
-      return;
+      return null;
     }
 
+    const payload = {
+      style_prompt: stylePrompt,
+      duration_s: duration,
+      instrumental_only: instrumental,
+    };
+    if (negativePrompt) payload.negative_prompt = negativePrompt;
+    if (isAce15) {
+      payload.model = "ace-step-1.5";
+      if (direct) {
+        payload.direct = true;
+        if (directFields.sketch && !instrumental) payload.audio_sketch = true;
+        if (directFields.seed !== "") payload.seed = Number(directFields.seed);
+      } else {
+        payload.arrangement_accepted = true;
+      }
+      const words = (direct ? (polished ? polished.lyrics : musicLyrics) : arrangement.lyrics) || "";
+      if (!instrumental && words.trim()) payload.lyrics = words.trim();
+      const bpm = Number(card.bpm);
+      if (bpm) payload.bpm = bpm;
+      if (card.keyscale) payload.keyscale = card.keyscale;
+      if (card.timesignature) payload.timesignature = card.timesignature;
+      if (card.vocal_language && card.vocal_language !== "unknown") {
+        payload.vocal_language = card.vocal_language;
+      }
+    } else {
+      if (!instrumental && musicLyrics.trim()) payload.lyrics = musicLyrics.trim();
+      if (musicModel !== "ace-step") payload.model = musicModel;
+    }
+    return payload;
+  };
+
+  const scheduledSong = () => {
+    const payload = musicPayload({ forLater: true });
+    if (!payload) return null;
+    setError(null);
+    return {
+      type: "music",
+      name: t("audio.music.scheduledName", { style: String(payload.style_prompt || "").slice(0, 80) }),
+      request: payload,
+    };
+  };
+
+  const generateMusic = async () => {
+    const payload = musicPayload();
+    if (!payload) return;
     setLoading(true);
     setError(null);
     try {
-      const payload = {
-        style_prompt: stylePrompt,
-        duration_s: duration,
-        instrumental_only: instrumental,
-      };
-      if (negativePrompt) payload.negative_prompt = negativePrompt;
-      if (isAce15) {
-        payload.model = "ace-step-1.5";
-        if (direct) {
-          payload.direct = true;
-          if (directFields.sketch && !instrumental) payload.audio_sketch = true;
-          if (directFields.seed !== "") payload.seed = Number(directFields.seed);
-        } else {
-          payload.arrangement_accepted = true;
-        }
-        const words = (direct ? (polished ? polished.lyrics : musicLyrics) : arrangement.lyrics) || "";
-        if (!instrumental && words.trim()) payload.lyrics = words.trim();
-        const bpm = Number(card.bpm);
-        if (bpm) payload.bpm = bpm;
-        if (card.keyscale) payload.keyscale = card.keyscale;
-        if (card.timesignature) payload.timesignature = card.timesignature;
-        if (card.vocal_language && card.vocal_language !== "unknown") {
-          payload.vocal_language = card.vocal_language;
-        }
-      } else {
-        if (!instrumental && musicLyrics.trim()) payload.lyrics = musicLyrics.trim();
-        if (musicModel !== "ace-step") payload.model = musicModel;
-      }
-
       const res = await axios.post(
         `${API_BASE}/audio-foundry/generate/music`,
         { ...payload, async: true },
@@ -1914,6 +1934,9 @@ const AudioFoundryPage = () => {
                         {loading ? t("audio.music.composing") : t("audio.music.compose")}
                       </Button>
                     )}
+                    <Box>
+                      <ScheduleRequestButton job={scheduledSong} disabled={loading} />
+                    </Box>
                   </Stack>
                 )}
                 {activeTab === 2 && (
