@@ -101,7 +101,7 @@ const ScheduleJobDialog = ({ open, onClose, onScheduled }) => {
             value={picked ? feature : ""}
             onChange={(e) => setFeature(e.target.value)}
             disabled={!features.length}
-            inputProps={{ "data-testid": "schedule-feature" }}
+            slotProps={{ htmlInput: { "data-testid": "schedule-feature" } }}
           >
             {features.map((k) => (
               <MenuItem key={k.id} value={k.id} data-testid={`schedule-feature-${k.id}`}>
@@ -118,7 +118,7 @@ const ScheduleJobDialog = ({ open, onClose, onScheduled }) => {
             placeholder={picked?.hint || ""}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            inputProps={{ "data-testid": "schedule-prompt" }}
+            slotProps={{ htmlInput: { "data-testid": "schedule-prompt" } }}
           />
           {counted && (
             <TextField
@@ -128,7 +128,7 @@ const ScheduleJobDialog = ({ open, onClose, onScheduled }) => {
               helperText={t("jobs.schedule.countHelp")}
               value={count}
               onChange={(e) => setCount(e.target.value)}
-              inputProps={{ min: 1, max: MAX_COUNT, "data-testid": "schedule-count" }}
+              slotProps={{ htmlInput: { min: 1, max: MAX_COUNT, "data-testid": "schedule-count" } }}
               sx={{ maxWidth: 220 }}
             />
           )}
