@@ -519,7 +519,13 @@ class AgentExecutor:
             log_user_message("agent_executor", current_prompt)
             
             # Agent loop
+            from backend.services.agent_control_service import get_chat_stop_check
             while iteration < self.max_iterations:
+                stop = get_chat_stop_check()
+                if stop is not None and stop():
+                    logger.info(f"Agent stopped by the user before iteration {iteration + 1}")
+                    return AgentResult(final_answer="", steps=steps, iterations=iteration,
+                                       success=False, error="Stopped.")
                 iteration += 1
                 logger.info(f"Agent iteration {iteration}/{self.max_iterations}")
                 
