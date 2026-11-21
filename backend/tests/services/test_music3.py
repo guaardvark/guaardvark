@@ -55,6 +55,8 @@ def test_generate_runs_the_graph_and_downloads_the_song(monkeypatch, tmp_path):
         def _wait_for_completion(self, pid, timeout, hard_ceiling_s):
             self.timeout = timeout
             return {"8": {"audio": [{"filename": "song.flac", "type": "output", "subfolder": "audio"}]}}
+        def _forget_prompt(self, pid):
+            self.forgotten = pid
         def _download_file(self, filename, dest, file_type="output", subfolder=""):
             p = dest / filename
             p.write_bytes(b"x")
@@ -67,6 +69,7 @@ def test_generate_runs_the_graph_and_downloads_the_song(monkeypatch, tmp_path):
     assert out["success"] and out["path"].endswith("song.flac")
     assert out["steps"] == 30            # the floor from the registry, not the 10 asked for
     assert vg.timeout == 1440            # budgeted on the song's length
+    assert vg.forgotten == "p1"
     assert out["attribution"] == "MiniMax-Music3"
 
 
