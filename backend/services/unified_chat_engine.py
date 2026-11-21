@@ -1697,6 +1697,20 @@ def _pin_workstation_tools(message: str, selected: List[str], all_tool_names: Li
     return pinned + list(selected) if pinned else selected
 
 
+SCHEDULE_TOOLS = ["schedule_job", "scheduled_jobs"]
+
+
+def _pin_schedule_tools(message: str, selected: List[str], all_tool_names: List[str]) -> List[str]:
+    """Offer the scheduling tools on a message about scheduling or the night
+    shift, ahead of the tools that would do the work now."""
+    from backend.services import schedulable
+    if not schedulable.mentions_scheduling(message):
+        return selected
+    available = set(all_tool_names)
+    pinned = [t for t in SCHEDULE_TOOLS if t in available]
+    return pinned + [t for t in selected if t not in pinned] if pinned else selected
+
+
 def attached_images_for_turn(image_data, options) -> List[str]:
     """The base64 pictures the model sees this turn, primary picture first.
 
@@ -2974,6 +2988,12 @@ class UnifiedChatEngine:
             if edit_retry is not None:
                 return edit_retry
 
+            # "Schedule a video of ... for tonight": saved for later. Before
+            # every render intercept below, which would make it now.
+            schedule_result = self._try_schedule_direct(message, session_id, emit_fn, request_id, options)
+            if schedule_result is not None:
+                return schedule_result
+
             # 0c. Direct media command intercept — bypass LLM for simple media actions
             media_result = self._try_media_direct(message, session_id, emit_fn, request_id)
             if media_result is not None:
@@ -3108,6 +3128,7 @@ class UnifiedChatEngine:
             selected_tools = _pin_code_search_tools(selection_text, selected_tools, self.registry.list_tools())
             selected_tools = _pin_knowledge_nav_tools(selection_text, selected_tools, self.registry.list_tools())
             selected_tools = _pin_workstation_tools(selection_text, selected_tools, self.registry.list_tools())
+            selected_tools = _pin_schedule_tools(selection_text, selected_tools, self.registry.list_tools())
             selected_tools = _pin_image_edit_tools(bool(self._image_data), selected_tools, self.registry.list_tools())
             selected_tools = _pin_image_generation_tools(
                 selection_text, selected_tools, self.registry.list_tools(), session_id=session_id,
@@ -5412,6 +5433,33 @@ class UnifiedChatEngine:
         # gpu lease, execute, chat:image, complete, assistant save) to the shared runner.
         return self._run_direct_tool_execution(
             "generate_image", {"prompt": prompt}, session_id, emit_fn, request_id, message, options
+        )
+
+    def _try_schedule_direct(self, message: str, session_id: str,
+                             emit_fn: Callable, request_id: str,
+                             options: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        """A request to make something later ("schedule a video of a fox for
+        tonight", "tomorrow at 9 write a report on ...") → schedule_job,
+        without the model. The render intercepts read the same words as a
+        request to make it now, so this one is asked first; a message it
+        cannot read in full goes on to the model with the scheduling tools
+        pinned (_pin_schedule_tools)."""
+        if not message or message.lstrip().startswith("/") or getattr(self, "_image_data", None):
+            return None
+        if not self.registry.get_tool("schedule_job"):
+            return None
+        from backend.services import schedulable
+        request = schedulable.read_schedule_request(message)
+        if request is None:
+            return None
+        params: Dict[str, Any] = {"feature": request.feature, "prompt": request.prompt, "when": request.when}
+        if request.at is not None:
+            params["time"] = request.at.strftime("%Y-%m-%dT%H:%M")
+        if request.count > 1:
+            params["count"] = request.count
+        logger.info("Schedule direct: %s", {k: str(v)[:60] for k, v in params.items()})
+        return self._run_direct_tool_execution(
+            "schedule_job", params, session_id, emit_fn, request_id, message, options
         )
 
     def _try_video_generate_direct(self, message: str, session_id: str,

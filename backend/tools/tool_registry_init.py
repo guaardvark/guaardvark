@@ -758,6 +758,23 @@ def register_test_execution_tools() -> List[str]:
     return registered
 
 
+def register_schedule_tools() -> List[str]:
+    """Register the scheduling tools (chat-callable wrappers around /api/night-shift)."""
+    global _tool_categories
+    registered = []
+    try:
+        from backend.tools.schedule_tools import ScheduleJobTool, ScheduledJobsTool
+
+        for cls in (ScheduleJobTool, ScheduledJobsTool):
+            tool = cls()
+            register_tool(tool)
+            registered.append(tool.name)
+            _tool_categories[tool.name] = "schedule"
+    except Exception as e:
+        logger.error(f"Failed to register schedule tools: {e}")
+    return registered
+
+
 def register_outreach_tools() -> List[str]:
     """Register social outreach tools (chat-callable wrappers around the
     /api/social-outreach/* endpoints)."""
@@ -931,6 +948,7 @@ def initialize_all_tools() -> ToolRegistry:
     _registered_tools.extend(register_test_execution_tools())
     _registered_tools.extend(register_agent_control_tools())
     _registered_tools.extend(register_outreach_tools())
+    _registered_tools.extend(register_schedule_tools())
     _registered_tools.extend(register_connection_tools())
     _registered_tools.extend(register_workstation_tools())
 
