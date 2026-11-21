@@ -226,8 +226,8 @@ IMAGE_MODEL_SIZES = {
     "stabilityai/sdxl-turbo": 6.9,
     "SG161222/Realistic_Vision_V5.1_noVAE": 2.1,
     "emilianJR/epiCRealism": 2.1,
-    "Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers": 9.7,
-    "Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers": 7.7,
+    "Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers": 9.1,
+    "Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers": 7.2,
 }
 
 def _catalog_size_gb(path: str) -> float:
