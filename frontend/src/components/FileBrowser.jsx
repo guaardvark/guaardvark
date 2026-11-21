@@ -7,7 +7,7 @@ import {
   Paper,
   Typography,
   List,
-  ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
   IconButton,
@@ -265,12 +265,10 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
         ) : (
           <List>
             {items.map((item) => (
-              <ListItem
+              <ListItemButton
                 key={item.path}
-                button
                 onClick={() => navigateTo(item)}
-                sx={{ cursor: 'pointer' }}
-              >
+                sx={{ cursor: 'pointer' }}>
                 <ListItemIcon>
                   {item.is_directory ? <FolderIcon color="primary" /> : <FileIcon />}
                 </ListItemIcon>
@@ -285,13 +283,13 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
                           variant="outlined"
                         />
                       )}
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {new Date(item.modified * 1000).toLocaleDateString(uiLocale())}
                       </Typography>
                     </Box>
                   }
                 />
-              </ListItem>
+              </ListItemButton>
             ))}
           </List>
         )}
@@ -317,10 +315,10 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t('files.browser.path', { path: selectedFile?.path })}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t('files.browser.size', { size: selectedFile?.size })}
             </Typography>
           </Box>
@@ -330,11 +328,13 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
             multiline
             rows={20}
             value={fileContent}
-            InputProps={{
-              readOnly: true,
-              style: { fontFamily: 'monospace', fontSize: '0.875rem' }
-            }}
             variant="outlined"
+            slotProps={{
+              input: {
+                readOnly: true,
+                style: { fontFamily: 'monospace', fontSize: '0.875rem' }
+              }
+            }}
           />
         </DialogContent>
         <DialogActions>

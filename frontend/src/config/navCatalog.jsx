@@ -7,7 +7,7 @@ import React from "react";
 import { spacing } from "../theme/tokens";
 
 import DashboardIcon from "@mui/icons-material/Dashboard";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
 import ArticleIcon from "@mui/icons-material/Article";
 import FolderIcon from "@mui/icons-material/Folder";
 import LanguageIcon from "@mui/icons-material/Language";

@@ -7,8 +7,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Box, Button, CircularProgress, Collapse, Typography, Tooltip } from '@mui/material';
 import MuiAlert from '@mui/material/Alert';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import CheckCircleOutlineIcon from '../common/CheckCircleOutlineIcon';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -56,13 +56,16 @@ const StatusRow = ({ label, ok, version, hint }) => (
     <Typography variant="body2" sx={{ flex: 1 }}>{label}</Typography>
     {version && (
       <Tooltip title={version}>
-        <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <Typography
+          variant="caption"
+          sx={{ color: "text.secondary", maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
           {version}
         </Typography>
       </Tooltip>
     )}
     {!ok && hint && (
-      <Typography variant="caption" color="warning.main">{hint}</Typography>
+      <Typography variant="caption" sx={{ color: "warning.main" }}>{hint}</Typography>
     )}
   </Box>
 );

@@ -135,15 +135,17 @@ export default function ChatFeatureMenu({
         disableRestoreFocus
         anchorOrigin={{ vertical: "top", horizontal: "left" }}
         transformOrigin={{ vertical: "bottom", horizontal: "left" }}
-        TransitionProps={{
-          onEntered: () => focusFrom(-1, 1),
-          onExited: () => { if (returnFocus.current) triggerRef.current?.focus(); },
-        }}
         // Above the floating chat card (zIndex 1400), below tooltips.
         sx={{ zIndex: (theme) => theme.zIndex.snackbar + 1 }}
         // The slash-command popup's surface, so the two read as one family.
-        slotProps={{ paper: { elevation: 8, sx: { p: 1, mb: 1, border: "1px solid", borderColor: "divider" } } }}
-      >
+        slotProps={{
+          paper: { elevation: 8, sx: { p: 1, mb: 1, border: "1px solid", borderColor: "divider" } },
+
+          transition: {
+            onEntered: () => focusFrom(-1, 1),
+            onExited: () => { if (returnFocus.current) triggerRef.current?.focus(); },
+          }
+        }}>
         <Box
           role="group"
           aria-label={t("chat.features.open")}

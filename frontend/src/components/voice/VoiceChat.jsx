@@ -596,7 +596,7 @@ const VoiceChat = ({
     <Box className={className} sx={{ width: '100%' }}>
       {}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" component="h2" fontWeight="bold">
+        <Typography variant="h5" component="h2" sx={{ fontWeight: "bold" }}>
           {t('voice.chat.title')}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -764,7 +764,7 @@ const VoiceChat = ({
             {isProcessing && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <CircularProgress size={24} />
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {stageText}
                 </Typography>
               </Box>
@@ -773,7 +773,7 @@ const VoiceChat = ({
 
           {}
           <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {isRecording ? t('voice.chat.status.recording', { level: volumePercentage }) : 
                                stoppedAudioBlob ? t('voice.chat.status.audioReady', { size: Math.round(stoppedAudioBlob.size / 1024), seconds: (duration / 1000).toFixed(1) }) :
                isProcessing ? t('voice.chat.status.processing') :
@@ -849,7 +849,7 @@ const VoiceChat = ({
           <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
             {conversationHistory.map((entry) => (
               <Box key={entry.id} sx={{ mb: 3, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary" gutterBottom>
+                <Typography variant="caption" gutterBottom sx={{ color: "text.secondary" }}>
                   {new Date(entry.timestamp).toLocaleString(uiLocale())}
                 </Typography>
                 

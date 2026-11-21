@@ -2212,7 +2212,6 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         />
       </Box>
 
-
       {/* Gallery Selection Dialog */}
       <Dialog
         open={galleryOpen}
@@ -2221,7 +2220,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         fullWidth
       >
         <DialogTitle>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
             <Typography variant="h6">
               {selectedBatch ? (
                 <>
@@ -2248,12 +2247,12 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             // Show images from selected batch
             batchImages.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography color="text.secondary">{t("videoGenerator.gallery.noImages")}</Typography>
+                <Typography sx={{ color: "text.secondary" }}>{t("videoGenerator.gallery.noImages")}</Typography>
               </Box>
             ) : (
               <Grid container spacing={1}>
                 {batchImages.map((img) => (
-                  <Grid item xs={6} sm={4} md={3} key={img.id}>
+                  <Grid key={img.id} size={{ xs: 6, sm: 4, md: 3 }}>
                     <Box
                       onClick={() => toggleGalleryImageSelection(img.id)}
                       sx={{
@@ -2306,15 +2305,15 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             // Show batches
             galleryBatches.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography color="text.secondary">{t("videoGenerator.gallery.noBatches")}</Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography sx={{ color: "text.secondary" }}>{t("videoGenerator.gallery.noBatches")}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {t("videoGenerator.gallery.noBatchesHint")}
                 </Typography>
               </Box>
             ) : (
               <Grid container spacing={2}>
                 {galleryBatches.map((batch) => (
-                  <Grid item xs={12} sm={6} md={4} key={batch.batch_id}>
+                  <Grid key={batch.batch_id} size={{ xs: 12, sm: 6, md: 4 }}>
                     <Card
                       variant="outlined"
                       sx={{
@@ -2401,7 +2400,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         onClose={() => setVideoPlayer(null)}
         maxWidth="md"
         fullWidth
-        PaperProps={{ sx: { bgcolor: "grey.900", borderRadius: 2 } }}
+        slotProps={{
+          paper: { sx: { bgcolor: "grey.900", borderRadius: 2 } }
+        }}
       >
         {videoPlayer && (() => {
           const { results, currentIndex } = videoPlayer;

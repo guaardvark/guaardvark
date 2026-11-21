@@ -281,7 +281,7 @@ const PublishModal = ({ open, onClose, documents = NO_DOCUMENTS, onFeedback }) =
               <Typography variant="subtitle2" gutterBottom>
                 {t("dialogs.publish.destinations")}
               </Typography>
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                 {connections.map((conn) => {
                   const problems = violationsFor(conn.id);
                   const isSelected = selected.includes(conn.id);

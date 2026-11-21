@@ -17,7 +17,7 @@ import StopIcon from "@mui/icons-material/Stop";
 import MinimizeIcon from "@mui/icons-material/Remove";
 import AddIcon from "@mui/icons-material/Add";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";
 import { PlanActionsContext } from "./planActions";

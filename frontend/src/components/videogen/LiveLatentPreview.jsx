@@ -26,7 +26,7 @@ export default function LiveLatentPreview({ src, aspectRatio = "16 / 9" }) {
           sx={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       </Box>
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {t("video.latentPreview.caption")}
       </Typography>
     </Box>

@@ -341,7 +341,7 @@ const DocumentActionModal = ({
         <Box component="form" noValidate autoComplete="off" sx={{ mt: 1 }}>
           <Grid container spacing={2}>
             {isEditMode ? (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   fullWidth
                   margin="dense"
@@ -354,7 +354,7 @@ const DocumentActionModal = ({
                 />
               </Grid>
             ) : (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Button
                   fullWidth
                   variant="outlined"
@@ -370,15 +370,14 @@ const DocumentActionModal = ({
                 {selectedFile && (
                   <Typography
                     variant="caption"
-                    display="block"
-                    sx={{ mt: 1, textAlign: "center" }}
+                    sx={{ display: "block", mt: 1, textAlign: "center" }}
                   >
                     {t("dialogs.documentAction.size", { size: (selectedFile.size / 1024).toFixed(2) })}
                   </Typography>
                 )}
               </Grid>
             )}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Autocomplete
                 id="project-select-for-document-modal"
                 options={projects}
@@ -404,23 +403,26 @@ const DocumentActionModal = ({
                     label={t("dialogs.documentAction.assignProject")}
                     variant="outlined"
                     margin="dense"
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <React.Fragment>
-                          {isLoadingProjects ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </React.Fragment>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <React.Fragment>
+                            {isLoadingProjects ? (
+                              <CircularProgress color="inherit" size={20} />
+                            ) : null}
+                            {params.slotProps.input.endAdornment}
+                          </React.Fragment>
+                        ),
+                      },
                     }}
                   />
                 )}
                 disabled={anyActionInProgress || isLoadingProjects}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -433,7 +435,7 @@ const DocumentActionModal = ({
                 helperText={t("dialogs.documentAction.tagsHelp")}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 margin="dense"

@@ -361,7 +361,7 @@ const DashboardCardWrapper = React.forwardRef(
                 className="non-draggable"
                 value={nameDraft}
                 placeholder={titlePlaceholder}
-                inputProps={{ "aria-label": titlePlaceholder }}
+                slotProps={{ htmlInput: { "aria-label": titlePlaceholder } }}
                 onMouseDown={(e) => e.stopPropagation()}
                 onChange={(e) => setNameDraft(e.target.value)}
                 onBlur={() => {

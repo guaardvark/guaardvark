@@ -130,21 +130,23 @@ const ProjectManagerCard = React.forwardRef(
                 <ListItemText
                   primary={project.name || t("dashboard.project.unnamed")}
                   secondary={t("dashboard.project.client", { name: project.client?.name || t("layout.notAvailable") })}
-                  primaryTypographyProps={{
-                    style: {
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                  slotProps={{
+                    primary: {
+                      style: {
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      },
                     },
-                  }}
-                  secondaryTypographyProps={{
-                    style: {
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    },
-                  }}
-                />
+
+                    secondary: {
+                      style: {
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      },
+                    }
+                  }} />
               </ListItem>
             ))}
             {/* Removed the "...and X more" ListItem */}

@@ -156,21 +156,21 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
           <ListItemButton key={scan.id} selected={selectedId === scan.id} onClick={() => setSelectedId(scan.id)}>
             <ListItemText
               primary={
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Typography variant="body2" noWrap sx={{ fontWeight: 500, minWidth: 0 }}>
                     {scan.subject}
                   </Typography>
                 </Stack>
               }
               secondary={
-                <Stack direction="row" spacing={1} alignItems="center" component="span">
+                <Stack direction="row" spacing={1} component="span" sx={{ alignItems: "center" }}>
                   <Chip
                     label={verdictLabel(scan.verdict)}
                     size="small"
                     color={VERDICT_COLOR[scan.verdict] || "default"}
                     sx={{ height: 18 }}
                   />
-                  <Typography variant="caption" color="text.secondary" component="span">
+                  <Typography variant="caption" component="span" sx={{ color: "text.secondary" }}>
                     {t("approvals.held.listMeta", {
                       kind: kindLabel(scan),
                       count: scan.findings?.length || 0,
@@ -179,7 +179,9 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
                   </Typography>
                 </Stack>
               }
-              secondaryTypographyProps={{ component: "div" }}
+              slotProps={{
+                secondary: { component: "div" }
+              }}
             />
           </ListItemButton>
         ))}
@@ -190,7 +192,7 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
   const renderDetail = () => {
     if (selectedId == null) {
       return (
-        <Typography variant="body2" color="text.secondary" sx={{ p: 3 }}>
+        <Typography variant="body2" sx={{ color: "text.secondary", p: 3 }}>
           {t("approvals.held.selectPrompt")}
         </Typography>
       );
@@ -208,7 +210,7 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
     const onDisk = effect === "accept";
     return (
       <Box sx={{ p: 3 }}>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }} flexWrap="wrap">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", mb: 1 }}>
           <Typography variant="h6" sx={{ wordBreak: "break-all" }}>
             {detail.subject}
           </Typography>
@@ -216,7 +218,7 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
           <Chip label={detail.source} size="small" variant="outlined" />
           {detail.fix && <Chip label={t("approvals.held.pendingFix", { id: detail.fix.id })} size="small" variant="outlined" />}
         </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 2 }}>
           {t("approvals.held.detailMeta", {
             size: scanSize(detail),
             when: formatWhen(detail.created_at),

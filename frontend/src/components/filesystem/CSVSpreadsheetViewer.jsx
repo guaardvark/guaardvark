@@ -247,8 +247,10 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
       onClose={onClose}
       maxWidth="xl"
       fullWidth
-      PaperProps={{
-        sx: { height: '90vh' }
+      slotProps={{
+        paper: {
+          sx: { height: '90vh' }
+        }
       }}
     >
       <DialogTitle>
@@ -282,7 +284,7 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
           {/* Toolbar */}
           <Paper sx={{ p: 2, mb: 2, borderRadius: 0 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t('files.csv.dimensions', { rows: csvData.length, columns: headers.length })}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>

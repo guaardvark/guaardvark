@@ -92,7 +92,7 @@ export const ThumbFileBody = ({ file, metaLine }) => (
     >
       {file.title || file.filename}
     </Typography>
-    <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
+    <Typography variant="caption" noWrap sx={{ color: "text.secondary", display: "block" }}>
       {metaLine(file)}
     </Typography>
   </Box>
@@ -112,7 +112,7 @@ export const ThumbFolderBody = ({ folder, color, itemCountLabel }) => (
     <Typography variant="body2" noWrap title={folder.name} sx={{ mt: 0.75, fontWeight: 500 }}>
       {folder.name}
     </Typography>
-    <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
+    <Typography variant="caption" noWrap sx={{ color: "text.secondary", display: "block" }}>
       {itemCountLabel}
     </Typography>
   </Box>
@@ -126,18 +126,24 @@ export const ListFileCells = ({ file, kindLabel }) => (
         {file.title || file.filename}
       </Typography>
       {file.title && file.title !== file.filename && (
-        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
+        <Typography variant="caption" noWrap sx={{ color: "text.secondary", display: "block" }}>
           {file.filename}
         </Typography>
       )}
     </Box>
-    <Typography variant="caption" color="text.secondary" noWrap sx={{ width: 110, flexShrink: 0 }}>
+    <Typography variant="caption" noWrap sx={{ color: "text.secondary", width: 110, flexShrink: 0 }}>
       {[kindLabel, formatDuration(file.duration_s)].filter(Boolean).join(" · ")}
     </Typography>
-    <Typography variant="caption" color="text.secondary" sx={{ width: 150, flexShrink: 0, textAlign: "right" }}>
+    <Typography
+      variant="caption"
+      sx={{ color: "text.secondary", width: 150, flexShrink: 0, textAlign: "right" }}
+    >
       {formatDate(file.updated_at || file.uploaded_at)}
     </Typography>
-    <Typography variant="caption" color="text.secondary" sx={{ width: 72, flexShrink: 0, textAlign: "right" }}>
+    <Typography
+      variant="caption"
+      sx={{ color: "text.secondary", width: 72, flexShrink: 0, textAlign: "right" }}
+    >
       {file.size ? formatBytes(file.size) : ""}
     </Typography>
   </>

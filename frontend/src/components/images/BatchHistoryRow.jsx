@@ -79,7 +79,7 @@ const BatchHistoryRow = React.memo(function BatchHistoryRow({
             {name}
           </Typography>
           {dateStr && (
-            <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', fontSize: '0.7rem' }}>
+            <Typography variant="caption" noWrap sx={{ color: "text.secondary", display: 'block', fontSize: '0.7rem' }}>
               {dateStr}
             </Typography>
           )}
@@ -92,7 +92,7 @@ const BatchHistoryRow = React.memo(function BatchHistoryRow({
             sx={{ height: 18, fontSize: '0.6rem', flexShrink: 0 }}
           />
         )}
-        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", flexShrink: 0, whiteSpace: 'nowrap' }}>
           {t('images.shared.imageCount', { count: imgCount })}
         </Typography>
         <Tooltip title={t('images.batchCard.adjustRetry')}>

@@ -234,11 +234,15 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
       <DialogTitle>{t("dialogs.buildFromFolder.title")}</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("dialogs.buildFromFolder.intro")}
           </Typography>
 
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            sx={{ alignItems: { xs: "stretch", sm: "center" } }}
+          >
             <TextField
               size="small"
               label={t("dialogs.buildFromFolder.folder")}
@@ -257,8 +261,8 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
             </ActionButton>
           </Stack>
 
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
-            <Typography variant="overline" color="text.secondary">
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+            <Typography variant="overline" sx={{ color: "text.secondary" }}>
               {t("dialogs.buildFromFolder.read")}
             </Typography>
             {kindChoices().map((k) => (
@@ -275,7 +279,11 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
             ))}
           </Stack>
 
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1.5}
+            sx={{ alignItems: { xs: "stretch", sm: "center" } }}
+          >
             <TextField
               select
               size="small"
@@ -284,7 +292,9 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
               onChange={(e) => setTarget(e.target.value)}
               disabled={Boolean(busy)}
               sx={{ minWidth: 260 }}
-              SelectProps={{ renderValue: (value) => targetLabel(value, estimate) }}
+              slotProps={{
+                select: { renderValue: (value) => targetLabel(value, estimate) }
+              }}
             >
               {TARGETS.map((value) => {
                 const choice = estimate?.choices?.[String(value)];
@@ -293,7 +303,7 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
                     <Box>
                       <Typography variant="body2">{targetLabel(value, estimate)}</Typography>
                       {choice && (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {passageCount(choice.passages)}
                           {choice.seconds != null ? `, ${formatDuration(choice.seconds)}` : ""}
                         </Typography>
@@ -331,14 +341,14 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
             size="small"
             disabled={Boolean(busy)}
           />
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("dialogs.buildFromFolder.alwaysScrubbed")}
           </Typography>
 
           {busy && (busy === "check" || busy === "probe") && (
             <Box>
               <LinearProgress />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {busy === "check" ? t("dialogs.buildFromFolder.reading") : t("dialogs.buildFromFolder.timing")}
               </Typography>
             </Box>
@@ -349,12 +359,12 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
             <Box data-testid="build-check">
               <Divider sx={{ mb: 1.5 }} />
               <Stack spacing={1}>
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
                   <StatusPill tone={nothingToRead ? "warn" : "ok"} label={nothingToRead ? t("dialogs.buildFromFolder.nothingToRead") : t("dialogs.buildFromFolder.checked")} />
                   <Typography variant="body2">
                     {t("dialogs.buildFromFolder.filesAndWords", { files: fileCount(check.files), words: check.words.toLocaleString(uiLocale()) })}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {skippedLine(check.skipped)}
                   </Typography>
                 </Stack>
@@ -363,7 +373,7 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
                     <Typography variant="body2">
                       {t("dialogs.buildFromFolder.largeFiles")}
                     </Typography>
-                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                    <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: "wrap", mt: 0.5 }}>
                       {Object.entries(largeFiles).map(([path, words]) => (
                         <SettingChip
                           key={path}
@@ -391,7 +401,7 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
                 )}
                 <Typography variant="subtitle2">{t("dialogs.buildFromFolder.scrubbed", { items: itemCount(scrub?.total || 0) })}</Typography>
                 {rulesHit.length > 0 && (
-                  <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                  <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: "wrap" }}>
                     {rulesHit.map(([rule, n]) => (
                       <StatusPill key={rule} tone="info" label={`${labels[rule] || rule}: ${n}`} />
                     ))}
@@ -406,7 +416,7 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
                       <Box sx={{ mt: 0.5, pl: 1, borderLeft: 2, borderColor: "divider" }}>
                         {Object.entries(scrub.samples).map(([rule, lines]) => (
                           <Box key={rule} sx={{ mb: 1 }}>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {labels[rule] || rule}
                             </Typography>
                             {lines.map((line, i) => (
@@ -441,7 +451,7 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
                           available: estimate.passages_available?.toLocaleString(uiLocale()),
                           pairs: choice.pairs_before_filter.toLocaleString(uiLocale()),
                         })}
-                    <Typography component="span" variant="caption" color="text.secondary">
+                    <Typography component="span" variant="caption" sx={{ color: "text.secondary" }}>
                       {" "}
                       {probe
                         ? t("dialogs.buildFromFolder.timedOn", { passages: passageCount(probe.chunks), seconds: probe.seconds_per_chunk })

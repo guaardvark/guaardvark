@@ -33,7 +33,7 @@ function ImageQueueCard({
   return (
         <Box sx={statusSx}>
           {queue.length === 0 && !activeBatch && (
-            <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", p: 1 }}>
               {t("layout.board.queueEmpty")}
             </Typography>
           )}
@@ -71,7 +71,7 @@ function ImageQueueCard({
             </Typography>
 
             <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t('imagesBatch.progress.batchId', { id: activeBatch.batch_id })}
               </Typography>
               <Chip

@@ -39,7 +39,7 @@ function VideoLibraryCard({
       borderRadius: 2
     }}>
       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             {t("videoGenerator.library.title")}
           </Typography>
@@ -64,7 +64,7 @@ function VideoLibraryCard({
         {batches.length === 0 && (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <VideoIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("videoGenerator.library.empty")}
             </Typography>
           </Box>

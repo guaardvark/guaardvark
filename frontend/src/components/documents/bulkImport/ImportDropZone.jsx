@@ -64,14 +64,14 @@ const ImportDropZone = ({ onDrop, onPick, disabled = false, disabledReason = "",
       {compact ? (
         children
       ) : (
-        <Stack spacing={1} alignItems="center" textAlign="center">
+        <Stack spacing={1} sx={{ alignItems: "center", textAlign: "center" }}>
           <Typography variant="body1">
             {over ? t("upload.bulk.dropZone.release") : disabled && disabledReason ? disabledReason : t("upload.bulk.dropZone.prompt")}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("upload.bulk.dropZone.note")}
           </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="center">
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", justifyContent: "center" }}>
             {folderPicker && (
               <ActionButton disabled={disabled} onClick={() => folderInput.current?.click()}>
                 {t("upload.bulk.dropZone.chooseFolder")}

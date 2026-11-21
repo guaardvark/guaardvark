@@ -42,7 +42,7 @@ const OptionsPanel = ({
   if (isBin && kind === "audio") {
     return (
       <Stack spacing={2} sx={{ p: 1, height: "100%", overflow: "auto" }} className="non-draggable">
-        <Typography variant="subtitle2" fontWeight="bold" noWrap title={selectedClip.filename}>
+        <Typography variant="subtitle2" noWrap title={selectedClip.filename} sx={{ fontWeight: "bold" }}>
           {selectedClip.filename}
         </Typography>
         <FormControlLabel
@@ -53,14 +53,14 @@ const OptionsPanel = ({
             />
           }
           label={
-            <Stack direction="row" alignItems="center" spacing={0.5}>
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
               <StarIcon sx={{ fontSize: 16, color: "warning.main" }} />
               <Typography variant="body2">{t("videoEditor.options.useAsMaster")}</Typography>
             </Stack>
           }
         />
         <Box>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("videoEditor.options.volume", { percent: Math.round((selectedClip.volume ?? 1.0) * 100) })}
           </Typography>
           <Slider
@@ -71,7 +71,7 @@ const OptionsPanel = ({
             onChange={(_e, v) => onSetVolume(selectedClip.clipId, v)}
           />
         </Box>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("videoEditor.options.masterHint")}
         </Typography>
       </Stack>
@@ -97,10 +97,10 @@ const OptionsPanel = ({
   if (isBin && kind === "image") {
     return (
       <Stack spacing={1} sx={{ p: 1 }} className="non-draggable">
-        <Typography variant="subtitle2" fontWeight="bold" noWrap title={selectedClip.filename}>
+        <Typography variant="subtitle2" noWrap title={selectedClip.filename} sx={{ fontWeight: "bold" }}>
           {selectedClip.filename}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("videoEditor.options.imageSoon")}
         </Typography>
       </Stack>
@@ -111,7 +111,7 @@ const OptionsPanel = ({
   if (selectedText) {
     return (
       <Stack spacing={2} sx={{ p: 1, height: "100%", overflow: "auto" }} className="non-draggable">
-        <Typography variant="subtitle2" fontWeight="bold">{t("videoEditor.options.textProperties")}</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>{t("videoEditor.options.textProperties")}</Typography>
         <TextField
           size="small" fullWidth label={t("videoEditor.options.text")}
           value={selectedText.text}
@@ -149,11 +149,11 @@ const OptionsPanel = ({
   // ── Nothing selected: Project / Plan settings ──────────────────────
   return (
     <Stack spacing={1.5} sx={{ p: 1, height: "100%", overflow: "auto" }} className="non-draggable">
-      <Typography variant="subtitle2" fontWeight="bold">{t("videoEditor.options.planSettings")}</Typography>
+      <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>{t("videoEditor.options.planSettings")}</Typography>
       <ScanModeSelector value={scanMode} onChange={setScanMode} disabled={planning} />
       <Box>
-        <Typography variant="caption" color="text.secondary">{t("videoEditor.options.styleRecipe")}</Typography>
-        <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("videoEditor.options.styleRecipe")}</Typography>
+        <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", mt: 0.5 }}>
           {(recipes.length === 0 ? [{ name: "Default" }] : recipes).map((r) => (
             <Chip
               key={r.name} label={r.name} size="small"
@@ -166,7 +166,7 @@ const OptionsPanel = ({
         </Stack>
       </Box>
       <Divider />
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {t("videoEditor.options.selectHint")}
       </Typography>
       {error && <Alert severity="error" sx={{ py: 0 }}>{error}</Alert>}

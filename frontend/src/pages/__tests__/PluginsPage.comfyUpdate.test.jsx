@@ -28,6 +28,7 @@ vi.mock("../../api/pluginsService", () => ({
   getComfyUpdateStatus: (...args) => api.status(...args),
   restoreComfyPrevious: (...args) => api.restore(...args),
   repairComfyUpdate: (...args) => api.repair(...args),
+  installComfy: vi.fn(),
 }));
 vi.mock("../../components/settings/OllamaLifecycleSection", () => ({ default: () => null }));
 vi.mock("../../components/settings/ComfyUILifecycleSection", () => ({ default: () => null }));

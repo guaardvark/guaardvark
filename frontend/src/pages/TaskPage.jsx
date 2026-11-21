@@ -1062,8 +1062,8 @@ const TaskPage = () => {
               layout: { x: 115, y: 55, w: 60, h: 90 },
               body: (
                 <Box sx={{ p: 1.5 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
-            <Typography variant="caption" color="text.secondary">
+          <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("tasks.video.intro")}
             </Typography>
             <IconButton size="small" onClick={fetchVideoGenJobs} title={t("tasks.video.refresh")}>
@@ -1077,7 +1077,7 @@ const TaskPage = () => {
           {videoGenLoading && <LinearProgress sx={{ mb: 1 }} />}
 
           {videoGenJobs.length === 0 && !videoGenLoading ? (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("tasks.video.empty")}
             </Typography>
           ) : (
@@ -1099,7 +1099,7 @@ const TaskPage = () => {
                     </TableCell>
                     <TableCell>
                       {job.progress != null ? (
-                        <Stack direction="row" spacing={1} alignItems="center">
+                        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                           <Box sx={{ width: 80 }}>
                             <LinearProgress
                               variant="determinate"
@@ -1110,7 +1110,7 @@ const TaskPage = () => {
                           <Typography variant="caption">{Math.round(job.progress)}%</Typography>
                         </Stack>
                       ) : (
-                        <Typography variant="caption" color="text.secondary">—</Typography>
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>—</Typography>
                       )}
                     </TableCell>
                     <TableCell align="right">

@@ -429,7 +429,7 @@ const AgentsPage = () => {
             body: (
               <Box sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1 }}>
                 {group.help && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {group.help}
                   </Typography>
                 )}

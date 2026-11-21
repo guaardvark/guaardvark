@@ -257,7 +257,7 @@ const TaskManagerCard = React.forwardRef(
               </Box>
 
               {tasks.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {t("dashboard.tasks.empty")}
                 </Typography>
               ) : (
@@ -314,9 +314,11 @@ const TaskManagerCard = React.forwardRef(
                             </Typography>
                           </Box>
                         }
-                        secondaryTypographyProps={{
-                          component: "div",
-                          sx: { mt: 0.5 }
+                        slotProps={{
+                          secondary: {
+                            component: "div",
+                            sx: { mt: 0.5 }
+                          }
                         }}
                       />
                     </ListItem>

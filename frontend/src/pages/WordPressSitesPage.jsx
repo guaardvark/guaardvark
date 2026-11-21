@@ -317,7 +317,7 @@ function WordPressSitesPage() {
       {viewMode === "card" && (
         <Grid container spacing={2}>
           {sortedSites.map((site) => (
-            <Grid item xs={12} sm={6} md={4} key={site.id}>
+            <Grid key={site.id} size={{ xs: 12, sm: 6, md: 4 }}>
               <Card
                 onContextMenu={(e) => siteMenu.open(e, site)}
                 sx={{
@@ -335,20 +335,20 @@ function WordPressSitesPage() {
                       </Typography>
                       <StatusChip status={site.status} />
                     </Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
                       {site.url}
                     </Typography>
                     {site.client && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
                         {t("wordpress.sites.client", { name: site.client.name })}
                       </Typography>
                     )}
                     {site.last_pull_at && (
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("wordpress.sites.lastPulled", { time: formatDate(site.last_pull_at) })}
                       </Typography>
                     )}
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
                       {t("wordpress.sites.pages", { count: site.page_count || 0 })}
                     </Typography>
                   </CardContent>
@@ -419,7 +419,7 @@ function WordPressSitesPage() {
                   <TableCell>{site.page_count || 0}</TableCell>
                   <TableCell>{formatDate(site.last_pull_at)}</TableCell>
                   <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
                       <Tooltip title={t("wordpress.sites.testConnection")}>
                         <IconButton size="small" onClick={() => handleTestConnection(site)}>
                           <RefreshIcon />
@@ -446,10 +446,10 @@ function WordPressSitesPage() {
 
       {sites.length === 0 && !isLoading && (
         <Box sx={{ textAlign: "center", py: 8 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>
+          <Typography variant="h6" gutterBottom sx={{ color: "text.secondary" }}>
             {t("wordpress.sites.emptyTitle")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
             {t("wordpress.sites.emptyDescription")}
           </Typography>
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
@@ -521,10 +521,10 @@ function WordPressSitesPage() {
             <Typography variant="h6" gutterBottom>
               {t("wordpress.sites.deleteTitle")}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
               {t("wordpress.sites.deleteConfirm", { url: currentSite.url })}
             </Typography>
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
+            <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
               <Button onClick={() => setDeleteDialogOpen(false)}>{t("wordpress.sites.cancel")}</Button>
               <Button variant="contained" color="error" onClick={handleDeleteConfirm}>
                 {t("wordpress.sites.delete")}

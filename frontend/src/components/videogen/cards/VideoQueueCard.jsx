@@ -86,11 +86,11 @@ function VideoQueueCard({
     {queue.length > 0 && (
       <Card sx={{ mb: 3, boxShadow: 2, borderRadius: 2 }}>
         <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+          <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               {t("videoGenerator.queue.title")}
             </Typography>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               {queue.some((q) => ["completed", "error", "cancelled"].includes(q.status)) && (
                 <Button
                   size="small"
@@ -134,7 +134,7 @@ function VideoQueueCard({
                     bgcolor: q.is_running ? 'action.hover' : 'transparent',
                   }}
                 >
-                  <Stack direction="row" alignItems="center" spacing={1.5}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
                     <Chip
                       label={slotTag}
                       size="small"
@@ -145,7 +145,7 @@ function VideoQueueCard({
                       <Typography variant="body2" noWrap title={q.batch_id}>
                         {q.display_name || q.batch_id}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("videoGenerator.queue.videos", { done: q.completed_videos + q.failed_videos, total: q.total_videos })}
                         {q.failed_videos > 0 ? ` ${t("videoGenerator.queue.failed", { count: q.failed_videos })}` : ''}
                       </Typography>
@@ -210,10 +210,10 @@ function VideoQueueCard({
           </Typography>
 
           <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("videoGenerator.progress.batchId", { id: batchStatus.batch_id })}
             </Typography>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1, flexWrap: "wrap" }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 1, flexWrap: "wrap" }}>
               <Chip
                 label={batchStatusLabel(batchStatus.status).toUpperCase()}
                 color={batchStatus.status === 'running' ? 'primary' :
@@ -277,10 +277,10 @@ function VideoQueueCard({
             <Box sx={{ mb: 2 }}>
               <LiveLatentPreview src={getPreviewUrl(activeStep.job_id)} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", textTransform: 'capitalize' }}>
                   {activeStep.message || t("videoGenerator.progress.rendering")}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {activeStep.progress || 0}%
                 </Typography>
               </Box>
@@ -350,7 +350,7 @@ function VideoQueueCard({
                 ? getPreviewUrl(activeStep.job_id)
                 : null;
               return (
-              <Grid item xs={12} sm={6} key={res.item_id}>
+              <Grid key={res.item_id} size={{ xs: 12, sm: 6 }}>
                 <Card
                   variant="outlined"
                   onContextMenu={(e) => resultMenu.open(e, { res, idx, videoUrl })}
@@ -395,7 +395,7 @@ function VideoQueueCard({
                         </Box>
                       )}
                     </Box>
-                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
                       {/* A held clip is not "Ready": its pill says it waits for a person. */}
                       {res.review?.state !== "needs_review" && (
                         <Chip
@@ -519,7 +519,7 @@ function VideoQueueCard({
           >
             {t("videoGenerator.progress.statusTitle")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", textAlign: 'center', py: 3 }}>
             {t("videoGenerator.progress.none")}
           </Typography>
         </CardContent>

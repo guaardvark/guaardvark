@@ -120,7 +120,7 @@ const AddressAutocomplete = ({
             <Box>
               <Typography variant="body2">{labelOf(option)}</Typography>
               {option?.source ? (
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {option.source}
                 </Typography>
               ) : null}
@@ -136,17 +136,21 @@ const AddressAutocomplete = ({
           required={required}
           error={error}
           helperText={helperText ?? (attribution || " ")}
-          inputProps={{ ...params.inputProps, ...inputProps }}
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <>
-                {loading ? <CircularProgress size={18} /> : null}
-                {params.InputProps.endAdornment}
-              </>
-            ),
-          }}
-        />
+          slotProps={{
+            ...params.slotProps,
+
+            input: {
+              ...params.slotProps.input,
+              endAdornment: (
+                <>
+                  {loading ? <CircularProgress size={18} /> : null}
+                  {params.slotProps.input.endAdornment}
+                </>
+              ),
+            },
+
+            htmlInput: { ...params.slotProps.htmlInput, ...inputProps }
+          }} />
       )}
     />
   );

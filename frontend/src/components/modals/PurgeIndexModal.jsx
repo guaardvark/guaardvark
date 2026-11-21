@@ -85,7 +85,9 @@ const PurgeIndexModal = ({ open, onClose, onConfirm, isProcessing }) => {
           onChange={handleChange}
           fullWidth
           margin="dense"
-          InputLabelProps={labelProps}
+          slotProps={{
+            inputLabel: labelProps
+          }}
         />
         <TextField
           label={t("backups.purgeIndex.toDate")}
@@ -95,7 +97,9 @@ const PurgeIndexModal = ({ open, onClose, onConfirm, isProcessing }) => {
           onChange={handleChange}
           fullWidth
           margin="dense"
-          InputLabelProps={labelProps}
+          slotProps={{
+            inputLabel: labelProps
+          }}
         />
       </DialogContent>
       <DialogActions>

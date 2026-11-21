@@ -280,8 +280,8 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
   return (
     <Paper elevation={2} sx={{ p: 2.5 }}>
       {/* Header */}
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-        <Box display="flex" alignItems="center" gap={1}>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <CodeIcon color="primary" />
           <Typography variant="h6">{t("settingsInterconnector.clientUpdate.title")}</Typography>
         </Box>
@@ -311,9 +311,9 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
 
       {/* Checking State */}
       {updateStatus.checking && !updateStatus.error && (
-        <Box textAlign="center" py={2}>
+        <Box sx={{ textAlign: "center", py: 2 }}>
           <CircularProgress size={32} />
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
             {t("settingsInterconnector.clientUpdate.checking")}
           </Typography>
         </Box>
@@ -321,16 +321,16 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
 
       {/* Up to Date State */}
       {!updateStatus.checking && !updateStatus.error && !updateStatus.available && (
-        <Box textAlign="center" py={2}>
+        <Box sx={{ textAlign: "center", py: 2 }}>
           <CheckIcon sx={{ fontSize: 48, color: "success.main", mb: 1 }} />
-          <Typography variant="h6" color="success.main">
+          <Typography variant="h6" sx={{ color: "success.main" }}>
             {t("settingsInterconnector.clientUpdate.upToDate")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
             {t("settingsInterconnector.clientUpdate.lastChecked", { when: updateStatus.lastChecked || t("settingsInterconnector.clientUpdate.never") })}
           </Typography>
           {syncStatus.masterTrackedFiles != null && (
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
               {t("settingsInterconnector.clientUpdate.masterTracks", { count: syncStatus.masterTrackedFiles })}
               {syncStatus.lastApplyAt ? ` · ${t("settingsInterconnector.clientUpdate.lastApply", { when: formatSyncedAt(syncStatus.lastApplyAt) })}` : ""}
             </Typography>
@@ -354,11 +354,11 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
             }}
           >
             <DownloadIcon sx={{ fontSize: 28, color: "#000" }} />
-            <Box flex={1}>
+            <Box sx={{ flex: 1 }}>
               <Typography variant="subtitle1" sx={{ color: "#000", fontWeight: 600 }}>
                 {t("settingsInterconnector.clientUpdate.updatesAvailable", { count: updateStatus.count })}
               </Typography>
-              <Box display="flex" gap={0.5} flexWrap="wrap" mt={0.5}>
+              <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
                 {updateStatus.summary.backend > 0 && (
                   <Chip
                     label={t("settingsInterconnector.clientUpdate.backendCount", { count: updateStatus.summary.backend })}
@@ -417,7 +417,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
           </Box>
 
           {/* Action Buttons */}
-          <Box display="flex" gap={2} mb={2}>
+          <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
             <Button
               variant="contained"
               color="primary"
@@ -439,9 +439,9 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
 
           {/* Progress Bar */}
           {applying && (
-            <Box mb={2}>
+            <Box sx={{ mb: 2 }}>
               <LinearProgress variant="determinate" value={applyProgress} />
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5 }}>
                 {t("settingsInterconnector.clientUpdate.applying")}
               </Typography>
             </Box>
@@ -500,7 +500,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: "text.secondary" }}>
                             {file.size_display}
                           </Typography>
                         </TableCell>
@@ -510,7 +510,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
                 </Table>
               </TableContainer>
               <Box sx={{ p: 1.5, bgcolor: "warning.dark", borderTop: 1, borderColor: "divider" }}>
-                <Typography variant="caption" color="warning.contrastText">
+                <Typography variant="caption" sx={{ color: "warning.contrastText" }}>
                   {t("settingsInterconnector.clientUpdate.backupNote")}
                 </Typography>
               </Box>
@@ -518,7 +518,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
           </Collapse>
 
           {/* Last Checked */}
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("settingsInterconnector.clientUpdate.lastChecked", { when: updateStatus.lastChecked || t("settingsInterconnector.clientUpdate.never") })}
           </Typography>
         </Box>
@@ -526,14 +526,14 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
 
       {/* Last Update Result */}
       {lastUpdateResult && (
-        <Box mt={2}>
+        <Box sx={{ mt: 2 }}>
           <Divider sx={{ mb: 2 }} />
           {lastUpdateResult.success ? (
             <Alert severity="success">
-              <Typography variant="body2" fontWeight="bold">
+              <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                 {t("settingsInterconnector.clientUpdate.completed")}
               </Typography>
-              <Typography variant="caption" display="block">
+              <Typography variant="caption" sx={{ display: "block" }}>
                 {t("settingsInterconnector.clientUpdate.applied", {
                   applied: lastUpdateResult.applied,
                   created: lastUpdateResult.created,
@@ -541,7 +541,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
                 })}
               </Typography>
               {lastUpdateResult.backupPath && (
-                <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
                   <FolderIcon sx={{ fontSize: 14, verticalAlign: "middle", mr: 0.5 }} />
                   {t("settingsInterconnector.clientUpdate.backupsSaved", { path: lastUpdateResult.backupPath })}
                 </Typography>

@@ -45,8 +45,7 @@ const SettingsPanel = ({ id, title, help, description, actions, danger = false, 
       {description && (
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          sx={{ color: "text.secondary", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
         >
           {description}
         </Typography>

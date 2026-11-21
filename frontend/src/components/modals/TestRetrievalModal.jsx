@@ -111,7 +111,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <SearchIcon color="primary" />
           <Typography variant="h6">{t("dialogs.testRetrieval.title")}</Typography>
         </Stack>
@@ -131,7 +131,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
           />
 
           <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <TextField
                 label={t("dialogs.testRetrieval.projectId")}
                 placeholder={t("dialogs.testRetrieval.projectPlaceholder")}
@@ -140,14 +140,16 @@ const TestRetrievalModal = ({ open, onClose }) => {
                 fullWidth
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <TextField
                 label={t("dialogs.testRetrieval.topK")}
                 type="number"
                 value={topK}
                 onChange={(e) => setTopK(Math.max(1, Math.min(20, parseInt(e.target.value) || 5)))}
-                inputProps={{ min: 1, max: 20 }}
                 fullWidth
+                slotProps={{
+                  htmlInput: { min: 1, max: 20 }
+                }}
               />
             </Grid>
           </Grid>
@@ -177,7 +179,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                 {t("dialogs.testRetrieval.queryAnalysis")}
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <Chip
                     icon={<AccessTimeIcon />}
                     label={`${formatTime(results.metrics?.retrieval_time)}`}
@@ -185,7 +187,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <Chip
                     icon={<ArticleIcon />}
                     label={t("dialogs.testRetrieval.nodes", { count: results.metrics?.retrieved_nodes || 0 })}
@@ -193,7 +195,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <Chip
                     label={t("dialogs.testRetrieval.complexity", { complexity: results.query_analysis?.query_complexity || t("dialogs.testRetrieval.unknown") })}
                     variant="outlined"
@@ -203,17 +205,17 @@ const TestRetrievalModal = ({ open, onClose }) => {
               </Grid>
 
               <Box sx={{ mt: 2 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   <Trans i18nKey="dialogs.testRetrieval.queryLine" values={{ query: results.metrics?.query }} components={{ bold: <strong /> }} />
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   <Trans
                     i18nKey="dialogs.testRetrieval.avgSimilarity"
                     values={{ score: formatScore(results.metrics?.avg_similarity_score) }}
                     components={{ bold: <strong /> }}
                   />
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   <Trans
                     i18nKey="dialogs.testRetrieval.topScore"
                     values={{ score: formatScore(results.metrics?.top_score) }}
@@ -233,7 +235,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                 {results.detailed_nodes.map((node, index) => (
                   <Accordion key={index} sx={{ mb: 1 }}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                      <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%' }}>
+                      <Stack direction="row" spacing={2} sx={{ alignItems: "center", width: '100%' }}>
                         <Chip
                           label={t("dialogs.testRetrieval.rank", { rank: node.rank })}
                           size="small"
@@ -248,7 +250,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                         <Typography variant="body2" noWrap sx={{ flex: 1 }}>
                           {node.content_preview}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t("dialogs.testRetrieval.chars", { count: node.content_length })}
                         </Typography>
                       </Stack>

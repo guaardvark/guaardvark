@@ -33,7 +33,7 @@ export default function TrainAdapterInstall({ baseModelId }) {
 
   if (status.installed) {
     return (
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 1 }}>
         {t('cast.trainingData.adapterInstalled', { name })}
       </Typography>
     );

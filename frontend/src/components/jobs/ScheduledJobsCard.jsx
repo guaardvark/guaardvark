@@ -26,7 +26,7 @@ import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import SettingChip from "../settings/ui/SettingChip";
 import StatusPill from "../settings/ui/StatusPill";
 import NightShiftSummary from "./NightShiftSummary";
@@ -244,7 +244,7 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
         <Typography variant="caption">{whenLabel(row)}</Typography>
         {row.late && <StatusPill label={t("jobs.nightShift.late")} tone="warn" sx={{ ml: 0.75 }} />}
       </TableCell>
-      <TableCell><Typography variant="caption" color="text.secondary">{formatTime(row.created_at)}</Typography></TableCell>
+      <TableCell><Typography variant="caption" sx={{ color: "text.secondary" }}>{formatTime(row.created_at)}</Typography></TableCell>
       <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
         {!row.repeats && (
           <>
@@ -285,7 +285,7 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
               data-testid={`scheduled-remove-${row.id}`}
               onClick={() => onRemove(row)}
             >
-              <DeleteOutlineIcon fontSize="small" />
+              <DeleteOutlineOutlinedIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         )}
@@ -295,7 +295,7 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
 
   return (
     <Box sx={{ p: 1.5 }} data-testid="scheduled-jobs-card">
-      <Stack direction="row" alignItems="center" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 1 }}>
+      <Stack direction="row" useFlexGap spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", mb: 1 }}>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>{t("jobs.nightShift.title")}</Typography>
         <TimeField
           label={t("jobs.nightShift.windowStart")}
@@ -303,17 +303,17 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
           testId="night-shift-start"
           onCommit={(start) => act(() => setNightShiftWindow(start, hours.end))}
         />
-        <Typography variant="caption" color="text.secondary">{t("jobs.nightShift.to")}</Typography>
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("jobs.nightShift.to")}</Typography>
         <TimeField
           label={t("jobs.nightShift.windowEnd")}
           value={hours.end}
           testId="night-shift-end"
           onCommit={(end) => act(() => setNightShiftWindow(hours.start, end))}
         />
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("jobs.nightShift.rule", { minutes: awayMinutes })}
         </Typography>
-        <Typography variant="caption" color="text.secondary" data-testid="night-shift-count">
+        <Typography variant="caption" data-testid="night-shift-count" sx={{ color: "text.secondary" }}>
           {t("jobs.nightShift.count", { count: night.length })}
         </Typography>
         <Box sx={{ flex: 1 }} />
@@ -325,15 +325,15 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
           testId="night-shift-pause"
         />
       </Stack>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1.5 }}>
         <StatusPill label={state.label} tone={state.tone} />
         {hold && night.length > 0 && (
-          <Typography variant="caption" color="text.secondary" data-testid="night-shift-hold">
+          <Typography variant="caption" data-testid="night-shift-hold" sx={{ color: "text.secondary" }}>
             {t("jobs.nightShift.holdReason", { reason: hold })}
           </Typography>
         )}
         {!status.desktop_idle_available && (
-          <Typography variant="caption" color="warning.main">{t("jobs.nightShift.noDesktopIdle")}</Typography>
+          <Typography variant="caption" sx={{ color: "warning.main" }}>{t("jobs.nightShift.noDesktopIdle")}</Typography>
         )}
       </Stack>
 
@@ -346,7 +346,7 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
       <NightShiftSummary shift={status.shift} />
 
       {total === 0 ? (
-        <Typography variant="body2" color="text.secondary" data-testid="scheduled-empty">
+        <Typography variant="body2" data-testid="scheduled-empty" sx={{ color: "text.secondary" }}>
           {t("jobs.nightShift.empty")}
         </Typography>
       ) : (

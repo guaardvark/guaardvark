@@ -65,7 +65,7 @@ const DirectorsNotesPanel = ({
   if (!clipAnalysis) {
     return (
       <Box sx={{ p: 2 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("videoEditor.notes.selectClip")}
         </Typography>
       </Box>
@@ -76,8 +76,8 @@ const DirectorsNotesPanel = ({
 
   return (
     <Box sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.25 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="subtitle2" fontWeight="bold">{t("videoEditor.notes.title")}</Typography>
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>{t("videoEditor.notes.title")}</Typography>
         {clipAnalysis.cached && (
           <Chip size="small" label={t("videoEditor.notes.cached")} variant="outlined" sx={{ height: 18, fontSize: "0.65rem" }} />
         )}
@@ -117,8 +117,8 @@ const DirectorsNotesPanel = ({
       <Divider />
 
       <Box>
-        <Typography variant="caption" color="text.secondary">{t("videoEditor.notes.filter")}</Typography>
-        <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("videoEditor.notes.filter")}</Typography>
+        <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", mt: 0.5 }}>
           <Chip
             size="small"
             label="none"
@@ -130,10 +130,13 @@ const DirectorsNotesPanel = ({
         </Stack>
         {Object.entries(FILTER_CATEGORIES).map(([cat, slugs]) => (
           <Box key={cat} sx={{ mt: 0.75 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem", textTransform: "uppercase" }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "text.secondary", fontSize: "0.65rem", textTransform: "uppercase" }}
+            >
               {filterCategoryLabel(cat)}
             </Typography>
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.25 }}>
+            <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", mt: 0.25 }}>
               {slugs.map((slug) => {
                 const selected = clipAnalysis.recommended_filter === slug;
                 return (
@@ -154,8 +157,8 @@ const DirectorsNotesPanel = ({
       </Box>
 
       <Box>
-        <Typography variant="caption" color="text.secondary">{t("videoEditor.notes.bestFitFor")}</Typography>
-        <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("videoEditor.notes.bestFitFor")}</Typography>
+        <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", mt: 0.5 }}>
           {SECTIONS.map((s) => {
             const selected = (clipAnalysis.best_section_fit || []).includes(s);
             return (
@@ -187,7 +190,7 @@ const DirectorsNotesPanel = ({
         {rescanning ? t("videoEditor.notes.reanalyzing") : t("videoEditor.notes.reanalyze")}
       </Button>
 
-      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5 }}>
         {t("videoEditor.notes.overridesHint")}
       </Typography>
     </Box>

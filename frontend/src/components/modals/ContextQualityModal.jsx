@@ -142,7 +142,7 @@ const ContextQualityModal = ({ open, onClose }) => {
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <AssessmentIcon color="primary" />
           <Typography variant="h6">{t("dialogs.contextQuality.title")}</Typography>
         </Stack>
@@ -205,12 +205,15 @@ const ContextQualityModal = ({ open, onClose }) => {
                 {t("dialogs.contextQuality.overall")}
               </Typography>
               
-              <Grid container spacing={3} alignItems="center">
-                <Grid item xs={12} sm={6}>
+              <Grid container spacing={3} sx={{ alignItems: "center" }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Box sx={{ mb: 2 }}>
-                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                    <Stack
+                      direction="row"
+                      sx={{ alignItems: "center", justifyContent: "space-between", mb: 1 }}
+                    >
                       <Typography variant="body2">{t("dialogs.contextQuality.qualityScore")}</Typography>
-                      <Typography variant="h6" color={getQualityColor(results.overall_quality_score)}>
+                      <Typography variant="h6" sx={{ color: getQualityColor(results.overall_quality_score) }}>
                         {formatScore(results.overall_quality_score)}
                       </Typography>
                     </Stack>
@@ -222,7 +225,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                     />
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Chip
                     label={getQualityLabel(results.quality_assessment).label}
                     color={getQualityLabel(results.quality_assessment).color}
@@ -235,64 +238,64 @@ const ContextQualityModal = ({ open, onClose }) => {
 
             {/* Detailed Metrics */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                       <ContentCopyIcon color="primary" />
                       <Typography variant="h6">
                         {results.metrics?.total_chunks || 0}
                       </Typography>
                     </Stack>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.totalChunks")}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                       <SourceIcon color="info" />
                       <Typography variant="h6">
                         {results.metrics?.unique_sources || 0}
                       </Typography>
                     </Stack>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.uniqueSources")}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                       <CompressIcon color="warning" />
                       <Typography variant="h6">
                         {formatScore(results.metrics?.compression_ratio)}
                       </Typography>
                     </Stack>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.compressionRatio")}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                       <AccessTimeIcon color="success" />
                       <Typography variant="h6">
                         {results.metrics?.avg_chunk_length || 0}
                       </Typography>
                     </Stack>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.avgChunkLength")}
                     </Typography>
                   </CardContent>
@@ -306,54 +309,54 @@ const ContextQualityModal = ({ open, onClose }) => {
                 <Typography variant="h6">{t("dialogs.contextQuality.qualityMetrics")}</Typography>
               </Box>
               <Grid container sx={{ p: 2 }}>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Box sx={{ p: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.redundancy")}
                     </Typography>
                     <Typography variant="h6" color={results.metrics?.redundancy_score > 0.7 ? "error" : "success"}>
                       {formatScore(results.metrics?.redundancy_score)}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.lowerBetter")}
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Box sx={{ p: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.relevance")}
                     </Typography>
-                    <Typography variant="h6" color={getQualityColor(results.metrics?.relevance_score)}>
+                    <Typography variant="h6" sx={{ color: getQualityColor(results.metrics?.relevance_score) }}>
                       {formatScore(results.metrics?.relevance_score)}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.higherBetter")}
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Box sx={{ p: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.freshness")}
                     </Typography>
-                    <Typography variant="h6" color={getQualityColor(results.metrics?.freshness_score)}>
+                    <Typography variant="h6" sx={{ color: getQualityColor(results.metrics?.freshness_score) }}>
                       {formatScore(results.metrics?.freshness_score)}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.recency")}
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Box sx={{ p: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.contextQuality.sessionId")}
                     </Typography>
                     <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                       {results.metrics?.session_id}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {new Date(results.metrics?.timestamp).toLocaleString(uiLocale())}
                     </Typography>
                   </Box>
@@ -365,7 +368,7 @@ const ContextQualityModal = ({ open, onClose }) => {
             {results.recommendations && results.recommendations.length > 0 && (
               <Paper sx={{ mb: 2 }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Stack direction="row" alignItems="center" spacing={1}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                     <TipsAndUpdatesIcon color="warning" />
                     <Typography variant="h6">{t("dialogs.contextQuality.recommendations")}</Typography>
                   </Stack>
@@ -379,7 +382,9 @@ const ContextQualityModal = ({ open, onClose }) => {
                         </ListItemIcon>
                         <ListItemText
                           primary={recommendation}
-                          primaryTypographyProps={{ variant: 'body2' }}
+                          slotProps={{
+                            primary: { variant: 'body2' }
+                          }}
                         />
                       </ListItem>
                       {index < results.recommendations.length - 1 && <Divider />}

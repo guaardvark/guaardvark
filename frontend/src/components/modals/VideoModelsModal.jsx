@@ -230,7 +230,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
         <ListItemText
           primary={
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-              <Typography variant="body1" fontWeight={500}>
+              <Typography variant="body1" sx={{ fontWeight: 500 }}>
                 {model.name}
               </Typography>
               <Chip label={typeLabel} size="small" variant="outlined" sx={{ height: 20, fontSize: "0.65rem" }} />
@@ -259,7 +259,11 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
             model.license?.note ? (
               <>
                 {model.description}
-                <Typography component="span" variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                <Typography
+                  component="span"
+                  variant="caption"
+                  sx={{ color: "text.secondary", display: "block", mt: 0.5 }}
+                >
                   {model.license.note}{" "}
                   {model.license.form_url && (
                     <a href={model.license.form_url} target="_blank" rel="noreferrer noopener">
@@ -295,7 +299,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                 value={downloadStatus.progress}
                 sx={{ mt: 0.5 }}
               />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {downloadStatus.downloaded_gb.toFixed(1)} / {downloadStatus.total_gb.toFixed(1)} GB
               </Typography>
             </Box>
@@ -339,21 +343,21 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                 </ActionButton>
               )}
               {model.requires?.length > 0 && (
-                <Typography variant="caption" color="text.secondary" noWrap>
+                <Typography variant="caption" noWrap sx={{ color: "text.secondary" }}>
                   {t("models.videoModels.includesRequired", { count: model.requires.length })}
                 </Typography>
               )}
               {model.is_downloaded && !(model.is_ready ?? true) && (
-                <Typography variant="caption" color="warning.main" noWrap>
+                <Typography variant="caption" noWrap sx={{ color: "warning.main" }}>
                   {t("models.videoModels.missingDependencies")}
                 </Typography>
               )}
               {!(model.is_ready ?? model.is_downloaded) && model.missing_files?.length > 0 && (
                 <Typography
                   variant="caption"
-                  color="text.secondary"
                   noWrap
                   title={model.missing_files.join("\n")}
+                  sx={{ color: "text.secondary" }}
                 >
                   {t("models.videoModels.filesMissing", { count: model.missing_files.length })}
                 </Typography>
@@ -384,7 +388,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
       <DialogTitle>{t("models.videoModels.title")}</DialogTitle>
       <DialogContent dividers>
         {error && (
-          <Box mb={2}>
+          <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
           </Box>
         )}
@@ -394,21 +398,24 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
             there's no auto-download. */}
         {!loading && models.length > 0 && !models.some((m) => m.is_ready ?? m.is_downloaded) && (
           <Box sx={{ mb: 2, p: 1.5, border: 1, borderColor: "warning.main", borderRadius: 1 }}>
-            <Typography variant="body2" color="warning.main">
+            <Typography variant="body2" sx={{ color: "warning.main" }}>
               {t("models.videoModels.noneInstalled")}
             </Typography>
           </Box>
         )}
 
         {loading ? (
-          <Box display="flex" justifyContent="center" p={3}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
             <CircularProgress />
           </Box>
         ) : (
           <List disablePadding>
             {generationModels.length > 0 && (
               <>
-                <Typography variant="overline" color="text.secondary" sx={{ px: 2, pt: 1, display: "block" }}>
+                <Typography
+                  variant="overline"
+                  sx={{ color: "text.secondary", px: 2, pt: 1, display: "block" }}
+                >
                   {t("models.videoModels.generation")}
                 </Typography>
                 {generationModels.map(renderModelRow)}
@@ -416,7 +423,10 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
             )}
             {postModels.length > 0 && (
               <>
-                <Typography variant="overline" color="text.secondary" sx={{ px: 2, pt: 2, display: "block" }}>
+                <Typography
+                  variant="overline"
+                  sx={{ color: "text.secondary", px: 2, pt: 2, display: "block" }}
+                >
                   {t("models.videoModels.postProcessing")}
                 </Typography>
                 {postModels.map(renderModelRow)}

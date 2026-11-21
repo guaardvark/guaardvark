@@ -103,8 +103,7 @@ export const ContextualLoader = ({
             <Typography
               variant="caption"
               component="div"
-              color="text.secondary"
-              sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}
+              sx={{ color: "text.secondary", fontSize: '0.7rem', fontWeight: 'bold' }}
             >
               {`${Math.round(progress)}%`}
             </Typography>
@@ -113,13 +112,13 @@ export const ContextualLoader = ({
       </Box>
 
       {/* Loading Message */}
-      <Typography variant="body2" color="text.primary" sx={{ fontWeight: 500 }}>
+      <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 500 }}>
         {message}
       </Typography>
 
       {/* Submessage */}
       {submessage && (
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: '0.75rem' }}>
           {submessage}
         </Typography>
       )}
@@ -190,11 +189,11 @@ export const EnhancedLinearProgress = ({
   return (
     <Box sx={{ width: '100%', mb: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {message}
         </Typography>
         {showPercentage && progress !== null && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 'bold' }}>
             {Math.round(progress)}%
           </Typography>
         )}
@@ -425,7 +424,7 @@ export const StageProgress = ({ stages = [], currentStage = 0, error = null }) =
       />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {error ? t("layoutCommon.loading.failed") : t("layoutCommon.loading.step", { current: currentStage + 1, total: stages.length })}
         </Typography>
         {error && (

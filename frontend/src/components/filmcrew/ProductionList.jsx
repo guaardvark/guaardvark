@@ -43,7 +43,6 @@ const ProductionList = ({ productions, selectedId, onSelect }) => {
             >
               <ListItemText
                 primary={p.name}
-                secondaryTypographyProps={{ component: 'div' }}
                 secondary={
                   <Box component="div" sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
                     <Chip
@@ -57,13 +56,16 @@ const ProductionList = ({ productions, selectedId, onSelect }) => {
                     </Typography>
                   </Box>
                 }
+                slotProps={{
+                  secondary: { component: 'div' }
+                }}
               />
             </ListItemButton>
           </ListItem>
         ))}
         {productions.length === 0 && (
           <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t('filmCrew.list.empty')}
             </Typography>
           </Box>

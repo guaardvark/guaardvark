@@ -136,7 +136,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
     <ListItemButton key={d.id} selected={selectedId === d.id} onClick={() => setSelectedId(d.id)}>
       <ListItemText
         primary={
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Chip label={d.platform} size="small" variant="outlined" />
             <Typography variant="body2" noWrap sx={{ minWidth: 0 }}>
               {d.action}
@@ -147,8 +147,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
         secondary={
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+            sx={{ color: "text.secondary", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
           >
             {d.draft_text || t("approvals.noText")} · {formatWhen(d.created_at)}
           </Typography>
@@ -232,7 +231,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
             {error}
           </Alert>
         )}
-        <Stack direction="row" spacing={1} sx={{ mt: 2 }} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 2 }}>
           <Button
             variant="contained"
             startIcon={byApi ? undefined : <VisibilityIcon />}
@@ -248,7 +247,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
           </Button>
           <Box sx={{ flex: 1 }} />
           {running && !runningThis && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("approvals.outreach.otherPosting", { id: running.event_id })}
             </Typography>
           )}
@@ -260,14 +259,14 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
   const renderDetail = () => {
     if (!selected) {
       return (
-        <Typography variant="body2" color="text.secondary" sx={{ p: 3 }}>
+        <Typography variant="body2" sx={{ color: "text.secondary", p: 3 }}>
           {t("approvals.outreach.selectPrompt")}
         </Typography>
       );
     }
     return (
       <Box sx={{ p: 3 }}>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }} flexWrap="wrap">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", mb: 1 }}>
           <Typography variant="h6">{selected.platform}</Typography>
           <Chip label={selected.action} size="small" variant="outlined" />
           <Chip label={draftStatusLabel(selected.status)} size="small" color={isWaiting ? "success" : "default"} />
@@ -299,7 +298,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
                 {error}
               </Alert>
             )}
-            <Stack direction="row" spacing={1} sx={{ mt: 2 }} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 2 }}>
               <Button variant="contained" startIcon={<CheckCircleIcon />} disabled={busy || !text.trim()} onClick={() => act(true)}>
                 {busy ? t("approvals.working") : t("approvals.outreach.approve")}
               </Button>
@@ -311,7 +310,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
                 {t("approvals.outreach.outreachPage")}
               </Link>
             </Stack>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
               {t("approvals.outreach.approveNote")}
             </Typography>
           </>

@@ -390,7 +390,7 @@ const EnhancedChatInterface = ({
         {/* Enhanced Context Information */}
         {(contextStats || contextInfo) && (
           <Box sx={{ mt: 1 }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("chat.enhanced.contextSummary", {
                 sessions: contextStats?.context_stats?.total_sessions || contextStats?.context_manager_stats?.total_sessions || 0,
                 messages: contextStats?.chat_manager_stats?.total_messages || contextInfo?.chat_manager_stats?.total_messages || 0,
@@ -489,7 +489,7 @@ const EnhancedChatInterface = ({
             }}
           >
             <CircularProgress size={24} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("chat.enhanced.loading")}
             </Typography>
           </Box>

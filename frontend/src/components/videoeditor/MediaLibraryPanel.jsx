@@ -155,8 +155,7 @@ const MediaLibraryPanel = ({
       {/* Sub-header: breadcrumb (only when drilled in) + view toggle */}
       <Stack
         direction="row"
-        alignItems="center"
-        sx={{ px: 1, py: 0.5, borderBottom: 1, borderColor: "divider", gap: 1 }}
+        sx={{ alignItems: "center", px: 1, py: 0.5, borderBottom: 1, borderColor: "divider", gap: 1 }}
       >
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {currentFolder ? (
@@ -186,7 +185,7 @@ const MediaLibraryPanel = ({
               </Typography>
             </Breadcrumbs>
           ) : (
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
               {t("videoEditor.media.dragHint")}
             </Typography>
           )}

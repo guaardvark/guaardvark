@@ -437,15 +437,19 @@ const BulkImportDocumentsPage = () => {
     ? t("upload.bulk.from.filesAndSize", { count: source.files.length, size: formatBytes(source.totalBytes) })
     : "";
   const fromLine = source && (
-    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "flex-start", sm: "center" }}>
-      <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+    <Stack
+      direction={{ xs: "column", sm: "row" }}
+      spacing={1}
+      sx={{ alignItems: { xs: "flex-start", sm: "center" } }}
+    >
+      <Typography variant="overline" sx={{ color: "text.secondary", lineHeight: 1.5 }}>
         {t("upload.bulk.from.label")}
       </Typography>
       <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0, overflowWrap: "anywhere" }} data-testid="import-from">
         {source.kind === "server" ? (
           <>
             {displayPath(source.path, browseInfo.home)}
-            <Typography component="span" variant="body2" color="text.secondary">
+            <Typography component="span" variant="body2" sx={{ color: "text.secondary" }}>
               {" · "}{t("upload.bulk.from.serverNote")}
             </Typography>
           </>
@@ -453,7 +457,7 @@ const BulkImportDocumentsPage = () => {
           <>
             {stagedName.startsWith('"') ? `${stagedName} · ` : ""}
             {filesAndSize}
-            <Typography component="span" variant="body2" color="text.secondary">
+            <Typography component="span" variant="body2" sx={{ color: "text.secondary" }}>
               {" · "}{t("upload.bulk.from.browserNote")}
               {skippedPhrase(source.skipped)
                 ? ` · ${t("upload.bulk.result.skipped", { what: skippedPhrase(source.skipped) })}`
@@ -496,7 +500,7 @@ const BulkImportDocumentsPage = () => {
       }
     >
       <Stack spacing={2}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t("upload.bulk.intro")}
         </Typography>
 
@@ -514,8 +518,12 @@ const BulkImportDocumentsPage = () => {
 
             {!source && (
               <Stack spacing={1}>
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }}>
-                  <Typography variant="body2" color="text.secondary">
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  sx={{ alignItems: { xs: "stretch", sm: "center" } }}
+                >
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {t("upload.bulk.orServerFolder")}
                   </Typography>
                   <ActionButton
@@ -527,7 +535,7 @@ const BulkImportDocumentsPage = () => {
                   </ActionButton>
                 </Stack>
                 {serverChips.length > 0 && (
-                  <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                  <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: "wrap" }}>
                     {serverChips.map((c) => (
                       <Chip
                         key={c.path}
@@ -544,14 +552,18 @@ const BulkImportDocumentsPage = () => {
             )}
 
             {bigDrop && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("upload.bulk.bigDrop")}
               </Typography>
             )}
           </Stack>
         </Paper>
 
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1.5}
+          sx={{ alignItems: { xs: "stretch", sm: "center" } }}
+        >
           <ImportTargetSelect
             folders={rootFolders}
             value={into}
@@ -588,8 +600,12 @@ const BulkImportDocumentsPage = () => {
                 />
               </Box>
               {linkKinds.length > 0 && (
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
-                  <Typography variant="overline" color="text.secondary">
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1.5}
+                  sx={{ alignItems: { xs: "stretch", sm: "center" } }}
+                >
+                  <Typography variant="overline" sx={{ color: "text.secondary" }}>
                     {t("upload.bulk.links.linkTo")}
                   </Typography>
                   {linkKinds.map((kind) => (

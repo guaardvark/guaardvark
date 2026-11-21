@@ -143,7 +143,7 @@ const FolderView = ({
             borderColor: "divider",
           }}
         >
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("files.itemCount", { count: items.length })}
           </Typography>
           <ToggleButtonGroup
@@ -176,14 +176,14 @@ const FolderView = ({
                 height: "100%",
               }}
             >
-              <Typography variant="body2" color="text.secondary" fontStyle="italic">
+              <Typography variant="body2" sx={{ color: "text.secondary", fontStyle: "italic" }}>
                 {t("files.folderView.empty")}
               </Typography>
             </Box>
           ) : (
             <Grid container spacing={2}>
               {items.map((item) => (
-                <Grid item xs={6} sm={4} md={3} lg={2} key={item.id || item.path}>
+                <Grid key={item.id || item.path} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
                   <Paper
                     elevation={0}
                     sx={{
@@ -224,7 +224,7 @@ const FolderView = ({
                       </Box>
                     )}
                     {item.type === "file" && item.size && (
-                      <Typography variant="caption" color="text.secondary" display="block">
+                      <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                         {(item.size / 1024).toFixed(1)} KB
                       </Typography>
                     )}
@@ -252,7 +252,7 @@ const FolderView = ({
           borderColor: "divider",
         }}
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t("files.itemCount", { count: items.length })}
         </Typography>
         <ToggleButtonGroup
@@ -286,7 +286,7 @@ const FolderView = ({
               p: 4,
             }}
           >
-            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+            <Typography variant="body2" sx={{ color: "text.secondary", fontStyle: "italic" }}>
               {t("files.folderView.empty")}
             </Typography>
           </Box>
@@ -312,7 +312,7 @@ const FolderView = ({
                   </ListItemIcon>
                   <ListItemText
                     primary={
-                      <Typography variant="body2" fontWeight={500}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
                         {item.name}
                       </Typography>
                     }
@@ -320,12 +320,12 @@ const FolderView = ({
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
                         {item.type === "file" && getIndexingStatus(item)}
                         {item.type === "file" && item.size && (
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: "text.secondary" }}>
                             {(item.size / 1024).toFixed(1)} KB
                           </Typography>
                         )}
                         {item.type === "file" && item.uploaded_at && (
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: "text.secondary" }}>
                             {formatTimestamp(item.uploaded_at)}
                           </Typography>
                         )}

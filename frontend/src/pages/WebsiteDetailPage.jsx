@@ -76,7 +76,7 @@ const StatusChip = ({ status }) => {
 
 const Field = ({ label, children }) => (
   <Box sx={{ mb: 1.5 }}>
-    <Typography variant="caption" color="text.secondary" display="block">
+    <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
       {label}
     </Typography>
     <Typography variant="body2" sx={{ wordBreak: "break-all" }}>
@@ -198,7 +198,7 @@ const WebsiteDetailPage = () => {
     () =>
       website ? (
         <Box sx={{ px: 2, pb: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("websites.detail.header", {
               id: website.id,
               project: website.project?.name || t("websites.detail.notAvailable"),
@@ -289,7 +289,7 @@ const WebsiteDetailPage = () => {
           <Box sx={{ flexGrow: 1, overflowY: "auto", p: 1.5, pt: 2 }}>
             {tabValue === 0 && (
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Paper variant="outlined" sx={{ p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
                       {t("websites.detail.details")}
@@ -311,7 +311,7 @@ const WebsiteDetailPage = () => {
                   </Paper>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Paper variant="outlined" sx={{ p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
                       {t("websites.detail.actions")}

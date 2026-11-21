@@ -236,7 +236,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
     return (
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, my: 1, px: 1 }} data-testid="plan-step-heading">
         <Box sx={{ flex: 1, borderTop: 1, borderColor: "divider" }} />
-        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
           {t("chat.plan.stepHeading", { index: message.planStep, title: message.planStepTitle || "" })}
         </Typography>
         <Box sx={{ flex: 1, borderTop: 1, borderColor: "divider" }} />
@@ -302,7 +302,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
             {isThinking ? (
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <CircularProgress size={16} color="warning" />
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {message.content || t("chat.message.agentReasoning")}
                 </Typography>
               </Box>
@@ -381,7 +381,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <CircularProgress size={14} color="warning" />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {message.content || t("chat.message.processing")}
               </Typography>
             </Box>
@@ -589,7 +589,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
         {message.thinkingText && message.toolCalls?.length > 0 && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1, mt: 0.5 }}>
             <CircularProgress size={14} color="warning" sx={{ opacity: 0.6 }} />
-            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", fontStyle: "italic" }}>
               {message.thinkingText}
             </Typography>
           </Box>
@@ -638,8 +638,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
                 >
                   <Typography
                     variant="caption"
-                    color="text.secondary"
-                    sx={{ fontStyle: "italic", whiteSpace: "pre-wrap", fontSize: "0.7rem" }}
+                    sx={{ color: "text.secondary", fontStyle: "italic", whiteSpace: "pre-wrap", fontSize: "0.7rem" }}
                   >
                     {step.thoughts?.trim() || ""}
                   </Typography>
@@ -797,8 +796,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
         {message.truncated === true && (
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", mt: 0.5, fontStyle: "italic", opacity: 0.8 }}
+            sx={{ color: "text.secondary", display: "block", mt: 0.5, fontStyle: "italic", opacity: 0.8 }}
           >
             {t("chat.message.outputLimit")}
           </Typography>
@@ -808,9 +806,8 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
         {message.role === "assistant" && message.verified === false && (
           <Typography
             variant="caption"
-            color="text.secondary"
             data-testid="unverified-note"
-            sx={{ display: "block", mt: 0.5, fontStyle: "italic", opacity: 0.8 }}
+            sx={{ color: "text.secondary", display: "block", mt: 0.5, fontStyle: "italic", opacity: 0.8 }}
           >
             {t("chat.message.unverified")}
           </Typography>

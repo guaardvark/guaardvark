@@ -40,7 +40,7 @@ const ClipReviewHold = ({
   const reasons = (review.reasons || []).join("; ");
   return (
     <Box sx={{ mt: 1 }}>
-      <Typography variant="caption" color="warning.main" sx={{ display: "block" }}>
+      <Typography variant="caption" sx={{ color: "warning.main", display: "block" }}>
         {t("video.clipReview.held", { reasons: reasons ? t("video.clipReview.reasons", { reasons }) : "" })} {heldText}
       </Typography>
       <Stack direction="row" spacing={1} sx={{ mt: 0.75 }}>

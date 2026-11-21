@@ -16,7 +16,7 @@ const renderDialog = (over = {}) => {
       {...over}
     />,
   );
-  return { onSubmit, onClose, input: screen.getByLabelText("URL"), ...utils };
+  return { onSubmit, onClose, input: screen.getByLabelText(over.label || "URL"), ...utils };
 };
 
 describe("TextInputDialog", () => {

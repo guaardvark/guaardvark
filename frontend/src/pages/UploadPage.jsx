@@ -462,8 +462,6 @@ const UploadPage = () => {
                   />
                 </ListItemIcon>
                 <ListItemText
-                  primaryTypographyProps={{ variant: "body2" }}
-                  secondaryTypographyProps={{ variant: "caption" }}
                   primary={doc.filename || t("upload.page.documentFallback", { id: doc.id })}
                   secondary={
                     <>
@@ -471,7 +469,10 @@ const UploadPage = () => {
                       {t("upload.page.importedAt", { time: formatTimestamp(doc.uploaded_at) })}
                     </>
                   }
-                />
+                  slotProps={{
+                    primary: { variant: "body2" },
+                    secondary: { variant: "caption" }
+                  }} />
               </ListItem>
             ))}
           </List>

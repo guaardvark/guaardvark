@@ -144,48 +144,48 @@ const TaskCard = ({
         <Typography variant="subtitle1" noWrap title={task.name || t("layoutCards.task.untitled")} sx={{ fontWeight: 500 }}>
           {task.name || t("layoutCards.task.untitled")}
         </Typography>
-        <Typography variant="caption" color="text.secondary" noWrap>
+        <Typography variant="caption" noWrap sx={{ color: "text.secondary" }}>
           {projectName} · {task.client_name || t("layoutCards.task.noClient")}
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
           <StatusPill label={pillLabel} tone={statusTone(cleanStatus)} />
           {isRunning && (
-            <Typography variant="caption" color="text.secondary" noWrap>
+            <Typography variant="caption" noWrap sx={{ color: "text.secondary" }}>
               {processData?.message || t("layoutCards.task.processing")} ({Math.round(realTimeProgress)}%)
             </Typography>
           )}
           {isQueued && (
-            <Typography variant="caption" color="info.main" noWrap>
+            <Typography variant="caption" noWrap sx={{ color: "info.main" }}>
               {t("layoutCards.task.queuedForExecution")}
             </Typography>
           )}
         </Box>
         <Typography
           variant="body2"
-          color="text.secondary"
           title={task.description || t("layoutCards.task.noDescriptionAvailable")}
           sx={{
+            color: "text.secondary",
             fontStyle: task.description ? "normal" : "italic",
             overflow: "hidden",
             display: "-webkit-box",
             WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
+            WebkitBoxOrient: "vertical"
           }}
         >
           {task.description || t("layoutCards.task.noDescription")}
         </Typography>
         {typeLabel && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {typeLabel}
           </Typography>
         )}
         {task.output_filename && (
-          <Typography variant="caption" color="text.secondary" noWrap title={task.output_filename}>
+          <Typography variant="caption" noWrap title={task.output_filename} sx={{ color: "text.secondary" }}>
             {task.output_filename}
           </Typography>
         )}
         <Box sx={{ mt: "auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, pt: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">{created}</Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>{created}</Typography>
           <Box sx={{ display: "flex", gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
             {!isFinished && !isRunning && !isQueued && (
               <ActionButton

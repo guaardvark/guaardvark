@@ -54,7 +54,7 @@ const InspectPanel = ({ report, inspecting }) => {
     return (
       <Box sx={{ mt: 1 }}>
         <LinearProgress />
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("dialogs.trainingDataset.reading")}
         </Typography>
       </Box>
@@ -91,7 +91,7 @@ const InspectPanel = ({ report, inspecting }) => {
       )}
       {report.samples?.length > 0 && (
         <Box sx={{ mt: 1 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("dialogs.trainingDataset.firstRows")}
           </Typography>
           {report.samples.map((sample, i) => (
@@ -232,8 +232,8 @@ const TrainingDatasetModal = ({
             {formError}
           </Alert>
         )}
-        <Grid container spacing={2} sx={{ mt: 0 }}>
-          <Grid item xs={12}>
+        <Grid container spacing={2} sx={{ mt: 2 }}>
+          <Grid size={12}>
             <TextField
               autoFocus
               required
@@ -246,7 +246,7 @@ const TrainingDatasetModal = ({
               disabled={isSaving}
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               fullWidth
               multiline
@@ -259,7 +259,7 @@ const TrainingDatasetModal = ({
               disabled={isSaving}
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               fullWidth
               required
@@ -269,22 +269,24 @@ const TrainingDatasetModal = ({
               value={formData.path}
               onChange={handleInputChange}
               disabled={isSaving}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setDirectoryPickerOpen(true)}
-                      edge="end"
-                      disabled={isSaving}
-                      title={t("dialogs.trainingDataset.browse")}
-                      aria-label={t("dialogs.trainingDataset.browse")}
-                    >
-                      <FolderOpenIcon />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
               helperText={t("dialogs.trainingDataset.pathHelp")}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setDirectoryPickerOpen(true)}
+                        edge="end"
+                        disabled={isSaving}
+                        title={t("dialogs.trainingDataset.browse")}
+                        aria-label={t("dialogs.trainingDataset.browse")}
+                      >
+                        <FolderOpenIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }
+              }}
             />
             <InspectPanel report={report} inspecting={inspecting} />
           </Grid>

@@ -383,7 +383,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
           variant="outlined"
           sx={{ height: 20, fontSize: "0.65rem" }}
         />
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {formatElapsed(run?.duration_seconds ?? elapsed)}
         </Typography>
         <IconButton
@@ -413,15 +413,14 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
         {liveEvent?.detail && (
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ fontFamily: "monospace", mb: 2 }}
+            sx={{ color: "text.secondary", fontFamily: "monospace", mb: 2 }}
           >
             › {liveEvent.detail}
           </Typography>
         )}
 
         {/* Phase breadcrumb */}
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mb: 2 }}>
           {PHASES.map((p, idx) => {
             const reached = idx <= currentPhaseIdx;
             const active = idx === currentPhaseIdx && isRunning;
@@ -443,19 +442,19 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
         {/* Metadata */}
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="caption" color="text.secondary">{t("settingsSections.scanProgress.trigger")}</Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("settingsSections.scanProgress.trigger")}</Typography>
             <Typography variant="body2">
               {run?.trigger || liveEvent?.trigger || (dispatched ? t("settingsSections.scanProgress.dispatching") : "—")}
             </Typography>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">{t("settingsSections.scanProgress.runId")}</Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("settingsSections.scanProgress.runId")}</Typography>
             <Typography variant="body2">
               {run?.id ? `#${run.id}` : liveEvent?.run_id ? `#${liveEvent.run_id}` : "—"}
             </Typography>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">{t("settingsSections.scanProgress.status")}</Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("settingsSections.scanProgress.status")}</Typography>
             <Typography
               variant="body2"
               sx={{
@@ -474,7 +473,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
           </Box>
           {liveEvent?.current_fix != null && liveEvent?.total_fixes != null && (
             <Box>
-              <Typography variant="caption" color="text.secondary">{t("settingsSections.scanProgress.fix")}</Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("settingsSections.scanProgress.fix")}</Typography>
               <Typography variant="body2">
                 {liveEvent.current_fix} / {liveEvent.total_fixes}
               </Typography>
@@ -485,7 +484,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
         {/* Test baseline */}
         {testBefore && (
           <Box sx={{ mb: 2, p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}>
-            <Typography variant="caption" color="text.secondary">{t("settingsSections.scanProgress.testBaseline")}</Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("settingsSections.scanProgress.testBaseline")}</Typography>
             <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
               {testBefore.return_code === 0
                 ? t("settingsSections.scanProgress.allPassing")
@@ -503,7 +502,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
                   </Typography>
                 ))}
                 {testBefore.failures.length > 5 && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {t("settingsSections.scanProgress.more", { count: testBefore.failures.length - 5 })}
                   </Typography>
                 )}
@@ -514,17 +513,17 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
 
         {/* Live fixes accumulating */}
         <Box sx={{ mb: 2 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("settingsSections.scanProgress.fixesSoFar", { count: runFixes.length })}
           </Typography>
           {runFixes.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", fontStyle: "italic" }}>
               {isRunning ? t("settingsSections.scanProgress.waiting") : t("settingsSections.scanProgress.noFixes")}
             </Typography>
           ) : (
             <Stack spacing={0.5} sx={{ mt: 0.5 }}>
               {runFixes.slice(0, 8).map((f) => (
-                <Stack key={f.id} direction="row" spacing={1} alignItems="center">
+                <Stack key={f.id} direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Chip
                     label={f.severity}
                     size="small"
@@ -536,7 +535,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
                 </Stack>
               ))}
               {runFixes.length > 8 && (
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {t("settingsSections.scanProgress.more", { count: runFixes.length - 8 })}
                 </Typography>
               )}
@@ -547,7 +546,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
         {/* Changes logged on the run itself */}
         {changes.length > 0 && (
           <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("settingsSections.scanProgress.changesLogged", { count: changes.length })}
             </Typography>
             <Stack spacing={0.25} sx={{ mt: 0.5 }}>
@@ -570,7 +569,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
         {/* Uncle feedback */}
         {run?.uncle_feedback && (
           <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
-            <Typography variant="caption" color="text.secondary">Uncle Claude</Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>Uncle Claude</Typography>
             <Typography variant="body2">{run.uncle_feedback}</Typography>
           </Alert>
         )}

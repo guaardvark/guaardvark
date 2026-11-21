@@ -136,12 +136,14 @@ const CodeViewerModal = ({ open, onClose, file, onOpenInCodeEditor, startEditing
       onClose={handleClose}
       maxWidth="lg"
       fullWidth
-      PaperProps={{
-        sx: {
-          height: "80vh",
-          display: "flex",
-          flexDirection: "column",
-        },
+      slotProps={{
+        paper: {
+          sx: {
+            height: "80vh",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }
       }}
     >
       <DialogTitle

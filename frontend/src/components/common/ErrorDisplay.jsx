@@ -115,7 +115,7 @@ export const ErrorDisplay = ({
         ...sx
       }}
       action={
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           {hasDetails && (
             <IconButton
               size="small"
@@ -172,16 +172,16 @@ export const ErrorDisplay = ({
       {hasDetails && (
         <Collapse in={showExpandedDetails} timeout="auto" unmountOnExit>
           <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-            <Typography variant="caption" color="text.secondary" component="div">
+            <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
               <strong>{t('layoutCommon.errorDisplay.errorDetails')}:</strong>
             </Typography>
             {errorInfo.code && (
-              <Typography variant="caption" color="text.secondary" component="div">
+              <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
                 <Trans i18nKey="layoutCommon.errorDisplay.code" values={{ code: errorInfo.code }} components={{ bold: <strong /> }} />
               </Typography>
             )}
             {errorInfo.timestamp && (
-              <Typography variant="caption" color="text.secondary" component="div">
+              <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
                 <Trans
                   i18nKey="layoutCommon.errorDisplay.time"
                   values={{ time: new Date(errorInfo.timestamp).toLocaleString(uiLocale()) }}
@@ -191,7 +191,7 @@ export const ErrorDisplay = ({
             )}
             {errorInfo.details && (
               <Box sx={{ mt: 1 }}>
-                <Typography variant="caption" color="text.secondary" component="div">
+                <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
                   <strong>{t('layoutCommon.errorDisplay.technicalDetails')}:</strong>
                 </Typography>
                 <Typography 
@@ -235,12 +235,12 @@ export const ErrorCard = ({
   return (
     <Card sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
       <CardContent>
-        <Stack spacing={2} alignItems="center" textAlign="center">
+        <Stack spacing={2} sx={{ alignItems: "center", textAlign: "center" }}>
           <ErrorIcon color="error" sx={{ fontSize: 48 }} />
           <Typography variant="h5" component="h2">
             {title}
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body1" sx={{ color: "text.secondary" }}>
             {description}
           </Typography>
           

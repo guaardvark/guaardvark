@@ -19,8 +19,8 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { listChatSessions, deleteChatSession } from "../../api/chatService";
@@ -261,7 +261,7 @@ const ChatSessionDrawer = ({
               <Tooltip title={formatDateTime(session.last_activity || session.created_at)}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
                   <AccessTimeIcon sx={{ fontSize: 11, color: "text.secondary" }} />
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
                     {formatRelative(session.last_activity || session.created_at)}
                   </Typography>
                 </Box>
@@ -392,18 +392,20 @@ const ChatSessionDrawer = ({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           fullWidth
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: 18, color: "text.disabled" }} />
-              </InputAdornment>
-            ),
-          }}
           sx={{
             "& .MuiOutlinedInput-root": {
               borderRadius: 2,
               fontSize: "0.85rem",
             },
+          }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 18, color: "text.disabled" }} />
+                </InputAdornment>
+              ),
+            }
           }}
         />
       </Box>
@@ -428,7 +430,7 @@ const ChatSessionDrawer = ({
         ) : filteredSessions.length === 0 ? (
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", py: 4, px: 2 }}>
             <ChatBubbleOutlineIcon sx={{ fontSize: 40, color: "text.disabled", mb: 1 }} />
-            <Typography color="text.secondary" variant="body2">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {searchQuery ? t("chat.sessions.noMatches") : t("chat.sessions.empty")}
             </Typography>
           </Box>
@@ -499,10 +501,10 @@ const ChatSessionDrawer = ({
       {/* Footer stats */}
       <Divider />
       <Box sx={{ px: 2, py: 1, display: "flex", justifyContent: "space-between" }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("chat.sessions.chatCount", { count: sessions.length })}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("chat.sessions.totalMessages", {
             count: sessions.reduce((sum, s) => sum + (s.message_count || 0), 0),
           })}

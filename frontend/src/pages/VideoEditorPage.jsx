@@ -756,7 +756,7 @@ const VideoEditorPage = () => {
                   style={{ maxWidth: "100%", maxHeight: "100%", display: "block" }}
                 />
               ) : (
-                <Stack spacing={1} alignItems="center" sx={{ color: "rgba(255,255,255,0.5)" }}>
+                <Stack spacing={1} sx={{ alignItems: "center", color: "rgba(255,255,255,0.5)" }}>
                   <VideoIcon sx={{ fontSize: 48 }} />
                   <Typography variant="caption">{t("videoEditor.page.previewEmpty")}</Typography>
                 </Stack>
@@ -788,7 +788,12 @@ const VideoEditorPage = () => {
             <GpuGateBanner gpuBlocked={gpuBlocked} blockReason={blockReason} blockDetail={blockDetail} />
 
             {/* Toolbar under the preview — Plan / Render / Open in Shotcut */}
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ pt: 1, mt: 1, borderTop: 1, borderColor: "divider" }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              useFlexGap
+              sx={{ alignItems: "center", flexWrap: "wrap", pt: 1, mt: 1, borderTop: 1, borderColor: "divider" }}
+            >
               <IconButton onClick={() => setPreviewPlaying(!previewPlaying)} size="small" className="non-draggable">
                 {previewPlaying ? <PauseIcon /> : <PlayIcon />}
               </IconButton>

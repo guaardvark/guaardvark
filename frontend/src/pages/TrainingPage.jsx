@@ -151,7 +151,7 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
           </IconButton>
         </TableCell>
         <TableCell>
-          <Typography variant="body2" fontWeight="medium">
+          <Typography variant="body2" sx={{ fontWeight: "medium" }}>
             {demo.name || t("training.demos.untitled")}
           </Typography>
           {demo.lesson && (
@@ -184,7 +184,7 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
           {demo.success_count}/{demo.attempt_count}
         </TableCell>
         <TableCell>
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.8rem" }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.8rem" }}>
             {demo.created_at ? new Date(demo.created_at).toLocaleDateString(uiLocale()) : "-"}
           </Typography>
         </TableCell>
@@ -793,13 +793,13 @@ const TrainingPage = () => {
             layout: { x: 0, y: 0, w: 100, h: 46 },
             body: (
           <Box sx={{ p: 2 }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
               <Box>
                 {demonstrations.length > 0 && (
                   <Chip label={demonstrations.length} size="small" sx={{ height: 20, fontSize: "0.75rem" }} />
                 )}
               </Box>
-              <Box display="flex" alignItems="center" gap={1}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Button
                   variant="outlined"
                   size="small"
@@ -818,7 +818,7 @@ const TrainingPage = () => {
               </Box>
             </Box>
             {demosLoading ? (
-              <Box display="flex" justifyContent="center" my={3}>
+              <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
                 <CircularProgress />
               </Box>
             ) : (
@@ -839,7 +839,7 @@ const TrainingPage = () => {
                     {demonstrations.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                          <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
                             {t("training.demos.empty")}
                           </Typography>
                           <Button
@@ -883,12 +883,9 @@ const TrainingPage = () => {
             body: (
           <Box sx={{ p: 2 }}>
             <Box
-              display="flex"
-              justifyContent="flex-end"
-              alignItems="center"
-              mb={2}
+              sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", mb: 2 }}
             >
-              <Box display="flex" gap={1}>
+              <Box sx={{ display: "flex", gap: 1 }}>
                 <Button
                   variant="outlined"
                   startIcon={<PlayArrowIcon />}
@@ -913,7 +910,7 @@ const TrainingPage = () => {
               </Box>
             </Box>
             {datasetsLoading ? (
-              <Box display="flex" justifyContent="center" my={3}>
+              <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
                 <CircularProgress />
               </Box>
             ) : (
@@ -931,7 +928,7 @@ const TrainingPage = () => {
                     {datasets.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
                             {t("training.datasets.empty")}
                           </Typography>
                         </TableCell>
@@ -940,12 +937,15 @@ const TrainingPage = () => {
                       datasets.map((ds) => (
                         <TableRow key={ds.id} hover onContextMenu={(e) => rowMenu.open(e, { kind: "dataset", item: ds })}>
                           <TableCell>
-                            <Typography variant="body2" fontWeight="medium">
+                            <Typography variant="body2" sx={{ fontWeight: "medium" }}>
                               {ds.name}
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <Typography
+                              variant="body2"
+                              sx={{ color: "text.secondary", maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            >
                               {ds.description || "-"}
                             </Typography>
                           </TableCell>
@@ -995,10 +995,7 @@ const TrainingPage = () => {
             body: (
           <Box sx={{ p: 2 }}>
             <Box
-              display="flex"
-              justifyContent="flex-end"
-              alignItems="center"
-              mb={2}
+              sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", mb: 2 }}
             >
               <Button
                 variant="contained"
@@ -1009,7 +1006,7 @@ const TrainingPage = () => {
               </Button>
             </Box>
             {jobsLoading ? (
-              <Box display="flex" justifyContent="center" my={3}>
+              <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
                 <CircularProgress />
               </Box>
             ) : (
@@ -1019,16 +1016,16 @@ const TrainingPage = () => {
                   return (
                     <Card key={job.id} sx={{ mb: 2 }} onContextMenu={(e) => rowMenu.open(e, { kind: "job", item: job })}>
                       <CardContent>
-                        <Box display="flex" justifyContent="space-between" alignItems="start" mb={1} flexWrap="wrap" gap={1}>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "start", mb: 1, flexWrap: "wrap", gap: 1 }}>
                           <Box sx={{ minWidth: 0, flex: "1 1 220px" }}>
                             <Typography variant="h6">{job.name || job.job_id}</Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {job.base_model
                                 ? `${job.base_model} → ${job.output_model_name || t("training.common.notAvailable")}`
                                 : job.config?.input_path || ""}
                             </Typography>
                           </Box>
-                          <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+                          <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
                             <Chip
                               label={job.status}
                               color={getStatusColor(job.status)}
@@ -1124,7 +1121,7 @@ const TrainingPage = () => {
                         {job.status === "running" && (
                           <Box sx={{ mt: 1 }}>
                             <LinearProgress variant="determinate" value={progress} />
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {t("training.jobs.progress", { progress, stage: job.pipeline_stage || t("training.jobs.processing") })}
                             </Typography>
                           </Box>
@@ -1155,7 +1152,10 @@ const TrainingPage = () => {
                           </Typography>
                         )}
                         {job.config?.export_override && (
-                          <Typography variant="caption" color="warning.main" sx={{ mt: 1, display: "block" }}>
+                          <Typography
+                            variant="caption"
+                            sx={{ color: "warning.main", mt: 1, display: "block" }}
+                          >
                             {t("training.jobs.exportOverride", {
                               by: job.config.export_override.by,
                               via: job.config.export_override.via,
@@ -1168,13 +1168,19 @@ const TrainingPage = () => {
                         {(job.gguf_path || job.ollama_model_name) && (
                           <Box sx={{ mt: 1, p: 1, bgcolor: "action.hover", borderRadius: 1 }}>
                             {job.gguf_path && (
-                              <Typography variant="caption" display="block" sx={{ fontFamily: "monospace" }}>
+                              <Typography
+                                variant="caption"
+                                sx={{ display: "block", fontFamily: "monospace" }}
+                              >
                                 GGUF: {job.gguf_path}
                               </Typography>
                             )}
                             {job.ollama_model_name && (
                               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                <Typography variant="caption" display="block" color="success.main" sx={{ fontWeight: "medium" }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ display: "block", color: "success.main", fontWeight: "medium" }}
+                                >
                                   Ollama: {job.ollama_model_name}
                                 </Typography>
                                 {job.quantization_level && (
@@ -1189,7 +1195,7 @@ const TrainingPage = () => {
                   );
                 })}
                 {jobs.length === 0 && (
-                  <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+                  <Typography align="center" sx={{ color: "text.secondary", py: 4 }}>
                     {t("training.jobs.empty")}
                   </Typography>
                 )}
@@ -1205,12 +1211,9 @@ const TrainingPage = () => {
             body: (
           <Box sx={{ p: 2 }}>
             <Box
-              display="flex"
-              justifyContent="flex-end"
-              alignItems="center"
-              mb={2}
+              sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", mb: 2 }}
             >
-              <Box display="flex" gap={1}>
+              <Box sx={{ display: "flex", gap: 1 }}>
                 <Button
                   variant="outlined"
                   startIcon={detectingHardware ? <CircularProgress size={16} /> : <ComputerIcon />}
@@ -1228,11 +1231,11 @@ const TrainingPage = () => {
                 </Button>
               </Box>
             </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
               {t("training.devices.help")}
             </Typography>
             {profilesLoading ? (
-              <Box display="flex" justifyContent="center" my={3}>
+              <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
                 <CircularProgress />
               </Box>
             ) : (
@@ -1253,7 +1256,7 @@ const TrainingPage = () => {
                     {deviceProfiles.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                          <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
                             {t("training.devices.empty")}
                           </Typography>
                           <Button

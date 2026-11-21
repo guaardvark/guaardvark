@@ -473,7 +473,7 @@ const FileTreeNavigator = ({
       <Box sx={{ flexGrow: 1, overflow: "auto" }}>
         {loading ? (
           <Box sx={{ p: 2, textAlign: "center" }}>
-            <Typography color="text.secondary">{t("code.fileTree.loading")}</Typography>
+            <Typography sx={{ color: "text.secondary" }}>{t("code.fileTree.loading")}</Typography>
           </Box>
         ) : treeData.length > 0 ? (
           treeData.map((node) => (
@@ -489,7 +489,7 @@ const FileTreeNavigator = ({
           ))
         ) : (
           <Box sx={{ p: 2, textAlign: "center" }}>
-            <Typography color="text.secondary" variant="body2">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("code.fileTree.empty")}
             </Typography>
             <Button

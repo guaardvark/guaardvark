@@ -1776,7 +1776,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
             : t('imagesBatch.preview.title', { count: uniquePromptCount })}
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
             {t('imagesBatch.preview.intro')}
           </Typography>
           <Box sx={{ maxHeight: 400, overflow: 'auto' }}>

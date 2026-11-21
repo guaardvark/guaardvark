@@ -287,11 +287,10 @@ const UnifiedUploadModal = ({
       onClose={handleClose} 
       maxWidth="sm" 
       fullWidth
-      disableEscapeKeyDown={isUploading}
     >
       <DialogTitle>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box display="flex" alignItems="center">
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
             <CloudUploadIcon sx={{ mr: 1 }} />
             {modalTitle}
           </Box>
@@ -314,22 +313,23 @@ const UnifiedUploadModal = ({
 
         <Grid container spacing={2}>
           {/* File Selection */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Box
-              border={2}
-              borderColor={selectedFile ? "primary.main" : "grey.300"}
-              borderRadius={2}
-              p={2}
-              textAlign="center"
+              component="label"
               sx={{
+                border: 2,
+                borderColor: selectedFile ? "primary.main" : "grey.300",
+                borderRadius: 2,
+                p: 2,
+                textAlign: "center",
                 borderStyle: "dashed",
                 cursor: "pointer",
+
                 "&:hover": {
                   borderColor: "primary.main",
                   backgroundColor: "action.hover",
-                },
+                }
               }}
-              component="label"
             >
               <input
                 type="file"
@@ -342,7 +342,7 @@ const UnifiedUploadModal = ({
               <Typography variant="body1" gutterBottom>
                 {selectedFile ? selectedFile.name : t("dialogs.unifiedUpload.clickToSelect")}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t("dialogs.unifiedUpload.supportedFormats", { formats: ALLOWED_FILE_TYPES.slice(0, 8).join(', ') })}
               </Typography>
             </Box>
@@ -350,15 +350,15 @@ const UnifiedUploadModal = ({
 
           {/* Upload Progress */}
           {isUploading && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ mb: 1 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {uploadProgress.percentage > 0 
                     ? t("dialogs.unifiedUpload.importingPercent", { percent: uploadProgress.percentage })
                     : t("dialogs.unifiedUpload.importing")}
                 </Typography>
                 {uploadProgress.speed > 0 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: 'block' }}>
                     {t("dialogs.unifiedUpload.speed", { speed: formatFileSize(uploadProgress.speed) })}
                     {uploadProgress.eta && " • " + t("dialogs.unifiedUpload.eta", { time: formatDuration(uploadProgress.eta) })}
                   </Typography>
@@ -373,7 +373,7 @@ const UnifiedUploadModal = ({
           )}
 
           {/* Project Selection */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Autocomplete
               value={formProjectValue}
               onChange={handleProjectChange}
@@ -398,7 +398,7 @@ const UnifiedUploadModal = ({
           </Grid>
 
           {/* Tags */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               name="tags"
               label={t("dialogs.unifiedUpload.tags")}

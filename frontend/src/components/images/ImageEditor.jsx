@@ -586,7 +586,9 @@ const ImageEditor = ({
         maxWidth="xs"
         fullWidth
         sx={{ zIndex: EDITOR_Z + 1 }}
-        PaperProps={{ sx: { backgroundColor: '#1e1e1e', color: 'white' } }}
+        slotProps={{
+          paper: { sx: { backgroundColor: '#1e1e1e', color: 'white' } }
+        }}
       >
         <DialogTitle>{t('images.editor.saveTitle')}</DialogTitle>
         <DialogContent>

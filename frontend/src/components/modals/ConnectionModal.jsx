@@ -162,7 +162,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {spec.setup_help && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {spec.setup_help}
               {spec.docs_url && (
                 <>
@@ -266,7 +266,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
             })}
 
           {isOAuth && !isEdit && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("dialogs.connection.saveFirst")}
             </Typography>
           )}
@@ -276,8 +276,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
               {tokenExpiry && (
                 <Typography
                   variant="body2"
-                  color={tokenExpiry < new Date() ? "error" : "text.secondary"}
-                  sx={{ mb: 1 }}
+                  sx={{ color: tokenExpiry < new Date() ? "error.main" : "text.secondary", mb: 1 }}
                 >
                   {tokenExpiry < new Date()
                     ? t("dialogs.connection.expired", { date: tokenExpiry.toLocaleDateString(uiLocale()) })
@@ -295,8 +294,10 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
                   <TextField
                     value={oauth.authorize_url}
                     size="small"
-                    InputProps={{ readOnly: true }}
                     onFocus={(e) => e.target.select()}
+                    slotProps={{
+                      input: { readOnly: true }
+                    }}
                   />
                   <TextField
                     label={t("dialogs.connection.addressOrCode")}

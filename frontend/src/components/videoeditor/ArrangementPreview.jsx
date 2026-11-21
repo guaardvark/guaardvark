@@ -16,7 +16,7 @@ const ArrangementPreview = ({ arrangement }) => {
   const { t } = useUiTranslation();
   if (!arrangement || !arrangement.clips || arrangement.clips.length === 0) {
     return (
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {t("videoEditor.arrangement.empty")}
       </Typography>
     );
@@ -24,7 +24,7 @@ const ArrangementPreview = ({ arrangement }) => {
 
   return (
     <Stack spacing={0.5}>
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {t("videoEditor.arrangement.summary", { style: arrangement.style_recipe_name, seed: arrangement.seed })}
       </Typography>
       {arrangement.clips.map((c, i) => (

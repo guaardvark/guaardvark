@@ -755,7 +755,7 @@ const WordPressPagesCard = React.forwardRef(
               </Box>
             ) : pages.length === 0 ? (
               <Box sx={{ textAlign: "center", py: 4 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                <Typography variant="body2" sx={{ color: "text.secondary", fontSize: '0.7rem' }}>
                   {selectedSite
                     ? t("codeWordPress.empty.noPages")
                     : t("codeWordPress.empty.selectSite")}
@@ -785,7 +785,7 @@ const WordPressPagesCard = React.forwardRef(
                           <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.7rem' }}>
                             {page.title || t("codeWordPress.untitled")}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
+                          <Typography variant="caption" sx={{ color: "text.secondary", fontSize: '0.6rem' }}>
                             {page.slug}
                           </Typography>
                         </TableCell>
@@ -838,7 +838,10 @@ const WordPressPagesCard = React.forwardRef(
             <DialogTitle sx={{ fontSize: '0.875rem', fontWeight: 600 }}>
               {t("codeWordPress.recommendations.title")}
               {selectedPageForRecommendations && (
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", fontSize: '0.7rem', display: 'block', mt: 0.5 }}
+                >
                   {selectedPageForRecommendations.title || t("codeWordPress.untitled")}
                 </Typography>
               )}
@@ -956,7 +959,9 @@ const WordPressPagesCard = React.forwardRef(
                     });
                   }}
                   helperText={t("codeWordPress.pullDialog.maxPagesHelper")}
-                  inputProps={{ min: 1 }}
+                  slotProps={{
+                    htmlInput: { min: 1 }
+                  }}
                 />
                 {isPulling && <LinearProgress />}
               </Stack>

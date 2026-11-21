@@ -104,7 +104,7 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
             <CloseIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t('layoutCommon.narrate.summary', { seconds: result.duration_seconds, count: result.sections })}
           {result.engine && result.engine !== 'piper-tts' ? ` · ${result.engine}` : ''}
         </Typography>

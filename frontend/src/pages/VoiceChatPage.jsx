@@ -68,7 +68,7 @@ const StatusRow = ({ label, value, tone = "default", detail }) => (
     </Typography>
     <Chip size="small" label={value} color={tone} variant={tone === "default" ? "outlined" : "filled"} />
     {detail && (
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {detail}
       </Typography>
     )}
@@ -128,10 +128,10 @@ const VoiceChatPage = () => {
       <Box sx={{ p: 3, borderBottom: 1, borderColor: "divider", display: "flex", alignItems: "center", gap: 2 }}>
         <MicNoneIcon sx={{ fontSize: 32, color: "primary.main" }} />
         <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="h4" component="h1" fontWeight="bold">
+          <Typography variant="h4" component="h1" sx={{ fontWeight: "bold" }}>
             {t("voice.page.title")}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("voice.page.intro")}
           </Typography>
         </Box>
@@ -197,7 +197,7 @@ const VoiceChatPage = () => {
             {t("voice.page.rightNow", { state: title })}
           </Typography>
           {hint && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {hint}
             </Typography>
           )}
@@ -207,7 +207,7 @@ const VoiceChatPage = () => {
             </Alert>
           )}
           {session.notice && (
-            <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+            <Typography variant="body2" sx={{ color: "warning.main", mt: 1 }}>
               {session.notice.message}
             </Typography>
           )}
@@ -217,7 +217,7 @@ const VoiceChatPage = () => {
             {t("voice.page.recentlyHeard")}
           </Typography>
           {transcripts.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("voice.page.nothingHeard")}
             </Typography>
           ) : (

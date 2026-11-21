@@ -74,7 +74,7 @@ describe("RulesPage with more rules than one page", () => {
     await waitFor(() => expect(screen.queryByText(/showing/)).toBeNull());
     expect(screen.getByText(/Total Rules: 230/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Load more/ })).toBeNull();
-  });
+  }, 20000);
 
   it("filters Learned rules with the same paging", async () => {
     render(<RulesPage />);

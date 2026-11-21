@@ -29,7 +29,7 @@ import {
 } from "@mui/material";
 // import CancelIcon from '@mui/icons-material/Cancel'; // Replaced by Button text
 import LinkIcon from "@mui/icons-material/Link";
-import _DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"; // For the delete button icon
+import _DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined"; // For the delete button icon
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
 import { getLogoUrl } from "../../config/logoConfig";
@@ -356,7 +356,7 @@ const ClientActionModal = ({
           {" "}
           {/* Wrap in form for Enter key */}
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 autoFocus={!isEditMode} // Autofocus only for new clients
                 required
@@ -376,7 +376,7 @@ const ClientActionModal = ({
                 disabled={isSaving}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -390,7 +390,7 @@ const ClientActionModal = ({
                 helperText={t("dialogs.clientAction.emailHelp")}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -403,7 +403,7 @@ const ClientActionModal = ({
                 helperText={t("dialogs.clientAction.phoneHelp")}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -417,7 +417,7 @@ const ClientActionModal = ({
                 helperText={t("dialogs.clientAction.locationHelp")}
               />
             </Grid>
-            <Grid item xs={12} sx={{ textAlign: "center" }}>
+            <Grid sx={{ textAlign: "center" }} size={12}>
               <Box
                 sx={{
                   width: 120,
@@ -459,7 +459,7 @@ const ClientActionModal = ({
                 disabled={isSaving}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 margin="dense"
@@ -476,17 +476,17 @@ const ClientActionModal = ({
             </Grid>
 
             {/* RAG Enhancement Section */}
-            <Grid item xs={12} sx={{ mt: 2 }}>
+            <Grid sx={{ mt: 2 }} size={12}>
               <Accordion>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="subtitle1" fontWeight="bold">
+                  <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
                     {t("dialogs.clientAction.ragSection")}
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   <Grid container spacing={2}>
                     {/* Industry - Multi-select chip interface */}
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
                         fullWidth
                         margin="dense"
@@ -502,20 +502,22 @@ const ClientActionModal = ({
                         }}
                         disabled={isSaving}
                         placeholder={t("dialogs.clientAction.industryPlaceholder")}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={handleAddIndustry}
-                                disabled={!industryInput.trim() || isSaving}
-                                edge="end"
-                              >
-                                <AddIcon />
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
                         helperText={t("dialogs.clientAction.industryHelp")}
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={handleAddIndustry}
+                                  disabled={!industryInput.trim() || isSaving}
+                                  edge="end"
+                                >
+                                  <AddIcon />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }
+                        }}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.industry.map((item, index) => (
@@ -531,7 +533,7 @@ const ClientActionModal = ({
                     </Grid>
 
                     {/* Geographic Coverage - Multi-select chip interface */}
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
                         fullWidth
                         margin="dense"
@@ -547,20 +549,22 @@ const ClientActionModal = ({
                         }}
                         disabled={isSaving}
                         placeholder={t("dialogs.clientAction.geoPlaceholder")}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={handleAddGeographic}
-                                disabled={!geographicInput.trim() || isSaving}
-                                edge="end"
-                              >
-                                <AddIcon />
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
                         helperText={t("dialogs.clientAction.geoHelp")}
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={handleAddGeographic}
+                                  disabled={!geographicInput.trim() || isSaving}
+                                  edge="end"
+                                >
+                                  <AddIcon />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }
+                        }}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.geographic_coverage.map((item, index) => (
@@ -575,7 +579,7 @@ const ClientActionModal = ({
                       </Box>
                     </Grid>
                     {/* Target Audience - Autocomplete with common options */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Autocomplete
                         multiple
                         freeSolo
@@ -585,9 +589,9 @@ const ClientActionModal = ({
                           setFormData((prev) => ({ ...prev, target_audience: newValue }));
                         }}
                         disabled={isSaving}
-                        renderTags={(value, getTagProps) =>
+                        renderValue={(value, getItemProps) =>
                           value.map((option, index) => {
-                            const { key, ...otherProps } = getTagProps({ index });
+                            const { key, ...otherProps } = getItemProps({ index });
                             return (
                               <Chip
                                 key={key}
@@ -611,7 +615,7 @@ const ClientActionModal = ({
                     </Grid>
 
                     {/* Unique Selling Points - Autocomplete with common options */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Autocomplete
                         multiple
                         freeSolo
@@ -621,9 +625,9 @@ const ClientActionModal = ({
                           setFormData((prev) => ({ ...prev, unique_selling_points: newValue }));
                         }}
                         disabled={isSaving}
-                        renderTags={(value, getTagProps) =>
+                        renderValue={(value, getItemProps) =>
                           value.map((option, index) => {
-                            const { key, ...otherProps } = getTagProps({ index });
+                            const { key, ...otherProps } = getItemProps({ index });
                             return (
                               <Chip
                                 key={key}
@@ -647,7 +651,7 @@ const ClientActionModal = ({
                     </Grid>
 
                     {/* Content Goals - Autocomplete with common options */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Autocomplete
                         multiple
                         freeSolo
@@ -657,9 +661,9 @@ const ClientActionModal = ({
                           setFormData((prev) => ({ ...prev, content_goals: newValue }));
                         }}
                         disabled={isSaving}
-                        renderTags={(value, getTagProps) =>
+                        renderValue={(value, getItemProps) =>
                           value.map((option, index) => {
-                            const { key, ...otherProps } = getTagProps({ index });
+                            const { key, ...otherProps } = getItemProps({ index });
                             return (
                               <Chip
                                 key={key}
@@ -681,7 +685,7 @@ const ClientActionModal = ({
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <TextField
                         fullWidth
                         margin="dense"
@@ -697,7 +701,7 @@ const ClientActionModal = ({
                         helperText={t("dialogs.clientAction.brandVoiceHelp")}
                       />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <TextField
                         fullWidth
                         margin="dense"
@@ -715,7 +719,7 @@ const ClientActionModal = ({
                     </Grid>
 
                     {/* Target Keywords */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <TextField
                         fullWidth
                         margin="dense"
@@ -731,20 +735,22 @@ const ClientActionModal = ({
                         }}
                         disabled={isSaving}
                         placeholder={t("dialogs.clientAction.keywordPlaceholder")}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={handleAddKeyword}
-                                disabled={!keywordInput.trim() || isSaving}
-                                edge="end"
-                              >
-                                <AddIcon />
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
                         helperText={t("dialogs.clientAction.keywordHelp")}
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={handleAddKeyword}
+                                  disabled={!keywordInput.trim() || isSaving}
+                                  edge="end"
+                                >
+                                  <AddIcon />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }
+                        }}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.keywords.map((keyword, index) => (
@@ -760,7 +766,7 @@ const ClientActionModal = ({
                     </Grid>
 
                     {/* Competitor URLs */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <TextField
                         fullWidth
                         margin="dense"
@@ -776,20 +782,22 @@ const ClientActionModal = ({
                         }}
                         disabled={isSaving}
                         placeholder={t("dialogs.clientAction.competitorPlaceholder")}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={handleAddCompetitorUrl}
-                                disabled={!competitorUrlInput.trim() || isSaving}
-                                edge="end"
-                              >
-                                <AddIcon />
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
                         helperText={t("dialogs.clientAction.competitorHelp")}
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={handleAddCompetitorUrl}
+                                  disabled={!competitorUrlInput.trim() || isSaving}
+                                  edge="end"
+                                >
+                                  <AddIcon />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }
+                        }}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.competitor_urls.map((url, index) => (

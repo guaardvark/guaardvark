@@ -179,31 +179,31 @@ const FilePropertiesModal = ({
       <DialogContent dividers>
         {/* File Information */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
             {t('dialogs.fileProperties.fileInformation')}
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="body2">
                 <Trans i18nKey="dialogs.fileProperties.name" values={{ name: fileData.filename }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="body2">
                 <Trans i18nKey="dialogs.fileProperties.size" values={{ size: formatBytes(fileData.size) }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="body2">
                 <Trans i18nKey="dialogs.fileProperties.imported" values={{ date: formatDate(fileData.uploaded_at) }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="body2">
                 <Trans i18nKey="dialogs.fileProperties.status" values={{ status: fileData.index_status || t('dialogs.fileProperties.notAvailable') }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="body2">
                 <Trans i18nKey="dialogs.fileProperties.path" values={{ path: fileData.path || t('dialogs.fileProperties.notAvailable') }} components={{ bold: <strong /> }} />
               </Typography>
@@ -215,7 +215,7 @@ const FilePropertiesModal = ({
 
         {/* Entity Links */}
         <Box sx={{ mb: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
             {t('dialogs.fileProperties.entityLinks')}
           </Typography>
 
@@ -225,7 +225,7 @@ const FilePropertiesModal = ({
             </Box>
           ) : (
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Autocomplete
                   options={clients}
                   getOptionLabel={(option) => option.name || ''}
@@ -236,7 +236,7 @@ const FilePropertiesModal = ({
                   )}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Autocomplete
                   options={projects}
                   getOptionLabel={(option) => option.name || ''}
@@ -247,7 +247,7 @@ const FilePropertiesModal = ({
                   )}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Autocomplete
                   options={websites}
                   getOptionLabel={(option) => option.name || option.url || ''}
@@ -266,11 +266,11 @@ const FilePropertiesModal = ({
 
         {/* Tags and Notes */}
         <Box>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="subtitle2" gutterBottom sx={{ color: "text.secondary" }}>
             {t('dialogs.fileProperties.metadata')}
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label={t('dialogs.fileProperties.tags')}
@@ -280,7 +280,7 @@ const FilePropertiesModal = ({
                 placeholder={t('dialogs.fileProperties.tagsPlaceholder')}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label={t('dialogs.fileProperties.notes')}

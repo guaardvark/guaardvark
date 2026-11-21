@@ -16,7 +16,7 @@ const MediaLibraryGrid = ({ grouping, kind, onItemClick, onItemDragStart, onFold
 
   if (tiles.length === 0) {
     return (
-      <Typography variant="caption" color="text.secondary" sx={{ p: 1, display: "block" }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", p: 1, display: "block" }}>
         {t("videoEditor.media.empty")}
       </Typography>
     );
@@ -26,11 +26,11 @@ const MediaLibraryGrid = ({ grouping, kind, onItemClick, onItemDragStart, onFold
     <Grid container spacing={1}>
       {tiles.map((tile) =>
         tile.kind === "folder" ? (
-          <Grid item xs={6} key={`folder-${tile.group.folder.id}`}>
+          <Grid key={`folder-${tile.group.folder.id}`} size={6}>
             <FolderTile group={tile.group} variant="grid" onOpen={onFolderOpen} />
           </Grid>
         ) : (
-          <Grid item xs={6} key={`${kind}-${tile.item.id}`}>
+          <Grid key={`${kind}-${tile.item.id}`} size={6}>
             <MediaTile
               item={tile.item}
               kind={kind}

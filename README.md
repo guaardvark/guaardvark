@@ -510,7 +510,7 @@ PostgreSQL  Redis  Ollama  Agent Display (:99, on-demand)  ComfyUI / Audio Found
 - Many components (blueprints, tool registry, plugins) are discovered or declared at runtime; exact counts drift between releases.
 - `backend/mcp/config.py` controls the MCP server's default-deny policy.
 
-**Frontend:** React 18 · Vite · Material-UI v5 · Zustand · Monaco Editor · Socket.IO<br>
+**Frontend:** React 19 · Vite · Material UI v9 · Zustand · Monaco Editor · Socket.IO<br>
 **Core models and engines:** Gemma4 / Llama-family / Moondream (vision) · Z-Image / FLUX.1 / FLUX 3 Klein / Krea 2 / MOSS-Image / Qwen-Image 2.1 / SDXL · Wan 2.2 / LTX / HunyuanVideo / CogVideoX / MiniMax H3 · ACE-Step / MiniMax Music 3 / Stable Audio Open / Chatterbox / Kokoro / Piper · Real-ESRGAN family + HAT · Whisper
 
 More: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [agent mental model](docs/AGENT_MENTAL_MODEL.md).

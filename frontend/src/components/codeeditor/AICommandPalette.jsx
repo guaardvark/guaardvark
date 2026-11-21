@@ -7,7 +7,7 @@ import {
   Paper,
   TextField,
   List,
-  ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
   ListItemSecondaryAction,
@@ -156,13 +156,6 @@ const AICommandPalette = ({
               placeholder={t('codeAssistant.palette.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: 'text.secondary' }} />
-                  </InputAdornment>
-                ),
-              }}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   bgcolor: 'background.paper',
@@ -172,13 +165,22 @@ const AICommandPalette = ({
                 },
               }}
               autoFocus
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: 'text.secondary' }} />
+                    </InputAdornment>
+                  ),
+                }
+              }}
             />
           </Box>
 
           {/* Context Info */}
           {currentContext && (
             <Box sx={{ px: 2, py: 1, bgcolor: 'action.hover' }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('codeAssistant.palette.currentFile', {
                   file: currentContext.filePath || t('codeAssistant.untitled'),
                   language: currentContext.language || 'text',
@@ -191,7 +193,7 @@ const AICommandPalette = ({
           <Box sx={{ flex: 1, overflow: 'auto' }}>
             {filteredCommands.length === 0 ? (
               <Box sx={{ p: 3, textAlign: 'center' }}>
-                <Typography color="text.secondary">
+                <Typography sx={{ color: "text.secondary" }}>
                   {t('codeAssistant.palette.noMatches', { search: searchTerm })}
                 </Typography>
               </Box>
@@ -203,8 +205,7 @@ const AICommandPalette = ({
 
                   return (
                     <React.Fragment key={commandKey}>
-                      <ListItem
-                        button
+                      <ListItemButton
                         selected={isSelected}
                         onClick={() => handleCommandClick(commandKey)}
                         sx={{
@@ -222,8 +223,7 @@ const AICommandPalette = ({
                               bgcolor: 'primary.main',
                             },
                           },
-                        }}
-                      >
+                        }}>
                         <ListItemIcon
                           sx={{
                             color: isSelected ? 'inherit' : command.color + '.main',
@@ -289,7 +289,7 @@ const AICommandPalette = ({
                             )}
                           </Box>
                         </ListItemSecondaryAction>
-                      </ListItem>
+                      </ListItemButton>
                       {index < filteredCommands.length - 1 && (
                         <Divider variant="inset" component="li" />
                       )}
@@ -302,7 +302,7 @@ const AICommandPalette = ({
 
           {/* Footer */}
           <Box sx={{ px: 2, py: 1, bgcolor: 'action.hover', borderTop: 1, borderColor: 'divider' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: 'block' }}>
               {t('codeAssistant.palette.keyboardHelp')}
             </Typography>
           </Box>

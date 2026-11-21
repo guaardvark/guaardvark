@@ -107,7 +107,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <AnalyticsIcon color="primary" />
           <Typography variant="h6">{t("dialogs.queryPatterns.title")}</Typography>
           <Button
@@ -123,7 +123,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
 
       <DialogContent>
         {loading && (
-          <Box display="flex" justifyContent="center" alignItems="center" sx={{ py: 4 }}>
+          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 4 }}>
             <CircularProgress />
             <Typography variant="body2" sx={{ ml: 2 }}>
               {t("dialogs.queryPatterns.analyzing")}
@@ -141,42 +141,42 @@ const QueryPatternsModal = ({ open, onClose }) => {
           <Box>
             {/* Summary Cards */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                       <SearchIcon color="primary" />
                       <Typography variant="h6">
                         {patterns.total_patterns || 0}
                       </Typography>
                     </Stack>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.queryPatterns.uniquePatterns")}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                       <TrendingUpIcon color="success" />
                       <Typography variant="h6">
                         {patterns.most_common_patterns?.[0]?.[1]?.count || 0}
                       </Typography>
                     </Stack>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.queryPatterns.mostUsed")}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                       <AccessTimeIcon color="warning" />
                       <Typography variant="h6">
                         {formatTime(
@@ -186,17 +186,17 @@ const QueryPatternsModal = ({ open, onClose }) => {
                         )}
                       </Typography>
                     </Stack>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.queryPatterns.avgResponseTime")}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                   <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                       <ScoreIcon color="info" />
                       <Typography variant="h6">
                         {formatScore(
@@ -206,7 +206,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                         )}
                       </Typography>
                     </Stack>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t("dialogs.queryPatterns.avgSimilarity")}
                     </Typography>
                   </CardContent>
@@ -219,7 +219,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
               <Paper sx={{ mb: 3 }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="h6">{t("dialogs.queryPatterns.mostCommon")}</Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {t("dialogs.queryPatterns.groupedBy")}
                   </Typography>
                 </Box>
@@ -247,7 +247,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                             />
                           </TableCell>
                           <TableCell align="right">
-                            <Typography variant="body2" fontWeight="medium">
+                            <Typography variant="body2" sx={{ fontWeight: "medium" }}>
                               {stats.count}
                             </Typography>
                           </TableCell>
@@ -292,7 +292,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
               
               {patterns.pattern_stats && Object.keys(patterns.pattern_stats).length > 0 ? (
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Typography variant="subtitle2" color="primary" gutterBottom>
                       {t("dialogs.queryPatterns.fastest")}
                     </Typography>
@@ -301,9 +301,12 @@ const QueryPatternsModal = ({ open, onClose }) => {
                       .slice(0, 3)
                       .map(([pattern, stats]) => (
                         <Box key={pattern} sx={{ mb: 1 }}>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Stack
+                            direction="row"
+                            sx={{ justifyContent: "space-between", alignItems: "center" }}
+                          >
                             <Chip label={pattern} size="small" variant="outlined" />
-                            <Typography variant="body2" color="success.main">
+                            <Typography variant="body2" sx={{ color: "success.main" }}>
                               {formatTime(stats.avg_retrieval_time)}
                             </Typography>
                           </Stack>
@@ -312,7 +315,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                     }
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Typography variant="subtitle2" color="primary" gutterBottom>
                       {t("dialogs.queryPatterns.mostRelevant")}
                     </Typography>
@@ -321,9 +324,12 @@ const QueryPatternsModal = ({ open, onClose }) => {
                       .slice(0, 3)
                       .map(([pattern, stats]) => (
                         <Box key={pattern} sx={{ mb: 1 }}>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Stack
+                            direction="row"
+                            sx={{ justifyContent: "space-between", alignItems: "center" }}
+                          >
                             <Chip label={pattern} size="small" variant="outlined" />
-                            <Typography variant="body2" color="info.main">
+                            <Typography variant="body2" sx={{ color: "info.main" }}>
                               {formatScore(stats.avg_similarity_score)}
                             </Typography>
                           </Stack>

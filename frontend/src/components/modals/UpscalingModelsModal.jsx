@@ -118,13 +118,13 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
       <DialogTitle>{t("models.upscalingModels.title")}</DialogTitle>
       <DialogContent dividers>
         {error && (
-          <Box mb={2}>
+          <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
           </Box>
         )}
 
         {loading ? (
-          <Box display="flex" justifyContent="center" p={3}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
             <CircularProgress />
           </Box>
         ) : (
@@ -139,7 +139,7 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
                   <ListItemText
                     primary={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                        <Typography variant="body1" fontWeight={500}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
                           {model.name}
                         </Typography>
                         <Chip
@@ -156,7 +156,7 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
                       model.is_downloaded ? (
                         t("models.upscalingModels.ready")
                       ) : model.incomplete ? (
-                        <Typography variant="body2" color="warning.main" component="span" title={model.incomplete}>
+                        <Typography variant="body2" component="span" title={model.incomplete} sx={{ color: "warning.main" }}>
                           {t("models.shared.filesIncomplete", { count: 1 })}
                         </Typography>
                       ) : (

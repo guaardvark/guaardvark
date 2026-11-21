@@ -25,14 +25,14 @@ const VoiceConsentDialog = ({ open, clipName, statement, busy, onConfirm, onCanc
       <DialogTitle>{t("audio.consent.title")}</DialogTitle>
       <DialogContent>
         {clipName && (
-          <Typography variant="body2" fontWeight="bold" sx={{ mb: 1.5, wordBreak: "break-word" }}>
+          <Typography variant="body2" sx={{ fontWeight: "bold", mb: 1.5, wordBreak: "break-word" }}>
             {clipName}
           </Typography>
         )}
         <Typography variant="body2" sx={{ mb: 1.5, lineHeight: 1.5 }}>
           {t("audio.consent.youState", { statement: statement || fallbackVoiceConsentStatement() })}
         </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
           {t("audio.consent.savedWithClip")}
         </Typography>
       </DialogContent>

@@ -157,7 +157,7 @@ const VideoTextOverlayPage = () => {
               <Stack spacing={2.5}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <TextFieldsIcon color="primary" />
-                  <Typography variant="h6" fontWeight="bold">{t("videoTextOverlay.sourceVideo")}</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: "bold" }}>{t("videoTextOverlay.sourceVideo")}</Typography>
                 </Box>
 
                 <FormControl variant="filled" fullWidth size="small">
@@ -167,7 +167,7 @@ const VideoTextOverlayPage = () => {
                     onChange={(e) => { setSelectedDocId(e.target.value); setResult(null); }}
                     disabled={loadingVideos || rendering}
                     sx={{ borderRadius: 2 }}
-                    MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { maxHeight: 360 } } } }}
                   >
                     {videos.length === 0 && (
                       <MenuItem value="" disabled>
@@ -189,7 +189,7 @@ const VideoTextOverlayPage = () => {
                   </Select>
                 </FormControl>
 
-                <Typography variant="h6" fontWeight="bold">{t("videoTextOverlay.text")}</Typography>
+                <Typography variant="h6" sx={{ fontWeight: "bold" }}>{t("videoTextOverlay.text")}</Typography>
                 <TextField
                   fullWidth
                   variant="filled"
@@ -198,15 +198,17 @@ const VideoTextOverlayPage = () => {
                   placeholder={t("videoTextOverlay.textPlaceholder")}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  inputProps={{ maxLength: 500 }}
                   helperText={`${text.length} / 500`}
                   sx={{ "& .MuiFilledInput-root": { borderRadius: 2 } }}
+                  slotProps={{
+                    htmlInput: { maxLength: 500 }
+                  }}
                 />
 
-                <Typography variant="h6" fontWeight="bold">{t("videoTextOverlay.style")}</Typography>
+                <Typography variant="h6" sx={{ fontWeight: "bold" }}>{t("videoTextOverlay.style")}</Typography>
 
                 <Box>
-                  <Typography variant="caption" fontWeight="bold">{t("videoTextOverlay.fontSize", { size: fontSize })}</Typography>
+                  <Typography variant="caption" sx={{ fontWeight: "bold" }}>{t("videoTextOverlay.fontSize", { size: fontSize })}</Typography>
                   <Slider
                     value={fontSize}
                     min={16}
@@ -277,7 +279,7 @@ const VideoTextOverlayPage = () => {
             layout: { x: 75, y: 0, w: 100, h: 80 },
             body: (
               <Box sx={{ p: 1.5 }}>
-              <Typography variant="h6" fontWeight="bold" mb={2}>
+              <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
                 {result ? t("videoTextOverlay.result") : selectedVideo ? t("videoTextOverlay.source") : t("videoTextOverlay.preview")}
               </Typography>
 

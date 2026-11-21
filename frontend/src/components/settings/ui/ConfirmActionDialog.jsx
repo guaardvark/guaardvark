@@ -50,7 +50,7 @@ const ConfirmActionDialog = ({
     </DialogTitle>
     <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
       {description && (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {description}
         </Typography>
       )}
@@ -69,7 +69,7 @@ const ConfirmActionDialog = ({
         >
           {facts.map((f) => (
             <React.Fragment key={f.label}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {f.label}
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -81,7 +81,7 @@ const ConfirmActionDialog = ({
       )}
       {extra}
       {keeps && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("settings.ui.confirmDialog.notTouched", { keeps })}
         </Typography>
       )}

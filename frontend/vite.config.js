@@ -220,11 +220,6 @@ export default defineConfig(({ mode }) => {
     // counting `../` up to wherever core sits.
     alias: [
       { find: /^@\//, replacement: `${path.resolve(__dirname, "src")}/` },
-      // @mui/icons-material 5.x has no exports map, so `@mui/icons-material/Add`
-      // resolves to its CommonJS file. Vite 8's pre-bundler hands a default
-      // import of that file the module object, not the component ("Element type
-      // is invalid ... got: object"). Point every icon import at the ESM build.
-      { find: /^@mui\/icons-material(?!\/esm)(\/.*)?$/, replacement: "@mui/icons-material/esm$1" },
     ],
   },
   test: {

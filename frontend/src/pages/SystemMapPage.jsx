@@ -35,7 +35,7 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import SendIcon from "@mui/icons-material/Send";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import ManageSearchIcon from "@mui/icons-material/ManageSearch";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
 import { io } from "socket.io-client";
 
 import PageLayout from "../components/layout/PageLayout";
@@ -711,7 +711,7 @@ export default function SystemMapPage() {
             value={search}
             inputRef={searchRef}
             onChange={(e) => setSearch(e.target.value)}
-            InputProps={{
+            slotProps={{ input: {
               startAdornment: (
                 <InputAdornment position="start">
                   <SearchIcon sx={{ color: P.ink(0.5), fontSize: 18 }} />
@@ -732,7 +732,7 @@ export default function SystemMapPage() {
                 fontFamily: "monospace",
                 fontSize: "0.8rem",
               },
-            }}
+            } }}
           />
         </Box>
       </Box>
@@ -794,7 +794,7 @@ export default function SystemMapPage() {
             }}
           >
             <Box sx={{ p: 2, overflowY: "auto", flex: 1 }}>
-              <Stack direction="row" alignItems="flex-start" spacing={1}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
                     variant="overline"
@@ -985,7 +985,7 @@ export default function SystemMapPage() {
       title={t("systemMap.title")}
       variant="standard"
       actions={
-        <Stack direction="row" spacing={0.5} alignItems="center">
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
           <Tooltip title={t("systemMap.resetView")}>
             <IconButton
               onClick={() => canvasRef.current?.resetView()}
@@ -1162,7 +1162,7 @@ function FindingsView({
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <Box sx={{ px: 1.5, pt: 1.5, pb: 1 }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <WarningAmberIcon sx={{ color: P.warn(0.7), fontSize: 16 }} />
           <Typography variant="caption" sx={{ color: P.ink(0.55), fontSize: "0.7rem" }}>
             {t("systemMap.findings.intro")}
@@ -1332,7 +1332,7 @@ function ActivityLogView({ activity }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <Box sx={{ p: 2, pb: 1.5 }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <BoltIcon sx={{ color: P.ink(0.7), fontSize: 18 }} />
           <Typography
             variant="overline"
@@ -1395,7 +1395,7 @@ function ActivityLogView({ activity }) {
                 borderRadius: "2px",
               }}
             >
-              <Stack direction="row" alignItems="center" spacing={1}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <Typography
                   variant="caption"
                   sx={{

@@ -263,10 +263,11 @@ const Sidebar = () => {
                         {isExpanded && (
                           <ListItemText
                             primary={navigationLabel(item.text, item)}
-                            primaryTypographyProps={{
-                              fontSize: "0.825rem",
-                              fontWeight: isActive ? 600 : 400,
-                              noWrap: true,
+                            slotProps={{
+                              primary: {
+                                noWrap: true,
+                                sx: { fontSize: "0.825rem", fontWeight: isActive ? 600 : 400 },
+                              }
                             }}
                           />
                         )}

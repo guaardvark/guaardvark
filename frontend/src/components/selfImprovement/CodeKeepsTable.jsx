@@ -50,7 +50,7 @@ export default function CodeKeepsTable({ keeps, onDecide }) {
       <Typography variant="h6" sx={{ mb: 1 }}>
         {t("selfImprovement.codeKeeps.title")}
       </Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1 }}>
         {t("selfImprovement.codeKeeps.intro")}
       </Typography>
       <TableContainer>

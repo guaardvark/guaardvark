@@ -45,7 +45,7 @@ describe("chat session right-click", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("4")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Delete this chat")).not.toBeInTheDocument());
     expect(deleteChatSession).not.toHaveBeenCalled();
     expect(screen.getByText("Plan the launch")).toBeInTheDocument();
   });

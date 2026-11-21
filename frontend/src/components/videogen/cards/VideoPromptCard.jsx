@@ -280,7 +280,7 @@ function VideoPromptCard({
             {isUploading ? (
               <CircularProgress size={28} />
             ) : (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t("videoGenerator.prompt.dropImages")}
               </Typography>
             )}
@@ -406,7 +406,7 @@ function VideoPromptCard({
           maxRows={previewCounts.total > 1 ? 16 : undefined}
           fullWidth
           size="small"
-          InputProps={{ readOnly: true }}
+          slotProps={{ input: { readOnly: true } }}
         />
       )}
     </SettingsPanel>

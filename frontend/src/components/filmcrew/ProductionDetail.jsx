@@ -50,7 +50,7 @@ const ProductionDetail = ({
   if (!production) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" sx={{ color: "text.secondary" }}>
           {t('filmCrew.detail.selectProduction')}
         </Typography>
       </Box>
@@ -75,7 +75,7 @@ const ProductionDetail = ({
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
         <Box>
           <Typography variant="h4" gutterBottom>{production.name}</Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t('filmCrew.detail.id', { id: production.id })}
             {production.created_at ? ` | ${t('filmCrew.detail.created', { date: new Date(production.created_at).toLocaleString(uiLocale()) })}` : ''}
           </Typography>

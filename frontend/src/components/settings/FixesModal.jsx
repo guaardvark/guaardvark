@@ -201,7 +201,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
         <Typography variant="h6" component="span">
           {t("settingsAccess.fixes.title")}
         </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", ml: 1 }}>
           {t("settingsAccess.fixes.total", { count: fixes.length })}
         </Typography>
         <Box sx={{ flex: 1 }} />
@@ -225,7 +225,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
         <Box sx={{ px: 3, pb: 1 }}>
           {progress && (
             <Box>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("settingsAccess.fixes.progress", { label: progress.label, done: progress.done + 1, total: progress.total })}
               </Typography>
               <LinearProgress
@@ -279,7 +279,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
           <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>
         ) : filtered.length === 0 ? (
           <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", p: 3 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {fixes.length === 0
                 ? t("settingsAccess.fixes.noFixesYet")
                 : {
@@ -303,7 +303,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
                     >
                       <ListItemText
                         primary={
-                          <Stack direction="row" spacing={0.5} alignItems="center">
+                          <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
                             <Chip
                               label={fix.severity}
                               size="small"
@@ -316,19 +316,21 @@ export default function FixesModal({ open, onClose, showMessage }) {
                           </Stack>
                         }
                         secondary={
-                          <Stack direction="row" spacing={1} alignItems="center">
+                          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                             <Chip
                               label={fix.status}
                               size="small"
                               color={STATUS_COLOR[fix.status] || "default"}
                               sx={{ height: 16, fontSize: "0.6rem" }}
                             />
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {formatRelative(fix.created_at)}
                             </Typography>
                           </Stack>
                         }
-                        secondaryTypographyProps={{ component: "div" }}
+                        slotProps={{
+                          secondary: { component: "div" }
+                        }}
                       />
                     </ListItemButton>
                     <Divider />
@@ -340,13 +342,13 @@ export default function FixesModal({ open, onClose, showMessage }) {
             {/* Right — detail */}
             <Box sx={{ flex: 1, overflowY: "auto", p: 2 }}>
               {!selected ? (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", mt: 4 }}>
+                <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", mt: 4 }}>
                   {t("settingsAccess.fixes.pickFix")}
                 </Typography>
               ) : (
                 <Stack spacing={2}>
                   <Box>
-                    <Typography variant="caption" color="text.secondary">{t("settingsAccess.fixes.file")}</Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("settingsAccess.fixes.file")}</Typography>
                     <Typography variant="body2" sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>
                       {selected.file_path}
                     </Typography>
@@ -378,7 +380,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
 
                   {selected.inbound && selected.inbound.findings?.length > 0 && (
                     <Box>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("settingsAccess.fixes.inboundFound")}
                         {selected.inbound.verdict === "block"
                           ? ` ${t("settingsAccess.fixes.inboundBlocked")}`
@@ -389,14 +391,14 @@ export default function FixesModal({ open, onClose, showMessage }) {
                   )}
 
                   <Box>
-                    <Typography variant="caption" color="text.secondary">{t("settingsAccess.fixes.whatBroke")}</Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("settingsAccess.fixes.whatBroke")}</Typography>
                     <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                       {selected.fix_description || t("settingsAccess.fixes.noDescription")}
                     </Typography>
                   </Box>
 
                   <Box>
-                    <Typography variant="caption" color="text.secondary">{t("settingsAccess.fixes.proposedDiff")}</Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("settingsAccess.fixes.proposedDiff")}</Typography>
                     <Box sx={{
                       border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden",
                       maxHeight: 340,
@@ -414,7 +416,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
 
                   {selected.reviewed_by && (
                     <Box>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("settingsAccess.fixes.reviewedBy", { name: selected.reviewed_by })}
                         {selected.reviewed_at ? ` • ${formatRelative(selected.reviewed_at)}` : ""}
                       </Typography>
@@ -439,8 +441,8 @@ export default function FixesModal({ open, onClose, showMessage }) {
       </DialogContent>
 
       <DialogActions sx={{ justifyContent: "space-between", px: 2 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="caption" color="text.secondary">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {selected ? t("settingsAccess.fixes.selectedFix", { id: selected.id }) : t("settingsAccess.fixes.noneSelected")}
           </Typography>
           {proposedFixes.length > 1 && (

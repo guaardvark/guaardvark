@@ -141,7 +141,7 @@ const FamilySelfImprovementCard = React.forwardRef(
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1, pt: 0.5 }}>
             {/* Status Chips */}
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap" }}>
               <StatusChip
                 source="uncle_claude"
                 status={claudeStatus?.available ? "connected" : "offline"}
@@ -161,7 +161,10 @@ const FamilySelfImprovementCard = React.forwardRef(
             {progress && (
               <Box sx={{ mt: 0.5 }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
-                  <Typography variant="caption" fontWeight="bold" color={`${STAGE_COLORS[progress.stage] || "info"}.main`}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: `${STAGE_COLORS[progress.stage] || "info"}.main`, fontWeight: "bold" }}
+                  >
                     {progress.stage === "starting" && t("dashboard.family.stages.starting")}
                     {progress.stage === "testing" && t("dashboard.family.stages.testing")}
                     {progress.stage === "analyzed" && t("dashboard.family.stages.analyzed")}
@@ -169,7 +172,7 @@ const FamilySelfImprovementCard = React.forwardRef(
                     {progress.stage === "complete" && t("dashboard.family.stages.complete")}
                     {progress.stage === "error" && t("dashboard.family.stages.error")}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {Math.round((progress.progress || 0) * 100)}%
                   </Typography>
                 </Box>
@@ -179,7 +182,7 @@ const FamilySelfImprovementCard = React.forwardRef(
                   color={STAGE_COLORS[progress.stage] || "info"}
                   sx={{ height: 6, borderRadius: 3 }}
                 />
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: "block" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.25, display: "block" }}>
                   {progress.detail}
                 </Typography>
               </Box>
@@ -188,7 +191,7 @@ const FamilySelfImprovementCard = React.forwardRef(
             {/* Token Budget Mini Bar */}
             {claudeStatus?.available && (
               <Box>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {t("dashboard.family.tokens", { percent: usage.budget_used_percent || 0 })}
                 </Typography>
                 <LinearProgress
@@ -206,7 +209,7 @@ const FamilySelfImprovementCard = React.forwardRef(
 
             {/* Fixes count */}
             {(siStatus?.fixes_applied || 0) > 0 && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("dashboard.family.totalFixes", { count: siStatus.fixes_applied })}
               </Typography>
             )}
@@ -214,11 +217,11 @@ const FamilySelfImprovementCard = React.forwardRef(
             <Divider />
 
             {/* Recent Runs */}
-            <Typography variant="caption" fontWeight="bold">
+            <Typography variant="caption" sx={{ fontWeight: "bold" }}>
               {t("dashboard.family.recentActivity")}
             </Typography>
             {runs.length === 0 ? (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("dashboard.family.noRuns")}
               </Typography>
             ) : (
@@ -241,7 +244,7 @@ const FamilySelfImprovementCard = React.forwardRef(
                         </Typography>
                       }
                       secondary={
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {run.timestamp ? new Date(run.timestamp).toLocaleString(uiLocale()) : ""}
                         </Typography>
                       }

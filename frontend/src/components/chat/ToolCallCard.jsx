@@ -161,8 +161,8 @@ const ToolCallCard = ({
         {paramSummary && (
           <Typography
             component="span"
-            color="text.secondary"
             sx={{
+              color: "text.secondary",
               minWidth: 0,
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -175,7 +175,7 @@ const ToolCallCard = ({
         )}
 
         {durationMs != null && (
-          <Typography component="span" color="text.secondary" sx={{ fontSize: "0.75rem", flexShrink: 0 }}>
+          <Typography component="span" sx={{ color: "text.secondary", fontSize: "0.75rem", flexShrink: 0 }}>
             {durationMs}ms
           </Typography>
         )}
@@ -231,7 +231,7 @@ const ToolCallCard = ({
                         </Typography>
                       )}
                       {consentImage && !consentImageSrc(consentImage) && (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+                        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.25 }}>
                           {t("chat.toolCall.reference", { image: consentImage })}
                         </Typography>
                       )}
@@ -279,8 +279,7 @@ const ToolCallCard = ({
             <Box sx={{ mb: 0.5 }}>
               <Typography
                 component="div"
-                color="text.secondary"
-                sx={{ fontWeight: 600, fontSize: "0.75rem" }}
+                sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.75rem" }}
               >
                 {t("chat.toolCall.parameters")}:
               </Typography>
@@ -298,8 +297,7 @@ const ToolCallCard = ({
             <Box>
               <Typography
                 component="div"
-                color="text.secondary"
-                sx={{ fontWeight: 600, fontSize: "0.75rem" }}
+                sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.75rem" }}
               >
                 {isPending ? t("chat.toolCall.outputStreaming") : t("chat.toolCall.result")}:
               </Typography>
@@ -343,7 +341,7 @@ const ToolCallCard = ({
           {/* Thumbs up/down feedback for agent tasks */}
           {showFeedback && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5, justifyContent: "flex-end" }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", mr: 0.5 }}>
                 {t("chat.toolCall.feedbackPrompt")}
               </Typography>
               <Tooltip title={t("chat.toolCall.feedbackUp")}>

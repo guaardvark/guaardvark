@@ -54,7 +54,9 @@ const OllamaLifecycleSection = ({ title = "Ollama" }) => {
       checked={Boolean(state.keep_running)}
       disabled={disabled || external}
       onChange={(e) => update({ keep_running: e.target.checked })}
-      inputProps={{ "data-testid": "ollama-keep-running" }}
+      slotProps={{
+        input: { "data-testid": "ollama-keep-running" }
+      }}
     />
   );
 
@@ -80,12 +82,14 @@ const OllamaLifecycleSection = ({ title = "Ollama" }) => {
             checked={external}
             disabled={disabled}
             onChange={(e) => update({ external: e.target.checked })}
-            inputProps={{ "data-testid": "ollama-external" }}
+            slotProps={{
+              input: { "data-testid": "ollama-external" }
+            }}
           />
         }
         label={<Typography variant="body2">{t("settingsSections.ollama.external")}</Typography>}
       />
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {t("settingsSections.ollama.note")}
         {state.env_writable === false ? ` ${t("settingsSections.ollama.envNotWritable")}` : ""}
       </Typography>

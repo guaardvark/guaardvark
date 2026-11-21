@@ -33,13 +33,20 @@ const ImportStatusCard = ({ job, onOpenFiles, onImportAnother, onStop }) => {
   return (
     <Paper variant="outlined" sx={{ p: 2 }} data-testid="import-status">
       <Stack spacing={1.25}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "flex-start", sm: "center" }}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          sx={{ alignItems: { xs: "flex-start", sm: "center" } }}
+        >
           <StatusPill
             label={pill.label}
             tone={pill.tone}
             tooltip={job.jobId ? t("upload.bulk.status.jobTooltip", { id: job.jobId }) : ""}
           />
-          <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1, minWidth: 0, overflowWrap: "anywhere" }}>
+          <Typography
+            variant="body2"
+            sx={{ color: "text.secondary", flexGrow: 1, minWidth: 0, overflowWrap: "anywhere" }}
+          >
             {jobText(job.sourceLabel)}
             {into ? ` → ${into}` : ""}
           </Typography>
@@ -63,12 +70,12 @@ const ImportStatusCard = ({ job, onOpenFiles, onImportAnother, onStop }) => {
           </Typography>
         )}
         {line && (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {line}
           </Typography>
         )}
         {awayNote && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {awayNote}
           </Typography>
         )}
@@ -99,7 +106,7 @@ const ImportStatusCard = ({ job, onOpenFiles, onImportAnother, onStop }) => {
         )}
 
         {done && (onOpenFiles || onImportAnother) && (
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             {onOpenFiles && !job.preview && <ActionButton onClick={onOpenFiles}>{t("upload.bulk.status.openFiles")}</ActionButton>}
             {onImportAnother && <ActionButton onClick={onImportAnother}>{t("upload.bulk.status.importAnother")}</ActionButton>}
           </Stack>

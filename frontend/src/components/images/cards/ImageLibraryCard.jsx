@@ -191,11 +191,11 @@ function ImageLibraryCard({
       borderRadius: 2
     }}>
       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             {t('imagesBatch.history.title')}
           </Typography>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             {batchHistory.length > 0 && (
               <Tooltip title={t('imagesBatch.history.hideAll')}>
                 <IconButton size="small" onClick={handleClearBatchList} aria-label={t('imagesBatch.history.hideAll')}>
@@ -233,7 +233,7 @@ function ImageLibraryCard({
           ) : (
             <Grid container spacing={2}>
               {shownBatches.map((batch) => (
-                <Grid item xs={6} sm={4} md={3} key={batch.batch_id}>
+                <Grid key={batch.batch_id} size={{ xs: 6, sm: 4, md: 3 }}>
                   <BatchHistoryCard {...batchProps(batch)} />
                 </Grid>
               ))}
@@ -259,7 +259,7 @@ function ImageLibraryCard({
           {batchHistory.length === 0 && !historyError && (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <ImageIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t('imagesBatch.history.empty')}
               </Typography>
             </Box>

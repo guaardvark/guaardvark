@@ -34,7 +34,7 @@ import {
   Close as CloseIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
-  DeleteOutline as DeleteIcon,
+  DeleteOutlineOutlined as DeleteIcon,
 } from "@mui/icons-material";
 import {
   listJobs,
@@ -298,7 +298,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
 
         {/* Status chips — click to filter */}
         <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }}>
-          <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
             {JOB_STATUSES.map((s) => {
               const count = statusCounts[s] || 0;
               const active = statusFilter.has(s);
@@ -319,14 +319,16 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
               placeholder={t("jobs.list.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
               sx={{ minWidth: 280 }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }
+              }}
             />
             <IconButton
               size="small"
@@ -359,7 +361,10 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
 
         {/* Tabs: Active / History */}
         <Paper elevation={2} sx={{ borderRadius: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ borderBottom: 1, borderColor: "divider", pr: 2 }}>
+          <Stack
+            direction="row"
+            sx={{ justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider", pr: 2 }}
+          >
             <Tabs value={tab} onChange={(_, v) => setTab(v)}>
               <Tab label={t("jobs.list.activeTab", { count: activeRows.length })} />
               <Tab label={t("jobs.list.historyTab", { count: historyRows.length })} />
@@ -410,7 +415,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
               {visibleRows.length === 0 && !loading && (
                 <TableRow>
                   <TableCell colSpan={6}>
-                    <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: "center" }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary", p: 2, textAlign: "center" }}>
                       {tab === 0 ? t("jobs.list.emptyActive") : t("jobs.list.emptyHistory")}
                     </Typography>
                   </TableCell>
@@ -433,7 +438,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
                   </TableCell>
                   <TableCell>
                     {j.progress != null ? (
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                         <Box sx={{ width: 100 }}>
                           <LinearProgress
                             variant="determinate"
@@ -444,7 +449,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
                         <Typography variant="caption">{Math.round(j.progress)}%</Typography>
                       </Stack>
                     ) : (
-                      <Typography variant="caption" color="text.secondary">—</Typography>
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>—</Typography>
                     )}
                   </TableCell>
                   <TableCell>{_formatDuration(j.duration_s)}</TableCell>
@@ -483,8 +488,8 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
       {/* Detail drawer */}
       <Drawer anchor="right" open={!!selected} onClose={() => setSelected(null)}>
         <Box sx={{ width: 420, p: 3 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-            <Typography variant="h6" fontWeight="bold">{t("jobs.detail.title")}</Typography>
+          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: "bold" }}>{t("jobs.detail.title")}</Typography>
             <IconButton onClick={() => setSelected(null)} size="small">
               <CloseIcon />
             </IconButton>
@@ -492,52 +497,52 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
           {selected && (
             <Stack spacing={2}>
               <Box>
-                <Typography variant="caption" color="text.secondary">{t("jobs.detail.id")}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("jobs.detail.id")}</Typography>
                 <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{selected.id}</Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">{t("jobs.list.label")}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("jobs.list.label")}</Typography>
                 <Typography variant="body2">{selected.label}</Typography>
               </Box>
               <Stack direction="row" spacing={2}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">{t("jobs.list.kind")}</Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("jobs.list.kind")}</Typography>
                   <Typography variant="body2">{selected.kind}</Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">{t("jobs.list.status")}</Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("jobs.list.status")}</Typography>
                   <Chip label={jobStatusLabel(selected.status)} color={STATUS_COLORS[selected.status]} size="small" />
                 </Box>
               </Stack>
               <Box>
-                <Typography variant="caption" color="text.secondary">{t("jobs.list.progress")}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("jobs.list.progress")}</Typography>
                 <Typography variant="body2">{selected.progress != null ? `${Math.round(selected.progress)}%` : "—"}</Typography>
               </Box>
               <Stack direction="row" spacing={2}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">{t("jobs.list.started")}</Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("jobs.list.started")}</Typography>
                   <Typography variant="body2">{_formatRelative(selected.started_at)}</Typography>
                 </Box>
                 {selected.finished_at && (
                   <Box>
-                    <Typography variant="caption" color="text.secondary">{t("jobs.list.finished")}</Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("jobs.list.finished")}</Typography>
                     <Typography variant="body2">{_formatRelative(selected.finished_at)}</Typography>
                   </Box>
                 )}
                 <Box>
-                  <Typography variant="caption" color="text.secondary">{t("jobs.list.duration")}</Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("jobs.list.duration")}</Typography>
                   <Typography variant="body2">{_formatDuration(selected.duration_s)}</Typography>
                 </Box>
               </Stack>
               {selected.error_message && (
                 <Box>
-                  <Typography variant="caption" color="error.main">{t("jobs.detail.error")}</Typography>
+                  <Typography variant="caption" sx={{ color: "error.main" }}>{t("jobs.detail.error")}</Typography>
                   <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{selected.error_message}</Typography>
                 </Box>
               )}
               {selected.metadata && Object.keys(selected.metadata).length > 0 && (
                 <Box>
-                  <Typography variant="caption" color="text.secondary">{t("jobs.detail.metadata")}</Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("jobs.detail.metadata")}</Typography>
                   <Box
                     component="pre"
                     sx={{

@@ -39,7 +39,7 @@ const NightShiftSummary = ({ shift, dense = false, limit = 0 }) => {
       </Typography>
       <Stack spacing={0.25} sx={{ mt: 0.5 }}>
         {shown.map(({ job, tone, label, text }) => (
-          <Stack key={job.id} direction="row" spacing={1} alignItems="baseline" sx={{ minWidth: 0 }}>
+          <Stack key={job.id} direction="row" spacing={1} sx={{ alignItems: "baseline", minWidth: 0 }}>
             <StatusPill label={label} tone={tone} />
             <Link
               component={RouterLink}
@@ -54,10 +54,9 @@ const NightShiftSummary = ({ shift, dense = false, limit = 0 }) => {
             {text && (
               <Typography
                 variant="caption"
-                color={tone === "error" ? "error.main" : "text.secondary"}
                 noWrap
                 title={text}
-                sx={{ minWidth: 0 }}
+                sx={{ color: tone === "error" ? "error.main" : "text.secondary", minWidth: 0 }}
               >
                 {text}
               </Typography>

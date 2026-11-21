@@ -161,7 +161,7 @@ const SocialPostsPage = () => {
     <PageLayout
       title={t("social.posts.title")}
       actions={
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <ActionButton kind="link" onClick={() => navigate("/social/accounts")}>
             {t("social.posts.socialAccounts")}
           </ActionButton>
@@ -219,10 +219,10 @@ const SocialPostsPage = () => {
 
       {!loading && !rows.length ? (
         <Box sx={{ textAlign: "center", py: 6 }}>
-          <Typography variant="body1" color="text.secondary" gutterBottom>
+          <Typography variant="body1" gutterBottom sx={{ color: "text.secondary" }}>
             {t("social.posts.emptyTitle")}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("social.posts.emptyBody")}
           </Typography>
         </Box>
@@ -252,7 +252,7 @@ const SocialPostsPage = () => {
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>
                         {accountName(record)}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {platformLabel}
                       </Typography>
                     </TableCell>
@@ -264,8 +264,7 @@ const SocialPostsPage = () => {
                       )}
                       <Typography
                         variant="caption"
-                        color="text.secondary"
-                        sx={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+                        sx={{ color: "text.secondary", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
                       >
                         {record.body ||
                           (record.media_refs?.length
@@ -287,7 +286,7 @@ const SocialPostsPage = () => {
                     <TableCell sx={{ whiteSpace: "nowrap" }}>
                       <Typography variant="body2">{formatWhen(record.scheduled_at)}</Typography>
                       {record.scheduled_at && (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {record.scheduled_natively
                             ? t("social.posts.byPlatform", { platform: platformLabel })
                             : t("social.posts.byGuaardvark")}
@@ -311,7 +310,11 @@ const SocialPostsPage = () => {
                       )}
                     </TableCell>
                     <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
+                      <Stack
+                        direction="row"
+                        spacing={0.5}
+                        sx={{ justifyContent: "flex-end", alignItems: "center" }}
+                      >
                         {record.remote_url && (
                           <Tooltip title={t("social.posts.openOn", { platform: platformLabel })}>
                             <IconButton

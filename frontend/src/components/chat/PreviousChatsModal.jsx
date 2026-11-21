@@ -113,7 +113,7 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
           </Box>
         ) : failure?.load ? null : sessions.length === 0 ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <Typography color="text.secondary">{t("chat.previousChats.empty")}</Typography>
+            <Typography sx={{ color: "text.secondary" }}>{t("chat.previousChats.empty")}</Typography>
           </Box>
         ) : (
           <List disablePadding>
@@ -147,9 +147,11 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
                   <ListItemText
                     primary={session.preview || t("chat.sessions.newChat")}
                     secondary={formatDate(session.created_at)}
-                    primaryTypographyProps={{
-                      noWrap: true,
-                      sx: { maxWidth: "85%", fontSize: "0.9rem" },
+                    slotProps={{
+                      primary: {
+                        noWrap: true,
+                        sx: { maxWidth: "85%", fontSize: "0.9rem" },
+                      }
                     }}
                   />
                   <Chip

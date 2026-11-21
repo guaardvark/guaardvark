@@ -687,7 +687,7 @@ const FileTreeCard = React.forwardRef(
           <Box sx={{ flex: 1, overflow: 'auto' }}>
             {documentsLoading && (
               <Box sx={{ p: 2, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {t("codeEditor.fileTree.loadingDocuments")}
                 </Typography>
               </Box>
@@ -706,7 +706,7 @@ const FileTreeCard = React.forwardRef(
 
             {(fileTree.length === 0 && documents.length === 0 && !documentsLoading && !documentsError) ? (
               <Box sx={{ p: 2, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {t("codeEditor.fileTree.empty")}
                 </Typography>
               </Box>
@@ -716,7 +716,7 @@ const FileTreeCard = React.forwardRef(
                 {fileTree.length > 0 && (
                   <>
                     <ListItem sx={{ py: 0.5, bgcolor: 'action.hover' }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                      <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 'bold' }}>
                         {t("codeEditor.fileTree.localFiles")}
                       </Typography>
                     </ListItem>
@@ -729,10 +729,10 @@ const FileTreeCard = React.forwardRef(
                   <>
                     {fileTree.length > 0 && <Divider sx={{ my: 1 }} />}
                     <ListItem sx={{ py: 0.5, bgcolor: 'action.hover' }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                      <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 'bold' }}>
                         {t("codeEditor.fileTree.documents")}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                      <Typography variant="caption" sx={{ color: "text.secondary", ml: 1 }}>
                         {projectId ? t("codeEditor.fileTree.projectScope", { id: projectId }) : t("codeEditor.fileTree.libraryScope")}
                       </Typography>
                     </ListItem>
@@ -805,9 +805,9 @@ const FileTreeCard = React.forwardRef(
         <Dialog
           open={createDialog.open}
           onClose={() => setCreateDialog({ open: false, type: null })}
-          // autoFocus alone can lose focus to whatever had it before the
-          // dialog opened; focus the field once the dialog is in.
-          TransitionProps={{ onEntered: () => createInputRef.current?.focus() }}
+          slotProps={{
+            transition: { onEntered: () => createInputRef.current?.focus() }
+          }}
         >
           <DialogTitle>
             {createDialog.type === 'file' ? t("codeEditor.fileTree.createFileTitle") : t("codeEditor.fileTree.createFolderTitle")}

@@ -59,7 +59,9 @@ const DocxViewerModal = ({ open, onClose, file }) => {
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{ sx: { height: "90vh", display: "flex", flexDirection: "column" } }}
+      slotProps={{
+        paper: { sx: { height: "90vh", display: "flex", flexDirection: "column" } }
+      }}
     >
       <DialogTitle
         sx={{

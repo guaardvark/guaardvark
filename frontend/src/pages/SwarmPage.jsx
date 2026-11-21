@@ -524,7 +524,7 @@ const SwarmPage = () => {
       title={t("swarm.title")}
       variant="standard"
       actions={
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <Chip
             icon={isOnline ? <OnlineIcon /> : <OfflineIcon />}
             label={isOnline ? t("swarm.header.online") : t("swarm.header.offline")}
@@ -620,7 +620,7 @@ const SwarmPage = () => {
           <Typography variant="h6" sx={{ mb: 1 }}>
             {t("swarm.empty.title")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
             {t("swarm.empty.description")}
             {!serviceOnline && ` ${t("swarm.empty.startPlugin")}`}
           </Typography>
@@ -647,7 +647,7 @@ const SwarmPage = () => {
         <Box>
           <Grid container spacing={2}>
             {templates.map((tmpl) => (
-              <Grid item xs={12} sm={6} key={tmpl.filename}>
+              <Grid key={tmpl.filename} size={{ xs: 12, sm: 6 }}>
                 <Card
                   sx={{
                     cursor: "pointer",
@@ -666,13 +666,13 @@ const SwarmPage = () => {
                   onContextMenu={(e) => itemMenu.open(e, { kind: "template", tmpl })}
                 >
                   <CardContent>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
                       <TemplateIcon fontSize="small" color="primary" />
-                      <Typography variant="subtitle2" fontWeight={600}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                         {tmpl.title}
                       </Typography>
                     </Stack>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
                       {tmpl.description}
                     </Typography>
                     <Chip
@@ -687,7 +687,7 @@ const SwarmPage = () => {
           </Grid>
         </Box>
       ) : (
-        <Typography variant="body2" color="text.secondary">{t("swarm.sections.noTemplates")}</Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("swarm.sections.noTemplates")}</Typography>
       )}
               </Box>
             ),
@@ -713,14 +713,13 @@ const SwarmPage = () => {
               >
                 <Stack
                   direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
+                  sx={{ justifyContent: "space-between", alignItems: "center" }}
                 >
                   <Box>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {h.swarm_id}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t("swarm.taskCount", { count: h.task_count })}
                       {h.flight_mode ? ` | ${t("swarm.flightMode")}` : ""}
                       {h.total_cost_usd > 0
@@ -742,7 +741,7 @@ const SwarmPage = () => {
           </Stack>
         </Box>
       ) : (
-        <Typography variant="body2" color="text.secondary">{t("swarm.sections.noHistory")}</Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("swarm.sections.noHistory")}</Typography>
       )}
               </Box>
             ),
@@ -799,7 +798,9 @@ const SwarmPage = () => {
               }
               fullWidth
               size="small"
-              inputProps={{ min: 1, max: 20 }}
+              slotProps={{
+                htmlInput: { min: 1, max: 20 }
+              }}
             />
 
             <Stack direction="row" spacing={2}>
@@ -811,7 +812,7 @@ const SwarmPage = () => {
                   />
                 }
                 label={
-                  <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
                     <FlightIcon fontSize="small" />
                     <span>{t("swarm.flightMode")}</span>
                   </Stack>
@@ -871,7 +872,7 @@ const SwarmPage = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ mb: 3 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("swarm.editor.aiHint")}
             </Typography>
             <Stack direction="row" spacing={1}>
@@ -919,7 +920,7 @@ const SwarmPage = () => {
           />
           
           <Box sx={{ mt: 1 }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               <Trans i18nKey="swarm.editor.formatHint" components={{ bold: <b /> }} />
             </Typography>
           </Box>
@@ -947,7 +948,7 @@ const SwarmPage = () => {
         fullWidth
       >
         <DialogTitle sx={{ pb: 0 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
             <Typography variant="h6">{t("swarm.taskView.title", { id: taskViewData.taskId })}</Typography>
             <IconButton onClick={() => setTaskViewOpen(false)}>
               <CloseIcon />
@@ -994,7 +995,7 @@ const SwarmPage = () => {
           {taskViewData.tab === 1 && (
             <Box>
               {isDiffLoading ? (
-                <Stack alignItems="center" sx={{ py: 4 }}>
+                <Stack sx={{ alignItems: "center", py: 4 }}>
                   <CircularProgress size={24} sx={{ mb: 1 }} />
                   <Typography variant="caption">{t("swarm.taskView.fetchingDiff")}</Typography>
                 </Stack>
@@ -1110,8 +1111,8 @@ const SwarmCard = ({
         onClick={onToggleExpand}
       >
         <Box sx={{ flex: 1 }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="subtitle2" fontWeight={600}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
               {swarm.swarm_id}
             </Typography>
             {swarm.flight_mode && (
@@ -1151,7 +1152,7 @@ const SwarmCard = ({
               value={progress}
               sx={{ flex: 1, height: 6, borderRadius: 3 }}
             />
-            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 80 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", minWidth: 80 }}>
               {t("swarm.card.progress", { done: doneCount, total: totalCount })}
             </Typography>
           </Box>
@@ -1191,7 +1192,10 @@ const SwarmCard = ({
         <Box sx={{ p: 2 }}>
           {/* Visual DAG: the graph keeps the browser's own right-click */}
           <Box sx={{ mb: 3 }} data-native-contextmenu>
-            <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1, display: "block" }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "text.secondary", fontWeight: 600, mb: 1, display: "block" }}
+            >
               {t("swarm.card.dependencyGraph")}
             </Typography>
             <SwarmGraph tasks={tasks} height={300} />
@@ -1235,7 +1239,7 @@ const SwarmCard = ({
           {/* Task grid */}
           <Grid container spacing={1.5}>
             {tasks.map((task) => (
-              <Grid item xs={12} sm={6} md={4} key={task.id}>
+              <Grid key={task.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <TaskCard
                   task={task}
                   swarmId={swarm.swarm_id}
@@ -1277,11 +1281,9 @@ const TaskCard = ({ task, swarmId, onViewTask, onItemContextMenu, _theme }) => {
       <CardContent sx={{ pb: 1, "&:last-child": { pb: 1 } }}>
         <Stack
           direction="row"
-          justifyContent="space-between"
-          alignItems="flex-start"
-          sx={{ mb: 0.5 }}
+          sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 0.5 }}
         >
-          <Typography variant="body2" fontWeight={600} sx={{ flex: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
             {task.title}
           </Typography>
           <Chip
@@ -1294,7 +1296,7 @@ const TaskCard = ({ task, swarmId, onViewTask, onItemContextMenu, _theme }) => {
         </Stack>
 
         {task.backend_name && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {task.backend_name} | {task.elapsed || "-"}
             {task.estimated_cost_usd > 0 &&
               ` | $${task.estimated_cost_usd.toFixed(2)}`}
@@ -1338,11 +1340,11 @@ const TaskCard = ({ task, swarmId, onViewTask, onItemContextMenu, _theme }) => {
 // ─── Helpers ─────────────────────────────────────────────────────────
 
 const StatChip = ({ icon, label }) => (
-  <Stack direction="row" spacing={0.5} alignItems="center">
+  <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
     {React.cloneElement(icon, {
       sx: { fontSize: 14, color: "text.secondary" },
     })}
-    <Typography variant="caption" color="text.secondary">
+    <Typography variant="caption" sx={{ color: "text.secondary" }}>
       {label}
     </Typography>
   </Stack>

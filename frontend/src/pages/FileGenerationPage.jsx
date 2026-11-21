@@ -664,7 +664,7 @@ const FileGenerationPage = () => {
             </RadioGroup>
           </FormControl>
 
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
             {fileFormat === "csv" ? (
               <>{t("fileGeneration.page.csvDescription")}</>
             ) : (
@@ -673,7 +673,7 @@ const FileGenerationPage = () => {
             {" "}{t("fileGeneration.page.requiresRule")}
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label={t("fileGeneration.page.outputFilename", { format: fileFormat.toUpperCase() })}
@@ -684,7 +684,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingBatch}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 id="batch-prompt-rule-select"
                 options={availableRules}
@@ -705,23 +705,26 @@ const FileGenerationPage = () => {
                     label={t("fileGeneration.page.promptRule")}
                     variant="outlined"
                     helperText={t("fileGeneration.page.promptRuleHelp")}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <React.Fragment>
-                          {isLoadingRules ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </React.Fragment>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <React.Fragment>
+                            {isLoadingRules ? (
+                              <CircularProgress color="inherit" size={20} />
+                            ) : null}
+                            {params.slotProps.input.endAdornment}
+                          </React.Fragment>
+                        ),
+                      },
                     }}
                   />
                 )}
                 disabled={isGeneratingBatch}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 id="batch-project-select"
                 options={availableProjects}
@@ -746,23 +749,26 @@ const FileGenerationPage = () => {
                     {...params}
                     label={t("fileGeneration.page.project")}
                     variant="outlined"
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <React.Fragment>
-                          {isLoadingProjects ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </React.Fragment>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <React.Fragment>
+                            {isLoadingProjects ? (
+                              <CircularProgress color="inherit" size={20} />
+                            ) : null}
+                            {params.slotProps.input.endAdornment}
+                          </React.Fragment>
+                        ),
+                      },
                     }}
                   />
                 )}
                 disabled={isGeneratingBatch}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 options={availableWebsites}
                 loading={isLoadingWebsites}
@@ -783,14 +789,17 @@ const FileGenerationPage = () => {
                     label={t("fileGeneration.page.clientWebsite")}
                     variant="outlined"
                     helperText={t("fileGeneration.page.clientWebsiteHelp")}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <React.Fragment>
-                          {isLoadingWebsites ? <CircularProgress size={20} /> : null}
-                          {params.InputProps.endAdornment}
-                        </React.Fragment>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <React.Fragment>
+                            {isLoadingWebsites ? <CircularProgress size={20} /> : null}
+                            {params.slotProps.input.endAdornment}
+                          </React.Fragment>
+                        ),
+                      },
                     }}
                   />
                 )}
@@ -800,7 +809,7 @@ const FileGenerationPage = () => {
                     <Box component="li" key={key} {...otherProps}>
                       <Box>
                         <Typography variant="body2">{option.url}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           {t("fileGeneration.page.websiteOptionDetails", {
                             client: option.client?.name || t("fileGeneration.page.unknown"),
                             project: option.project?.name || t("fileGeneration.page.unknown"),
@@ -813,7 +822,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingBatch || isLoadingWebsites}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <Typography variant="body2" sx={{ flexGrow: 1 }}>
                   {t("fileGeneration.page.competitorWebsite")}
@@ -862,7 +871,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingBatch || (useClientCompetitors && (!batchClient || !batchClient.competitor_urls || batchClient.competitor_urls.length === 0))}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 type="number"
@@ -872,10 +881,10 @@ const FileGenerationPage = () => {
                 variant="outlined"
                 helperText={t("fileGeneration.page.pageCountHelp")}
                 disabled={isGeneratingBatch}
-                inputProps={{ min: 1, max: 1000 }}
+                slotProps={{ htmlInput: { min: 1, max: 1000 } }}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <FormControlLabel
                 control={
                   <Switch
@@ -888,7 +897,7 @@ const FileGenerationPage = () => {
                 label={t("fileGeneration.page.enhancedContext")}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <Autocomplete
                 options={availableClients}
                 loading={isLoadingClients}
@@ -906,23 +915,26 @@ const FileGenerationPage = () => {
                     label={t("fileGeneration.page.client")}
                     variant="outlined"
                     helperText={t("fileGeneration.page.clientHelp")}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <React.Fragment>
-                          {isLoadingClients ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </React.Fragment>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <React.Fragment>
+                            {isLoadingClients ? (
+                              <CircularProgress color="inherit" size={20} />
+                            ) : null}
+                            {params.slotProps.input.endAdornment}
+                          </React.Fragment>
+                        ),
+                      },
                     }}
                   />
                 )}
                 disabled={isGeneratingBatch || isLoadingClients}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <FormControl fullWidth variant="outlined">
                 <InputLabel>{t("fileGeneration.page.model")}</InputLabel>
                 <Select
@@ -946,12 +958,11 @@ const FileGenerationPage = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography
                 variant="caption"
-                display="block"
                 gutterBottom
-                sx={{ color: "text.secondary" }}
+                sx={{ display: "block", color: "text.secondary" }}
               >
                 {t("fileGeneration.page.itemsLabel")}
               </Typography>
@@ -974,7 +985,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingBatch}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography
                 variant="h6"
                 component="div"
@@ -985,8 +996,7 @@ const FileGenerationPage = () => {
               </Typography>
               <Typography
                 variant="body2"
-                color="text.secondary"
-                sx={{ mb: 2 }}
+                sx={{ color: "text.secondary", mb: 2 }}
               >
                 {t("fileGeneration.page.insertDescription")}
               </Typography>
@@ -1027,7 +1037,7 @@ const FileGenerationPage = () => {
                 />
               )}
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
                 <Button
                   variant="outlined"
@@ -1092,11 +1102,11 @@ const FileGenerationPage = () => {
             body: (
               <Box sx={{ p: 1.5, opacity: 0.7 }}>
                 <Chip size="small" label={t("fileGeneration.page.advancedChip")} sx={{ mb: 1 }} />
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
             {t("fileGeneration.page.singleDescription")}
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label={t("fileGeneration.page.singleFilename")}
@@ -1106,7 +1116,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingSingle}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Autocomplete
                 id="code-gen-rule-select"
                 options={availableRules.filter(rule => 
@@ -1136,16 +1146,19 @@ const FileGenerationPage = () => {
                     label={t("fileGeneration.page.codeRule")}
                     variant="outlined"
                     helperText={t("fileGeneration.page.codeRuleHelp")}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <React.Fragment>
-                          {isLoadingRules ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </React.Fragment>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <React.Fragment>
+                            {isLoadingRules ? (
+                              <CircularProgress color="inherit" size={20} />
+                            ) : null}
+                            {params.slotProps.input.endAdornment}
+                          </React.Fragment>
+                        ),
+                      },
                     }}
                   />
                 )}
@@ -1153,7 +1166,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingSingle}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 multiline
@@ -1166,7 +1179,7 @@ const FileGenerationPage = () => {
                 disabled={isGeneratingSingle}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Button
                 variant="contained"
                 color="secondary"

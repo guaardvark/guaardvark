@@ -86,7 +86,7 @@ export default function SelfImprovementRuns({ onTotal }) {
 
   return (
     <>
-      <Stack direction="row" spacing={0.5} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap", mb: 2 }}>
         {["all", "scheduled", "reactive", "directed", "success", "failed"].map((f) => (
           <Chip
             key={f}
@@ -103,7 +103,7 @@ export default function SelfImprovementRuns({ onTotal }) {
       {siRunsLoading ? (
         <CircularProgress size={24} />
       ) : siRuns.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">{t("selfImprovement.runs.empty")}</Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("selfImprovement.runs.empty")}</Typography>
       ) : (
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
@@ -147,7 +147,7 @@ export default function SelfImprovementRuns({ onTotal }) {
                       {run.uncle_reviewed ? (
                         <Chip label={t("selfImprovement.runs.reviewed")} size="small" sx={{ bgcolor: UNCLE_GOLD, color: "#000", fontSize: "0.65rem" }} />
                       ) : (
-                        <Typography variant="caption" color="text.secondary">{t("selfImprovement.runs.notReviewed")}</Typography>
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("selfImprovement.runs.notReviewed")}</Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -165,7 +165,7 @@ export default function SelfImprovementRuns({ onTotal }) {
                           )}
                           {run.uncle_feedback && (
                             <Box sx={{ mb: 1 }}>
-                              <Typography variant="caption" fontWeight="bold" sx={{ color: UNCLE_GOLD }}>
+                              <Typography variant="caption" sx={{ fontWeight: "bold", color: UNCLE_GOLD }}>
                                 {t("selfImprovement.runs.uncleFeedback")}:
                               </Typography>
                               <Typography variant="body2">{run.uncle_feedback}</Typography>
@@ -173,7 +173,7 @@ export default function SelfImprovementRuns({ onTotal }) {
                           )}
                           {run.changes_made && (
                             <Box sx={{ mb: 1 }}>
-                              <Typography variant="caption" fontWeight="bold">{t("selfImprovement.runs.changesMade")}:</Typography>
+                              <Typography variant="caption" sx={{ fontWeight: "bold" }}>{t("selfImprovement.runs.changesMade")}:</Typography>
                               <Box component="pre" sx={{ fontSize: "0.7rem", bgcolor: "background.default", p: 1, borderRadius: 1, overflow: "auto", maxHeight: 200 }}>
                                 {typeof run.changes_made === "string" ? run.changes_made : JSON.stringify(run.changes_made, null, 2)}
                               </Box>
@@ -181,7 +181,7 @@ export default function SelfImprovementRuns({ onTotal }) {
                           )}
                           {run.test_results_before && (
                             <Box>
-                              <Typography variant="caption" fontWeight="bold">{t("selfImprovement.runs.testResults")}:</Typography>
+                              <Typography variant="caption" sx={{ fontWeight: "bold" }}>{t("selfImprovement.runs.testResults")}:</Typography>
                               <Box component="pre" sx={{ fontSize: "0.7rem", bgcolor: "background.default", p: 1, borderRadius: 1, overflow: "auto", maxHeight: 150 }}>
                                 {typeof run.test_results_before === "string" ? run.test_results_before : JSON.stringify(run.test_results_before, null, 2)}
                               </Box>

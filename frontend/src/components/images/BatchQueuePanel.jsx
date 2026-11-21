@@ -43,11 +43,11 @@ const BatchQueuePanel = ({ queue, onCancel, onClearCompleted }) => {
   return (
     <Card sx={{ mb: 3, boxShadow: 2, borderRadius: 2 }}>
       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+        <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             {t('imagesBatch.queue.title')}
           </Typography>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             {queue.some((q) => TERMINAL_BATCH_STATUSES.has(q.status)) && (
               <Button
                 size="small"
@@ -84,7 +84,7 @@ const BatchQueuePanel = ({ queue, onCancel, onClearCompleted }) => {
                   bgcolor: q.is_running ? 'action.hover' : 'transparent',
                 }}
               >
-                <Stack direction="row" alignItems="center" spacing={1.5}>
+                <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
                   <Chip
                     label={`#${idx + 1}`}
                     size="small"
@@ -95,7 +95,7 @@ const BatchQueuePanel = ({ queue, onCancel, onClearCompleted }) => {
                     <Typography variant="body2" noWrap title={q.display_name || q.batch_id}>
                       {q.display_name || q.batch_id}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {q.failed_images > 0
                         ? t('imagesBatch.queue.progressFailed', { done, total, failed: q.failed_images })
                         : t('imagesBatch.queue.progress', { done, total })}

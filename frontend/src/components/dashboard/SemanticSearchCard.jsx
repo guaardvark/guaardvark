@@ -388,7 +388,7 @@ const SemanticSearchCard = React.forwardRef(
                       >
                         {message.role === "user" ? t("dashboard.chat.roles.user") : message.role === "system" ? t("dashboard.chat.roles.system") : t("dashboard.chat.roles.assistant")}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {formatMessageTime(message.timestamp)}
                       </Typography>
                     </Box>

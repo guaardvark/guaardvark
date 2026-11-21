@@ -14,6 +14,7 @@ import {
   Snackbar,
   Stack,
   Switch,
+  FormControlLabel,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -207,15 +208,15 @@ const ConnectionsPage = () => {
                   {t("connections.page.queuedHeld")}
                 </Alert>
               )}
-              <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap">
-                <Stack direction="row" alignItems="center" spacing={1}>
+              <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Switch
                     checked={settings.publish_enabled}
                     onChange={(e) => handleSettingChange("publish_enabled", e.target.checked)}
                   />
                   <Typography variant="body2">{t("connections.page.publishingEnabled")}</Typography>
                 </Stack>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {t("connections.page.approvalNote")}
                 </Typography>
               </Stack>
@@ -268,8 +269,7 @@ const ConnectionsPage = () => {
                   <CardContent>
                     <Stack
                       direction="row"
-                      justifyContent="space-between"
-                      alignItems="flex-start"
+                      sx={{ justifyContent: "space-between", alignItems: "flex-start" }}
                     >
                       <Typography variant="h6">
                         {spec?.label || conn.provider}
@@ -280,16 +280,16 @@ const ConnectionsPage = () => {
                         color={STATUS_COLOR[conn.status] || "default"}
                       />
                     </Stack>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {conn.handle || conn.display_name || conn.account_slug}
                     </Typography>
-                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 1 }}>
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", mt: 1 }}>
                       {conn.credential_encrypted ? (
                         <LockIcon fontSize="small" color="success" />
                       ) : (
                         <LockOpenIcon fontSize="small" color="disabled" />
                       )}
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {conn.has_credentials
                           ? `${conn.credential_hint} · ${conn.credential_source}`
                           : t("connections.page.noCredentials")}
@@ -301,7 +301,7 @@ const ConnectionsPage = () => {
                       </Alert>
                     )}
                     {spec?.posts_to_owned_channel && (
-                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1 }}>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 1 }}>
                         <Switch
                           size="small"
                           checked={conn.config?.post_without_approval === true}
@@ -314,16 +314,17 @@ const ConnectionsPage = () => {
                     )}
                     {optIn && (
                       <Box sx={{ mt: 1 }}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Switch
-                            size="small"
-                            checked={conn.public_opt_in?.on === true}
-                            onChange={(e) => handleAllowPublic(conn, optIn, e.target.checked)}
-                            inputProps={{ "aria-label": optIn.label }}
-                          />
-                          <Typography variant="body2">{optIn.label}</Typography>
-                        </Stack>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              size="small"
+                              checked={conn.public_opt_in?.on === true}
+                              onChange={(e) => handleAllowPublic(conn, optIn, e.target.checked)}
+                            />
+                          }
+                          label={optIn.label}
+                        />
+                        <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                           {optIn.explanation}{" "}
                           {(optIn.sources || []).map((source, index) => (
                             <React.Fragment key={source.url}>
@@ -335,7 +336,7 @@ const ConnectionsPage = () => {
                           ))}
                         </Typography>
                         {conn.public_opt_in?.source === "setting" && (
-                          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                          <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
                             {t("connections.page.onThroughSetting", { setting: optIn.legacy_setting })}
                           </Typography>
                         )}
@@ -389,10 +390,10 @@ const ConnectionsPage = () => {
         <Box sx={{ p: 1.5 }}>
           {environment.length > 0 && (
             <>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
                 {t("connections.page.environmentNote")}
               </Typography>
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                 {environment.map((entry) => (
                   <Chip
                     key={entry.env_key}
@@ -405,7 +406,7 @@ const ConnectionsPage = () => {
             </>
           )}
           {storeHealth && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: environment.length > 0 ? 2 : 0 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: environment.length > 0 ? 2 : 0 }}>
               {storeHealth.encrypted ? t("connections.page.encrypted") : t("connections.page.unencrypted")} ·{" "}
               {t("connections.page.credentialCount", { count: storeHealth.record_count })} · {storeHealth.path}
               {storeHealth.mode ? ` (${storeHealth.mode})` : ""}
@@ -419,7 +420,7 @@ const ConnectionsPage = () => {
 
   return (
     <PageLayout title={t("connections.page.title")} variant="standard">
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+      <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
         {t("connections.page.intro")}
       </Typography>
 

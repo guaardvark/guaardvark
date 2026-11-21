@@ -1039,7 +1039,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" p={4}>
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 4 }}>
         <CircularProgress />
       </Box>
     );
@@ -1061,11 +1061,11 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
       )}
 
       {/* Header */}
-      <Box display="flex" alignItems="center" gap={2} mb={2}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
         <NetworkIcon fontSize="large" color="primary" />
         <Box>
           <Typography variant="h6">{t("settingsInterconnector.ui.title")}</Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("settingsInterconnector.ui.subtitle")}
           </Typography>
         </Box>
@@ -1094,7 +1094,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
             icon={isSaving ? <CircularProgress size={16} /> : undefined}
           />
         </Box>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("settingsInterconnector.ui.statusHelp")}
         </Typography>
       </Paper>
@@ -1107,7 +1107,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
 
         <Grid container spacing={3}>
           {/* Node Mode Selection */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <FormControl fullWidth>
               <InputLabel>{t("settingsInterconnector.ui.nodeMode")}</InputLabel>
               <Select
@@ -1119,7 +1119,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                 <MenuItem value="client">{t("settingsInterconnector.ui.modeClient")}</MenuItem>
               </Select>
             </FormControl>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
               {config.node_mode === "master"
                 ? t("settingsInterconnector.ui.masterHelp")
                 : t("settingsInterconnector.ui.clientHelp")}
@@ -1127,7 +1127,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
           </Grid>
 
           {/* Node Name */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
               label={t("settingsInterconnector.ui.nodeName")}
@@ -1142,13 +1142,13 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
               {/* Master Mode Configuration */}
               {config.node_mode === "master" && (
                 <>
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Divider sx={{ my: 1 }}>
                       <Chip label={t("settingsInterconnector.ui.masterSettings")} size="small" />
                     </Divider>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Box>
                       <Typography variant="subtitle2" gutterBottom>
                         {t("settingsInterconnector.ui.apiKeyAuth")}
@@ -1162,10 +1162,10 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                         }
                         label={
                           <Box>
-                            <Typography variant="body2" fontWeight="bold">
+                            <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                               {t("settingsInterconnector.ui.requireApiKey")}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {t("settingsInterconnector.ui.requireApiKeyHelp")}
                             </Typography>
                           </Box>
@@ -1179,7 +1179,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     </Box>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Box>
                       <Typography variant="subtitle2" gutterBottom>
                         {t("settingsInterconnector.ui.apiKeyForClients")}
@@ -1191,7 +1191,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                           </Alert>
                           {generatedApiKey && showApiKey && (
                             <Alert severity="warning" sx={{ mb: 2 }}>
-                              <Typography variant="body2" fontWeight="bold">
+                              <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                                 {t("settingsInterconnector.ui.saveKeyNow")}
                               </Typography>
                               <Typography
@@ -1214,7 +1214,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                           {t("settingsInterconnector.ui.noApiKey")}
                         </Alert>
                       )}
-                      <Box display="flex" gap={2} alignItems="center" flexWrap="wrap" sx={{ mb: 2 }}>
+                      <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap", mb: 2 }}>
                         <Button
                           variant="outlined"
                           size="small"
@@ -1244,30 +1244,39 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                       {fileScanTestResult && fileScanTestResult.success && fileScanTestResult.details && (
                         <Box sx={{ mt: 2 }}>
                           <Alert severity="success">
-                            <Typography variant="body2" fontWeight="bold">
+                            <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                               {t("settingsInterconnector.ui.scanResults")}
                             </Typography>
-                            <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                            <Typography variant="caption" sx={{ display: "block", mt: 1 }}>
                               {t("settingsInterconnector.ui.totalFiles", { count: fileScanTestResult.details.total_files || 0 })}
                             </Typography>
-                            <Typography variant="caption" display="block">
+                            <Typography variant="caption" sx={{ display: "block" }}>
                               {t("settingsInterconnector.ui.totalSize", { size: fileScanTestResult.details.total_size_mb || 0 })}
                             </Typography>
-                            <Typography variant="caption" display="block">
+                            <Typography variant="caption" sx={{ display: "block" }}>
                               {t("settingsInterconnector.ui.projectRoot", { root: fileScanTestResult.details.project_root || t("settingsInterconnector.ui.unknown") })}
                             </Typography>
                             {fileScanTestResult.details.critical_files && (
                               <>
-                                <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: "bold" }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ display: "block", mt: 1, fontWeight: "bold" }}
+                                >
                                   {t("settingsInterconnector.ui.criticalFiles")}
                                 </Typography>
                                 {fileScanTestResult.details.critical_files.found && fileScanTestResult.details.critical_files.found.length > 0 && (
-                                  <Typography variant="caption" display="block" sx={{ ml: 2, color: "success.main" }}>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ display: "block", ml: 2, color: "success.main" }}
+                                  >
                                     {t("settingsInterconnector.ui.found", { files: fileScanTestResult.details.critical_files.found.join(", ") })}
                                   </Typography>
                                 )}
                                 {fileScanTestResult.details.critical_files.missing && fileScanTestResult.details.critical_files.missing.length > 0 && (
-                                  <Typography variant="caption" display="block" sx={{ ml: 2, color: "error.main" }}>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ display: "block", ml: 2, color: "error.main" }}
+                                  >
                                     {t("settingsInterconnector.ui.missing", { files: fileScanTestResult.details.critical_files.missing.join(", ") })}
                                   </Typography>
                                 )}
@@ -1275,13 +1284,16 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                             )}
                             {fileScanTestResult.details.by_directory && Object.keys(fileScanTestResult.details.by_directory).length > 0 && (
                               <>
-                                <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: "bold" }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ display: "block", mt: 1, fontWeight: "bold" }}
+                                >
                                   {t("settingsInterconnector.ui.byDirectory")}
                                 </Typography>
                                 {Object.entries(fileScanTestResult.details.by_directory)
                                   .slice(0, 5)
                                   .map(([dir, info]) => (
-                                    <Typography key={dir} variant="caption" display="block" sx={{ ml: 2 }}>
+                                    <Typography key={dir} variant="caption" sx={{ display: "block", ml: 2 }}>
                                       {t("settingsInterconnector.ui.directoryLine", { dir, count: info.count, size: Math.round(info.size / 1024) })}
                                     </Typography>
                                   ))}
@@ -1289,16 +1301,26 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                             )}
                             {fileScanTestResult.details.sample_files && fileScanTestResult.details.sample_files.length > 0 && (
                               <>
-                                <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: "bold" }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ display: "block", mt: 1, fontWeight: "bold" }}
+                                >
                                   {t("settingsInterconnector.ui.sampleFiles")}
                                 </Typography>
                                 {fileScanTestResult.details.sample_files.slice(0, 5).map((f, idx) => (
-                                  <Typography key={idx} variant="caption" display="block" sx={{ ml: 2, fontFamily: "monospace", fontSize: "0.7rem" }}>
+                                  <Typography
+                                    key={idx}
+                                    variant="caption"
+                                    sx={{ display: "block", ml: 2, fontFamily: "monospace", fontSize: "0.7rem" }}
+                                  >
                                     {f.path}
                                   </Typography>
                                 ))}
                                 {fileScanTestResult.details.sample_files.length > 5 && (
-                                  <Typography variant="caption" display="block" sx={{ ml: 2, fontStyle: "italic" }}>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ display: "block", ml: 2, fontStyle: "italic" }}
+                                  >
                                     {t("settingsInterconnector.ui.andMoreSpaced", { count: fileScanTestResult.details.sample_files.length - 5 })}
                                   </Typography>
                                 )}
@@ -1315,13 +1337,13 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
               {/* Client Mode Configuration */}
               {config.node_mode === "client" && (
                 <>
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Divider sx={{ my: 1 }}>
                       <Chip label={t("settingsInterconnector.ui.masterConnection")} size="small" />
                     </Divider>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <TextField
                       fullWidth
                       label={t("settingsInterconnector.ui.masterAddress")}
@@ -1332,7 +1354,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     />
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <TextField
                       fullWidth
                       label={t("settingsInterconnector.ui.masterApiKey")}
@@ -1344,8 +1366,8 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     />
                   </Grid>
 
-                  <Grid item xs={12}>
-                    <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+                  <Grid size={12}>
+                    <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
                       <Button
                         variant="outlined"
                         size="small"
@@ -1366,20 +1388,20 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     </Box>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <FleetMembership identity={localIdentity} />
                   </Grid>
                 </>
               )}
 
               {/* Sync Settings */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Divider sx={{ my: 1 }}>
                   <Chip label={t("settingsInterconnector.ui.syncSettings")} size="small" />
                 </Divider>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="body2" gutterBottom>
                   {t("settingsInterconnector.ui.syncOptions")}
                 </Typography>
@@ -1397,12 +1419,12 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     }}
                   />
                 </Box>
-                <Typography variant="caption" color="text.secondary" display="block">
+                <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                   {t("settingsInterconnector.ui.autoSyncHelp")}
                 </Typography>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
                   type="number"
@@ -1417,16 +1439,18 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     setConfig({ ...config, sync_interval_seconds: clamped });
                   }}
                   disabled={!config.auto_sync_enabled}
-                  inputProps={{ min: 60, max: 3600 }}
                   helperText={t("settingsInterconnector.ui.syncIntervalHelp")}
+                  slotProps={{
+                    htmlInput: { min: 60, max: 3600 }
+                  }}
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="subtitle2" gutterBottom>
                   {t("settingsInterconnector.ui.entitiesToSync")}
                 </Typography>
-                <Box display="flex" gap={1} flexWrap="wrap">
+                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                 {["clients", "projects", "websites"].map((entity) => (
                     <Chip
                       key={entity}
@@ -1449,7 +1473,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
               </Grid>
 
           {/* Save / Cancel Buttons */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
                 variant="contained"
@@ -1484,9 +1508,9 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                   {t("settingsInterconnector.ui.currentStatus")}
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6} md={3}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Box>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("settingsInterconnector.ui.mode")}
                       </Typography>
                       <Chip
@@ -1497,17 +1521,17 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                       />
                     </Box>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Box>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("settingsInterconnector.ui.nodeName")}
                       </Typography>
                       <Typography variant="body2">{status.node_name || t("settingsInterconnector.ui.notSet")}</Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Box>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("settingsInterconnector.ui.autoSync")}
                       </Typography>
                       <Chip
@@ -1517,9 +1541,9 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                       />
                     </Box>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Box>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("settingsInterconnector.ui.lastSync")}
                       </Typography>
                       <Typography variant="body2">
@@ -1558,7 +1582,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                   <Typography variant="h6" gutterBottom>
                     {t("settingsInterconnector.ui.advancedTitle")}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography variant="body2" gutterBottom sx={{ color: "text.secondary" }}>
                     {t("settingsInterconnector.ui.advancedHelp")}
                   </Typography>
 
@@ -1581,7 +1605,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                         ))}
                       </Select>
                     </FormControl>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
                       {t("settingsInterconnector.ui.profilesHelp")}
                     </Typography>
                   </Box>
@@ -1591,10 +1615,10 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     <Typography variant="subtitle2" gutterBottom>
                       {t("settingsInterconnector.ui.dataSync")}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <Typography variant="body2" gutterBottom sx={{ color: "text.secondary" }}>
                       {t("settingsInterconnector.ui.dataSyncHelp")}
                     </Typography>
-                    <Box display="flex" gap={1} flexWrap="wrap" mt={1}>
+                    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
                       <Button
                         variant="contained"
                         size="small"
@@ -1623,16 +1647,16 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     </Box>
 
                     {isSyncingData && (
-                      <Box mt={2}>
+                      <Box sx={{ mt: 2 }}>
                         <LinearProgress />
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                        <Typography variant="caption" sx={{ color: "text.secondary", mt: 1 }}>
                           {t("settingsInterconnector.ui.synchronizing")}
                         </Typography>
                       </Box>
                     )}
 
                     {dataSyncResults && !isSyncingData && (
-                      <Box mt={2}>
+                      <Box sx={{ mt: 2 }}>
                         {dataSyncResults.error ? (
                           <Alert severity="error">{dataSyncResults.error}</Alert>
                         ) : (
@@ -1641,7 +1665,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                               {t("settingsInterconnector.ui.dataSyncCompleted")}
                             </Typography>
                             {dataSyncResults.summary && (
-                              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                              <Typography variant="caption" sx={{ display: "block", mt: 1 }}>
                                 {t("settingsInterconnector.ui.dataSummary", {
                                   processed: dataSyncResults.summary.total_processed || 0,
                                   created: dataSyncResults.summary.total_created || 0,
@@ -1664,7 +1688,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     <Typography variant="subtitle2" gutterBottom>
                       {t("settingsInterconnector.ui.outputs")}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <Typography variant="body2" gutterBottom sx={{ color: "text.secondary" }}>
                       {t("settingsInterconnector.ui.outputsHelp")}
                     </Typography>
                     <Button
@@ -1689,12 +1713,19 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                             {outputsIndex.files && outputsIndex.files.length > 0 && (
                               <Box sx={{ mt: 1 }}>
                                 {outputsIndex.files.slice(0, 5).map((f, idx) => (
-                                  <Typography key={idx} variant="caption" display="block" sx={{ fontFamily: "monospace" }}>
+                                  <Typography
+                                    key={idx}
+                                    variant="caption"
+                                    sx={{ display: "block", fontFamily: "monospace" }}
+                                  >
                                     {t("settingsInterconnector.ui.outputFile", { path: f.path, size: Math.round((f.size || 0) / 1024) })}
                                   </Typography>
                                 ))}
                                 {outputsIndex.files.length > 5 && (
-                                  <Typography variant="caption" display="block" sx={{ fontStyle: "italic" }}>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ display: "block", fontStyle: "italic" }}
+                                  >
                                     {t("settingsInterconnector.ui.andMore", { count: outputsIndex.files.length - 5 })}
                                   </Typography>
                                 )}
@@ -1713,7 +1744,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     <Typography variant="subtitle2" gutterBottom>
                       {t("settingsInterconnector.ui.legacyCodeSync")}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <Typography variant="body2" gutterBottom sx={{ color: "text.secondary" }}>
                       {t("settingsInterconnector.ui.legacyHelp")}
                     </Typography>
                     <Button
@@ -1728,16 +1759,16 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                     </Button>
 
                     {isSyncingCode && (
-                      <Box mt={2}>
+                      <Box sx={{ mt: 2 }}>
                         <LinearProgress />
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                        <Typography variant="caption" sx={{ color: "text.secondary", mt: 1 }}>
                           {t("settingsInterconnector.ui.pullingUpdates")}
                         </Typography>
                       </Box>
                     )}
 
                     {codeSyncResults && !isSyncingCode && (
-                      <Box mt={2}>
+                      <Box sx={{ mt: 2 }}>
                         {codeSyncResults.error ? (
                           <Alert severity="error">{codeSyncResults.error}</Alert>
                         ) : (
@@ -1746,7 +1777,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                               {t("settingsInterconnector.ui.codeSyncCompleted")}
                             </Typography>
                             {codeSyncResults.files && (
-                              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                              <Typography variant="caption" sx={{ display: "block", mt: 1 }}>
                                 {t("settingsInterconnector.ui.codeSummary", {
                                   processed: codeSyncResults.files.summary?.total_processed || 0,
                                   created: codeSyncResults.files.summary?.total_created || 0,
@@ -1766,7 +1797,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
 
                   {/* Pending Approvals */}
                   <Box>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                       <Typography variant="subtitle2">{t("settingsInterconnector.ui.pendingApprovals")}</Typography>
                       <Button size="small" onClick={loadApprovals} startIcon={<RefreshIcon />} disabled={isLoadingApprovals}>
                         {t("settingsInterconnector.ui.refresh")}
@@ -1835,9 +1866,9 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
           {/* Connected Nodes (Master Mode Only) */}
           {config.node_mode === "master" && (
             <Paper elevation={2} sx={{ p: 3 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                 <Typography variant="h6">{t("settingsInterconnector.ui.connectedNodes")}</Typography>
-                <Box display="flex" gap={1} alignItems="center">
+                <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                   <Button variant="contained" size="small" onClick={handleBroadcastAll}>
                     {t("settingsInterconnector.ui.broadcastAll")}
                   </Button>
@@ -1885,7 +1916,7 @@ const InterconnectorSettings = ({ startConnecting = false }) => {
                                 : t("settingsInterconnector.ui.never")}
                             </TableCell>
                             <TableCell align="right">
-                              <Box display="flex" gap={1} justifyContent="flex-end" alignItems="center">
+                              <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", alignItems: "center" }}>
                                 <Tooltip title={t("settingsInterconnector.ui.testClient")}>
                                   <span>
                                     <IconButton

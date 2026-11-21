@@ -60,17 +60,19 @@ const ComfyUILifecycleSection = ({ title = "ComfyUI", onChange }) => {
             checked={external}
             disabled={saving || state.env_writable === false}
             onChange={(e) => update(e.target.checked)}
-            inputProps={{ "data-testid": "comfyui-external" }}
+            slotProps={{
+              input: { "data-testid": "comfyui-external" }
+            }}
           />
         }
         label={<Typography variant="body2">{t("settingsSections.comfyui.external")}</Typography>}
       />
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {t("settingsSections.comfyui.note")}
         {state.env_writable === false ? ` ${t("settingsSections.comfyui.envNotWritable")}` : ""}
       </Typography>
       {external && (
-        <Typography variant="caption" color="text.secondary" data-testid="comfyui-external-models">
+        <Typography variant="caption" data-testid="comfyui-external-models" sx={{ color: "text.secondary" }}>
           {t("settingsSections.comfyui.models")}
         </Typography>
       )}

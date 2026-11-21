@@ -3372,7 +3372,6 @@ const SettingsPage = () => {
                 size="small"
                 type="number"
                 label={label}
-                inputProps={{ min: 0, max: 1.5, step: 0.05 }}
                 value={mediaModels.character_lora_strength?.[key] ?? def}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -3392,6 +3391,9 @@ const SettingsPage = () => {
                   }
                 }}
                 onBlur={(e) => saveLoraStrength(key, field, label, e.target.value)}
+                slotProps={{
+                  htmlInput: { min: 0, max: 1.5, step: 0.05 }
+                }}
               />
               <StatusPill
                 tone={
@@ -4149,7 +4151,7 @@ const SettingsPage = () => {
       variant="standard"
       actions={
         appVersion ? (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             v{appVersion}
           </Typography>
         ) : null

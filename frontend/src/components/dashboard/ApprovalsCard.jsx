@@ -87,7 +87,7 @@ const ReviewRow = ({ chip, chipColor = "default", text, when, onOpen, label }) =
         {text}
       </Typography>
       {when && (
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.65rem" }}>
           {when}
         </Typography>
       )}
@@ -209,12 +209,12 @@ const ApprovalsCard = React.forwardRef(
                   className="non-draggable"
                   sx={{ p: 0.75, mb: 0.75, border: 1, borderColor: "divider", borderRadius: 1 }}
                 >
-                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
+                  <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mb: 0.5 }}>
                     <Chip label={draft.platform} size="small" variant="outlined" sx={{ fontSize: "0.6rem", height: 18 }} />
                     <Typography variant="caption" noWrap sx={{ minWidth: 0, flex: 1 }}>
                       {draft.action}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem", flexShrink: 0 }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.65rem", flexShrink: 0 }}>
                       {formatWhen(draft.created_at)}
                     </Typography>
                   </Stack>
@@ -249,9 +249,7 @@ const ApprovalsCard = React.forwardRef(
                     direction="row"
                     spacing={0.5}
                     useFlexGap
-                    flexWrap="wrap"
-                    alignItems="center"
-                    sx={{ mt: 0.5, "& > .MuiButton-root": { flexShrink: 0, maxWidth: "100%" } }}
+                    sx={{ flexWrap: "wrap", alignItems: "center", mt: 0.5, "& > .MuiButton-root": { flexShrink: 0, maxWidth: "100%" } }}
                   >
                     <Button
                       size="small"

@@ -114,12 +114,13 @@ const SevenDayTimePicker = ({ value, onChange, disabled = false }) => {
           type="time"
           value={time}
           onChange={(e) => setTime(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          inputProps={{ step: 300 }}
           disabled={disabled}
           size="small"
           sx={{ input: { bgcolor: theme.palette.background.paper } }}
-        />
+          slotProps={{
+            htmlInput: { step: 300 },
+            inputLabel: { shrink: true }
+          }} />
       )}
     </Box>
   );

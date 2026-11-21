@@ -47,7 +47,7 @@ export const AtTimeDialog = ({ open, onClose, onPick, initial }) => {
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>{t("jobs.nightShift.atTitle")}</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
           {t("jobs.nightShift.atIntro")}
         </Typography>
         <TextField
@@ -56,7 +56,7 @@ export const AtTimeDialog = ({ open, onClose, onPick, initial }) => {
           fullWidth
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          inputProps={{ "aria-label": t("jobs.nightShift.atField"), "data-testid": "schedule-at-input" }}
+          slotProps={{ htmlInput: { "aria-label": t("jobs.nightShift.atField"), "data-testid": "schedule-at-input" } }}
           error={Boolean(value) && inPast}
           helperText={value && inPast ? t("jobs.nightShift.atPast") : " "}
         />
