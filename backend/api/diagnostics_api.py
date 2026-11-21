@@ -722,8 +722,10 @@ def run_selftest():
             os.getenv("ADVANCED_DEBUG", "false").lower() == "true")
 
     if advanced_debug_enabled and include_legacy:
-        logger.debug("pip check output:\n%s", pip_check.stdout.strip())
-        logger.debug("pip list outdated:\n%s", outdated.stdout.strip())
+        # The recorded results, not the subprocess objects: neither exists
+        # when its check was skipped (web access off) or timed out.
+        logger.debug("pip check output:\n%s", legacy_results.get("pip_check"))
+        logger.debug("pip list outdated:\n%s", legacy_results.get("pip_outdated"))
 
     overall_status = _determine_overall_status(results)
     results["overall_status"] = overall_status
