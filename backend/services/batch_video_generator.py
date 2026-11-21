@@ -136,6 +136,10 @@ def _get_video_logger():
 # reference inputs a reference-to-video item renders from.
 ITEM_METADATA_KEYS = ("ref_images", "ref_videos", "ref_audios")
 
+# Render options the generate routes store on the batch's metadata that the
+# clip graph reads from each clip's request metadata. An item's own value wins.
+BATCH_RENDER_OPTIONS = ("upscale", "teacache_threshold", "feta_weight", "steps_explicit")
+
 
 def _finished_results(raw_results, item_ids, batch_dir) -> List["BatchVideoResult"]:
     """Successful results from a batch's saved metadata whose clip file still
@@ -1407,6 +1411,10 @@ class BatchVideoGenerator:
 
                     try:
                         meta = dict(item.metadata or {})
+                        batch_meta = batch_request.metadata or {}
+                        for key in BATCH_RENDER_OPTIONS:
+                            if key not in meta and batch_meta.get(key) is not None:
+                                meta[key] = batch_meta[key]
                         meta.setdefault("item_id", item.id)
                         # The ComfyUI progress bridge tags the clip's video_render events with it.
                         meta.setdefault("batch_id", batch_request.batch_id)
