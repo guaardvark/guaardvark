@@ -36,6 +36,7 @@ import { useSearchParams } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
 import CancelIcon from "@mui/icons-material/Cancel";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import PauseIcon from "@mui/icons-material/Pause";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import CodeIcon from "@mui/icons-material/Code";
 import TableChartIcon from "@mui/icons-material/TableChart";
@@ -55,7 +56,7 @@ import {
   getWebsite,
 } from "../api";
 import { TASK_PARAMS } from "../utils/entityLinks";
-import { listJobs, cancelJob as cancelUnifiedJob, JOB_KINDS } from "../api/jobsService";
+import { listJobs, cancelJob as cancelUnifiedJob, pauseJob, resumeJob, JOB_KINDS } from "../api/jobsService";
 import { processTaskQueue } from "../api/taskService";
 import { useStatus } from "../contexts/StatusContext";
 import { useUnifiedProgress } from "../contexts/UnifiedProgressContext";
@@ -246,6 +247,29 @@ const TaskPage = () => {
       confirmLabel: t("tasks.video.cancel"),
       run: () => handleCancelVideoGenJob(job.id),
     });
+  };
+
+  // Pause keeps the batch and its finished clips; a running batch stops after
+  // the clip in progress. Resume sends it to the back of the queue.
+  const handlePauseVideoGenJob = async (job, paused) => {
+    try {
+      const res = await (paused ? pauseJob(job.id) : resumeJob(job.id));
+      const ok = paused ? res?.paused : res?.resumed;
+      setFeedback({
+        open: true,
+        message: ok
+          ? t(paused ? (job.status === "running" ? "tasks.video.pausing" : "tasks.video.paused") : "tasks.video.resumed")
+          : res?.reason || t("tasks.video.pauseRefused"),
+        severity: ok ? "success" : "warning",
+      });
+      fetchVideoGenJobs();
+    } catch (err) {
+      setFeedback({
+        open: true,
+        message: formatUiError(err.response?.data?.error) || err.message || t("tasks.video.pauseRefused"),
+        severity: "error",
+      });
+    }
   };
 
   const handleCancelVideoGenJob = async (jobId) => {
@@ -1113,7 +1137,29 @@ const TaskPage = () => {
                         <Typography variant="caption" color="text.secondary">—</Typography>
                       )}
                     </TableCell>
-                    <TableCell align="right">
+                    <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                      {job.metadata?.pausable && (
+                        <ActionButton
+                          startIcon={<PauseIcon />}
+                          onClick={() => handlePauseVideoGenJob(job, true)}
+                          tooltip={t(job.status === "running" ? "tasks.video.pauseRunningHelp" : "tasks.video.pauseHelp")}
+                          sx={{ mr: 1 }}
+                          data-testid={`video-job-pause-${job.native_id}`}
+                        >
+                          {t("tasks.video.pause")}
+                        </ActionButton>
+                      )}
+                      {job.metadata?.resumable && (
+                        <ActionButton
+                          startIcon={<PlayArrowIcon />}
+                          onClick={() => handlePauseVideoGenJob(job, false)}
+                          tooltip={t(job.metadata?.pause_requested ? "tasks.video.keepGoingHelp" : "tasks.video.resumeHelp")}
+                          sx={{ mr: 1 }}
+                          data-testid={`video-job-resume-${job.native_id}`}
+                        >
+                          {t(job.metadata?.pause_requested ? "tasks.video.keepGoing" : "tasks.video.resume")}
+                        </ActionButton>
+                      )}
                       {job.cancellable && (
                         <ActionButton
                           startIcon={<CancelIcon />}

@@ -108,6 +108,18 @@ export const cancelJob = async (jobId) => {
   return res.data;
 };
 
+// Pause holds a job without losing it (a video batch keeps its finished
+// clips; a running one stops after the clip in progress). Resume lets it go on.
+export const pauseJob = async (jobId) => {
+  const res = await axios.post(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/pause`);
+  return res.data;
+};
+
+export const resumeJob = async (jobId) => {
+  const res = await axios.post(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/resume`);
+  return res.data;
+};
+
 // Phase 9 — GET /api/jobs/gate. Returns a JobOperationGate snapshot:
 // {gpu_busy, gpu_holder: {kind, native_id, duration_s}, gpu_cooldown_remaining_s,
 //  gpu_waiting: ["kind:native_id"], in_progress: {kind: [native_id]}, gpu_exclusive_kinds: [...]}.

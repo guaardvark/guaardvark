@@ -594,6 +594,36 @@ def cancel_job_route(job_id: str):
     }), 200
 
 
+def _set_paused(job_id: str, paused: bool):
+    try:
+        kind, native_id = parse_job_id(job_id)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    from backend.services.job_pause import set_paused
+    ok = set_paused(kind, native_id, paused)
+    word = "paused" if paused else "resumed"
+    return jsonify({
+        "id": job_id,
+        word: ok,
+        "reason": None if ok else f"This job cannot be {word} in its current state",
+    }), 200
+
+
+@unified_jobs_resource_bp.route("/<path:job_id>/pause", methods=["POST"])
+def pause_job_route(job_id: str):
+    """Hold a job without losing it: a video batch (it finishes the clip in
+    progress first) or a scheduled job. ``{paused: false, reason}`` for a
+    kind that cannot be paused."""
+    return _set_paused(job_id, True)
+
+
+@unified_jobs_resource_bp.route("/<path:job_id>/resume", methods=["POST"])
+def resume_job_route(job_id: str):
+    """Let a paused video batch run again; it goes to the back of the line and
+    renders the clips it has not finished."""
+    return _set_paused(job_id, False)
+
+
 @unified_jobs_resource_bp.route("/<path:job_id>", methods=["GET"])
 def job_detail(job_id: str):
     """Fetch one job by wire-format id ('kind:native_id').

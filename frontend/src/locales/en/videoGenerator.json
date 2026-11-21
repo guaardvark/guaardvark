@@ -6,7 +6,8 @@
     "processing": "processing",
     "completed": "completed",
     "error": "error",
-    "cancelled": "cancelled"
+    "cancelled": "cancelled",
+    "paused": "paused"
   },
   "errors": {
     "requestFailed": "the request failed",
@@ -152,7 +153,14 @@
     "failed": "({{count}} failed)",
     "cancelRunning": "Cancel — interrupts ComfyUI mid-frame",
     "remove": "Remove from queue",
-    "cancelAria": "cancel batch"
+    "cancelAria": "cancel batch",
+    "pause": "Pause: gives up its place in the queue until you resume it",
+    "pauseRunning": "Pause after the clip in progress. The finished clips are kept and the GPU is freed.",
+    "pauseAria": "pause batch",
+    "pausing": "pausing",
+    "resume": "Resume: goes to the back of the queue and renders the clips it has not finished",
+    "keepGoing": "Keep going: call off the pause",
+    "resumeAria": "resume batch"
   },
   "mode": {
     "title": "Mode",

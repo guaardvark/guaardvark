@@ -15,6 +15,7 @@ export const batchStatusLabel = (status) => ({
   completed: translate("videoGenerator.status.completed"),
   error: translate("videoGenerator.status.error"),
   cancelled: translate("videoGenerator.status.cancelled"),
+  paused: translate("videoGenerator.status.paused"),
 })[status] || status || "";
 
 /** The path part of a local or absolute path a response carries. */

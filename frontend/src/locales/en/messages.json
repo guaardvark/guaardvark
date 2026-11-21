@@ -295,7 +295,10 @@
     "approveFailed": "Approve failed: {{reason}}",
     "rerenderFailedStatus": "Re-render failed: HTTP {{status}}",
     "rerendering": "Re-rendering as {{newBatchId}}. The held clip stays in {{batchId}}.",
-    "rerenderFailed": "Re-render failed: {{reason}}"
+    "rerenderFailed": "Re-render failed: {{reason}}",
+    "pausing": "The batch pauses after the clip in progress.",
+    "pauseFailed": "Pause failed: {{reason}}.",
+    "resumeFailed": "Resume failed: {{reason}}."
   },
   "unsavedChanges": {
     "leaveConfirm": "You have unsaved changes on this page. Leave and discard them?"
