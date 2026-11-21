@@ -63,6 +63,17 @@ const BUILT_IN_COMMANDS = [
     ruleId: null,
   },
   {
+    name: "/schedule",
+    get description() {
+      return translate("options.slashCommands.schedule");
+    },
+    usage: "/schedule <what to make> <when> | list",
+    category: "generation",
+    args: "optional",
+    handler: "builtin",
+    ruleId: null,
+  },
+  {
     name: "/music-video",
     get description() {
       return translate("options.slashCommands.musicVideo");

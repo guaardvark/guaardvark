@@ -26,6 +26,7 @@ import { useUnifiedProgress } from '../../contexts/UnifiedProgressContext';
 import DragDropImageUpload from './DragDropImageUpload';
 import { kindLabel, trainingStatusLabel } from './CastLibraryView';
 import { useUiTranslation } from '../../i18n';
+import ScheduleRequestButton from '../jobs/ScheduleRequestButton';
 
 const CastingPanel = ({ productionId, onCastingConfirmed }) => {
   const { t } = useUiTranslation();
@@ -303,7 +304,18 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
           </TableBody>
         </Table>
       </TableContainer>
-      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+        <ScheduleRequestButton
+          disabled={confirming || !isAllConfirmed()}
+          tooltip={t('filmCrew.schedule.storyboardsHelp')}
+          job={() => ({
+            type: 'film_crew',
+            variant: 'storyboards',
+            name: t('filmCrew.schedule.storyboardsName', { id: productionId }),
+            path: { prod_id: productionId },
+            request: {},
+          })}
+        />
         <Button 
           variant="contained" 
           color="primary" 

@@ -50,6 +50,25 @@ export const uploadAndUpscale = async (file, options = {}) => {
   return handleResponse(response);
 };
 
+// Upload a video without starting it. Resolves to the request a scheduled
+// upscale sends later ({ request, filename }).
+export const uploadForLater = async (file, options = {}) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("save_for_later", "true");
+  if (options.model) formData.append("model", options.model);
+  if (options.scale) formData.append("scale", String(options.scale));
+  if (options.target_width) formData.append("target_width", String(options.target_width));
+  if (options.two_pass) formData.append("two_pass", "true");
+  if (options.face_enhance) formData.append("face_enhance", "true");
+  if (options.double_fps) formData.append("double_fps", "true");
+  if (options.sharpen !== undefined) formData.append("sharpen", String(options.sharpen));
+  if (options.denoise_strength !== undefined) formData.append("denoise_strength", String(options.denoise_strength));
+  const response = await fetch(`${BASE_URL}/upload`, { method: "POST", body: formData });
+  const parsed = await handleResponse(response);
+  return parsed?.data ?? parsed;
+};
+
 const appendImageOptions = (formData, options) => {
   if (options.model) formData.append("model", options.model);
   if (options.scale) formData.append("scale", String(options.scale));
@@ -177,6 +196,7 @@ export default {
   getModels,
   downloadModel,
   uploadAndUpscale,
+  uploadForLater,
   upscaleImage,
   upscaleImages,
   upscaleVideo,

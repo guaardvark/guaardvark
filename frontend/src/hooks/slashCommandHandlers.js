@@ -30,6 +30,7 @@ export async function executeBuiltinCommand(name, args, context) {
     "/outpaint": handleOutpaint,
     "/identity": handleIdentity,
     "/video": handleVideo,
+    "/schedule": handleSchedule,
     "/music-video": handleMusicVideo,
     "/film-crew": handleFilmCrew,
     "/websearch": handleWebSearch,
@@ -500,6 +501,13 @@ async function handleVideo(args, { addMessage, onSendMessage }) {
     slash_args: args,
   });
 
+  return { handled: true };
+}
+
+// /schedule <what to make> <when> | list | remove N | run N | pause N
+// The backend reads the text (schedulable.read_command) and answers in chat.
+async function handleSchedule(args, { onSendMessage }) {
+  onSendMessage(`/schedule ${args || "list"}`.trim(), null);
   return { handled: true };
 }
 

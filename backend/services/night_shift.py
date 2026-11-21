@@ -274,6 +274,8 @@ def _other_work() -> Optional[str]:
             continue
         if job.get("status") == "pending" and meta.get("next_run_at"):
             continue  # a recurring job between runs
+        if job.get("status") == "paused":
+            continue  # held by a person; it holds no GPU
         return f"another job is in progress: {job.get('label') or job.get('id')}"
     try:
         from backend.services.chat_keep_ready import _gpu_busy_reason
@@ -423,6 +425,23 @@ def schedule(task_id: int, when: str, at: Optional[datetime.datetime] = None) ->
     return {"task_id": task_id, "when": when, "queue_rank": rank}
 
 
+def hold(task_id: int) -> bool:
+    """Pause a scheduled job: it keeps its place in the list but has no time
+    and is not started until it is scheduled again or run now. False when the
+    job is not waiting."""
+    s = _session()
+    try:
+        changed = s.execute(
+            text("UPDATE tasks SET schedule_type = 'immediate', due_date = NULL, queue_rank = NULL, "
+                 "updated_at = :utc WHERE id = :id AND status = :w"),
+            {"utc": _utcnow(), "id": int(task_id), "w": WAITING},
+        ).rowcount
+        s.commit()
+    finally:
+        s.close()
+    return changed == 1
+
+
 def create_handoff_job(task_type: str, name: str, request_body: dict, variant: Optional[str],
                        when: str, at: Optional[datetime.datetime] = None,
                        path: Optional[dict] = None) -> dict:
@@ -473,7 +492,7 @@ def schedule_tool_call(tool: str, arguments: dict, name: str, when: str,
         raise ValueError(f"{tool!r} cannot be scheduled; the tools that can: "
                          f"{', '.join(sorted(schedulable.SCHEDULABLE_TOOLS))}")
     if tool in schedulable.PERSON_ONLY_TOOLS and not by_person:
-        raise ValueError(f"{tool} needs your approval when it runs, so chat cannot schedule it. "
+        raise ValueError(f"{tool} needs your approval when it runs, so it cannot be scheduled from chat or an MCP client. "
                          "Schedule it yourself: Jobs page, Scheduled card, Schedule a job.")
     return create_handoff_job("tool_call", name or tool.replace("_", " ").capitalize(),
                               schedulable.tool_request(tool, arguments), None, when, at)

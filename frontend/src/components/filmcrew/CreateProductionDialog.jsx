@@ -16,6 +16,7 @@ import {
   Typography
 } from '@mui/material';
 import { getProjects } from '../../api/projectService';
+import ScheduleRequestButton from '../jobs/ScheduleRequestButton';
 import { useUiTranslation } from '../../i18n';
 
 const API_BASE = '/api';
@@ -63,6 +64,20 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
     }
   };
 
+  // What Create sends now and a scheduled production sends later.
+  const productionPayload = () => {
+    const settings = {
+      ...(videoModel ? { video_model: videoModel } : {}),
+      ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+    };
+    return {
+      name,
+      script_text: scriptText,
+      project_id: projectId?.id || null,
+      ...(Object.keys(settings).length ? { settings } : {})
+    };
+  };
+
   const handleSubmit = async () => {
     if (!name || !scriptText) {
       setError(t('filmCrew.create.required'));
@@ -72,16 +87,7 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
     setLoading(true);
     setError(null);
     try {
-      const settings = {
-        ...(videoModel ? { video_model: videoModel } : {}),
-        ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
-      };
-      const payload = {
-        name,
-        script_text: scriptText,
-        project_id: projectId?.id || null,
-        ...(Object.keys(settings).length ? { settings } : {})
-      };
+      const payload = productionPayload();
       await onCreated(payload);
       onClose();
       // Reset form
@@ -177,6 +183,17 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={loading}>{t('filmCrew.create.cancel')}</Button>
+        <ScheduleRequestButton
+          disabled={loading || !name || !scriptText}
+          tooltip={t('filmCrew.schedule.startHelp')}
+          onScheduled={onClose}
+          job={() => ({
+            type: 'film_crew',
+            variant: 'start',
+            name: t('filmCrew.schedule.startName', { name }),
+            request: productionPayload(),
+          })}
+        />
         <Button 
           onClick={handleSubmit} 
           variant="contained" 

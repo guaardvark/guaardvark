@@ -72,6 +72,9 @@ class Handoff:
     starts: dict
     status: Optional[str] = None
     cancel: Optional[str] = None
+    # Routes that hold the job without losing it and let it go on.
+    pause: Optional[str] = None
+    resume: Optional[str] = None
     cancel_method: str = "POST"
     cancel_body: Optional[dict] = None
     id_keys: tuple = ("batch_id",)
@@ -132,6 +135,31 @@ def _read_lesson_replay(data: dict) -> dict:
             "summary": summary, "error": last.get("failure_reason") or summary}
 
 
+_FILM_STAGE_PERCENT = {"screenwriting": 10, "casting": 25, "cinematography": 40, "storyboard_gen": 55,
+                       "awaiting_approval": 70, "rendering": 85}
+
+
+def _read_film_crew(data: dict) -> dict:
+    """A scheduled leg of a production ends where the crew next needs a
+    person (casting, storyboard approval) or when the film is finished."""
+    stage = str(data.get("current_stage") or "")
+    status = str(data.get("status") or "").lower()
+    blob = data.get("error_blob") if isinstance(data.get("error_blob"), dict) else {}
+    ended = summary = None
+    if status.startswith("failed"):
+        ended, summary = "failed", "The production failed"
+    elif status.startswith("cancelled"):
+        ended, summary = "cancelled", "The production was cancelled"
+    elif stage == "complete" or status == "complete":
+        ended, summary = "completed", "The film is finished"
+    elif stage == "casting":
+        ended, summary = "completed", "The screenplay is written; casting waits for you on the Film Crew page"
+    elif stage == "awaiting_approval":
+        ended, summary = "completed", "The storyboards are drawn; approve them on the Film Crew page to render"
+    return {"ended": ended, "percent": _FILM_STAGE_PERCENT.get(stage), "summary": summary or "",
+            "error": blob.get("message") or blob.get("error")}
+
+
 def _read_tool_job(data: dict) -> dict:
     result = data.get("result") if isinstance(data.get("result"), dict) else {}
     ended = {"done": "completed", "failed": "failed"}.get(str(data.get("status") or ""))
@@ -162,6 +190,7 @@ HANDOFFS: dict[str, Handoff] = {
         },
         status="/api/batch-video/status/{id}",
         cancel="/api/batch-video/batch/{id}/cancel",
+        pause="/api/batch-video/batch/{id}/pause", resume="/api/batch-video/batch/{id}/resume",
         total="total_videos", done="completed_videos", failed="failed_videos",
         percent="progress_pct", noun="clips",
     ),
@@ -204,6 +233,17 @@ HANDOFFS: dict[str, Handoff] = {
         id_keys=("job_id",), always={"async": True}, done_keys=("path",),
         status="/api/audio-foundry/jobs/{id}", cancel="/api/audio-foundry/jobs/{id}/cancel",
         noun="songs",
+    ),
+    # One leg of a production per job: write the screenplay (to casting), draw
+    # the storyboards (to approval), or render the film. Each stops where the
+    # crew needs a person.
+    "film_crew": Handoff(
+        label="Film Crew", page="/film-crew",
+        starts={"start": "/api/production",
+                "storyboards": "/api/production/{prod_id}/casting/confirm",
+                "render": "/api/production/{prod_id}/storyboard/approve"},
+        id_keys=("id", "production_id"), id_from_path="prod_id", empty_body=True,
+        status="/api/production/{id}", read=_read_film_crew,
     ),
     "swarm": Handoff(
         label="Coding swarm", page="/swarm",
@@ -322,6 +362,30 @@ def cancel(task_type: Optional[str], handler_config: Any) -> bool:
         return False
 
 
+def set_paused(task_type: Optional[str], handler_config: Any, paused: bool) -> bool:
+    """Pause or resume the job a handed-off row is following. False when the
+    row has no job yet, its kind cannot be paused, or the backend refused."""
+    from backend.utils.backend_http import BackendError
+
+    ref = _ref(handler_config)
+    kind = HANDOFFS.get((ref or {}).get("kind") or task_type or "")
+    route = (kind.pause if paused else kind.resume) if kind else None
+    if not ref or not route:
+        return False
+    try:
+        _call("POST", route.format(**{**(ref.get("path") or {}), "id": ref["batch_id"]}))
+        return True
+    except BackendError as e:
+        logger.warning("could not %s %s %s: %s", "pause" if paused else "resume", kind.label, ref["batch_id"], e)
+        return False
+
+
+def can_pause(task_type: Optional[str], handler_config: Any) -> bool:
+    ref = _ref(handler_config)
+    kind = HANDOFFS.get((ref or {}).get("kind") or task_type or "")
+    return bool(ref and kind and kind.pause)
+
+
 def _utcnow() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
@@ -333,7 +397,8 @@ def _read_fields(kind: Handoff, data: dict) -> dict:
         percent = float(_dig(data, kind.percent)) * kind.percent_scale
     except (TypeError, ValueError):
         percent = 100 * (done + failed) / total if total else 0
-    ended = _ENDED.get(str(_dig(data, kind.state) or "").lower())
+    word = str(_dig(data, kind.state) or "").lower()
+    ended = _ENDED.get(word)
     if total:
         summary = f"{done} of {total} {kind.noun} done" + (f", {failed} failed" if failed else "")
         # A batch that ended with nothing rendered failed, whatever word it ended on.
@@ -342,7 +407,7 @@ def _read_fields(kind: Handoff, data: dict) -> dict:
     else:
         summary = f"{kind.label} finished" if ended == "completed" else f"{kind.label} ended"
     error = next((_dig(data, k) for k in kind.error if _dig(data, k)), None)
-    return {"ended": ended, "percent": percent, "summary": summary, "error": error}
+    return {"ended": ended, "percent": percent, "summary": summary, "error": error, "paused": word == "paused"}
 
 
 def sync(session_factory) -> dict:
@@ -360,7 +425,8 @@ def sync(session_factory) -> dict:
     s = session_factory()
     try:
         rows = s.execute(
-            text("SELECT id, type, handler_config FROM tasks WHERE status = 'in-progress' AND type = ANY(:kinds)"),
+            text("SELECT id, type, handler_config FROM tasks WHERE status IN ('in-progress', 'paused') "
+                 "AND type = ANY(:kinds)"),
             {"kinds": list(HANDOFFS)},
         ).fetchall()
         for task_id, task_type, config in rows:
@@ -381,10 +447,10 @@ def sync(session_factory) -> dict:
                     update["err"] = ("the backend restarted while this job was running" if reason == "restarted"
                                      else f"{kind.label} {ref['batch_id']} is no longer known to the backend")
                     s.execute(text("UPDATE tasks SET status = 'failed', error_message = :err, updated_at = :utc "
-                                   "WHERE id = :id AND status = 'in-progress'"), update)
+                                   "WHERE id = :id AND status IN ('in-progress', 'paused')"), update)
                     out["ended"] += 1
                 else:
-                    s.execute(text("UPDATE tasks SET updated_at = :utc WHERE id = :id AND status = 'in-progress'"),
+                    s.execute(text("UPDATE tasks SET updated_at = :utc WHERE id = :id AND status IN ('in-progress', 'paused')"),
                               update)
                 s.commit()
                 continue
@@ -402,14 +468,16 @@ def sync(session_factory) -> dict:
                 # The tool queued a render and returned: follow the render.
                 ref = {**ref, "kind": next_kind, "batch_id": str(next_id), "path": {}}
                 s.execute(text("UPDATE tasks SET handler_config = CAST(:config AS JSON), updated_at = :utc "
-                               "WHERE id = :id AND status = 'in-progress'"),
+                               "WHERE id = :id AND status IN ('in-progress', 'paused')"),
                           {**update, "config": json.dumps({"handoff": ref})})
                 s.commit()
                 continue
             if ended is None:
                 update["p"] = percent
-                s.execute(text("UPDATE tasks SET progress = COALESCE(:p, progress), updated_at = :utc "
-                               "WHERE id = :id AND status = 'in-progress'"), update)
+                # A job a person paused shows as paused, and the night shift moves on.
+                update["st"] = "paused" if state.get("paused") else "in-progress"
+                s.execute(text("UPDATE tasks SET status = :st, progress = COALESCE(:p, progress), updated_at = :utc "
+                               "WHERE id = :id AND status IN ('in-progress', 'paused')"), update)
                 s.commit()
                 continue
             summary = str(state.get("summary") or f"{kind.label} ended")
@@ -420,7 +488,7 @@ def sync(session_factory) -> dict:
             )
             s.execute(text("UPDATE tasks SET status = :st, result = :res, error_message = :err, "
                            "progress = COALESCE(:p, progress), updated_at = :utc "
-                           "WHERE id = :id AND status = 'in-progress'"), update)
+                           "WHERE id = :id AND status IN ('in-progress', 'paused')"), update)
             s.commit()
             out["ended"] += 1
     finally:

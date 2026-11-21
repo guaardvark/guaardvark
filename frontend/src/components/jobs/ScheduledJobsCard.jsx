@@ -24,6 +24,7 @@ import {
 } from "@mui/material";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import PauseIcon from "@mui/icons-material/Pause";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
@@ -44,6 +45,7 @@ import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
 const HANDOFF_KINDS = new Set([
   "infographic", "cast_lora", "model_training", "music_video", "music", "upscale", "swarm", "lesson_replay",
+  "film_crew",
   "tool_call",
 ]);
 
@@ -268,6 +270,18 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
                 <PlayArrowIcon fontSize="small" />
               </IconButton>
             </Tooltip>
+            {(row.when === WHEN.NIGHT_SHIFT || row.when === WHEN.AT) && (
+              <Tooltip title={t("jobs.nightShift.pauseJob")}>
+                <IconButton
+                  size="small"
+                  aria-label={t("jobs.nightShift.pauseJobNamed", { name: row.name })}
+                  data-testid={`scheduled-pause-${row.id}`}
+                  onClick={() => act(() => scheduleJob(row.id, { when: WHEN.HOLD }))}
+                >
+                  <PauseIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
             <Tooltip title={t("jobs.nightShift.changeWhen")}>
               <IconButton
                 size="small"

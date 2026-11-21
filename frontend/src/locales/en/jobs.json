@@ -100,7 +100,7 @@
     "holdReason": "Not starting yet: {{reason}}.",
     "noDesktopIdle": "Desktop idle time is not available here, so only activity in Guaardvark counts as someone being at the machine.",
     "loadFailed": "The schedule could not be read: {{error}}",
-    "empty": "Nothing is scheduled. Use Schedule a job here, or Add to night shift on a feature's page.",
+    "empty": "Nothing is scheduled. Use Schedule a job here, Add to night shift on a feature's page, or /schedule in chat.",
     "col": {
       "name": "Job",
       "kind": "Kind",
@@ -120,11 +120,12 @@
       "swarm": "Swarm",
       "lesson_replay": "Lesson replay",
       "tool_call": "Tool",
-      "music": "Song"
+      "music": "Song",
+      "film_crew": "Film Crew"
     },
     "when": {
       "night": "Night shift",
-      "held": "Not started",
+      "held": "On hold",
       "repeats": "Repeats ({{cron}})"
     },
     "late": "Late",
@@ -164,7 +165,9 @@
     "whenLabel": "When",
     "whenNow": "Now",
     "scheduleJob": "Schedule a job",
-    "scheduleJobHelp": "Pick a feature, describe it and say when it should run."
+    "scheduleJobHelp": "Pick a feature, describe it and say when it should run.",
+    "pauseJob": "Pause: keep it in the list without a time. Change when or Run now starts it again.",
+    "pauseJobNamed": "Pause {{name}}"
   },
   "schedule": {
     "title": "Schedule a job",

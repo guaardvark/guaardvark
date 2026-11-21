@@ -50,8 +50,10 @@ import * as upscalingService from "../api/upscalingService";
 import { formatUiError } from "../utils/uiError";
 import { enablePlugin, listPlugins, pluginGateRefusal, startPlugin } from "../api/pluginsService";
 import lazyWithReload from "../utils/lazyWithReload";
-import { translate, useUiTranslation } from "../i18n";
+import { translate, uiLocale, useUiTranslation } from "../i18n";
 import { CardWorkspace } from "../components/board";
+import ScheduleButton from "../components/jobs/ScheduleButton";
+import { createScheduledBatch, WHEN } from "../api/nightShiftService";
 
 const UpscalingModelsModal = lazyWithReload(() =>
   import("../components/modals/UpscalingModelsModal")
@@ -468,6 +470,53 @@ const UpscalingPage = ({ embedded = false }) => {
     if (fileInputRef.current) fileInputRef.current.value = "";
     await Promise.all([fetchJobs(), refreshHealth()]);
     startPolling();
+    setIsUploading(false);
+  };
+
+  // --- Schedule video upscales: upload now, upscale on the night shift or at a time ---
+  const handleScheduleUpscale = async (choice) => {
+    if (selectedFiles.length === 0) return;
+    setIsUploading(true);
+    setError("");
+    setSuccess("");
+    const total = selectedFiles.length;
+    const failures = [];
+    let scheduled = 0;
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      setUploadProgress({ current: i + 1, total, name: file.name });
+      try {
+        const saved = await upscalingService.uploadForLater(file, {
+          model: selectedModel || undefined,
+          target_width: TARGET_PRESETS[targetResolution]?.width,
+          two_pass: twoPass,
+          face_enhance: faceEnhance,
+          double_fps: doubleFps,
+          sharpen: sharpen,
+          denoise_strength: denoiseStrength,
+        });
+        await createScheduledBatch(
+          { type: "upscale", name: t("upscaling.schedule.jobName", { name: file.name }), request: saved.request },
+          choice,
+        );
+        scheduled += 1;
+      } catch (e) {
+        failures.push(`${file.name}: ${e.message || t("upscaling.errors.failedReason")}`);
+      }
+    }
+    setUploadProgress(null);
+    if (scheduled > 0) {
+      setSuccess(
+        choice.when === WHEN.AT
+          ? t("upscaling.schedule.addedAt", { count: scheduled, time: new Date(choice.at).toLocaleString(uiLocale()) })
+          : t("upscaling.schedule.added", { count: scheduled }),
+      );
+      setSelectedFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+    if (failures.length > 0) {
+      setError(t("jobs.nightShift.addFailed", { error: failures.join("; ") }));
+    }
     setIsUploading(false);
   };
 
@@ -1045,6 +1094,13 @@ const UpscalingPage = ({ embedded = false }) => {
                       ? t("upscaling.submit.twoPass", { action: upscaleAction })
                       : upscaleAction}
                 </Button>
+                {mediaKind !== "image" && (
+                  <ScheduleButton
+                    onSchedule={handleScheduleUpscale}
+                    disabled={selectedFiles.length === 0 || isUploading}
+                    tooltip={t("upscaling.schedule.help")}
+                  />
+                )}
               </Stack>
             </CardContent>
           </Card>

@@ -21,6 +21,7 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useUiTranslation, translate } from '../../i18n';
+import ScheduleRequestButton from '../jobs/ScheduleRequestButton';
 
 const escapeXml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -52,7 +53,7 @@ const curatorLine = (advice) => {
 const isCuratorFlagged = (shot) =>
   shot.curator_advice?.verdict === 'flag' && !(shot.approved && shot.approved_by === 'person');
 
-const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApproving }) => {
+const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApproving, productionId }) => {
   const { t } = useUiTranslation();
   const [regenShot, setRegenShot] = useState(null);
   const [promptOverride, setPromptOverride] = useState('');
@@ -109,15 +110,31 @@ const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApp
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">{t('filmCrew.storyboard.title')}</Typography>
         {canApprove && (
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<CheckCircleIcon />}
-            onClick={handleApproveClick}
-            disabled={isApproving}
-          >
-            {isApproving ? t('filmCrew.storyboard.approving') : t('filmCrew.storyboard.approveAll')}
-          </Button>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {productionId != null && (
+              <ScheduleRequestButton
+                disabled={isApproving}
+                tooltip={t('filmCrew.schedule.renderHelp')}
+                job={() => ({
+                  type: 'film_crew',
+                  variant: 'render',
+                  name: t('filmCrew.schedule.renderName', { id: productionId }),
+                  path: { prod_id: productionId },
+                  // Scheduling it is the approval, flagged shots included.
+                  request: { confirm_flagged: true },
+                })}
+              />
+            )}
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<CheckCircleIcon />}
+              onClick={handleApproveClick}
+              disabled={isApproving}
+            >
+              {isApproving ? t('filmCrew.storyboard.approving') : t('filmCrew.storyboard.approveAll')}
+            </Button>
+          </Box>
         )}
       </Box>
       <Grid container spacing={2}>

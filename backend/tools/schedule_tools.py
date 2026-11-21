@@ -1,7 +1,10 @@
 """Chat tools for scheduling: make something later instead of now.
 
   schedule_job    "schedule a video of a fox for tonight", "write that report at 6am"
-  scheduled_jobs  "what's scheduled?", "remove job 91", "run job 91 now"
+  scheduled_jobs  "what's scheduled?", "remove job 91", "run job 91 now", "pause job 91"
+
+In Guaardvark's own chat they are reached with the /schedule command
+(schedulable.read_command); MCP clients call them as tools.
 
 Both go through /api/night-shift (backend/services/night_shift.py), the same
 routes the Jobs page uses, so a job scheduled in chat shows in the Scheduled
@@ -16,11 +19,25 @@ from typing import Any, Dict
 
 from backend.services import schedulable
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
-from backend.utils.backend_http import BackendError, request_json
+from backend.utils.backend_http import BackendError, is_mcp_caller, request_json
 
 logger = logging.getLogger(__name__)
 
 _CHAT_FEATURES = sorted(f.id for f in schedulable.FEATURES.values() if not f.person_only)
+
+
+def _withheld_from_mcp(tool_name: str) -> bool:
+    """True when the MCP server does not offer ``tool_name`` to its clients
+    (the screen agent, say, unless mcp.json allows it). A client may not have
+    a tool run later that it may not run now."""
+    try:
+        from backend.mcp.config import load_config
+        from backend.mcp.tools_adapter import collect_exposed_tools
+
+        return tool_name not in {tool.name for tool, _ in collect_exposed_tools(load_config("all"))}
+    except Exception as e:  # noqa: BLE001 - when the policy cannot be read, nothing is let through
+        logger.warning("could not read the MCP tool policy: %s", e)
+        return True
 
 
 def _when_text(when: str, at_local: datetime.datetime | None) -> str:
@@ -111,8 +128,12 @@ class ScheduleJobTool(BaseTool):
                 return ToolResult(success=False, error=f"feature must be one of {_CHAT_FEATURES}")
             if spec.person_only:
                 return ToolResult(success=False, error=(
-                    f"{spec.label} needs your approval when it runs, so chat cannot schedule it. "
+                    f"{spec.label} needs your approval when it runs, so it cannot be scheduled from chat or an MCP client. "
                     f"Schedule it yourself: Jobs page, Scheduled card, Schedule a job."))
+            if spec.tool and is_mcp_caller(self) and _withheld_from_mcp(spec.tool):
+                return ToolResult(success=False, error=(
+                    f"{spec.tool} is not offered to MCP clients on this install, so it cannot be scheduled "
+                    "from one."))
             if not (prompt or "").strip():
                 return ToolResult(success=False, error=f"prompt is required: {spec.hint.lower()}")
             body.update(feature=feature, prompt=prompt.strip(), count=n,
@@ -121,8 +142,11 @@ class ScheduleJobTool(BaseTool):
         elif tool:
             if tool in schedulable.PERSON_ONLY_TOOLS:
                 return ToolResult(success=False, error=(
-                    f"{tool} needs your approval when it runs, so chat cannot schedule it. "
+                    f"{tool} needs your approval when it runs, so it cannot be scheduled from chat or an MCP client. "
                     "Schedule it yourself: Jobs page, Scheduled card, Schedule a job."))
+            if is_mcp_caller(self) and _withheld_from_mcp(tool):
+                return ToolResult(success=False, error=(
+                    f"{tool} is not offered to MCP clients on this install, so it cannot be scheduled from one."))
             body.update(tool=tool, arguments=arguments if isinstance(arguments, dict) else {})
             what = tool
         else:
@@ -153,15 +177,16 @@ class ScheduledJobsTool(BaseTool):
     destructive = False
     description = (
         "The jobs scheduled for later (night shift and set times): list them, remove one, start one "
-        "now, or move one to another time. Use for 'what is scheduled?', 'what runs tonight?', "
+        "now, pause one, or move one to another time. Use for 'what is scheduled?', 'what runs tonight?', "
         "'remove job 91', 'run job 91 now', 'move job 91 to 6am'. action 'list' (default) also "
         "reports the night window and why the night shift is waiting."
     )
     parameters = {
         "action": ToolParameter(
             name="action", type="string", required=False, default="list",
-            enum=["list", "remove", "run_now", "move"],
-            description="list (default), remove, run_now, or move (needs when/time).",
+            enum=["list", "remove", "run_now", "pause", "move"],
+            description="list (default), remove, run_now, pause (keep it listed with no time), "
+                        "or move (needs when/time).",
         ),
         "job": ToolParameter(
             name="job", type="int", required=False,
@@ -194,6 +219,10 @@ class ScheduledJobsTool(BaseTool):
                 request_json("POST", f"/api/night-shift/jobs/{job}/schedule", payload={"when": "now"})
                 return ToolResult(success=True, output=f"Job {job} has been started.",
                                   metadata={"task_id": job})
+            if action == "pause":
+                request_json("POST", f"/api/night-shift/jobs/{job}/schedule", payload={"when": "hold"})
+                return ToolResult(success=True, metadata={"task_id": job}, output=(
+                    f"Job {job} is on hold. It stays in the list with no time until it is moved or run."))
             if action == "move":
                 body: Dict[str, Any] = {"when": (when or "").strip().lower() or
                                         (schedulable.AT if time else schedulable.NIGHT_SHIFT)}
@@ -206,7 +235,7 @@ class ScheduledJobsTool(BaseTool):
                 request_json("POST", f"/api/night-shift/jobs/{job}/schedule", payload=body)
                 return ToolResult(success=True, output=f"Job {job} now runs {_when_text(body['when'], at_local)}.",
                                   metadata={"task_id": job, **body})
-            return ToolResult(success=False, error="action must be list, remove, run_now or move")
+            return ToolResult(success=False, error="action must be list, remove, run_now, pause or move")
         except (TypeError, ValueError) as e:
             return ToolResult(success=False, error=str(e))
         except BackendError as e:

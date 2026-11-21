@@ -106,5 +106,13 @@
     "frameProgress": "Frame {{done}} / {{total}}",
     "play": "Play",
     "cancel": "Cancel"
+  },
+  "schedule": {
+    "jobName": "Upscale: {{name}}",
+    "help": "Uploads the video now and upscales it overnight, when the machine has been left alone.",
+    "added_one": "{{count}} video uploaded and added to the night shift. It is on the Jobs page under Scheduled.",
+    "added_other": "{{count}} videos uploaded and added to the night shift. They are on the Jobs page under Scheduled.",
+    "addedAt_one": "{{count}} video uploaded and scheduled for {{time}}.",
+    "addedAt_other": "{{count}} videos uploaded and scheduled for {{time}}."
   }
 }
