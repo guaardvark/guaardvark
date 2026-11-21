@@ -164,7 +164,8 @@ class ScheduleJobTool(BaseTool):
         output = (f"Scheduled {_when_text(when, at_local)}: {what}. "
                   f"Job {numbers}." if len(ids) == 1 else
                   f"Scheduled {len(ids)} jobs {_when_text(when, at_local)}: {what}. Jobs {numbers}.")
-        output += " Nothing has been made yet. Open the Jobs page (Scheduled) to reorder, move or remove it."
+        output += (" Nothing has been made yet. Open the Jobs page (Scheduled) to reorder, move or remove "
+                   + ("it." if len(ids) == 1 else "them."))
         return ToolResult(success=True, output=output, metadata={
             "task_ids": ids, "when": when, "at": body.get("at"), "jobs_url": "/tasks"})
 
