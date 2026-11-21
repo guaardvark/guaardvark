@@ -2132,9 +2132,12 @@ class ComfyUIImageGenerator:
             if result is None:
                 raise RuntimeError(_failure(K.OUTPUT_MISSING, f"ComfyUI produced no image for prompt {prompt_id}"))
 
+        # The steps the graph ran: a KSampler's, or the BasicScheduler's on
+        # SamplerCustomAdvanced graphs (H3 stills) that have no KSampler.
         self.last_steps = next(
-            node["inputs"]["steps"] for node in workflow.values()
-            if node.get("class_type") == "KSampler"
+            (node["inputs"]["steps"] for node in workflow.values()
+             if node.get("class_type") in ("KSampler", "BasicScheduler") and "steps" in node.get("inputs", {})),
+            steps,
         )
         logger.info("Storyboard image generated (%d LoRAs): %s", len(lora_names), result)
         return result
