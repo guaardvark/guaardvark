@@ -343,3 +343,14 @@ def test_a_map_without_task_starts_keeps_zombies_high():
                  now - _dt.timedelta(days=35), static_reach=True)]
     res = liveness.analyze(hits, smap, window_days=30, now=now)
     assert [f.severity for f in res["findings"]] == [Severity.HIGH]
+
+
+def test_a_registered_celery_task_counts_as_registry_live():
+    now = _dt.datetime(2026, 11, 20, 12, 0, 0)
+    smap = {**_fake_map(), "celery_tasks": [{"name": "jobs.import_folder"}]}
+    reg = liveness._registry_names(smap)
+    hit = _hit("task:jobs.import_folder", "backend.services.live_mod", "jobs.import_folder",
+               now - _dt.timedelta(days=35), static_reach=True)
+    consensus = liveness.compute_consensus(hit, reg, liveness._static_modules(smap), now, 30)
+    assert consensus["registry"] == 1.0
+    assert consensus["confidence"] == pytest.approx(0.4)
