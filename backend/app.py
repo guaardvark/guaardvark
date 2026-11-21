@@ -402,6 +402,7 @@ try:
         LLM_REQUEST_TIMEOUT,
         OLLAMA_BASE_URL,
         OUTPUT_DIR,
+        mask_dsn,
         SECRET_KEY,
         STORAGE_DIR,
         UPLOAD_FOLDER,
@@ -490,7 +491,7 @@ def _initialize_app_components(app):
         if app.debug:
             app.logger.warning("Debug mode is enabled - this should only be used in development")
     
-    app.logger.info(f"Using database URL: {DATABASE_URL}")
+    app.logger.info(f"Using database URL: {mask_dsn(DATABASE_URL)}")
     
     app.config.update(
         {
