@@ -258,6 +258,10 @@ def network_access_open() -> bool:
 #   repository; and its cleanup, which removes a folder the caller names.
 # - changing the chat's always-approved tools, which stands in for every
 #   approval card those tools would have shown.
+# - driving the agent: a task, a steer note, keys and clicks sent to its
+#   display (whose desktop runs as the same user), demonstrations it replays,
+#   and the display's live stream. Every agent-control write is covered but
+#   the stop (AGENT_STOP_PATHS), which stays open to anyone who can start one.
 # Network access does not open these to other devices, and the
 # GUAARDVARK_PROTECT_TOOL_ENDPOINTS opt-out does not open them to other hosts:
 # they answer this machine, and the key once there is one, from any address.
@@ -276,11 +280,16 @@ RUNS_CODE_PATHS = (
     '/api/swarm/launch',
     '/api/swarm/merge',
     '/api/swarm/cleanup',
+    '/api/agent-control/stream',
 )
 RUNS_CODE_MUTATION_PREFIXES = (
     '/api/automation/mcp/servers/',
     '/api/self-improvement/pending-fixes/',
     '/api/settings/chat_tools_always_approved',
+    '/api/agent-control/',
+)
+AGENT_STOP_PATHS = (
+    '/api/agent-control/kill',
 )
 
 
@@ -297,6 +306,8 @@ def request_runs_code() -> bool:
     path = request.path
     if _whole_path() in RUNS_CODE_PATHS:
         return True
+    if _whole_path() in AGENT_STOP_PATHS:
+        return False
     return request.method not in ('GET', 'HEAD', 'OPTIONS') and path.startswith(RUNS_CODE_MUTATION_PREFIXES)
 
 
@@ -439,6 +450,10 @@ MUTATION_PROTECTED_PREFIXES = (
     '/api/claude/',
     # Persists the product profile into .env.
     '/api/settings/profile',
+    # Starting, stopping, installing and updating plugins, and their config:
+    # a plugin's service_url decides where chat and renders are sent, and the
+    # Discord token is written to .env. The list and status stay readable.
+    '/api/plugins/',
     '/api/memory',
     '/api/tasks',
     '/api/scheduler',
@@ -709,6 +724,9 @@ def protected_summary() -> list[str]:
     items += [
         "Code execution",
         "Launching, merging and cleaning up a swarm",
+        "Giving the agent a task, steering it, sending keys to its screen and watching it "
+        "(stopping it stays open)",
+        "Starting, stopping, installing and configuring plugins",
         "Changing which chat tools run without asking",
         "The kill switch for all LLM processes",
         "Restarting Guaardvark",
