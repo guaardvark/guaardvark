@@ -210,6 +210,12 @@ def upscale_video():
         "scale": body.get("scale"),
         "suffix": body.get("suffix", "upscaled"),
         "two_pass": body.get("two_pass", False),
+        # The options /upload takes from its form, so a request it saved for
+        # later (save_for_later) runs with the same settings.
+        "sharpen": body.get("sharpen"),
+        "denoise_strength": body.get("denoise_strength"),
+        "face_enhance": body.get("face_enhance"),
+        "double_fps": body.get("double_fps"),
     }
     # Remove None values (but keep two_pass even if False)
     payload = {k: v for k, v in payload.items() if v is not None}
@@ -737,6 +743,14 @@ def upload_and_upscale():
     double_fps = flask_request.form.get("double_fps")
     if double_fps and double_fps.lower() in ("true", "1", "yes"):
         payload["double_fps"] = True
+
+    # The file is kept and nothing starts: the caller gets the request to send
+    # to /upscale/video later (a scheduled upscale).
+    if (flask_request.form.get("save_for_later") or "").lower() in ("true", "1", "yes"):
+        return success_response(
+            data={"request": payload, "filename": filename},
+            message="Upload received; nothing started",
+        )
 
     if upscale_supervisor.enabled():
         job, refusal, status = upscale_supervisor.get_supervisor().submit(

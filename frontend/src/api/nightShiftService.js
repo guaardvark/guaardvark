@@ -4,7 +4,9 @@
 // the night shift or for a time, their order, and the window they run in.
 import { BASE_URL, handleResponse } from "./apiClient";
 
-export const WHEN = { NIGHT_SHIFT: "night_shift", AT: "at", NOW: "now" };
+// HOLD pauses one scheduled job: it stays in the list with no time until it
+// is scheduled again or run now.
+export const WHEN = { NIGHT_SHIFT: "night_shift", AT: "at", NOW: "now", HOLD: "hold" };
 
 // Told to every listener after a job is scheduled, so the Jobs page, the
 // footer count and the dashboard card re-read instead of waiting for a poll.

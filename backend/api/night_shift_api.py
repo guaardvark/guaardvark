@@ -53,9 +53,15 @@ def post_pause():
 @night_shift_bp.route("/jobs/<int:task_id>/schedule", methods=["POST"])
 def post_schedule(task_id: int):
     """Hold a job for the night shift (``when: night_shift``) or for a time
-    (``when: at`` with ``at``), or start a held job now (``when: now``)."""
+    (``when: at`` with ``at``), start a held job now (``when: now``), or pause
+    a scheduled one (``when: hold``): it waits, with no time, until one of
+    the others."""
     data = request.get_json(silent=True) or {}
     when = data.get("when")
+    if when == "hold":
+        if not night_shift.hold(task_id):
+            return error_response(f"Job {task_id} is not waiting", status_code=409)
+        return success_response({"task_id": task_id, "when": "hold"})
     if when == "now":
         if not night_shift.release(task_id):
             return error_response(f"Job {task_id} is not waiting", status_code=409)

@@ -203,5 +203,13 @@
     "cancel": "Cancel",
     "deleting": "Deleting…",
     "delete": "Delete"
+  },
+  "schedule": {
+    "startName": "Film Crew: {{name}}",
+    "startHelp": "Starts the production later. The crew writes the screenplay, then waits for you at casting.",
+    "storyboardsName": "Film Crew storyboards: production {{id}}",
+    "storyboardsHelp": "Confirms this casting later. The crew plans the shots and draws the storyboards, then waits for your approval.",
+    "renderName": "Film Crew render: production {{id}}",
+    "renderHelp": "Approves these storyboards later and renders the film, flagged shots included."
   }
 }

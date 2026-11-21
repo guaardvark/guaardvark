@@ -177,6 +177,7 @@ const ProductionDetail = ({
             onRegenerate={onRegenerateShot}
             onApproveAll={onApproveStoryboard}
             isApproving={approving}
+            productionId={production.id}
           />
         </Paper>
       )}

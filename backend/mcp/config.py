@@ -70,7 +70,8 @@ TOOLSETS: Dict[str, Toolset] = {
         "images, video, songs, speech and Film Crew productions rendered on this machine",
         ("generate_image", "edit_image", "outpaint_image", "remove_background",
          "generate_animation", "generate_video", "generate_music_video", "analyze_video_style",
-         "start_film_crew", "generate_music", "generate_speech", "get_generation_status"),
+         "start_film_crew", "generate_music", "generate_speech", "get_generation_status",
+         "schedule_job", "scheduled_jobs"),
     ),
     "knowledge": Toolset(
         "the user's indexed documents, Guaardvark's records and memory",
@@ -96,9 +97,9 @@ TOOLSETS: Dict[str, Toolset] = {
          "outreach_draft_post", "outreach_reject_draft", "request_publish"),
     ),
     "ops": Toolset(
-        "GPU state, logs, render status, swarms and self-improvement status",
-        ("inspect_gpu", "read_logs", "get_generation_status", "swarm_status",
-         "self_improvement_status"),
+        "GPU state, logs, render status, scheduled jobs, swarms and self-improvement status",
+        ("inspect_gpu", "read_logs", "get_generation_status", "schedule_job", "scheduled_jobs",
+         "swarm_status", "self_improvement_status"),
     ),
     "desktop": Toolset(
         "the media player and, where mcp.json allows them, desktop and app control",

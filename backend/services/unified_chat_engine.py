@@ -1697,18 +1697,10 @@ def _pin_workstation_tools(message: str, selected: List[str], all_tool_names: Li
     return pinned + list(selected) if pinned else selected
 
 
+# Scheduling tools. Chat reaches them through the /schedule command
+# (_try_schedule_direct) and a plan step that names one; they are not offered
+# to the model on an ordinary message.
 SCHEDULE_TOOLS = ["schedule_job", "scheduled_jobs"]
-
-
-def _pin_schedule_tools(message: str, selected: List[str], all_tool_names: List[str]) -> List[str]:
-    """Offer the scheduling tools on a message about scheduling or the night
-    shift, ahead of the tools that would do the work now."""
-    from backend.services import schedulable
-    if not schedulable.mentions_scheduling(message):
-        return selected
-    available = set(all_tool_names)
-    pinned = [t for t in SCHEDULE_TOOLS if t in available]
-    return pinned + [t for t in selected if t not in pinned] if pinned else selected
 
 
 def attached_images_for_turn(image_data, options) -> List[str]:
@@ -2988,8 +2980,7 @@ class UnifiedChatEngine:
             if edit_retry is not None:
                 return edit_retry
 
-            # "Schedule a video of ... for tonight": saved for later. Before
-            # every render intercept below, which would make it now.
+            # /schedule: save a job for later, or show the schedule.
             schedule_result = self._try_schedule_direct(message, session_id, emit_fn, request_id, options)
             if schedule_result is not None:
                 return schedule_result
@@ -3128,7 +3119,6 @@ class UnifiedChatEngine:
             selected_tools = _pin_code_search_tools(selection_text, selected_tools, self.registry.list_tools())
             selected_tools = _pin_knowledge_nav_tools(selection_text, selected_tools, self.registry.list_tools())
             selected_tools = _pin_workstation_tools(selection_text, selected_tools, self.registry.list_tools())
-            selected_tools = _pin_schedule_tools(selection_text, selected_tools, self.registry.list_tools())
             selected_tools = _pin_image_edit_tools(bool(self._image_data), selected_tools, self.registry.list_tools())
             selected_tools = _pin_image_generation_tools(
                 selection_text, selected_tools, self.registry.list_tools(), session_id=session_id,
@@ -3165,6 +3155,8 @@ class UnifiedChatEngine:
                 selection_text, selected_tools, self.registry.list_tools(),
                 step_tools=(options.get("step_tools") or ()) if isinstance(options, dict) else (),
             )
+            _step_tools = (options.get("step_tools") or ()) if isinstance(options, dict) else ()
+            selected_tools = [t for t in selected_tools if t not in SCHEDULE_TOOLS or t in _step_tools]
 
             _screen_active = bool(options and options.get("agent_screen_active", False))
             if not _screen_active:
@@ -5438,28 +5430,22 @@ class UnifiedChatEngine:
     def _try_schedule_direct(self, message: str, session_id: str,
                              emit_fn: Callable, request_id: str,
                              options: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
-        """A request to make something later ("schedule a video of a fox for
-        tonight", "tomorrow at 9 write a report on ...") → schedule_job,
-        without the model. The render intercepts read the same words as a
-        request to make it now, so this one is asked first; a message it
-        cannot read in full goes on to the model with the scheduling tools
-        pinned (_pin_schedule_tools)."""
-        if not message or message.lstrip().startswith("/") or getattr(self, "_image_data", None):
-            return None
-        if not self.registry.get_tool("schedule_job"):
-            return None
+        """``/schedule <what> <when>`` saves a job for later, ``/schedule list``
+        shows the schedule: the scheduling tools, without the model. A message
+        the command cannot read gets its usage text. Scheduling is by command
+        only; the same words without it are an ordinary request to make the
+        thing now."""
         from backend.services import schedulable
-        request = schedulable.read_schedule_request(message)
-        if request is None:
+        command = schedulable.read_command(message)
+        if command is None:
             return None
-        params: Dict[str, Any] = {"feature": request.feature, "prompt": request.prompt, "when": request.when}
-        if request.at is not None:
-            params["time"] = request.at.strftime("%Y-%m-%dT%H:%M")
-        if request.count > 1:
-            params["count"] = request.count
-        logger.info("Schedule direct: %s", {k: str(v)[:60] for k, v in params.items()})
+        if command.get("usage") or not self.registry.get_tool(command["tool"]):
+            return self._pipeline_usage_notice(
+                session_id, emit_fn, request_id, message, command.get("usage") or schedulable.COMMAND_USAGE)
+        logger.info("Schedule command: %s %s", command["tool"],
+                    {k: str(v)[:60] for k, v in command["params"].items()})
         return self._run_direct_tool_execution(
-            "schedule_job", params, session_id, emit_fn, request_id, message, options
+            command["tool"], command["params"], session_id, emit_fn, request_id, message, options
         )
 
     def _try_video_generate_direct(self, message: str, session_id: str,

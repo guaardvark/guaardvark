@@ -388,6 +388,7 @@
     "vision": "Show Vision Pipeline plugin status (start/stop from the Plugins page)",
     "clear": "Start a fresh chat (the current one stays under All chats)",
     "help": "Show available commands",
-    "custom": "Custom command"
+    "custom": "Custom command",
+    "schedule": "Make something later: on the night shift or at a time. /schedule list shows what is scheduled."
   }
 }

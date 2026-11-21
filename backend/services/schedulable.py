@@ -65,7 +65,9 @@ FEATURES: dict[str, Feature] = {f.id: f for f in (
     Feature("speech", "Narration", "/audio", "The words to speak",
             tool="generate_speech", param="text", words=("narration", "voiceover", "voice-over", "speech")),
     Feature("film_crew", "Film Crew production", "/film-crew", "The screenplay or scene list",
-            tool="start_film_crew", param="script_text", words=("film crew", "short film", "screenplay")),
+            kind="film_crew",
+            body=lambda p: {"name": (p.strip().splitlines() or ["Film"])[0][:80], "script_text": p},
+            words=("film crew", "short film", "screenplay")),
     Feature("file", "Written file", "/file-generation", "What the file should contain",
             tool="generate_file", param="content_description",
             extra=lambda p: {"filename": f"{_slug(p, 'scheduled')}.md"},
@@ -316,33 +318,43 @@ class ScheduleRequest:
     count: int = 1
 
 
-def read_schedule_request(message: str, now: Optional[datetime.datetime] = None) -> Optional[ScheduleRequest]:
-    """A chat message that asks for something to be made later, read into a
-    feature, a prompt and a time; None for any other message.
+def read_schedule_request(message: str, now: Optional[datetime.datetime] = None,
+                          commanded: bool = False) -> Optional[ScheduleRequest]:
+    """A request for something to be made later, read into a feature, a
+    prompt and a time; None when it is not one.
 
-    It must say when (parse_when), name a feature, and ask for it: a
-    scheduling verb anywhere, or a create verb before the feature. "What's on
-    tonight?" and "the report we wrote at 3pm" name no job to make. A time
-    that could be part of the scene ("a diner at 3am") schedules only with a
-    scheduling verb or when the message opens with it.
+    ``commanded`` is the text after ``/schedule``: the command is the ask, so
+    it needs only a feature, and with no time it means the night shift.
+
+    Without the command the message must say when (parse_when), name a
+    feature, and ask for it: a scheduling verb anywhere, or a create verb
+    before the feature. "What's on tonight?" and "the report we wrote at 3pm"
+    name no job to make. A time that could be part of the scene ("a diner at
+    3am") schedules only with a scheduling verb or when the message opens
+    with it.
     """
     text = " ".join((message or "").split())
-    if not text or len(text) > 1200 or text.endswith("?"):
+    if not text or len(text) > 1200 or (text.endswith("?") and not commanded):
         return None
     when = parse_when(text, now)
     if when is None:
-        return None
-    rest = (text[:when.span[0]] + " " + text[when.span[1]:]).strip()
+        if not commanded:
+            return None
+        when = When(NIGHT_SHIFT)
+        rest = text
+    else:
+        rest = (text[:when.span[0]] + " " + text[when.span[1]:]).strip()
     found = _feature_in(rest)
     if found is None:
         return None
     feature, span = found
     before = rest[:span[0]]
-    asked = bool(_SCHEDULE_VERB_RE.search(rest))
-    if not (asked or _CREATE_VERB_RE.search(before)):
-        return None
-    if not (asked or when.plain or when.span[0] == 0):
-        return None
+    if not commanded:
+        asked = bool(_SCHEDULE_VERB_RE.search(rest))
+        if not (asked or _CREATE_VERB_RE.search(before)):
+            return None
+        if not (asked or when.plain or when.span[0] == 0):
+            return None
     lead = _LEAD_RE.sub("", before, count=1).strip()
     count = 1
     counted = _COUNT_RE.search(lead)
@@ -357,9 +369,51 @@ def read_schedule_request(message: str, now: Optional[datetime.datetime] = None)
     return ScheduleRequest(feature.id, prompt, when.when, when.at, count)
 
 
-def mentions_scheduling(message: str) -> bool:
-    """True when a message is about scheduling a job or the night shift, so
-    chat offers the scheduling tools for it."""
-    text = (message or "").lower()
-    return bool(re.search(r"\b(?:schedul\w*|night\s*shift|overnight|queued?\s+(?:jobs?|up)|"
-                          r"(?:later|run\s+(?:it|this|that))\s+tonight)\b", text))
+# What chat's /schedule command takes after the word.
+COMMAND = "/schedule"
+_COMMAND_RE = re.compile(r"^\s*/schedule\b[ \t]*(?P<rest>.*)$", re.IGNORECASE | re.DOTALL)
+_COMMAND_ACTION_RE = re.compile(
+    r"^(?:(?P<list>list|status|queue)|(?P<verb>remove|delete|cancel|run|start|pause|hold)\s+(?:job\s+)?#?(?P<job>\d+)"
+    r"(?:\s+now)?)\s*$", re.IGNORECASE)
+COMMAND_USAGE = (
+    "Use /schedule with what to make and when, for example:\n"
+    "- /schedule a video of a red fox running through snow tonight\n"
+    "- /schedule 3 images of a paper boat on a pond at 3am\n"
+    "- /schedule a report on local AI trends tomorrow at 9\n"
+    "- /schedule an infographic about how RAG works in 2 hours\n"
+    "With no time it goes on the night shift. It can make: "
+    + ", ".join(f.label.lower() for f in FEATURES.values() if not f.person_only) + ".\n"
+    "/schedule list shows what is scheduled; /schedule remove 91, /schedule run 91 and "
+    "/schedule pause 91 act on one job."
+)
+
+
+def read_command(message: str, now: Optional[datetime.datetime] = None) -> Optional[dict]:
+    """A ``/schedule`` chat message as the tool call it stands for:
+    ``{"tool", "params"}``, or ``{"usage": text}`` when it names nothing that
+    can be scheduled. None for a message that is not the command."""
+    m = _COMMAND_RE.match(message or "")
+    if not m:
+        return None
+    rest = m.group("rest").strip()
+    if not rest:
+        return {"tool": "scheduled_jobs", "params": {"action": "list"}}
+    action = _COMMAND_ACTION_RE.match(rest)
+    if action:
+        if action.group("list"):
+            return {"tool": "scheduled_jobs", "params": {"action": "list"}}
+        verb = action.group("verb").lower()
+        name = ("remove" if verb in ("remove", "delete", "cancel")
+                else "run_now" if verb in ("run", "start") else "pause")
+        return {"tool": "scheduled_jobs", "params": {"action": name, "job": int(action.group("job"))}}
+    if re.match(r"(?i)^(?:help|\?)$", rest):
+        return {"usage": COMMAND_USAGE}
+    request = read_schedule_request(rest, now, commanded=True)
+    if request is None:
+        return {"usage": COMMAND_USAGE}
+    params: dict = {"feature": request.feature, "prompt": request.prompt, "when": request.when}
+    if request.at is not None:
+        params["time"] = request.at.strftime("%Y-%m-%dT%H:%M")
+    if request.count > 1:
+        params["count"] = request.count
+    return {"tool": "schedule_job", "params": params}
