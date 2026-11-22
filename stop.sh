@@ -431,7 +431,37 @@ for plugin_dir in "$SCRIPT_DIR"/plugins/*/; do
     fi
 done
 
-rm -f "$PIDS_DIR"/*.pid
+# Extension sidecars (extensions/<id>/plugin/), usually linked from a project
+# checked out elsewhere. Their stop scripts find their pid files through
+# GUAARDVARK_ROOT. A leading underscore parks an extension: never loaded, never stopped.
+for ext_plugin in "$SCRIPT_DIR"/extensions/*/plugin/; do
+    [ -d "$ext_plugin" ] || continue
+    ext_name=$(basename "$(dirname "$ext_plugin")")
+    case "$ext_name" in _*) continue ;; esac
+    ext_stop="$ext_plugin/scripts/stop.sh"
+    [ -f "$ext_stop" ] || continue
+    vader_info "Stopping $ext_name extension..."
+    if GUAARDVARK_ROOT="$SCRIPT_DIR" bash "$ext_stop" 2>/dev/null; then
+        vader_success "$ext_name stopped."
+    else
+        vader_warn "$ext_name stop script exited non-zero — may not have stopped cleanly."
+    fi
+done
+
+# Drop pid files whose process is gone. One whose process still runs is kept,
+# so the next start and the Plugins page can still find and stop it. A kept
+# Ollama (--keep-ollama) loses its pid file as before: start.sh only stops an
+# Ollama it launched itself.
+rm -f "$PIDS_DIR/ollama.pid"
+for pid_file in "$PIDS_DIR"/*.pid; do
+    [ -f "$pid_file" ] || continue
+    pid=$(tr -dc '0-9' < "$pid_file" 2>/dev/null)
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        vader_warn "$(basename "$pid_file" .pid) is still running (pid $pid); keeping its pid file."
+    else
+        rm -f "$pid_file"
+    fi
+done
 
 # Remove runtime state file used by CLI auto-discovery
 RUNTIME_FILE="$HOME/.guaardvark/runtime.json"
