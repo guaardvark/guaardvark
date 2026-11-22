@@ -127,8 +127,19 @@ const TaskCard = ({ task, onEdit, onStartJob, onStopJob }) => {
       }}
     >
       <Box
+        role="button"
+        tabIndex={0}
         onClick={() => onEdit?.(task)}
-        sx={{ display: "flex", gap: 1.25, p: 1.25, cursor: "pointer", minWidth: 0, height: "100%" }}
+        onKeyDown={(e) => {
+          if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onEdit?.(task);
+          }
+        }}
+        sx={{
+          display: "flex", gap: 1.25, p: 1.25, cursor: "pointer", minWidth: 0, height: "100%",
+          "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: -2 },
+        }}
       >
         {summary.thumb && brokenThumb !== summary.thumb ? (
           <Box

@@ -12,6 +12,9 @@ import { Cluster } from "../settings/ui/SettingsCluster";
 import JobEditorDialog, { fieldSx, numberOrNull } from "./JobEditorDialog";
 import { BASE_URL } from "../../api/apiClient";
 import {
+  promptText,
+  promptsEditable,
+  promptsFromText,
   asNewImageJob,
   imageBatchIdOf,
   readImageJob,
@@ -36,7 +39,7 @@ const ImageJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
   useEffect(() => {
     if (!open || !job) return;
     setFields({
-      prompts: job.prompts.join("\n"),
+      prompts: promptText(job),
       model: job.model,
       width: job.width,
       height: job.height,
@@ -83,7 +86,7 @@ const ImageJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
   const set = (patch) => setFields((prev) => ({ ...prev, ...patch }));
 
   const edited = {
-    prompts: job.kind === "batch" ? fields.prompts.split("\n") : [fields.prompts],
+    prompts: promptsFromText(job, fields.prompts),
     model: fields.model,
     width: fields.width,
     height: fields.height,
@@ -93,7 +96,7 @@ const ImageJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
     negative: fields.negative,
   };
   const settingsDirty =
-    fields.prompts !== job.prompts.join("\n") || fields.model !== job.model || fields.width !== job.width
+    fields.prompts !== promptText(job) || fields.model !== job.model || fields.width !== job.width
     || fields.height !== job.height || fields.steps !== job.steps || fields.style !== job.style
     || fields.seed !== job.seed || fields.negative !== job.negative;
 
@@ -102,7 +105,7 @@ const ImageJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
       ? t("jobs.imageJob.tooLarge", { max: Math.round(maxPixels / 100000) / 10 })
       : null;
 
-  const count = job.kind === "batch" ? fields.prompts.split("\n").filter((p) => p.trim()).length : 1;
+  const count = promptsFromText(job, fields.prompts).filter((p) => p.trim()).length;
   const kindLine = [
     job.kind === "batch" ? t("jobs.imageJob.kindMany", { count }) : t("jobs.imageJob.kind"),
     job.cast ? t("jobs.imageJob.cast", { count: job.cast }) : null,
@@ -136,7 +139,7 @@ const ImageJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
             label={job.kind === "batch" ? t("jobs.jobEditor.prompts") : t("jobs.jobEditor.prompt")}
             value={fields.prompts}
             onChange={(e) => set({ prompts: e.target.value })}
-            InputProps={{ readOnly }}
+            InputProps={{ readOnly: readOnly || !promptsEditable(job) }}
             inputProps={{ "data-testid": "image-job-prompt" }}
             sx={fieldSx}
           />

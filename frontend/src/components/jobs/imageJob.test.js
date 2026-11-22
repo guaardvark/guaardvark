@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { asNewImageJob, isImageJob, readImageJob, sizeChoices, writeImageJob } from "./imageJob";
+import {
+  asNewImageJob, isImageJob, promptText, promptsEditable, promptsFromText, readImageJob, sizeChoices, writeImageJob,
+} from "./imageJob";
 
 const toolJob = {
   id: 1,
@@ -61,5 +63,25 @@ describe("imageJob", () => {
     expect(sizeChoices(fields, null)).toContainEqual([2688, 1472]);
     const small = sizeChoices({ ...fields, width: 768, height: 768 }, { max_pixels: 768 * 768 });
     expect(small).toEqual([[768, 768]]);
+  });
+
+  it("keeps a repeated multi-line prompt whole and repeated", () => {
+    const text = "a lighthouse\n\nat dusk, wide shot";
+    const job = readImageJob({ ...batchJob, workflow_config_parsed: { request: { prompts: [text, text, text] } } });
+    expect(promptText(job)).toBe(text);
+    expect(promptsEditable(job)).toBe(true);
+    expect(promptsFromText(job, text)).toEqual([text, text, text]);
+    expect(promptsFromText(job, "a ship")).toEqual(["a ship", "a ship", "a ship"]);
+  });
+
+  it("edits a bulk list one prompt per line", () => {
+    const job = readImageJob(batchJob);
+    expect(promptText(job)).toBe("one\ntwo");
+    expect(promptsFromText(job, "one\ntwo\nthree")).toEqual(["one", "two", "three"]);
+  });
+
+  it("will not line-edit different prompts that hold line breaks", () => {
+    const job = readImageJob({ ...batchJob, workflow_config_parsed: { request: { prompts: ["a\nb", "c"] } } });
+    expect(promptsEditable(job)).toBe(false);
   });
 });

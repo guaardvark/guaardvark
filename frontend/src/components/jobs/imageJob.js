@@ -82,6 +82,27 @@ export const readImageJob = (task) => {
   };
 };
 
+// The Images page saves a Single-mode prompt whole, line breaks included, and
+// repeats it once per picture; Bulk mode saves one prompt per line. The editor
+// shows a repeated prompt once and writes it back the same number of times, so
+// a multi-line prompt is never cut into pieces.
+const repeated = (prompts) => prompts.length > 0 && prompts.every((p) => p === prompts[0]);
+
+/** Whether the prompts can be shown as one text field and read back unchanged. */
+export const promptsEditable = (job) =>
+  job.kind === "tool" || repeated(job.prompts) || !job.prompts.some((p) => p.includes("\n"));
+
+/** The prompt text the editor shows. */
+export const promptText = (job) =>
+  job.kind === "tool" || repeated(job.prompts) ? job.prompts[0] || "" : job.prompts.join("\n");
+
+/** The prompt list to save for the text in the editor. */
+export const promptsFromText = (job, text) => {
+  if (job.kind === "tool") return [text];
+  if (repeated(job.prompts) || job.prompts.length <= 1) return Array(Math.max(job.prompts.length, 1)).fill(text);
+  return text.split("\n");
+};
+
 /**
  * The sizes to offer: the kind's own list, without those past the model's
  * largest picture, plus the job's current size when it is not among them.

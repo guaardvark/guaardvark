@@ -220,6 +220,7 @@
     "modelLocked": "Set on the Video page",
     "length": "Length",
     "lengthRange": "{{min}} to {{max}} s",
+    "secondsUnit": "s",
     "stepsFloor": "{{min}} or more",
     "style": "Prompt style",
     "styles": {
