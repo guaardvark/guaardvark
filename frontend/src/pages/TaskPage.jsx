@@ -71,6 +71,8 @@ import { CardWorkspace } from "../components/board";
 import ScheduledJobsCard from "../components/jobs/ScheduledJobsCard";
 import VideoJobModal from "../components/jobs/VideoJobModal";
 import { isVideoJob } from "../components/jobs/videoJob";
+import ImageJobModal from "../components/jobs/ImageJobModal";
+import { isImageJob } from "../components/jobs/imageJob";
 import useNightShift from "../hooks/useNightShift";
 import { translate, useUiTranslation } from "../i18n";
 
@@ -152,7 +154,7 @@ const TaskPage = () => {
   // Task creation state
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [videoJob, setVideoJob] = useState(null);
+  const [mediaJob, setMediaJob] = useState(null);
   const [createDefaults, setCreateDefaults] = useState(null);
   const [tasksLoaded, setTasksLoaded] = useState(false);
 
@@ -429,9 +431,9 @@ const TaskPage = () => {
   };
 
   const handleEditTask = (task) => {
-    // A video job has its own editor: the general form knows none of its settings.
-    if (isVideoJob(task)) {
-      setVideoJob(task);
+    // Video and image jobs have their own editors: the general form knows none of their settings.
+    if (isVideoJob(task) || isImageJob(task)) {
+      setMediaJob(task);
       return;
     }
     setCreateDefaults(null);
@@ -934,19 +936,22 @@ const TaskPage = () => {
           onClose={() => setPendingConfirm(null)}
         />
 
-        <VideoJobModal
-          open={Boolean(videoJob)}
-          task={videoJob}
-          onClose={() => setVideoJob(null)}
-          onSaved={() => {
-            fetchTasks();
-            nightShift.refresh();
-          }}
-          onRemove={(task) => {
-            setVideoJob(null);
-            handleRemoveScheduled(task);
-          }}
-        />
+        {[["video", VideoJobModal, isVideoJob], ["image", ImageJobModal, isImageJob]].map(([kind, Editor, fits]) => (
+          <Editor
+            key={kind}
+            open={Boolean(mediaJob) && fits(mediaJob)}
+            task={mediaJob && fits(mediaJob) ? mediaJob : null}
+            onClose={() => setMediaJob(null)}
+            onSaved={() => {
+              fetchTasks();
+              nightShift.refresh();
+            }}
+            onRemove={(task) => {
+              setMediaJob(null);
+              handleRemoveScheduled(task);
+            }}
+          />
+        ))}
 
         {/* Enhanced Task Action Modal */}
         <TaskActionModal
@@ -1097,7 +1102,10 @@ const TaskPage = () => {
                   error={nightShift.error}
                   refresh={nightShift.refresh}
                   onEdit={handleEditScheduled}
-                  canEdit={(row) => isVideoJob(tasks.find((item) => item.id === row.id))}
+                  canEdit={(row) => {
+                    const task = tasks.find((item) => item.id === row.id);
+                    return isVideoJob(task) || isImageJob(task);
+                  }}
                   onRemove={handleRemoveScheduled}
                   onChanged={fetchTasks}
                 />

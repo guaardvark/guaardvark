@@ -125,9 +125,30 @@ def _check_video(arguments: dict) -> Optional[str]:
     return error
 
 
+def _check_image(arguments: dict) -> Optional[str]:
+    if not str(arguments.get("prompt") or "").strip():
+        return "The image needs a prompt."
+    model = str(arguments.get("model") or "auto").strip().lower()
+    try:
+        from backend.services.batch_image_generator import get_batch_image_generator
+
+        generator = get_batch_image_generator().image_generator
+    except Exception:  # noqa: BLE001 - no generator here: the run itself answers
+        return None
+    if generator is None:
+        return None
+    # Cast characters render on the base model of their own LoRA.
+    if arguments.get("subject_ids"):
+        return None
+    return generator.missing_model_message(model)
+
+
 # Tools whose arguments can be checked without running them: the reason a
 # saved call would be refused, or None.
-ARGUMENT_CHECKS: dict[str, Callable[[dict], Optional[str]]] = {"generate_video": _check_video}
+ARGUMENT_CHECKS: dict[str, Callable[[dict], Optional[str]]] = {
+    "generate_video": _check_video,
+    "generate_image": _check_image,
+}
 
 
 def check_arguments(tool: str, arguments: dict) -> None:
