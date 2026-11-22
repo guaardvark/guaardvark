@@ -494,6 +494,7 @@ def schedule_tool_call(tool: str, arguments: dict, name: str, when: str,
     if tool in schedulable.PERSON_ONLY_TOOLS and not by_person:
         raise ValueError(f"{tool} needs your approval when it runs, so it cannot be scheduled from chat or an MCP client. "
                          "Schedule it yourself: Jobs page, Scheduled card, Schedule a job.")
+    schedulable.check_arguments(tool, arguments)
     return create_handoff_job("tool_call", name or tool.replace("_", " ").capitalize(),
                               schedulable.tool_request(tool, arguments), None, when, at)
 
@@ -508,6 +509,61 @@ def schedule_feature(feature: str, prompt: str, when: str, at: Optional[datetime
         req = job["request"]
         return schedule_tool_call(req["tool_name"], req["parameters"], job["name"], when, at, by_person)
     return create_handoff_job(job["type"], job["name"], job["request"], job["variant"], when, at)
+
+
+def update_job(task_id: int, name: Optional[str] = None, request_body: Optional[dict] = None,
+               variant: Optional[str] = None) -> dict:
+    """Change a job that has not started: its name, the request it will send,
+    or which of its kind's start routes it uses. The request gets the checks a
+    new job gets. Raises ValueError for a request that cannot be saved and
+    LookupError when the job is not waiting (it started, or was removed)."""
+    from backend.services import job_handoff, schedulable
+
+    s = _session()
+    try:
+        row = s.execute(text("SELECT type, workflow_config FROM tasks WHERE id = :id AND status = :w"),
+                        {"id": int(task_id), "w": WAITING}).fetchone()
+        if row is None:
+            raise LookupError(f"job {task_id} is not waiting")
+        task_type, config = row[0], row[1]
+        if isinstance(config, str):
+            try:
+                config = json.loads(config)
+            except ValueError:
+                config = {}
+        config = dict(config) if isinstance(config, dict) else {}
+        values: dict[str, Any] = {"utc": _utcnow(), "id": int(task_id), "w": WAITING}
+        sets = ["updated_at = :utc"]
+        if name is not None:
+            if not str(name).strip():
+                raise ValueError("the job needs a name")
+            values["name"] = str(name).strip()[:255]
+            sets.append("name = :name")
+        if request_body is not None or variant is not None:
+            if not job_handoff.is_handoff(task_type):
+                raise ValueError("this job's settings are changed in its own form")
+            body = request_body if request_body is not None else config.get("request")
+            if task_type == "tool_call":
+                tool = str((body or {}).get("tool_name") or "")
+                arguments = (body or {}).get("parameters")
+                if tool not in schedulable.SCHEDULABLE_TOOLS or not isinstance(arguments, dict):
+                    raise ValueError(f"{tool or 'this tool'!s} cannot be scheduled")
+                schedulable.check_arguments(tool, arguments)
+                body = schedulable.tool_request(tool, arguments)
+            variant, path = job_handoff.check_request(task_type, body, variant or config.get("variant"),
+                                                      config.get("path"))
+            config.update(request=body, variant=variant)
+            values["config"] = json.dumps(config)
+            sets.append("workflow_config = :config")
+        changed = s.execute(text(f"UPDATE tasks SET {', '.join(sets)} WHERE id = :id AND status = :w"),
+                            values).rowcount
+        s.commit()
+    finally:
+        s.close()
+    if changed != 1:
+        raise LookupError(f"job {task_id} is not waiting")
+    return {"task_id": int(task_id), "name": values.get("name"), "request": config.get("request"),
+            "variant": config.get("variant")}
 
 
 def remove(task_id: int) -> bool:

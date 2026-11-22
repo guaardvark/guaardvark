@@ -112,6 +112,33 @@ def tool_request(tool: str, arguments: dict) -> dict:
     return {"tool_name": tool, "parameters": {**parameters, **UNATTENDED_ARGUMENTS.get(tool, {})}}
 
 
+def _check_video(arguments: dict) -> Optional[str]:
+    from backend.tools.image_tools import VideoGeneratorTool
+
+    if not str(arguments.get("prompt") or "").strip():
+        return "The clip needs a prompt."
+    names = ("model", "aspect_ratio", "duration_s", "duration_frames", "num_inference_steps", "first_image",
+             "last_image", "reference_images", "reference_audio", "reference_clips", "speed_profile", "style")
+    audio = str(arguments.get("audio")).lower() in ("1", "true", "yes")
+    _, error = VideoGeneratorTool.resolve_request(
+        str(arguments["prompt"]), audio=audio, **{k: arguments[k] for k in names if arguments.get(k) is not None})
+    return error
+
+
+# Tools whose arguments can be checked without running them: the reason a
+# saved call would be refused, or None.
+ARGUMENT_CHECKS: dict[str, Callable[[dict], Optional[str]]] = {"generate_video": _check_video}
+
+
+def check_arguments(tool: str, arguments: dict) -> None:
+    """Raise ValueError with the reason the tool would refuse these arguments
+    when it runs, so a job is refused when it is saved and not hours later."""
+    check = ARGUMENT_CHECKS.get(tool)
+    error = check(arguments or {}) if check else None
+    if error:
+        raise ValueError(error)
+
+
 def feature_job(feature_id: str, prompt: str, options: Optional[dict] = None) -> dict:
     """``{type, variant, request, name}`` for a feature and a prompt.
     Raises ValueError for an unknown feature or an empty prompt."""

@@ -132,7 +132,7 @@ TimeField.propTypes = {
   testId: PropTypes.string,
 };
 
-const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged }) => {
+const ScheduledJobsCard = ({ status, error, refresh, onEdit, canEdit, onRemove, onChanged }) => {
   const { t } = useUiTranslation();
   const [order, setOrder] = useState(null); // night-shift ids while a drag is in progress or being saved
   const [dragId, setDragId] = useState(null);
@@ -217,6 +217,10 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
         ? { tone: "info", label: t("jobs.nightShift.state.holding") }
         : { tone: "ok", label: t("jobs.nightShift.state.ready") };
 
+  // `canEdit` lets the page offer its own editor for a kind this card would
+  // otherwise leave to the page that made the job.
+  const editable = (row) => Boolean(onEdit) && (editableInModal(row.type) || Boolean(canEdit?.(row)));
+
   const renderRow = (row, draggable) => (
     <TableRow
       key={row.id}
@@ -249,7 +253,25 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
         )}
       </TableCell>
       <TableCell sx={{ maxWidth: 260 }}>
-        <Typography variant="body2" noWrap title={row.name}>{row.name}</Typography>
+        {editable(row) ? (
+          <Typography
+            variant="body2"
+            noWrap
+            title={row.name}
+            component="button"
+            type="button"
+            onClick={() => onEdit(row)}
+            data-testid={`scheduled-open-${row.id}`}
+            sx={{
+              display: "block", maxWidth: "100%", p: 0, border: 0, bgcolor: "transparent", color: "inherit",
+              font: "inherit", textAlign: "left", cursor: "pointer", "&:hover": { textDecoration: "underline" },
+            }}
+          >
+            {row.name}
+          </Typography>
+        ) : (
+          <Typography variant="body2" noWrap title={row.name}>{row.name}</Typography>
+        )}
       </TableCell>
       <TableCell><Typography variant="caption">{kindLabel(row.type)}</Typography></TableCell>
       <TableCell>
@@ -294,7 +316,7 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, onRemove, onChanged
             </Tooltip>
           </>
         )}
-        {editableInModal(row.type) && onEdit && (
+        {editable(row) && (
           <Tooltip title={t("tasks.menu.edit")}>
             <IconButton size="small" aria-label={t("jobs.nightShift.editNamed", { name: row.name })} onClick={() => onEdit(row)}>
               <EditOutlinedIcon fontSize="small" />
@@ -442,6 +464,7 @@ ScheduledJobsCard.propTypes = {
   error: PropTypes.string,
   refresh: PropTypes.func.isRequired,
   onEdit: PropTypes.func,
+  canEdit: PropTypes.func,
   onRemove: PropTypes.func,
   onChanged: PropTypes.func,
 };
