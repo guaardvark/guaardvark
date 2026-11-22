@@ -102,6 +102,13 @@ import { useUiTranslation, uiLocale, Trans } from "../i18n";
 // Lazy import for VideoModelsModal
 const VideoModelsModal = lazyWithReload(() => import("../components/modals/VideoModelsModal"));
 
+// Frame caps for a model whose capability record has not loaded or predates
+// `frame_caps_by_area`; mirrors DEFAULT_FRAME_CAPS_BY_AREA in the video model registry.
+const FRAME_CAPS_WHEN_UNDECLARED = [
+  { min_pixel_area: 900_000, max_frames: 49 },
+  { min_pixel_area: 2_000_000, max_frames: 33 },
+];
+
 // Ready-made arrangements of the page's cards (175 columns). The first is the default.
 const VIDEO_GEN_LAYOUTS = [
   {
@@ -946,11 +953,13 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       if (!userOverrodeSteps && effectiveSteps > 30) {
         effectiveSteps = 30;
       }
-      // Cap frames to keep VRAM in check on 16GB cards
-      if (pixelArea >= 2_000_000 && effectiveDurationFrames > 33) {
-        effectiveDurationFrames = 33; // still looks great at 1080p
-      } else if (effectiveDurationFrames > 49) {
-        effectiveDurationFrames = 49; // 720p HD budget on 16GB
+      // Cap frames to keep VRAM in check on 16GB cards. The caps are declared
+      // per model in the registry; a model whose full clip fits declares none.
+      const frameCaps = modelCaps?.frame_caps_by_area ?? FRAME_CAPS_WHEN_UNDECLARED;
+      for (const cap of frameCaps) {
+        if (pixelArea >= cap.min_pixel_area && effectiveDurationFrames > cap.max_frames) {
+          effectiveDurationFrames = cap.max_frames;
+        }
       }
     }
 
