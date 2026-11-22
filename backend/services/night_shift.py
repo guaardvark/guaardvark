@@ -495,7 +495,7 @@ def schedule_tool_call(tool: str, arguments: dict, name: str, when: str,
         raise ValueError(f"{tool} needs your approval when it runs, so it cannot be scheduled from chat or an MCP client. "
                          "Schedule it yourself: Jobs page, Scheduled card, Schedule a job.")
     schedulable.check_arguments(tool, arguments)
-    return create_handoff_job("tool_call", name or tool.replace("_", " ").capitalize(),
+    return create_handoff_job("tool_call", name or schedulable.tool_job_name(tool, arguments),
                               schedulable.tool_request(tool, arguments), None, when, at)
 
 

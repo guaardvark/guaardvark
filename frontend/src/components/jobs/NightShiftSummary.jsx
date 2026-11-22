@@ -12,7 +12,7 @@ import { uiLocale, useUiTranslation } from "../../i18n";
 
 export const jobLink = (id) => `/tasks?${TASK_PARAMS.taskId}=${id}`;
 
-const NightShiftSummary = ({ shift, dense = false, limit = 0 }) => {
+const NightShiftSummary = ({ shift, dense = false, limit = 0, titleOf }) => {
   const { t } = useUiTranslation();
   const done = shift?.done || [];
   const failed = shift?.failed || [];
@@ -49,7 +49,7 @@ const NightShiftSummary = ({ shift, dense = false, limit = 0 }) => {
               sx={{ fontSize: dense ? "0.72rem" : "0.8rem", flexShrink: 0, maxWidth: "55%" }}
               noWrap
             >
-              {job.name}
+              {titleOf?.(job) || job.name}
             </Link>
             {text && (
               <Typography
@@ -78,6 +78,8 @@ NightShiftSummary.propTypes = {
   shift: PropTypes.object,
   dense: PropTypes.bool,
   limit: PropTypes.number,
+  // A fuller title for a job than the name it was saved with.
+  titleOf: PropTypes.func,
 };
 
 export default NightShiftSummary;
