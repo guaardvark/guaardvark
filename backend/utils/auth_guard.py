@@ -458,6 +458,9 @@ MUTATION_PROTECTED_PREFIXES = (
     '/api/tasks',
     '/api/scheduler',
     '/api/jobs',
+    # Adding, editing and cancelling scheduled jobs: a saved job runs later from
+    # this machine with the install's own key.
+    '/api/night-shift',
     '/api/meta',
     '/api/progress-test',
     # Destructive batch-image file operations (delete/rename/move). Generation
