@@ -197,7 +197,7 @@ const VideoJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
               disabled={readOnly}
               helperText={range.max ? t("jobs.videoJob.lengthRange", { min: range.min, max: range.max }) : undefined}
               slotProps={{
-                input: { endAdornment: <InputAdornment position="end">s</InputAdornment> },
+                input: { endAdornment: <InputAdornment position="end">{t("jobs.videoJob.secondsUnit")}</InputAdornment> },
                 htmlInput: { min: range.min, max: range.max || undefined, step: 0.5, "data-testid": "video-job-length" },
                 inputLabel: { shrink: true },
               }}
