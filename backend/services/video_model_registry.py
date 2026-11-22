@@ -379,6 +379,16 @@ H3_REF2VA_SPEED_PROFILES = {
         "experimental": True,
     },
 }
+# Frame caps the Video Generator applies by frame size: at or above each
+# `min_pixel_area` a clip is held to `max_frames` so an HD or 1080p request
+# stays inside a 16 GB card. This is the default for every generation entry;
+# an entry declares `frame_caps_by_area` to replace it, with the render it was
+# measured against, and `[]` when its full clip fits at every size it offers.
+DEFAULT_FRAME_CAPS_BY_AREA = [
+    {"min_pixel_area": 900_000, "max_frames": 49},
+    {"min_pixel_area": 2_000_000, "max_frames": 33},
+]
+
 # Wan 2.2 14B speed profile: the bundled ComfyUI templates run the 14B experts
 # at 4 steps, CFG 1, euler/simple, shift 5.0, with lightx2v's distilled LoRA
 # pair (one per expert) at strength 1.0. Our experts are GGUF Q5_K_M; ComfyUI-GGUF
@@ -653,6 +663,9 @@ VIDEO_MODEL_REGISTRY = {
         "default_steps": 25,
         "native_fps": 16,
         "max_frames": 81,
+        # Inferred, not measured: the same experts as wan22-14b-i2v without the
+        # start-frame conditioning, so the full clip that fits there fits here.
+        "frame_caps_by_area": [],
         "speed_profiles": WAN14B_SPEED_PROFILES["t2v"],
         # Inferred, not measured: the same A14B expert architecture and attention
         # path as wan22-14b-i2v, where ck attention was measured producing NaN tiles.
@@ -694,6 +707,10 @@ VIDEO_MODEL_REGISTRY = {
         "default_steps": 25,
         "native_fps": 16,
         "max_frames": 81,
+        # The full 81 frames fit at this entry's largest canvas: 1344x736,
+        # 81 frames, 25 steps rendered on a 16 GB RTX 40-series card
+        # (2026-11-22) and passed the quality check, so no size shortens a clip.
+        "frame_caps_by_area": [],
         "speed_profiles": WAN14B_SPEED_PROFILES["i2v"],
         # Wall-clock per music-video cut after the storyboards (i2v, RIFE, conform,
         # quality check), used for the approval estimate until the box has
@@ -2813,6 +2830,12 @@ def model_capabilities(model_id: str) -> dict:
         "native_fps": entry.get("native_fps"),
         "frame_rule": entry.get("frame_rule"),
         "max_frames": entry.get("max_frames"),
+        "frame_caps_by_area": [
+            dict(c) for c in (
+                entry["frame_caps_by_area"] if "frame_caps_by_area" in entry
+                else DEFAULT_FRAME_CAPS_BY_AREA
+            )
+        ],
         "min_clip_s": entry.get("min_clip_s"),
         "max_clip_s": entry.get("max_clip_s"),
         "duration_tiers": list(entry.get("duration_tiers") or []),
