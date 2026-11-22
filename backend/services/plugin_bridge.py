@@ -162,11 +162,26 @@ def plugins_for_route(route: str) -> List[str]:
     # Try exact first for phased sub-intents (storyboard only etc.), then normalized.
     seen: Set[str] = set()
     out: List[str] = []
+    declared = _manifest_routes()
     for key in (route, _normalize_route(route)):
-        for pid in ROUTE_PLUGIN_MAP.get(key, []):
+        for pid in ROUTE_PLUGIN_MAP.get(key, []) + declared.get(key, []):
             if pid not in seen:
                 seen.add(pid)
                 out.append(pid)
+    return out
+
+
+def _manifest_routes() -> Dict[str, List[str]]:
+    """Route -> plugin ids from the ``routes`` key of plugin manifests."""
+    try:
+        registry, _ = _registry_and_user_prefs()
+        plugins = registry.get_all_plugins()
+    except Exception:
+        return {}
+    out: Dict[str, List[str]] = {}
+    for pid, meta in plugins.items():
+        for route in getattr(meta, "routes", None) or []:
+            out.setdefault(route, []).append(pid)
     return out
 
 

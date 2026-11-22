@@ -765,8 +765,26 @@ class PluginManager:
             cwd = os.path.realpath(os.readlink(f"/proc/{pid}/cwd"))
         except OSError:
             return False
-        root = self._install_root()
-        return not (cwd == root or cwd.startswith(root + os.sep))
+        return not any(cwd == root or cwd.startswith(root + os.sep) for root in self._owned_roots())
+
+    def _owned_roots(self) -> List[str]:
+        """This install, plus each linked extension's own folder.
+
+        An extension under ``extensions/<id>`` is usually a link to a project
+        checked out elsewhere, and its sidecar runs from that project's folder.
+        The folder holding the plugin's ``extension.json`` counts as ours; a
+        second Guaardvark checkout elsewhere still does not.
+        """
+        roots = [self._install_root()]
+        for pid_ in list(self.registry.get_all_plugins()):
+            pdir = self.registry.get_plugin_dir(pid_)
+            if not pdir:
+                continue
+            real = Path(os.path.realpath(str(pdir)))
+            roots.append(str(real))
+            if (real.parent / "extension.json").is_file():
+                roots.append(str(real.parent))
+        return roots
 
     def _kill_by_port(self, port: int):
         """Kill any process listening on the given port (orphan cleanup).
