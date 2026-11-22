@@ -55,6 +55,15 @@ export const setNightShiftOrder = (ids) => changed(call("/order", "POST", { ids 
 export const createScheduledBatch = ({ type, variant, name, request, path }, choice) =>
   changed(call("/jobs", "POST", { type, variant, name, request, path, ...whenBody(choice) }));
 
+// Save a chat tool call to run later.
+export const scheduleTool = ({ tool, arguments: args, name }, choice) =>
+  changed(call("/jobs", "POST", { tool, arguments: args, name, ...whenBody(choice) }));
+
+// Change a job that has not started: its name, or the request it will send.
+// Refused with the reason when the request could not run, or once it started.
+export const updateScheduledJob = (taskId, { name, request, variant }) =>
+  changed(call(`/jobs/${taskId}`, "PUT", { name, request, variant }));
+
 // What can be scheduled: features that take one prompt, and the kinds their
 // own pages schedule (backend/services/schedulable.py).
 export const getScheduleKinds = async () => (await call("/kinds")).kinds || [];

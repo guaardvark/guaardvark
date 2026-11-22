@@ -130,6 +130,22 @@ def post_job():
         return error_response(str(e), status_code=400)
 
 
+@night_shift_bp.route("/jobs/<int:task_id>", methods=["PUT"])
+def put_job(task_id: int):
+    """Change a job that has not started: ``name``, ``request`` (the body it
+    will send, checked as a new job's is) and ``variant``. 409 once it started."""
+    data = request.get_json(silent=True) or {}
+    body = data.get("request")
+    if body is not None and not isinstance(body, dict):
+        return error_response("request must be the body the job is started with", status_code=400)
+    try:
+        return success_response(night_shift.update_job(task_id, data.get("name"), body, data.get("variant")))
+    except ValueError as e:
+        return error_response(str(e), status_code=400)
+    except LookupError as e:
+        return error_response(str(e), status_code=409)
+
+
 @night_shift_bp.route("/jobs/<int:task_id>", methods=["DELETE"])
 def delete_job(task_id: int):
     """Take a job that has not started off the schedule."""

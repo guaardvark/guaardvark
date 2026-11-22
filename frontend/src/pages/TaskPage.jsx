@@ -69,6 +69,8 @@ import EmptyState from "../components/common/EmptyState";
 import { ContextualLoader } from "../components/common/LoadingStates";
 import { CardWorkspace } from "../components/board";
 import ScheduledJobsCard from "../components/jobs/ScheduledJobsCard";
+import VideoJobModal from "../components/jobs/VideoJobModal";
+import { isVideoJob } from "../components/jobs/videoJob";
 import useNightShift from "../hooks/useNightShift";
 import { translate, useUiTranslation } from "../i18n";
 
@@ -150,6 +152,7 @@ const TaskPage = () => {
   // Task creation state
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [videoJob, setVideoJob] = useState(null);
   const [createDefaults, setCreateDefaults] = useState(null);
   const [tasksLoaded, setTasksLoaded] = useState(false);
 
@@ -426,6 +429,11 @@ const TaskPage = () => {
   };
 
   const handleEditTask = (task) => {
+    // A video job has its own editor: the general form knows none of its settings.
+    if (isVideoJob(task)) {
+      setVideoJob(task);
+      return;
+    }
     setCreateDefaults(null);
     setEditingTask(task);
     setShowTaskForm(true);
@@ -926,6 +934,20 @@ const TaskPage = () => {
           onClose={() => setPendingConfirm(null)}
         />
 
+        <VideoJobModal
+          open={Boolean(videoJob)}
+          task={videoJob}
+          onClose={() => setVideoJob(null)}
+          onSaved={() => {
+            fetchTasks();
+            nightShift.refresh();
+          }}
+          onRemove={(task) => {
+            setVideoJob(null);
+            handleRemoveScheduled(task);
+          }}
+        />
+
         {/* Enhanced Task Action Modal */}
         <TaskActionModal
           open={showTaskForm}
@@ -1075,6 +1097,7 @@ const TaskPage = () => {
                   error={nightShift.error}
                   refresh={nightShift.refresh}
                   onEdit={handleEditScheduled}
+                  canEdit={(row) => isVideoJob(tasks.find((item) => item.id === row.id))}
                   onRemove={handleRemoveScheduled}
                   onChanged={fetchTasks}
                 />
