@@ -151,7 +151,7 @@ describe("entity pages keep the browser menu where it is needed", () => {
     renderPage(<TaskPage />);
     await screen.findByText("Write copy");
     // The card's title bar has the card menu; the page menu is inside the card.
-    expect(rightClick(screen.getByText("Queued and running batches from Video and Batch Video."))).toBe(false);
+    expect(rightClick(screen.getByText("Queued, running and paused batches from Video and Batch Video."))).toBe(false);
     expect(screen.getByRole("menuitem", { name: "New Custom Job" })).toBeInTheDocument();
   });
 });

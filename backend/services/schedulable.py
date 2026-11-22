@@ -160,6 +160,17 @@ def check_arguments(tool: str, arguments: dict) -> None:
         raise ValueError(error)
 
 
+def tool_job_name(tool: str, arguments: dict) -> str:
+    """A name for a scheduled tool call nothing named: the feature and the
+    start of its prompt, as feature_job names one, so a row of scheduled
+    clips reads as different clips."""
+    feature = next((f for f in FEATURES.values() if f.tool == tool), None)
+    prompt = " ".join(str((arguments or {}).get(feature.param) or "").split()) if feature else ""
+    if prompt:
+        return f"{feature.label}: {prompt[:70].rstrip()}"
+    return feature.label if feature else tool.replace("_", " ").capitalize()
+
+
 def feature_job(feature_id: str, prompt: str, options: Optional[dict] = None) -> dict:
     """``{type, variant, request, name}`` for a feature and a prompt.
     Raises ValueError for an unknown feature or an empty prompt."""

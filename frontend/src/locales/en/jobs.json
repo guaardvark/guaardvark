@@ -167,7 +167,8 @@
     "scheduleJob": "Schedule a job",
     "scheduleJobHelp": "Pick a feature, describe it and say when it should run.",
     "pauseJob": "Pause: keep it in the list without a time. Change when or Run now starts it again.",
-    "pauseJobNamed": "Pause {{name}}"
+    "pauseJobNamed": "Pause {{name}}",
+    "placeInLine": "Night shift, #{{place}}"
   },
   "schedule": {
     "title": "Schedule a job",
@@ -263,5 +264,43 @@
     },
     "openImages": "Open the images in Images",
     "tooLarge": "This model's largest picture is {{max}} megapixels."
+  },
+  "summary": {
+    "seconds": "{{seconds}} s",
+    "clips_one": "{{count}} clip",
+    "clips_other": "{{count}} clips",
+    "pictures_one": "{{count}} picture",
+    "pictures_other": "{{count}} pictures"
+  },
+  "page": {
+    "tiles": {
+      "scheduled": "Scheduled",
+      "scheduledSub": "{{night}} tonight, {{timed}} at a time, {{held}} on hold",
+      "running": "Running",
+      "runningSub_one": "{{count}} queued behind it",
+      "runningSub_other": "{{count}} queued behind it",
+      "doneToday": "Finished today",
+      "failedToday": "Failed today",
+      "failedSub": "Open one to see why, and run it again."
+    },
+    "filter": {
+      "history": "History",
+      "scheduled": "Scheduled",
+      "active": "Running",
+      "completed": "Completed",
+      "failed": "Failed or cancelled"
+    },
+    "allKinds": "All kinds",
+    "layouts": {
+      "queue": "Queue beside jobs",
+      "wide": "Scheduled on top"
+    }
+  },
+  "card": {
+    "runNow": "Run now",
+    "at": "Runs {{time}}",
+    "held": "On hold",
+    "startedAt": "Started {{time}}",
+    "created": "Added {{time}}"
   }
 }

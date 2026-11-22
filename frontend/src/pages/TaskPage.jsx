@@ -73,7 +73,9 @@ import VideoJobModal from "../components/jobs/VideoJobModal";
 import { isVideoJob } from "../components/jobs/videoJob";
 import ImageJobModal from "../components/jobs/ImageJobModal";
 import { isImageJob } from "../components/jobs/imageJob";
-import useNightShift from "../hooks/useNightShift";
+import { jobKind, jobSummary, kindLabel } from "../components/jobs/jobSummary";
+import { scheduleJob, WHEN } from "../api/nightShiftService";
+import useNightShift, { scheduledCount } from "../hooks/useNightShift";
 import { translate, useUiTranslation } from "../i18n";
 
 // A video batch job's status as shown; the value from the API stays the one compared.
@@ -88,13 +90,16 @@ const jobStatusLabel = (status) =>
   })[status] ?? status;
 
 // The status filter chips; the ids stay the ones filtered on.
-const statusFilterLabel = (filter) =>
-  ({
-    all: translate("tasks.filter.all"),
-    active: translate("tasks.filter.active"),
-    completed: translate("tasks.filter.completed"),
-    failed: translate("tasks.filter.failed"),
-  })[filter];
+// The statuses each filter chip and dashboard tile counts.
+const STATUS_GROUPS = {
+  // Everything that has started or ended: the Scheduled card lists the rest.
+  history: ["pending", "queued", "in-progress", "running", "processing", "paused", "completed", "complete",
+    "failed", "error", "cancelled", "canceled"],
+  scheduled: ["waiting"],
+  active: ["pending", "queued", "in-progress", "running", "processing", "paused"],
+  completed: ["completed", "complete"],
+  failed: ["failed", "error", "cancelled", "canceled"],
+};
 
 // Removed TaskStatusChip - now handled in TaskCard component
 
@@ -166,7 +171,7 @@ const TaskPage = () => {
   const [newTaskMenuAnchor, setNewTaskMenuAnchor] = useState(null);
 
   // Filter state
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('history');
   const [typeFilter, setTypeFilter] = useState('all');
 
   // Right-click menu; fields and dialogs keep the browser's own menu.
@@ -367,9 +372,7 @@ const TaskPage = () => {
     if (!taskIdParam || !tasksLoaded) return;
     const task = tasks.find((t) => String(t.id) === String(taskIdParam));
     if (task) {
-      setCreateDefaults(null);
-      setEditingTask(task);
-      setShowTaskForm(true);
+      handleEditTask(task);
     } else {
       setFeedback({ open: true, message: t("tasks.notFound", { id: taskIdParam }), severity: "warning" });
     }
@@ -641,13 +644,18 @@ const TaskPage = () => {
 
       // BUG FIX #5: Better error handling for dynamic import and API call
       try {
-        const { startTask } = await import('../api');
-        if (typeof startTask !== 'function') {
-          throw new Error('startTask is not a function');
-        }
-        const result = await startTask(taskId);
-        if (result?.error) {
-          throw new Error(result.error);
+        if (task.status === "waiting") {
+          // A scheduled job is released the way the Scheduled card's Run now does it.
+          await scheduleJob(taskId, { when: WHEN.NOW });
+        } else {
+          const { startTask } = await import('../api');
+          if (typeof startTask !== 'function') {
+            throw new Error('startTask is not a function');
+          }
+          const result = await startTask(taskId);
+          if (result?.error) {
+            throw new Error(result.error);
+          }
         }
       } catch (importError) {
         console.error('Failed to start task:', importError);
@@ -765,17 +773,11 @@ const TaskPage = () => {
     let filtered = [...tasks];
 
     // Status filter
-    if (statusFilter === 'active') {
-      filtered = filtered.filter(t => ['pending', 'queued', 'in-progress', 'running', 'processing'].includes(t.status?.toLowerCase()));
-    } else if (statusFilter === 'completed') {
-      filtered = filtered.filter(t => ['completed', 'complete'].includes(t.status?.toLowerCase()));
-    } else if (statusFilter === 'failed') {
-      filtered = filtered.filter(t => ['failed', 'error', 'cancelled', 'canceled'].includes(t.status?.toLowerCase()));
-    }
+    filtered = filtered.filter((task) => STATUS_GROUPS[statusFilter]?.includes(task.status?.toLowerCase()));
 
-    // Type filter
+    // Kind filter
     if (typeFilter !== 'all') {
-      filtered = filtered.filter(t => t.type === typeFilter);
+      filtered = filtered.filter((task) => jobKind(task) === typeFilter);
     }
 
     // Client / website from a link. Older tasks carry only the name or URL.
@@ -790,7 +792,15 @@ const TaskPage = () => {
         (linkedWebsite?.url && t.target_website === linkedWebsite.url));
     }
 
-    return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    // What is running comes first, then the night's line in its order, then the newest.
+    const group = (task) => {
+      const status = task.status?.toLowerCase();
+      return STATUS_GROUPS.active.includes(status) ? 0 : status === "waiting" ? 1 : 2;
+    };
+    return filtered.sort((a, b) =>
+      group(a) - group(b)
+      || (group(a) === 1 ? (a.queue_rank ?? Infinity) - (b.queue_rank ?? Infinity) : 0)
+      || new Date(b.last_run_at || b.created_at) - new Date(a.last_run_at || a.created_at));
   }, [tasks, statusFilter, typeFilter, clientFilter, websiteFilter, linkedClient, linkedWebsite]);
 
   const entityFilterLabel = [
@@ -805,25 +815,32 @@ const TaskPage = () => {
     .join(" · ");
 
   const statusOf = (task) => task.status?.toLowerCase();
-  const pendingCount = tasks.filter((task) => statusOf(task) === "pending").length;
-  const queuedCount = tasks.filter((task) => statusOf(task) === "queued").length;
-  const runningCount = tasks.filter((task) =>
-    ["in-progress", "running", "processing"].includes(statusOf(task)),
-  ).length;
-  const statusOptions = ["all", "active", "completed", "failed"].map((value) => ({
+  const countIn = (group) => tasks.filter((task) => STATUS_GROUPS[group].includes(statusOf(task))).length;
+  const queuedCount = tasks.filter((task) => ["pending", "queued"].includes(statusOf(task))).length;
+  const runningCount = countIn("active") - queuedCount;
+  // tasks.updated_at is UTC without a zone.
+  const dayStart = new Date().setHours(0, 0, 0, 0);
+  const endedToday = (group) => tasks.filter((task) =>
+    STATUS_GROUPS[group].includes(statusOf(task))
+    && task.updated_at && new Date(`${String(task.updated_at).replace(/Z$/, "")}Z`).getTime() >= dayStart).length;
+  const doneToday = endedToday("completed");
+  const failedToday = tasks.filter((task) =>
+    ["failed", "error"].includes(statusOf(task))
+    && task.updated_at && new Date(`${String(task.updated_at).replace(/Z$/, "")}Z`).getTime() >= dayStart).length;
+  const scheduledTotal = scheduledCount(nightShift.status);
+  const statusOptions = ["history", "scheduled", "active", "completed", "failed"].map((value) => ({
     value,
-    label: statusFilterLabel(value),
+    label: `${t(`jobs.page.filter.${value}`)} ${countIn(value)}`,
   }));
+  // One chip per kind of job that is in the list.
+  const kindsPresent = [...new Set(tasks.map(jobKind))];
   const typeOptions = [
-    ["all", "tasks.typeFilter.all"],
-    ["code_generation", "tasks.types.code_generation"],
-    ["file_generation", "tasks.types.file_generation"],
-    ["content_generation", "tasks.types.content_generation"],
-    ["bulk_content_generation", "tasks.types.bulk_content_generation"],
-    ["data_analysis", "tasks.types.data_analysis"],
-    ["website_analysis", "tasks.types.website_analysis"],
-    ["custom", "tasks.types.custom"],
-  ].map(([value, key]) => ({ value, label: t(key) }));
+    { value: "all", label: t("jobs.page.allKinds") },
+    ...kindsPresent
+      .map((kind) => ({ value: kind, label: kindLabel(kind, t) }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+  ];
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
   const videoTone = (status) => ({
     running: "info",
     paused: "warn",
@@ -968,31 +985,67 @@ const TaskPage = () => {
 
         <DashboardStrip>
           <DashboardTile
-            label={t("layoutCards.task.status.pending")}
-            value={pendingCount}
-            tone={pendingCount > 0 ? "ok" : "off"}
+            label={t("jobs.page.tiles.scheduled")}
+            value={scheduledTotal}
+            sub={scheduledTotal > 0 ? t("jobs.page.tiles.scheduledSub", {
+              night: nightShift.status?.waiting?.length || 0,
+              timed: nightShift.status?.at?.length || 0,
+              held: nightShift.status?.held?.length || 0,
+            }) : undefined}
+            tone={scheduledTotal > 0 ? "ok" : "off"}
+            onClick={() => setStatusFilter("scheduled")}
           />
           <DashboardTile
-            label={t("layoutCards.task.status.queued")}
-            value={queuedCount}
-            tone={queuedCount > 0 ? "ok" : "off"}
-          />
-          <DashboardTile
-            label={t("layoutCards.task.status.running")}
+            label={t("jobs.page.tiles.running")}
             value={runningCount}
+            sub={queuedCount > 0 ? t("jobs.page.tiles.runningSub", { count: queuedCount }) : undefined}
             tone={runningCount > 0 ? "ok" : "off"}
+            onClick={() => setStatusFilter("active")}
+          />
+          <DashboardTile
+            label={t("jobs.page.tiles.doneToday")}
+            value={doneToday}
+            tone={doneToday > 0 ? "ok" : "off"}
+            onClick={() => setStatusFilter("completed")}
+          />
+          <DashboardTile
+            label={t("jobs.page.tiles.failedToday")}
+            value={failedToday}
+            sub={failedToday > 0 ? t("jobs.page.tiles.failedSub") : undefined}
+            tone={failedToday > 0 ? "error" : "off"}
+            onClick={() => setStatusFilter("failed")}
           />
         </DashboardStrip>
 
         {/* The job list and the video batches are cards on the shared board. */}
         <CardWorkspace
           boardKey="jobs"
-          version={2}
+          version={3}
+          presets={[
+            {
+              id: "queue",
+              label: t("jobs.page.layouts.queue"),
+              layout: {
+                scheduled: { x: 0, y: 0, w: 80, h: 70 },
+                video: { x: 0, y: 70, w: 80, h: 30 },
+                jobs: { x: 80, y: 0, w: 95, h: 100 },
+              },
+            },
+            {
+              id: "wide",
+              label: t("jobs.page.layouts.wide"),
+              layout: {
+                scheduled: { x: 0, y: 0, w: 175, h: 50 },
+                jobs: { x: 0, y: 50, w: 115, h: 90 },
+                video: { x: 115, y: 50, w: 60, h: 90 },
+              },
+            },
+          ]}
           cards={[
             {
               id: "jobs",
               title: t("tasks.title"),
-              layout: { x: 0, y: 55, w: 115, h: 90 },
+              layout: { x: 80, y: 0, w: 95, h: 100 },
               body: (
                 <Box sx={{ p: 1.5 }}>
         <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap", alignItems: "center" }}>
@@ -1036,7 +1089,7 @@ const TaskPage = () => {
             />
             {tasks.length > 0 && (
               <Box sx={{ mt: 2 }}>
-                <ActionButton onClick={() => { setStatusFilter("all"); setTypeFilter("all"); }}>
+                <ActionButton onClick={() => { setStatusFilter("history"); setTypeFilter("all"); }}>
                   {t("tasks.clearFilters")}
                 </ActionButton>
               </Box>
@@ -1049,8 +1102,8 @@ const TaskPage = () => {
               sx={{
                 display: "grid",
                 // Sized by the card it sits in, not by the window.
-                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-                gap: 2,
+                gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+                gap: 1.25,
                 mb: 2,
               }}
             >
@@ -1061,7 +1114,6 @@ const TaskPage = () => {
                     onEdit={handleEditTask}
                     onStartJob={handleStartSingleTask}
                     onStopJob={handleStopTask}
-                    availableProjects={availableProjects}
                   />
                 </div>
               ))}
@@ -1095,17 +1147,15 @@ const TaskPage = () => {
             {
               id: "scheduled",
               title: t("jobs.nightShift.cardTitle"),
-              layout: { x: 0, y: 0, w: 175, h: 55 },
+              layout: { x: 0, y: 0, w: 80, h: 70 },
               body: (
                 <ScheduledJobsCard
                   status={nightShift.status}
                   error={nightShift.error}
                   refresh={nightShift.refresh}
                   onEdit={handleEditScheduled}
-                  canEdit={(row) => {
-                    const task = tasks.find((item) => item.id === row.id);
-                    return isVideoJob(task) || isImageJob(task);
-                  }}
+                  canEdit={(row) => isVideoJob(taskById.get(row.id)) || isImageJob(taskById.get(row.id))}
+                  describe={(row) => (taskById.has(row.id) ? jobSummary(taskById.get(row.id), t) : null)}
                   onRemove={handleRemoveScheduled}
                   onChanged={fetchTasks}
                 />
@@ -1114,7 +1164,7 @@ const TaskPage = () => {
             {
               id: "video",
               title: t("tasks.video.title"),
-              layout: { x: 115, y: 55, w: 60, h: 90 },
+              layout: { x: 0, y: 70, w: 80, h: 30 },
               body: (
                 <Box sx={{ p: 1.5 }}>
           <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>

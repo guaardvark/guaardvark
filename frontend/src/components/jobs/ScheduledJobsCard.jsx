@@ -17,7 +17,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableRow,
   Tooltip,
   Typography,
@@ -41,6 +40,7 @@ import {
   setNightShiftWindow,
   WHEN,
 } from "../../api/nightShiftService";
+import { kindLabel } from "./jobSummary";
 import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
 const HANDOFF_KINDS = new Set([
@@ -48,25 +48,6 @@ const HANDOFF_KINDS = new Set([
   "film_crew",
   "tool_call",
 ]);
-
-// The kind column. Types without an entry show their own name.
-const kindLabel = (type) => {
-  if (!type) return "";
-  if (type === "image_batch") return translate("jobs.nightShift.kind.images");
-  if (type === "video_batch") return translate("jobs.nightShift.kind.video");
-  if (HANDOFF_KINDS.has(type)) return translate(`jobs.nightShift.kind.${type}`);
-  if (type.startsWith("social_outreach_")) return translate("jobs.nightShift.kind.outreach");
-  if (type.startsWith("website_")) return translate("jobs.nightShift.kind.website");
-  const known = {
-    content_generation: "tasks.types.content_generation",
-    file_generation: "tasks.types.file_generation",
-    code_generation: "tasks.types.code_generation",
-    bulk_content_generation: "tasks.types.bulk_content_generation",
-    data_analysis: "tasks.types.data_analysis",
-    website_analysis: "tasks.types.website_analysis",
-  }[type];
-  return known ? translate(known) : type.replace(/_/g, " ");
-};
 
 // Render batches and the other kinds started from their own pages keep their
 // settings in the page that made them (backend/services/job_handoff.py).
@@ -132,7 +113,7 @@ TimeField.propTypes = {
   testId: PropTypes.string,
 };
 
-const ScheduledJobsCard = ({ status, error, refresh, onEdit, canEdit, onRemove, onChanged }) => {
+const ScheduledJobsCard = ({ status, error, refresh, onEdit, canEdit, describe, onRemove, onChanged }) => {
   const { t } = useUiTranslation();
   const [order, setOrder] = useState(null); // night-shift ids while a drag is in progress or being saved
   const [dragId, setDragId] = useState(null);
@@ -221,7 +202,44 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, canEdit, onRemove, 
   // otherwise leave to the page that made the job.
   const editable = (row) => Boolean(onEdit) && (editableInModal(row.type) || Boolean(canEdit?.(row)));
 
-  const renderRow = (row, draggable) => (
+  // A row says what the job is: its first frame when it has one, a title that
+  // tells it from its neighbours, and its kind and settings underneath.
+  const rowBody = (row) => {
+    const about = describe?.(row) || null;
+    const title = about?.title || row.name;
+    const settings = [kindLabel(about?.kind || row.type, t), ...(about?.details || [])].join(" · ");
+    const open = editable(row) ? () => onEdit(row) : undefined;
+    return (
+      <Box
+        onClick={open}
+        data-testid={open ? `scheduled-open-${row.id}` : undefined}
+        role={open ? "button" : undefined}
+        tabIndex={open ? 0 : undefined}
+        onKeyDown={open ? (e) => e.key === "Enter" && open() : undefined}
+        sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, cursor: open ? "pointer" : "default" }}
+      >
+        {about?.thumb && (
+          <Box
+            component="img"
+            src={about.thumb}
+            alt=""
+            loading="lazy"
+            sx={{ width: 56, height: 36, objectFit: "cover", borderRadius: 0.75, flexShrink: 0, bgcolor: "action.hover" }}
+          />
+        )}
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="body2" noWrap title={title} sx={open ? { "&:hover": { textDecoration: "underline" } } : undefined}>
+            {title}
+          </Typography>
+          <Typography variant="caption" noWrap sx={{ color: "text.secondary", display: "block" }} title={settings}>
+            {settings}
+          </Typography>
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderRow = (row, draggable, place) => (
     <TableRow
       key={row.id}
       hover
@@ -252,33 +270,15 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, canEdit, onRemove, 
           </Tooltip>
         )}
       </TableCell>
-      <TableCell sx={{ maxWidth: 260 }}>
-        {editable(row) ? (
-          <Typography
-            variant="body2"
-            noWrap
-            title={row.name}
-            component="button"
-            type="button"
-            onClick={() => onEdit(row)}
-            data-testid={`scheduled-open-${row.id}`}
-            sx={{
-              display: "block", maxWidth: "100%", p: 0, border: 0, bgcolor: "transparent", color: "inherit",
-              font: "inherit", textAlign: "left", cursor: "pointer", "&:hover": { textDecoration: "underline" },
-            }}
-          >
-            {row.name}
-          </Typography>
-        ) : (
-          <Typography variant="body2" noWrap title={row.name}>{row.name}</Typography>
-        )}
+      <TableCell sx={{ maxWidth: 0, width: "100%", py: 0.75 }}>
+        {rowBody(row)}
       </TableCell>
-      <TableCell><Typography variant="caption">{kindLabel(row.type)}</Typography></TableCell>
-      <TableCell>
-        <Typography variant="caption">{whenLabel(row)}</Typography>
+      <TableCell sx={{ whiteSpace: "nowrap" }}>
+        <Typography variant="caption">
+          {draggable ? t("jobs.nightShift.placeInLine", { place: place + 1 }) : whenLabel(row)}
+        </Typography>
         {row.late && <StatusPill label={t("jobs.nightShift.late")} tone="warn" sx={{ ml: 0.75 }} />}
       </TableCell>
-      <TableCell><Typography variant="caption" sx={{ color: "text.secondary" }}>{formatTime(row.created_at)}</Typography></TableCell>
       <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
         {!row.repeats && (
           <>
@@ -396,26 +396,16 @@ const ScheduledJobsCard = ({ status, error, refresh, onEdit, canEdit, onRemove, 
         </Alert>
       )}
 
-      <NightShiftSummary shift={status.shift} />
+      <NightShiftSummary shift={status.shift} titleOf={(job) => describe?.(job)?.title} />
 
       {total === 0 ? (
         <Typography variant="body2" data-testid="scheduled-empty" sx={{ color: "text.secondary" }}>
           {t("jobs.nightShift.empty")}
         </Typography>
       ) : (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell />
-              <TableCell sx={{ fontWeight: 600 }}>{t("jobs.nightShift.col.name")}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t("jobs.nightShift.col.kind")}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t("jobs.nightShift.col.when")}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t("jobs.nightShift.col.created")}</TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
+        <Table size="small" sx={{ tableLayout: "auto" }}>
           <TableBody>
-            {nightRows.map((row) => renderRow(row, true))}
+            {nightRows.map((row, place) => renderRow(row, true, place))}
             {others.map((row) => renderRow(row, false))}
           </TableBody>
         </Table>
@@ -465,6 +455,7 @@ ScheduledJobsCard.propTypes = {
   refresh: PropTypes.func.isRequired,
   onEdit: PropTypes.func,
   canEdit: PropTypes.func,
+  describe: PropTypes.func,
   onRemove: PropTypes.func,
   onChanged: PropTypes.func,
 };

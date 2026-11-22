@@ -22,6 +22,7 @@ import {
   updateScheduledJob,
   WHEN,
 } from "../../api/nightShiftService";
+import { outputThumb } from "./jobSummary";
 import { uiLocale, useUiTranslation } from "../../i18n";
 
 // "pending" is on its way to the queue: the scheduler takes it within seconds.
@@ -107,6 +108,7 @@ const JobEditorDialog = ({
   const [atOpen, setAtOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [brokenPreview, setBrokenPreview] = useState(false);
 
   const status = String(task?.status || "").toLowerCase();
   const phase = jobPhase(task);
@@ -120,11 +122,13 @@ const JobEditorDialog = ({
     setChoice(jobPhase(task) === "waiting" ? savedChoice(task) : { when: WHEN.NIGHT_SHIFT });
     setError(null);
     setBusy(false);
+    setBrokenPreview(false);
   }, [open, task]);
 
   if (!task) return null;
 
   const readOnly = started || busy;
+  const preview = outputThumb(task);
   const nameDirty = name.trim() !== (task.name || "");
   const whenDirty = waiting && !sameChoice(choice, savedChoice(task));
   const dirty = settingsDirty || nameDirty || whenDirty;
@@ -212,14 +216,25 @@ const JobEditorDialog = ({
         )}
 
         {(task.result || task.error_message || outputLink) && (
-          <Box sx={{ borderTop: 1, borderColor: "divider", pt: 1 }}>
+          <Box sx={{ borderTop: 1, borderColor: "divider", pt: 1, display: "flex", gap: 1.25, alignItems: "center" }}>
+            {preview && !brokenPreview && (
+              <Box
+                component="img"
+                src={preview}
+                alt=""
+                onError={() => setBrokenPreview(true)}
+                data-testid={`${testId}-preview`}
+                sx={{ width: 112, height: 72, objectFit: "cover", borderRadius: 1, flexShrink: 0, bgcolor: "action.hover" }}
+              />
+            )}
+            <Box sx={{ minWidth: 0 }}>
             {task.error_message && (
-              <Typography variant="caption" color="error.main" sx={{ display: "block" }} data-testid={`${testId}-failure`}>
+              <Typography variant="caption" sx={{ color: "error.main", display: "block" }} data-testid={`${testId}-failure`}>
                 {task.error_message}
               </Typography>
             )}
             {task.result && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                 {task.result}
               </Typography>
             )}
@@ -228,6 +243,7 @@ const JobEditorDialog = ({
                 {outputLink.label}
               </Link>
             )}
+            </Box>
           </Box>
         )}
       </DialogContent>

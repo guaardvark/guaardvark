@@ -1,19 +1,19 @@
-// A scheduler job on the Jobs page. The card opens the editor. Start, stop,
-// and Edit sit in a row so they do not cover the name or the description.
+// A job on the Jobs page: what it is (picture or kind, title, settings), where
+// it stands (status, when it runs or what it made), and the two things done
+// to it most. The whole card opens the job's editor.
 
-import React from "react";
-import {
-  Card,
-  Typography,
-  Box,
-} from "@mui/material";
+import React, { useState } from "react";
+import { Box, Card, IconButton, LinearProgress, Tooltip, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
+import MovieOutlinedIcon from "@mui/icons-material/MovieOutlined";
+import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
+import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
-import ActionButton from "../settings/ui/ActionButton";
 import StatusPill from "../settings/ui/StatusPill";
-import { useUiTranslation } from "../../i18n";
+import { jobSummary, kindLabel } from "../jobs/jobSummary";
+import { uiLocale, useUiTranslation } from "../../i18n";
 
 const statusTone = (status) => {
   switch (status) {
@@ -38,23 +38,27 @@ const statusTone = (status) => {
   }
 };
 
-const TaskCard = ({
-  task,
-  onEdit,
-  onStartJob,
-  onStopJob,
-  availableProjects = [],
-}) => {
+const KIND_ICON = { video: MovieOutlinedIcon, images: ImageOutlinedIcon };
+
+const shortTime = (date) =>
+  date && !Number.isNaN(date.getTime())
+    ? date.toLocaleString(uiLocale(), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+    : "";
+
+// tasks.due_date and updated_at hold UTC without a zone; created_at and last_run_at are this machine's time.
+const utc = (value) => (value ? new Date(`${String(value).replace(/Z$/, "")}Z`) : null);
+const local = (value) => (value ? new Date(value) : null);
+
+const TaskCard = ({ task, onEdit, onStartJob, onStopJob }) => {
   const { t } = useUiTranslation();
   const theme = useTheme();
   const { getProcess } = useUnifiedProgress();
+  // A preview that is not there (a batch whose files were deleted) gives way to the kind's icon.
+  const [brokenThumb, setBrokenThumb] = useState(null);
 
   if (!task) return null;
 
-  const processData = task.job_id && typeof getProcess === "function"
-    ? getProcess(task.job_id)
-    : null;
-  const realTimeProgress = processData?.progress || 0;
+  const processData = task.job_id && typeof getProcess === "function" ? getProcess(task.job_id) : null;
   const cleanStatus = String(processData?.status || task.status || "unknown")
     .replace("CSV Gen", "")
     .trim()
@@ -62,8 +66,12 @@ const TaskCard = ({
 
   const isQueued = cleanStatus === "queued";
   const isRunning = ["in-progress", "running", "processing"].includes(cleanStatus);
-  const isFinished = ["completed", "complete", "failed", "error", "cancelled", "canceled"].includes(cleanStatus);
+  const isWaiting = cleanStatus === "waiting";
+  const isDone = ["completed", "complete"].includes(cleanStatus);
+  const isFailed = ["failed", "error"].includes(cleanStatus);
+  const isFinished = isDone || isFailed || ["cancelled", "canceled"].includes(cleanStatus);
   const canStop = Boolean(task.job_id);
+  const progress = Math.round(processData?.progress ?? task.progress ?? 0);
 
   const statusLabelKey = cleanStatus === "processing" || cleanStatus === "in-progress"
     ? "running"
@@ -79,48 +87,37 @@ const TaskCard = ({
     ? t("layoutCards.task.statusWithRetries", { status: statusText, retries: task.retry_count })
     : statusText;
 
-  const projectName = (() => {
-    if (task.project?.name) return task.project.name;
-    if (task.project_id && availableProjects.length > 0) {
-      const project = availableProjects.find((p) => p.id === task.project_id);
-      return project?.name || t("layoutCards.task.projectNumber", { id: task.project_id });
-    }
-    return task.project_id
-      ? t("layoutCards.task.projectNumber", { id: task.project_id })
-      : t("layoutCards.task.noProject");
-  })();
+  const summary = jobSummary(task, t);
+  const title = summary.title || t("layoutCards.task.untitled");
+  const KindIcon = KIND_ICON[summary.kind] || AssignmentOutlinedIcon;
+  const settings = [kindLabel(summary.kind, t), ...summary.details].join(" · ");
+  // The prompt is the title of a job nothing named; do not say it twice.
+  const text = summary.text && summary.text !== title ? summary.text : "";
 
-  const typeLabel = task.type
-    ? t(`tasks.types.${task.type}`, { defaultValue: task.type.replaceAll("_", " ") })
-    : "";
-
-  const created = (() => {
-    if (!task.created_at) return "";
-    const date = new Date(task.created_at);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  })();
+  // One line on where the job stands: what it made, why it failed, or when it runs.
+  const standing = isFailed && task.error_message ? { text: task.error_message, color: "error.main" }
+    : isRunning ? { text: processData?.message || t("jobs.card.startedAt", { time: shortTime(local(task.last_run_at)) }) }
+      : isQueued ? { text: t("layoutCards.task.queuedForExecution") }
+        : isWaiting ? {
+          text: task.schedule_type === "night_shift" ? t("jobs.nightShift.when.night")
+            : task.schedule_type === "at" && task.due_date ? t("jobs.card.at", { time: shortTime(utc(task.due_date)) })
+              : t("jobs.card.held"),
+        }
+          // The pill beside it already says how it ended.
+          : isFinished ? { text: shortTime(utc(task.updated_at)) }
+            : { text: t("jobs.card.created", { time: shortTime(local(task.created_at)) }) };
 
   const borderColor = isRunning
     ? theme.palette.info.main
-    : isQueued
-      ? theme.palette.info.light
-      : cleanStatus === "completed" || cleanStatus === "complete"
-        ? theme.palette.success.main
-        : cleanStatus === "failed" || cleanStatus === "error"
-          ? theme.palette.error.main
-          : theme.palette.divider;
+    : isFailed
+      ? theme.palette.error.main
+      : theme.palette.divider;
 
   return (
     <Card
+      data-testid={`job-card-${task.id}`}
       sx={{
-        display: "flex",
-        flexDirection: "column",
+        position: "relative",
         height: "100%",
         border: "1px solid",
         borderColor,
@@ -131,87 +128,85 @@ const TaskCard = ({
     >
       <Box
         onClick={() => onEdit?.(task)}
-        sx={{
-          flexGrow: 1,
-          display: "flex",
-          flexDirection: "column",
-          gap: 0.75,
-          p: 1.5,
-          cursor: "pointer",
-          minWidth: 0,
-        }}
+        sx={{ display: "flex", gap: 1.25, p: 1.25, cursor: "pointer", minWidth: 0, height: "100%" }}
       >
-        <Typography variant="subtitle1" noWrap title={task.name || t("layoutCards.task.untitled")} sx={{ fontWeight: 500 }}>
-          {task.name || t("layoutCards.task.untitled")}
-        </Typography>
-        <Typography variant="caption" noWrap sx={{ color: "text.secondary" }}>
-          {projectName} · {task.client_name || t("layoutCards.task.noClient")}
-        </Typography>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-          <StatusPill label={pillLabel} tone={statusTone(cleanStatus)} />
-          {isRunning && (
-            <Typography variant="caption" noWrap sx={{ color: "text.secondary" }}>
-              {processData?.message || t("layoutCards.task.processing")} ({Math.round(realTimeProgress)}%)
+        {summary.thumb && brokenThumb !== summary.thumb ? (
+          <Box
+            component="img"
+            src={summary.thumb}
+            alt=""
+            loading="lazy"
+            onError={() => setBrokenThumb(summary.thumb)}
+            sx={{ width: 96, height: 72, objectFit: "cover", borderRadius: 1, flexShrink: 0, bgcolor: "action.hover" }}
+          />
+        ) : (
+          <Box
+            sx={{
+              width: 44, height: 44, borderRadius: 1, flexShrink: 0, bgcolor: "action.hover", color: "text.secondary",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <KindIcon fontSize="small" />
+          </Box>
+        )}
+        <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 0.4 }}>
+          <Typography variant="body2" noWrap title={title} sx={{ fontWeight: 600 }}>
+            {title}
+          </Typography>
+          <Typography variant="caption" noWrap title={settings} sx={{ color: "text.secondary" }}>
+            {settings}
+          </Typography>
+          {text && (
+            <Typography
+              variant="caption"
+              title={text}
+              sx={{ color: "text.secondary", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.35 }}
+            >
+              {text}
             </Typography>
           )}
-          {isQueued && (
-            <Typography variant="caption" noWrap sx={{ color: "info.main" }}>
-              {t("layoutCards.task.queuedForExecution")}
+          <Box sx={{ mt: "auto", pt: 0.5, display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+            {!isWaiting && <StatusPill label={pillLabel} tone={statusTone(cleanStatus)} />}
+            <Typography variant="caption" noWrap title={standing.text} sx={{ color: standing.color || "text.secondary", flex: 1, minWidth: 0 }}>
+              {isRunning && progress > 0 ? `${progress}% · ` : ""}{standing.text}
             </Typography>
-          )}
-        </Box>
-        <Typography
-          variant="body2"
-          title={task.description || t("layoutCards.task.noDescriptionAvailable")}
-          sx={{
-            color: "text.secondary",
-            fontStyle: task.description ? "normal" : "italic",
-            overflow: "hidden",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical"
-          }}
-        >
-          {task.description || t("layoutCards.task.noDescription")}
-        </Typography>
-        {typeLabel && (
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>
-            {typeLabel}
-          </Typography>
-        )}
-        {task.output_filename && (
-          <Typography variant="caption" noWrap title={task.output_filename} sx={{ color: "text.secondary" }}>
-            {task.output_filename}
-          </Typography>
-        )}
-        <Box sx={{ mt: "auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, pt: 0.5 }}>
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>{created}</Typography>
-          <Box sx={{ display: "flex", gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
-            {!isFinished && !isRunning && !isQueued && (
-              <ActionButton
-                startIcon={<PlayArrowIcon />}
-                tooltip={task.status === "pending" ? t("layoutCards.task.runTask") : t("layoutCards.task.startJob")}
-                onClick={() => onStartJob?.(task.id, task)}
-              >
-                {t("tasks.menu.start")}
-              </ActionButton>
-            )}
-            {(isRunning || isQueued) && (
-              <ActionButton
-                startIcon={<StopIcon />}
-                disabled={!canStop}
-                tooltip={canStop ? (isQueued ? t("layoutCards.task.cancelQueuedTask") : t("layoutCards.task.stopJob")) : t("layoutCards.task.noJobToStop")}
-                onClick={() => onStopJob?.(task)}
-              >
-                {t("tasks.menu.cancel")}
-              </ActionButton>
-            )}
-            <ActionButton kind="link" onClick={() => onEdit?.(task)}>
-              {t("tasks.menu.edit")}
-            </ActionButton>
+            <Box sx={{ display: "flex", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+              {!isFinished && !isRunning && !isQueued && (
+                <Tooltip title={isWaiting ? t("jobs.card.runNow") : t("layoutCards.task.startJob")}>
+                  <IconButton
+                    size="small"
+                    aria-label={isWaiting ? t("jobs.card.runNow") : t("layoutCards.task.startJob")}
+                    onClick={() => onStartJob?.(task.id, task)}
+                  >
+                    <PlayArrowIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {(isRunning || isQueued) && (
+                <Tooltip title={canStop ? (isQueued ? t("layoutCards.task.cancelQueuedTask") : t("layoutCards.task.stopJob")) : t("layoutCards.task.noJobToStop")}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      disabled={!canStop}
+                      aria-label={t("layoutCards.task.stopJob")}
+                      onClick={() => onStopJob?.(task)}
+                    >
+                      <StopIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              )}
+            </Box>
           </Box>
         </Box>
       </Box>
+      {isRunning && (
+        <LinearProgress
+          variant={progress > 0 ? "determinate" : "indeterminate"}
+          value={progress}
+          sx={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3 }}
+        />
+      )}
     </Card>
   );
 };
