@@ -102,7 +102,10 @@ class PluginMetadata:
     # another install's service parked on the same port. Read by
     # PluginManager._instance_check; see plugins/comfyui/plugin.json for the shape.
     instance_check: Dict[str, Any] = field(default_factory=dict)
-    
+    # Frontend routes whose pages need this sidecar running, added to
+    # plugin_bridge.ROUTE_PLUGIN_MAP so an extension needs no core edit.
+    routes: List[str] = field(default_factory=list)
+
     @classmethod
     def from_json_file(cls, json_path: Path) -> 'PluginMetadata':
         try:
@@ -155,6 +158,7 @@ class PluginMetadata:
                 requirements=data.get('requirements', {}),
                 endpoints=data.get('endpoints', {}),
                 instance_check=data.get('instance_check') or {},
+                routes=[r for r in (data.get('routes') or []) if isinstance(r, str) and r.startswith('/')],
             )
         except Exception as e:
             logger.error(f"Failed to load plugin metadata from {json_path}: {e}")
