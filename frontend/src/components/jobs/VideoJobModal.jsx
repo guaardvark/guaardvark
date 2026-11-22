@@ -157,8 +157,7 @@ const VideoJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
               label={manyPrompts ? t("jobs.jobEditor.prompts") : job.storyboard ? t("jobs.videoJob.concept") : t("jobs.jobEditor.prompt")}
               value={fields.prompts}
               onChange={(e) => set({ prompts: e.target.value })}
-              InputProps={{ readOnly }}
-              inputProps={{ "data-testid": "video-job-prompt" }}
+              slotProps={{ input: { readOnly }, htmlInput: { "data-testid": "video-job-prompt" } }}
               sx={fieldSx}
             />
           </Box>
@@ -172,9 +171,11 @@ const VideoJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
               onChange={(e) => pickModel(e.target.value)}
               disabled={readOnly || locked("model")}
               helperText={job.locked.includes("model") ? t("jobs.videoJob.modelLocked") : undefined}
-              SelectProps={{ displayEmpty: true }}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ "data-testid": "video-job-model" }}
+              slotProps={{
+                htmlInput: { "data-testid": "video-job-model" },
+                inputLabel: { shrink: true },
+                select: { displayEmpty: true },
+              }}
               sx={{ ...fieldSx, gridColumn: { xs: "1 / -1", sm: "auto" } }}
             >
               {!job.locked.includes("model") && <MenuItem value="">{t("jobs.videoJob.activeModel")}</MenuItem>}
@@ -195,9 +196,11 @@ const VideoJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
               }}
               disabled={readOnly}
               helperText={range.max ? t("jobs.videoJob.lengthRange", { min: range.min, max: range.max }) : undefined}
-              InputLabelProps={{ shrink: true }}
-              InputProps={{ endAdornment: <InputAdornment position="end">s</InputAdornment> }}
-              inputProps={{ min: range.min, max: range.max || undefined, step: 0.5, "data-testid": "video-job-length" }}
+              slotProps={{
+                input: { endAdornment: <InputAdornment position="end">s</InputAdornment> },
+                htmlInput: { min: range.min, max: range.max || undefined, step: 0.5, "data-testid": "video-job-length" },
+                inputLabel: { shrink: true },
+              }}
               sx={fieldSx}
             />
             <TextField
@@ -210,8 +213,10 @@ const VideoJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
               onBlur={() => fields.steps != null && fields.steps < floor && set({ steps: floor })}
               disabled={readOnly}
               helperText={caps ? t("jobs.videoJob.stepsFloor", { min: floor }) : undefined}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ min: floor, max: 100, step: 1, "data-testid": "video-job-steps" }}
+              slotProps={{
+                htmlInput: { min: floor, max: 100, step: 1, "data-testid": "video-job-steps" },
+                inputLabel: { shrink: true },
+              }}
               sx={fieldSx}
             />
             {styles.length > 0 && (
@@ -222,9 +227,11 @@ const VideoJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
                 value={styles.includes(fields.style) ? fields.style : ""}
                 onChange={(e) => set({ style: e.target.value })}
                 disabled={readOnly}
-                SelectProps={{ displayEmpty: true }}
-                InputLabelProps={{ shrink: true }}
-                inputProps={{ "data-testid": "video-job-style" }}
+                slotProps={{
+                  htmlInput: { "data-testid": "video-job-style" },
+                  inputLabel: { shrink: true },
+                  select: { displayEmpty: true },
+                }}
                 sx={fieldSx}
               >
                 {job.kind === "tool" && <MenuItem value="">{t("jobs.jobEditor.default")}</MenuItem>}
@@ -243,9 +250,11 @@ const VideoJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
                 value={fields.speed}
                 onChange={(e) => set({ speed: e.target.value, steps: null })}
                 disabled={readOnly || locked("speed")}
-                SelectProps={{ displayEmpty: true }}
-                InputLabelProps={{ shrink: true }}
-                inputProps={{ "data-testid": "video-job-speed" }}
+                slotProps={{
+                  htmlInput: { "data-testid": "video-job-speed" },
+                  inputLabel: { shrink: true },
+                  select: { displayEmpty: true },
+                }}
                 sx={{ ...fieldSx, gridColumn: { sm: "span 2" } }}
               >
                 <MenuItem value="">{t("jobs.jobEditor.modelDefault")}</MenuItem>
@@ -264,8 +273,7 @@ const VideoJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
                 placeholder={t("jobs.jobEditor.randomSeed")}
                 onChange={(e) => set({ seed: numberOrNull(e.target.value) })}
                 disabled={readOnly}
-                InputLabelProps={{ shrink: true }}
-                inputProps={{ step: 1, "data-testid": "video-job-seed" }}
+                slotProps={{ htmlInput: { step: 1, "data-testid": "video-job-seed" }, inputLabel: { shrink: true } }}
                 sx={fieldSx}
               />
             )}
@@ -276,9 +284,8 @@ const VideoJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
                 value={fields.negative}
                 onChange={(e) => set({ negative: e.target.value })}
                 disabled={readOnly}
-                InputLabelProps={{ shrink: true }}
                 placeholder={t("jobs.jobEditor.modelDefault")}
-                inputProps={{ "data-testid": "video-job-negative" }}
+                slotProps={{ htmlInput: { "data-testid": "video-job-negative" }, inputLabel: { shrink: true } }}
                 sx={{ ...fieldSx, gridColumn: { xs: "1 / -1", sm: "span 2" } }}
               />
             )}
