@@ -335,6 +335,7 @@ def _batch(comfy, tmp_path, monkeypatch, **params):
     gen.base_output_dir = tmp_path / "Videos"
     gen.active_batches, gen.cancel_events, gen.queue_order = {}, {}, []
     gen.batch_lock = threading.Lock()
+    gen._pause_requested = set()
     gen.batch_queue = queue.Queue()
     gen.video_generator = comfy.gen
     params.setdefault("model", MODEL)
