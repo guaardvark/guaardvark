@@ -1162,6 +1162,10 @@ const SwarmCard = ({
                 variant="outlined"
               />
             )}
+            {isRunning && swarm.waiting_on && (
+              <Chip label={t("swarm.card.waitingOn", { reason: swarm.waiting_on })}
+                    size="small" color="warning" variant="outlined" />
+            )}
             <Chip
               label={
                 swarm.status === "failed" ? t("swarm.swarmStatus.failed") :

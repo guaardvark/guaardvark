@@ -98,8 +98,24 @@ _NO_PREFERENCE = ("", "any", "auto", "none")
 # the operator's PC. This is intentionally conservative and CHEAP (pure psutil,
 # no GPU/subprocess probes) so it can run on every spawn tick.
 SPAWN_MIN_RAM_AVAIL_GB = 6.0
-SPAWN_MAX_SWAP_USED_GB = 1.0
+# The same swap floor as the backend's load gate (system_load_gate.py,
+# SWAP_HARD_MAX_GB), with the same override. Swap in use is not pressure by
+# itself: pages swapped out stay there after the pressure has passed. It was
+# 1 GB here, and a machine with 30 GB of RAM available and 8 GB of old swap
+# in use never started an agent. The RAM floor above is the working limit.
+SPAWN_MAX_SWAP_USED_GB = 8.0
+# With nothing running, how long a swarm waits on the guards before its
+# waiting tasks fail with the reason, instead of showing "running" for good.
+SPAWN_WAIT_LIMIT_S = 600
 _GB = 1024 ** 3
+
+
+def _swap_limit_gb() -> float:
+    raw = os.environ.get("GUAARDVARK_SWAP_HARD_MAX_GB", "").strip()
+    try:
+        return float(raw) if raw else SPAWN_MAX_SWAP_USED_GB
+    except ValueError:
+        return SPAWN_MAX_SWAP_USED_GB
 
 
 def _spawn_freeze_guard_block_reason() -> str | None:
@@ -118,8 +134,8 @@ def _spawn_freeze_guard_block_reason() -> str | None:
         return None
     if ram_avail_gb < SPAWN_MIN_RAM_AVAIL_GB:
         return f"RAM available {ram_avail_gb:.1f} GB < {SPAWN_MIN_RAM_AVAIL_GB:.0f} GB floor"
-    if swap_used_gb > SPAWN_MAX_SWAP_USED_GB:
-        return f"swap in use {swap_used_gb:.1f} GB > {SPAWN_MAX_SWAP_USED_GB:.0f} GB"
+    if swap_used_gb > _swap_limit_gb():
+        return f"swap in use {swap_used_gb:.1f} GB > {_swap_limit_gb():.0f} GB"
     return None
 
 
@@ -164,6 +180,8 @@ class SwarmOrchestrator:
         # threading for async operation
         self._thread: threading.Thread | None = None
         self._cancel_event = threading.Event()
+        self._waiting_on: str | None = None
+        self._waiting_since: float | None = None
 
         # event callbacks — the future UI hooks into these
         self._on_event: Callable[[TimelineEvent], None] | None = None
@@ -394,6 +412,8 @@ class SwarmOrchestrator:
             "swarm_id": self.swarm_id,
             "status": self._overall_status(),
             "error": getattr(self, "_error", None),
+            # Why no new agent is being started right now, when that is so.
+            "waiting_on": getattr(self, "_waiting_on", None),
             "flight_mode": self.result.flight_mode,
             "tasks": [t.to_dict() for t in self.result.tasks],
             "tasks_by_status": self.result.tasks_by_status,
@@ -502,9 +522,11 @@ class SwarmOrchestrator:
 
             # Check system health before launching new agents
             monitor = get_resource_monitor()
+            held_by = None
             if available_slots > 0 and not monitor.is_healthy():
                 logger.warning(f"Swarm throttling: skipping spawn due to high system load")
                 available_slots = 0 # force throttle this tick
+                held_by = "system load is high (CPU, RAM or free VRAM)"
                 self._emit_event("swarm_throttled", "swarm", monitor.get_system_stats())
 
             # launch tasks to fill available slots
@@ -520,6 +542,7 @@ class SwarmOrchestrator:
                         "Swarm freeze-guard: withholding spawn (%s) — throttling", block_reason
                     )
                     self._emit_event("swarm_throttled", "swarm", {"freeze_guard": block_reason})
+                    held_by = block_reason
                     break  # try again next poll tick
                 try:
                     self._launch_task(task, online)
@@ -528,6 +551,21 @@ class SwarmOrchestrator:
                     task.status = SwarmStatus.FAILED
                     task.error = str(e)
                     self._emit_event("task_failed", task.id, {"error": str(e)})
+
+            # What the swarm is waiting on, for the status the page shows; a
+            # swarm with nothing running does not wait on it for good.
+            if held_by and ready:
+                self._waiting_since = self._waiting_since or time.time()
+                self._waiting_on = held_by
+                if running_count == 0 and time.time() - self._waiting_since > SPAWN_WAIT_LIMIT_S:
+                    for t in ready:
+                        t.status = SwarmStatus.FAILED
+                        t.error = (f"Not started: the machine stayed too busy for "
+                                   f"{SPAWN_WAIT_LIMIT_S // 60} minutes ({held_by}).")
+                        self._emit_event("task_failed", t.id, {"error": t.error})
+            else:
+                self._waiting_since = None
+                self._waiting_on = None
 
             # are we done?
             all_terminal = all(t.status in TERMINAL_STATUSES for t in tasks)

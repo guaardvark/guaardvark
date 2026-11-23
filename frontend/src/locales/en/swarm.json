@@ -122,6 +122,7 @@
   },
   "card": {
     "progress": "{{done}}/{{total}} tasks",
+    "waitingOn": "Waiting: {{reason}}",
     "free": "Free",
     "activeAgents": "{{count}} active",
     "diskUsage": "{{size}} MB",
