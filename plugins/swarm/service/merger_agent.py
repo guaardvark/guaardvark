@@ -166,6 +166,7 @@ Provide the FULL resolved content of the file. Do not include any explanations, 
                 old_text=conflicting_content,
                 new_text=resolved_content,
                 repo_root=str(root),
+                allow_reindent=False,
             )
             return True
         except GuardedCodeError as e:

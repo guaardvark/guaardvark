@@ -12,6 +12,8 @@ import shlex
 import shutil
 import re
 import hashlib
+import signal
+import threading
 from collections import defaultdict
 from pathlib import Path
 from flask import Blueprint, request, jsonify
@@ -25,6 +27,7 @@ code_exec_bp = Blueprint("code_execution", __name__, url_prefix="/api/code-execu
 # Security settings
 MAX_EXECUTION_TIME = 30  # seconds
 MAX_OUTPUT_SIZE = 1024 * 1024  # 1MB
+_TRUNCATED_NOTE = "\n[output cut at 1 MB]\n"
 ALLOWED_LANGUAGES = ['python', 'javascript', 'shell', 'bash']
 RATE_LIMIT_MAX = 30  # requests per window
 RATE_LIMIT_WINDOW = 60  # seconds
@@ -134,120 +137,126 @@ def _working_directory(cwd):
         yield scratch
 
 
+def _kill_group(proc):
+    """Stop the process and everything it started (it leads its own session)."""
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
+def _drain(stream, sink, limit):
+    """Read a pipe to its end, keeping the first `limit` characters. Reading
+    on past the limit keeps the process from blocking on a full pipe without
+    holding its whole output in memory."""
+    kept = 0
+    try:
+        for chunk in iter(lambda: stream.read(8192), ""):
+            if kept < limit:
+                sink.append(chunk[: limit - kept])
+                kept += len(sink[-1])
+                if kept >= limit:
+                    sink.append(_TRUNCATED_NOTE)
+    except (OSError, ValueError):
+        pass
+
+
+def _run(command, timeout, cwd, use_shell=False, stdin_data=None):
+    start_time = time.time()
+    try:
+        with _working_directory(cwd) as run_cwd:
+            proc = subprocess.Popen(
+                command,
+                shell=use_shell,
+                stdin=subprocess.PIPE if stdin_data is not None else subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                errors="replace",
+                cwd=run_cwd,
+                env=execution_env(),
+                start_new_session=True,
+            )
+            out, err = [], []
+            readers = [
+                threading.Thread(target=_drain, args=(proc.stdout, out, MAX_OUTPUT_SIZE), daemon=True),
+                threading.Thread(target=_drain, args=(proc.stderr, err, MAX_OUTPUT_SIZE), daemon=True),
+            ]
+            for reader in readers:
+                reader.start()
+            if stdin_data is not None:
+                def _feed():
+                    try:
+                        proc.stdin.write(stdin_data)
+                        proc.stdin.close()
+                    except (OSError, ValueError):
+                        pass
+                threading.Thread(target=_feed, daemon=True).start()
+
+            timed_out = False
+            try:
+                proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+            # A child left running would keep the pipes open and outlive the
+            # run; the program itself has finished or run out of time.
+            for reader in readers:
+                reader.join(timeout=0 if timed_out else 1)
+            _kill_group(proc)
+            proc.wait()
+            for reader in readers:
+                reader.join(timeout=2)
+
+        stdout, stderr = "".join(out), "".join(err)
+        if timed_out:
+            note = f"Execution timed out after {timeout} seconds"
+            stderr = f"{stderr}\n{note}".strip()
+            return {
+                "success": False,
+                "output": f"{stdout}\n{stderr}".strip(),
+                "stdout": stdout,
+                "stderr": stderr,
+                "exitCode": -1,
+                "timedOut": True,
+                "executionTime": timeout,
+            }
+        return {
+            "success": proc.returncode == 0,
+            "output": stdout + stderr if stderr else stdout,
+            "stdout": stdout,
+            "stderr": stderr,
+            "exitCode": proc.returncode,
+            "executionTime": time.time() - start_time,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "output": f"Execution failed: {str(e)}",
+            "stdout": "",
+            "stderr": f"Execution failed: {str(e)}",
+            "exitCode": -1,
+            "executionTime": 0
+        }
+
+
 def execute_command(command, timeout=MAX_EXECUTION_TIME, cwd=None, use_shell=False):
-    """Execute a command safely with timeout
+    """Run a command with a time limit and bounded output.
 
     Args:
         command: Command to execute (string if use_shell=True, list otherwise)
-        timeout: Execution timeout in seconds
+        timeout: Execution timeout in seconds; on expiry the command and every
+            process it started are stopped, and what it printed is returned
         cwd: Working directory; None runs in a fresh temporary folder that
             is removed afterwards, so nothing starts in the backend's folder
         use_shell: If True, execute command through shell (DANGEROUS - only for trusted input)
     """
-    try:
-        start_time = time.time()
+    return _run(command, timeout, cwd, use_shell=use_shell)
 
-        with _working_directory(cwd) as run_cwd:
-            result = subprocess.run(
-                command,
-                shell=use_shell,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=run_cwd,
-                env=execution_env()
-            )
-
-        execution_time = time.time() - start_time
-
-        # Limit output size
-        stdout = result.stdout[:MAX_OUTPUT_SIZE] if result.stdout else ""
-        stderr = result.stderr[:MAX_OUTPUT_SIZE] if result.stderr else ""
-
-        return {
-            "success": result.returncode == 0,
-            "output": stdout + stderr if stderr else stdout,
-            "stdout": stdout,
-            "stderr": stderr,
-            "exitCode": result.returncode,
-            "executionTime": execution_time
-        }
-
-    except subprocess.TimeoutExpired:
-        return {
-            "success": False,
-            "output": f"Execution timed out after {timeout} seconds",
-            "stdout": "",
-            "stderr": f"Execution timed out after {timeout} seconds",
-            "exitCode": -1,
-            "executionTime": timeout
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "output": f"Execution failed: {str(e)}",
-            "stdout": "",
-            "stderr": f"Execution failed: {str(e)}",
-            "exitCode": -1,
-            "executionTime": 0
-        }
 
 def execute_command_with_stdin(command, timeout=MAX_EXECUTION_TIME, stdin_data="", cwd=None):
-    """Execute a command with stdin data provided
+    """`execute_command` for a command list, with `stdin_data` on its stdin."""
+    return _run(command, timeout, cwd, stdin_data=stdin_data or "")
 
-    Args:
-        command: Command to execute as list
-        timeout: Execution timeout in seconds
-        stdin_data: Data to pass to stdin
-        cwd: Working directory; None runs in a fresh temporary folder
-    """
-    try:
-        start_time = time.time()
-
-        with _working_directory(cwd) as run_cwd:
-            result = subprocess.run(
-                command,
-                input=stdin_data,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=run_cwd,
-                env=execution_env()
-            )
-
-        execution_time = time.time() - start_time
-
-        # Limit output size
-        stdout = result.stdout[:MAX_OUTPUT_SIZE] if result.stdout else ""
-        stderr = result.stderr[:MAX_OUTPUT_SIZE] if result.stderr else ""
-
-        return {
-            "success": result.returncode == 0,
-            "output": stdout + stderr if stderr else stdout,
-            "stdout": stdout,
-            "stderr": stderr,
-            "exitCode": result.returncode,
-            "executionTime": execution_time
-        }
-
-    except subprocess.TimeoutExpired:
-        return {
-            "success": False,
-            "output": f"Execution timed out after {timeout} seconds",
-            "stdout": "",
-            "stderr": f"Execution timed out after {timeout} seconds",
-            "exitCode": -1,
-            "executionTime": timeout
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "output": f"Execution failed: {str(e)}",
-            "stdout": "",
-            "stderr": f"Execution failed: {str(e)}",
-            "exitCode": -1,
-            "executionTime": 0
-        }
 
 @code_exec_bp.route("/python", methods=["POST"])
 def execute_python():

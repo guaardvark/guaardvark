@@ -783,7 +783,10 @@ def execute_unified_task(self, task_id: int):
                     body = {
                         "repo_path": local_path,
                         "self_code": False,  # external website folder, never the Guaardvark repo
-                        "instructions": wf.get("instructions") or "",
+                        # The launch reads the request as "goal" and writes a
+                        # one-task plan from it; under "instructions" it was
+                        # refused as having no plan.
+                        "goal": wf.get("instructions") or "",
                         "acknowledge_dirty_tree": True,
                     }
                     try:

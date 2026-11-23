@@ -49,6 +49,18 @@ except ImportError as e:
     _chat_manager_available = False
     get_chat_manager = None
 
+class ModelCallFailed(Exception):
+    """The model behind a code-intelligence route gave no usable reply."""
+
+
+def _model_failed(what, exc):
+    """The answer when the model could not do the work: an error that says so."""
+    logger.warning(f"Code intelligence {what} failed: {exc}")
+    return error_response(
+        f"The model could not be reached for this ({exc}). Nothing was changed or generated; "
+        "check that a chat model is loaded and try again.", 503), 503
+
+
 def send_chat_message_internal(session_id: str, user_message: str, project_id=None, use_rag=True, bypass_rules=False):
     """
     Send a chat message to the enhanced chat API.
@@ -61,11 +73,15 @@ def send_chat_message_internal(session_id: str, user_message: str, project_id=No
         bypass_rules: Whether to bypass rules system (default: False)
     
     Returns:
-        Dict with 'message' key containing the response, or None if chat unavailable
+        Dict with 'message' key containing the model's reply.
+
+    Raises:
+        ModelCallFailed: the chat service is missing, the model returned an
+            error, or the reply had no text. Callers answer with an error; a
+            route never invents a result.
     """
     if not _chat_manager_available or not get_chat_manager:
-        logger.warning("EnhancedChatManager not available; code intelligence chat path disabled")
-        return None
+        raise ModelCallFailed("the chat service is not available")
     
     try:
         chat_manager = get_chat_manager()
@@ -86,21 +102,19 @@ def send_chat_message_internal(session_id: str, user_message: str, project_id=No
         # then fall through to content keys in priority order.
         if isinstance(response, dict):
             if 'error' in response:
-                logger.error(f"Chat API returned error: {response.get('error')}")
-                return {'message': f"Error: {response.get('error')}"}
-            if 'response' in response:
-                return {'message': response['response']}
-            if 'message' in response:
-                return {'message': response['message']}
+                raise ModelCallFailed(str(response.get('error')))
+            text = response.get('response') or response.get('message')
+            if isinstance(text, str) and text.strip():
+                return {'message': text}
 
         logger.warning(f"Unexpected response format from chat API: {response}")
-        # Return a stable shape so callers don't crash on .get() — see the
-        # 'NoneType' has no attribute 'get' regression hit on 2026-04-28.
-        return {'message': "Analysis returned an unexpected response format."}
+        raise ModelCallFailed("the model returned no text")
         
+    except ModelCallFailed:
+        raise
     except Exception as e:
         logger.error(f"Failed to send chat message: {e}", exc_info=True)
-        return None
+        raise ModelCallFailed(str(e)) from e
 
 code_intelligence_bp = Blueprint("code_intelligence", __name__, url_prefix="/api/code-intelligence")
 
@@ -231,10 +245,12 @@ If JSON format is not possible, provide recommendations in structured text forma
                 try:
                     # Try to extract JSON from response
                     import re
-                    json_match = re.search(r'\{[^{}]*"recommendations"[^{}]*\}', response_message, re.DOTALL)
-                    if json_match:
-                        parsed = json.loads(json_match.group())
-                        recommendations = parsed.get("recommendations", [])
+                    key_at = response_message.find('"recommendations"')
+                    start = response_message.rfind('{', 0, key_at) if key_at != -1 else -1
+                    if start != -1:
+                        parsed, _end = json.JSONDecoder().raw_decode(response_message[start:])
+                        found = parsed.get("recommendations", []) if isinstance(parsed, dict) else []
+                        recommendations = found if isinstance(found, list) else []
                 except Exception as e:
                     logger.debug(f"Could not parse recommendations from response: {e}")
                     # Recommendations will remain empty array, analysis text will still be returned
@@ -248,70 +264,7 @@ If JSON format is not possible, provide recommendations in structured text forma
                     "warnings": []     # Could be parsed from structured response
                 })
             except Exception as e:
-                logger.warning(f"LLM analysis failed, falling back to offline analysis: {e}")
-                # Fall through to offline analysis
-        else:
-            logger.info("LLM service not available, using offline analysis")
-
-        # Use active Ollama model for offline analysis
-        try:
-            # Get the active model from settings
-            active_model = "llama3:latest"  # Default fallback
-            try:
-                # TODO: Get active model from settings storage
-                # This should be implemented to read from SettingsPage configuration
-                pass
-            except Exception:
-                pass
-
-            # Use the active Ollama model for analysis
-            if send_chat_message_internal:
-                # Try to use the enhanced chat API with the active model
-                analysis_prompt = f"""Please analyze this {language} code for errors, improvements, and suggestions:
-
-File: {file_path}
-Language: {language}
-
-Code:
-```{language}
-{code_to_analyze}
-```
-
-Provide structured analysis with:
-1. Syntax and logical errors
-2. Performance improvements
-3. Code quality suggestions
-4. Security considerations
-5. Best practice recommendations"""
-
-                try:
-                    session_id = f"offline-analysis-{datetime.now().timestamp()}"
-                    response = send_chat_message_internal(
-                        session_id=session_id,
-                        user_message=analysis_prompt,
-                        project_id=None,
-                        use_rag=True,  # Don't use RAG for offline analysis
-                        bypass_rules=rules_cutoff
-                    )
-                    offline_analysis = response.get("message", "Analysis completed using active model.")
-                except Exception as e:
-                    logger.warning(f"Offline analysis with active model failed: {e}")
-                    offline_analysis = f"Analysis completed using active model {active_model}."
-            else:
-                offline_analysis = f"Code analysis completed using active model {active_model}."
-
-        except Exception as e:
-            logger.error(f"Offline analysis failed: {e}")
-            offline_analysis = "Code analysis completed."
-
-        return success_response({
-            "analysis": offline_analysis,
-            "file_path": file_path,
-            "language": language,
-            "suggestions": ["Consider adding error handling", "Add meaningful comments", f"Follow {language} best practices"],
-            "errors": [],
-            "warnings": ["Using offline analysis with active model"]
-        })
+                return _model_failed("analysis", e)
 
     except Exception as e:
         logger.error(f"Code analysis failed: {e}", exc_info=True)
@@ -366,23 +319,18 @@ Please verify this edit is correct and explain what was changed."""
                         "filePath": edit_file_path,
                         "success": True,
                         "editedCode": edit_content,
-                        "explanation": response.get("message", "Edit applied successfully")
+                        "reviewed": True,
+                        "explanation": response.get("message", "")
                     })
                 except Exception as e:
                     logger.warning(f"LLM multi-file edit failed for {edit_file_path}: {e}")
                     edit_results.append({
                         "filePath": edit_file_path,
-                        "success": True,  # Still return success, content is provided
+                        "success": True,  # the content is the caller's own
+                        "reviewed": False,
                         "editedCode": edit_content,
-                        "explanation": "Edit applied (LLM verification skipped)"
+                        "explanation": f"The model could not be reached ({e}), so this edit was not reviewed."
                     })
-            else:
-                edit_results.append({
-                    "filePath": edit_file_path,
-                    "success": True,
-                    "editedCode": edit_content,
-                    "explanation": "Edit applied successfully"
-                })
         
         return success_response({
             "multiFileEdits": edit_results,
@@ -457,174 +405,7 @@ Return only the code, properly formatted for {language}."""
                     "explanation": "Generated code based on your description"
                 })
             except Exception as e:
-                logger.warning(f"LLM generation failed, falling back to offline generation: {e}")
-                # Fall through to offline generation
-        else:
-            logger.info("LLM service not available, using offline code generation")
-
-        # Offline code generation when LLM is not available
-        def generate_offline_code(description, language, file_path, existing_code=""):
-            """Generate code based on description using pattern matching"""
-            code_lines = []
-
-            # Add language-specific header comment
-            if language.lower() == 'javascript':
-                code_lines.extend([
-                    f"// Generated code for: {description}",
-                    f"// Language: {language}",
-                    f"// File: {file_path}",
-                    ""
-                ])
-
-                # Parse description for common patterns
-                desc_lower = description.lower()
-
-                if 'function' in desc_lower or 'method' in desc_lower:
-                    code_lines.extend([
-                        "function generatedCode() {",
-                        "    /**",
-                        f"     * {description}",
-                        "     * @returns {string} Result of the operation",
-                        "     */",
-                        "    try {",
-                        "        // Implementation logic here",
-                        "        console.log('Executing generated functionality');",
-                        "        return 'Generated code executed successfully';",
-                        "    } catch (error) {",
-                        "        console.error('Error in generated code:', error);",
-                        "        throw error;",
-                        "    }",
-                        "}",
-                        "",
-                        "export default generatedCode;"
-                    ])
-                elif 'class' in desc_lower:
-                    code_lines.extend([
-                        "class GeneratedClass {",
-                        "    constructor() {",
-                        "        /**",
-                        f"         * {description}",
-                        "         */",
-                        "        console.log('Generated class initialized');",
-                        "    }",
-                        "    ",
-                        "    execute() {",
-                        "        console.log('Executing class functionality');",
-                        "        return 'Generated class executed';",
-                        "    }",
-                        "}",
-                        "",
-                        "export default GeneratedClass;"
-                    ])
-                else:
-                    # Generic utility function
-                    code_lines.extend([
-                        "/**",
-                        f" * {description}",
-                        " * Generated utility function",
-                        " */",
-                        "function generatedUtility() {",
-                        "    console.log('Generated utility function');",
-                        "    // Add your implementation here",
-                        "    return 'Generated utility result';",
-                        "}",
-                        "",
-                        "export default generatedUtility;"
-                    ])
-
-            elif language.lower() == 'python':
-                code_lines.extend([
-                    f'"""Generated code for: {description}',
-                    f'Language: {language}',
-                    f'File: {file_path}"""',
-                    ""
-                ])
-
-                desc_lower = description.lower()
-
-                if 'function' in desc_lower or 'def' in desc_lower:
-                    code_lines.extend([
-                        "def generated_function():",
-                        '    """',
-                        f"    {description}",
-                        '    Returns:',
-                        '        str: Result of the operation',
-                        '    """',
-                        '    try:',
-                        '        # Implementation logic here',
-                        '        print("Executing generated functionality")',
-                        '        return "Generated code executed successfully"',
-                        '    except Exception as e:',
-                        '        print(f"Error in generated code: {e}")',
-                        '        raise',
-                        "",
-                        "",
-                        "if __name__ == '__main__':",
-                        "    generated_function()"
-                    ])
-                elif 'class' in desc_lower:
-                    code_lines.extend([
-                        "class GeneratedClass:",
-                        '    """',
-                        f"    {description}",
-                        '    """',
-                        '    ',
-                        '    def __init__(self):',
-                        '        """Initialize the generated class"""',
-                        '        print("Generated class initialized")',
-                        '    ',
-                        '    def execute(self):',
-                        '        """Execute the class functionality"""',
-                        '        print("Executing class functionality")',
-                        '        return "Generated class executed"',
-                        "",
-                        "",
-                        "if __name__ == '__main__':",
-                        "    obj = GeneratedClass()",
-                        "    obj.execute()"
-                    ])
-                else:
-                    # Generic utility function
-                    code_lines.extend([
-                        '"""',
-                        f'{description}',
-                        'Generated utility function',
-                        '"""',
-                        "",
-                        "",
-                        "def generated_utility():",
-                        '    """Generated utility function"""',
-                        "    print('Generated utility function')",
-                        "    # Add your implementation here",
-                        "    return 'Generated utility result'",
-                        "",
-                        "",
-                        "if __name__ == '__main__':",
-                        "    generated_utility()"
-                    ])
-
-            else:
-                # Generic fallback for other languages
-                code_lines.extend([
-                    f"# Generated code for: {description}",
-                    f"# Language: {language}",
-                    f"# File: {file_path}",
-                    "",
-                    "# Implementation placeholder",
-                    f"# Description: {description}",
-                    "# Add your {language} implementation here"
-                ])
-
-            return "\n".join(code_lines)
-
-        offline_code = generate_offline_code(description, language, file_path, existing_code)
-
-        return success_response({
-            "code": offline_code,
-            "language": language,
-            "description": description,
-            "explanation": "Generated code based on your description (offline mode)"
-        })
+                return _model_failed("generation", e)
 
     except Exception as e:
         logger.error(f"Code generation failed: {e}", exc_info=True)
@@ -689,163 +470,7 @@ Return the complete modified code, properly formatted for {language}."""
                     "language": language
                 })
             except Exception as e:
-                logger.warning(f"LLM edit failed, falling back to offline edit: {e}")
-                # Fall through to offline edit
-        else:
-            logger.info("LLM service not available, using offline code editing")
-
-        # Offline code editing when LLM is not available
-        def edit_code_offline(original_code, edit_instructions, language, file_path):
-            """Apply edit instructions to original code using pattern matching"""
-            lines = original_code.split('\n')
-            edited_lines = []
-            instructions_lower = edit_instructions.lower()
-
-            # Language-specific editing patterns
-            if language.lower() == 'javascript':
-                # Common JavaScript editing patterns
-                if 'add function' in instructions_lower or 'add method' in instructions_lower:
-                    # Add a new function after existing code
-                    edited_lines.extend(lines)
-                    edited_lines.extend([
-                        "",
-                        "// Added new function based on instructions",
-                        "function newFunction() {",
-                        "    /**",
-                        "     * New function added per instructions",
-                        "     */",
-                        "    console.log('New function executed');",
-                        "    return 'New function result';",
-                        "}",
-                        ""
-                    ])
-
-                elif 'add comment' in instructions_lower or 'document' in instructions_lower:
-                    # Add comments to existing functions
-                    in_function = False
-                    for i, line in enumerate(lines):
-                        if line.strip().startswith('function ') and '(' in line:
-                            # Add JSDoc comment before function
-                            indent = len(line) - len(line.lstrip())
-                            edited_lines.append(' ' * indent + '/**')
-                            edited_lines.append(' ' * indent + ' * Function added or documented')
-                            edited_lines.append(' ' * indent + ' */')
-                            in_function = True
-                        edited_lines.append(line)
-
-                elif 'add error handling' in instructions_lower or 'add try catch' in instructions_lower:
-                    # Add try-catch to functions
-                    in_function = False
-                    brace_count = 0
-                    for i, line in enumerate(lines):
-                        if line.strip().startswith('function ') and '(' in line:
-                            edited_lines.append(line)
-                            edited_lines.append('    try {')
-                            in_function = True
-                            brace_count = 0
-                            # Count opening brace in function line
-                            brace_count += line.count('{')
-                            continue
-
-                        if in_function:
-                            # Track braces to find function end
-                            brace_count += line.count('{') - line.count('}')
-                            if brace_count <= 0 and line.strip() == '}':
-                                # End of function
-                                edited_lines.append('    } catch (error) {')
-                                edited_lines.append('        console.error("Error:", error);')
-                                edited_lines.append('        throw error;')
-                                edited_lines.append('    }')
-                                in_function = False
-
-                        edited_lines.append(line)
-
-                else:
-                    # Generic fallback - just add a comment about the edit
-                    edited_lines.extend([
-                        f"// Code edited based on instructions: {edit_instructions}",
-                        f"// Original code preserved with modifications applied"
-                    ])
-                    edited_lines.extend(lines)
-
-            elif language.lower() == 'python':
-                # Common Python editing patterns
-                if 'add function' in instructions_lower or 'add def' in instructions_lower:
-                    edited_lines.extend(lines)
-                    edited_lines.extend([
-                        "",
-                        "# Added new function based on instructions",
-                        "def new_function():",
-                        '    """',
-                        '    New function added per instructions',
-                        '    """',
-                        '    print("New function executed")',
-                        '    return "New function result"',
-                        ""
-                    ])
-
-                elif 'add comment' in instructions_lower or 'document' in instructions_lower:
-                    # Add docstrings to existing functions
-                    in_function = False
-                    for i, line in enumerate(lines):
-                        if line.strip().startswith('def '):
-                            # Add docstring after function definition
-                            edited_lines.append(line)
-                            next_line = lines[i + 1] if i + 1 < len(lines) else ""
-                            # Check if next line already has a docstring
-                            has_docstring = (next_line.strip().startswith('"""') or
-                                           next_line.strip().startswith('\'\'\''))
-                            if not has_docstring:
-                                docstring = '    """\n    Function documented per instructions\n    """'
-                                edited_lines.append(docstring)
-                            in_function = True
-                        else:
-                            edited_lines.append(line)
-
-                elif 'add error handling' in instructions_lower or 'add try except' in instructions_lower:
-                    # Add try-except to functions - simplified approach
-                    # Just add a generic try-except around the entire code
-                    edited_lines.extend([
-                        'try:',
-                        '    # Original code with error handling added'
-                    ])
-                    for line in lines:
-                        if line.strip():
-                            edited_lines.append('    ' + line)
-                        else:
-                            edited_lines.append('')
-                    edited_lines.extend([
-                        'except Exception as e:',
-                        '    print(f"Error: {e}")',
-                        '    raise'
-                    ])
-
-                else:
-                    # Generic fallback
-                    edited_lines.extend([
-                        f'# Code edited based on instructions: {edit_instructions}',
-                        f'# Original code preserved with modifications applied'
-                    ])
-                    edited_lines.extend(lines)
-
-            else:
-                # Generic fallback for other languages
-                edited_lines.extend([
-                    f"# Code edited based on instructions: {edit_instructions}",
-                    f"# Original code preserved with modifications applied"
-                ])
-                edited_lines.extend(lines)
-
-            return "\n".join(edited_lines)
-
-        offline_edit = edit_code_offline(original_code, edit_instructions, language, file_path)
-
-        return success_response({
-            "editedCode": offline_edit,
-            "originalCode": original_code,
-            "instructions": edit_instructions,
-            "language": language
-        })
+                return _model_failed("edit", e)
 
     except Exception as e:
         logger.error(f"Code editing failed: {e}", exc_info=True)
@@ -901,68 +526,7 @@ Make the explanation clear and educational."""
                     "language": language
                 })
             except Exception as e:
-                logger.warning(f"LLM explanation failed, falling back to offline explanation: {e}")
-                # Fall through to offline explanation
-        else:
-            logger.info("LLM service not available, using offline code explanation")
-
-        # Use active Ollama model for offline explanation
-        try:
-            # Get the active model from settings
-            try:
-                from backend.models import get_active_model_name
-                active_model = get_active_model_name()
-                logger.info(f"Using active model for explanation: {active_model}")
-            except Exception as e:
-                logger.warning(f"Could not get active model name: {e}")
-                active_model = "llama3:latest"  # Only fallback if unable to get active model
-
-            # Use the active Ollama model for explanation
-            if send_chat_message_internal:
-                # Try to use the enhanced chat API with the active model
-                explanation_prompt = f"""Please explain this {language} code in detail:
-
-File: {file_path}
-
-Code:
-```{language}
-{code_content}
-```
-
-Provide:
-1. Overall purpose and functionality
-2. Step-by-step explanation of what the code does
-3. Key concepts and patterns used
-4. Input/output description
-5. Any notable implementation details
-
-Make the explanation clear and educational."""
-
-                try:
-                    session_id = f"offline-explain-{int(datetime.now().timestamp() * 1000)}"
-                    response = send_chat_message_internal(
-                        session_id=session_id,
-                        user_message=explanation_prompt,
-                        project_id=None,
-                        use_rag=False,  # Don't use RAG for offline explanation
-                        bypass_rules=rules_cutoff
-                    )
-                    offline_explanation = response.get("message", "Explanation completed using active model.")
-                except Exception as e:
-                    logger.warning(f"Offline explanation with active model failed: {e}")
-                    offline_explanation = f"Code explanation completed using active model {active_model}."
-            else:
-                offline_explanation = f"Code explanation completed using active model {active_model}."
-
-        except Exception as e:
-            logger.error(f"Offline explanation failed: {e}")
-            offline_explanation = "Code explanation completed."
-
-        return success_response({
-            "explanation": offline_explanation,
-            "code": code_content,
-            "language": language
-        })
+                return _model_failed("explanation", e)
 
     except Exception as e:
         logger.error(f"Code explanation failed: {e}", exc_info=True)
@@ -1021,178 +585,7 @@ Focus on improving readability, performance, and maintainability while preservin
                     "language": language
                 })
             except Exception as e:
-                logger.warning(f"LLM refactoring failed, falling back to offline refactoring: {e}")
-                # Fall through to offline refactoring
-        else:
-            logger.info("LLM service not available, using offline code refactoring")
-
-        # Offline code refactoring when LLM is not available
-        def refactor_code_offline(code_content, refactor_type, language, file_path):
-            """Apply refactoring improvements to code using pattern matching"""
-            lines = code_content.split('\n')
-            refactored_lines = []
-            type_lower = refactor_type.lower()
-
-            # Language-specific refactoring patterns
-            if language.lower() == 'javascript':
-                refactored_lines.extend([
-                    f"// Refactored code ({refactor_type})",
-                    f"// Original file: {file_path}",
-                    f"// Refactoring applied: {refactor_type}",
-                    ""
-                ])
-
-                if 'optimize' in type_lower or 'performance' in type_lower:
-                    # Performance optimizations
-                    refactored_lines.extend([
-                        "/**",
-                        " * Optimized for performance",
-                        " * - Reduced redundant operations",
-                        " * - Improved variable naming",
-                        " * - Added early returns where applicable",
-                        " */"
-                    ])
-
-                elif 'readability' in type_lower or 'clean' in type_lower:
-                    # Readability improvements
-                    refactored_lines.extend([
-                        "/**",
-                        " * Improved readability",
-                        " * - Better variable names",
-                        " * - Consistent formatting",
-                        " * - Added explanatory comments",
-                        " */"
-                    ])
-
-                elif 'maintain' in type_lower or 'structure' in type_lower:
-                    # Structural improvements
-                    refactored_lines.extend([
-                        "/**",
-                        " * Improved maintainability",
-                        " * - Better code organization",
-                        " * - Consistent patterns",
-                        " * - Enhanced error handling",
-                        " */"
-                    ])
-
-                # Add the original code with improvements
-                for line in lines:
-                    if line.strip():
-                        # Add some basic improvements
-                        if line.strip().startswith('function') and '(' in line and not line.strip().endswith('{'):
-                            # Function declaration - add JSDoc
-                            refactored_lines.append(line)
-                            refactored_lines.append("    /**")
-                            refactored_lines.append("     * Refactored function with improved structure")
-                            refactored_lines.append("     * @returns {any} Function result")
-                            refactored_lines.append("     */")
-                        elif 'console.log' in line and 'error' not in line.lower():
-                            # Convert console.log to more structured logging
-                            refactored_lines.append(line.replace('console.log', 'logger.info'))
-                        else:
-                            refactored_lines.append(line)
-
-                # Add common improvements at the end
-                refactored_lines.extend([
-                    "",
-                    "// Additional improvements applied:",
-                    "// - Error handling where applicable",
-                    "// - Consistent code formatting",
-                    "// - Performance considerations",
-                    ""
-                ])
-
-            elif language.lower() == 'python':
-                refactored_lines.extend([
-                    f'"""Refactored code ({refactor_type})',
-                    f'Original file: {file_path}',
-                    f'Refactoring applied: {refactor_type}"""',
-                    ""
-                ])
-
-                if 'optimize' in type_lower or 'performance' in type_lower:
-                    refactored_lines.extend([
-                        '"""',
-                        'Optimized for performance',
-                        '- Reduced redundant operations',
-                        '- Improved variable naming',
-                        '- Added early returns where applicable',
-                        '"""'
-                    ])
-
-                elif 'readability' in type_lower or 'clean' in type_lower:
-                    refactored_lines.extend([
-                        '"""',
-                        'Improved readability',
-                        '- Better variable names',
-                        '- Consistent formatting',
-                        '- Added explanatory comments',
-                        '"""'
-                    ])
-
-                elif 'maintain' in type_lower or 'structure' in type_lower:
-                    refactored_lines.extend([
-                        '"""',
-                        'Improved maintainability',
-                        '- Better code organization',
-                        '- Consistent patterns',
-                        '- Enhanced error handling',
-                        '"""'
-                    ])
-
-                # Add the original code with improvements
-                for line in lines:
-                    if line.strip():
-                        # Add some basic improvements
-                        if line.strip().startswith('def '):
-                            # Function definition - add docstring
-                            refactored_lines.append(line)
-                            refactored_lines.append('    """')
-                            refactored_lines.append('    Refactored function with improved structure')
-                            refactored_lines.append('    """')
-                        elif 'print(' in line:
-                            # Convert print to logging
-                            refactored_lines.append(line.replace('print(', 'logger.info('))
-                        else:
-                            refactored_lines.append(line)
-
-                # Add common improvements at the end
-                refactored_lines.extend([
-                    "",
-                    "# Additional improvements applied:",
-                    "# - Error handling where applicable",
-                    "# - Consistent code formatting",
-                    "# - Performance considerations",
-                    ""
-                ])
-
-            else:
-                # Generic fallback for other languages
-                refactored_lines.extend([
-                    f"# Refactored code ({refactor_type})",
-                    f"# Original file: {file_path}",
-                    f"# Refactoring applied: {refactor_type}",
-                    ""
-                ])
-                refactored_lines.extend(lines)
-                refactored_lines.extend([
-                    "",
-                    f"# Improvements applied for {refactor_type}:",
-                    "# - Code structure enhancements",
-                    "# - Better documentation",
-                    "# - Error handling improvements"
-                ])
-
-            return "\n".join(refactored_lines)
-
-        offline_refactor = refactor_code_offline(code_content, refactor_type, language, file_path)
-
-        return success_response({
-            "refactoredCode": offline_refactor,
-            "originalCode": code_content,
-            "refactorType": refactor_type,
-            "language": language
-        })
+                return _model_failed("refactoring", e)
 
     except Exception as e:
         logger.error(f"Code refactoring failed: {e}", exc_info=True)
@@ -1326,44 +719,38 @@ Format as structured JSON with suggestions array."""
                 logger.warning(f"LLM completion failed: {e}")
                 # Fall through to basic completion
 
-        # Get active model for completion context
-        try:
-            from backend.models import get_active_model_name
-            active_model = get_active_model_name()
-        except Exception as e:
-            logger.warning(f"Could not get active model: {e}")
-            active_model = "local_model"
-
-        # Generate intelligent suggestions based on context
+        # The model gave nothing: offer the language's common openers, and say
+        # that is what they are.
         context_suggestions = []
         if language.lower() == 'javascript':
             context_suggestions = [
-                {"text": "function ", "label": f"function ({active_model})", "kind": "Function"},
-                {"text": "const ", "label": f"const ({active_model})", "kind": "Variable"},
-                {"text": "async ", "label": f"async ({active_model})", "kind": "Keyword"},
-                {"text": "await ", "label": f"await ({active_model})", "kind": "Keyword"},
-                {"text": "console.log(", "label": f"console.log ({active_model})", "kind": "Method"}
+                {"text": "function ", "label": "function", "kind": "Function"},
+                {"text": "const ", "label": "const", "kind": "Variable"},
+                {"text": "async ", "label": "async", "kind": "Keyword"},
+                {"text": "await ", "label": "await", "kind": "Keyword"},
+                {"text": "console.log(", "label": "console.log", "kind": "Method"}
             ]
         elif language.lower() == 'python':
             context_suggestions = [
-                {"text": "def ", "label": f"def ({active_model})", "kind": "Function"},
-                {"text": "class ", "label": f"class ({active_model})", "kind": "Class"},
-                {"text": "async def ", "label": f"async def ({active_model})", "kind": "Function"},
-                {"text": "import ", "label": f"import ({active_model})", "kind": "Module"},
-                {"text": "print(", "label": f"print ({active_model})", "kind": "Function"}
+                {"text": "def ", "label": "def", "kind": "Function"},
+                {"text": "class ", "label": "class", "kind": "Class"},
+                {"text": "async def ", "label": "async def", "kind": "Function"},
+                {"text": "import ", "label": "import", "kind": "Module"},
+                {"text": "print(", "label": "print", "kind": "Function"}
             ]
         else:
             context_suggestions = [
-                {"text": "# ", "label": f"comment ({active_model})", "kind": "Comment"},
-                {"text": "function", "label": f"function ({active_model})", "kind": "Function"},
-                {"text": "var ", "label": f"variable ({active_model})", "kind": "Variable"}
+                {"text": "# ", "label": "comment", "kind": "Comment"},
+                {"text": "function", "label": "function", "kind": "Function"},
+                {"text": "var ", "label": "variable", "kind": "Variable"}
             ]
 
         return success_response({
             "suggestions": context_suggestions,
             "language": language,
             "position": cursor_position,
-            "model_used": active_model
+            "model_used": None,
+            "source": "keywords"
         })
 
     except Exception as e:

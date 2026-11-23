@@ -474,7 +474,8 @@ class AgentRouter:
         for pattern in self._intent_patterns:
             match_result = self._match_pattern(message_lower, pattern)
             if match_result:
-                if match_result.route_type == RouteType.FILE_GENERATION:
+                if (match_result.route_type == RouteType.FILE_GENERATION
+                        or match_result.tool_name == "codegen"):
                     # The name or language the person typed, case kept, so the
                     # proposed file is notes.md or a .py rather than a guess.
                     params = {**(match_result.tool_params or {}), **requested_file(message)}

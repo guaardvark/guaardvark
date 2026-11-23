@@ -302,41 +302,63 @@ def _read_text_file(file_path: Path) -> str:
     return content
 
 
+def _read_for_edit(file_path: Path) -> tuple[bytes, str, str]:
+    """(the file's bytes, its text with LF line endings, its line ending).
+
+    The line ending is "\r\n" for a file written with CRLF throughout and
+    "\n" otherwise, so an edit gives the file back as it was found.
+    """
+    raw = file_path.read_bytes()
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise GuardedCodeError(f"File is not valid UTF-8 text: {e}", "FILE_NOT_TEXT", 415)
+    if "\x00" in text:
+        raise GuardedCodeError("File appears to be binary, not text", "FILE_NOT_TEXT", 415)
+    crlf = text.count("\r\n")
+    newline = "\r\n" if crlf and crlf == text.count("\n") else "\n"
+    if newline == "\r\n":
+        text = text.replace("\r\n", "\n")
+    return raw, text, newline
+
+
+def _write_bytes_atomic(file_path: Path, data: bytes) -> None:
+    """Replace the file in one step, keeping its permissions: a reader never
+    sees half of an edit, and a crash mid-write leaves the old file."""
+    tmp = file_path.with_name(f".{file_path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_bytes(data)
+        try:
+            os.chmod(tmp, file_path.stat().st_mode & 0o7777)
+        except OSError:
+            pass
+        os.replace(tmp, file_path)
+    finally:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+
+
+def syntax_check(file_path: Path, content: str | None = None) -> tuple[bool, str | None]:
+    """(checked, first error). ``checked`` is False for a file type nothing
+    on this machine can parse; the error is None when the syntax is fine."""
+    from backend.services.code_syntax_check import check_file_syntax
+
+    if content is None:
+        content = file_path.read_text(encoding="utf-8", errors="replace")
+    found = check_file_syntax(file_path.name, content)
+    if not found.get("supported"):
+        return False, None
+    errors = found.get("errors") or []
+    if errors:
+        return True, f"line {errors[0].get('line')}: {errors[0].get('message')}"
+    return True, None
+
+
 def verify_syntax(file_path: Path, content: str | None = None) -> bool:
-    """Check if the content or file has valid syntax."""
-    if file_path.suffix == ".py":
-        import py_compile
-        import tempfile
-        try:
-            if content is not None:
-                # Compile from string content by creating a temp file
-                fd, temp_file_name = tempfile.mkstemp(suffix=".py")
-                try:
-                    with os.fdopen(fd, 'w', encoding='utf-8') as temp_file:
-                        temp_file.write(content)
-                    py_compile.compile(temp_file_name, doraise=True)
-                    return True
-                finally:
-                    try:
-                        os.unlink(temp_file_name)
-                    except Exception:
-                        pass
-            else:
-                py_compile.compile(str(file_path), doraise=True)
-                return True
-        except py_compile.PyCompileError:
-            return False
-    elif file_path.suffix == ".json":
-        import json
-        try:
-            if content is not None:
-                json.loads(content)
-            else:
-                json.loads(file_path.read_text(encoding="utf-8"))
-            return True
-        except ValueError:
-            return False
-    return True
+    """False only when the syntax was checked and is broken."""
+    return syntax_check(file_path, content)[1] is None
 
 
 def resolve_repo_path(
@@ -381,6 +403,17 @@ def resolve_repo_path(
     return candidate, str(candidate)
 
 
+def refuse_credential_file(file_path: Path) -> None:
+    """Every read of a repository file, by a tool, the Code Editor or a
+    route, refuses credential and key files, decided from the name before the
+    file is touched."""
+    from backend.utils.path_safety import is_sensitive
+
+    if is_sensitive(str(file_path)):
+        raise GuardedCodeError("Credential and key files are not read through the code tools or the Code Editor",
+                               "SENSITIVE_PATH", 403)
+
+
 def read_repo_file(
     path: str,
     repo_root: str | Path | None = None,
@@ -389,6 +422,7 @@ def read_repo_file(
     allow_external: bool = False,
 ) -> dict:
     file_path, relative_path = resolve_repo_path(path, repo_root, allow_external=allow_external)
+    refuse_credential_file(file_path)
     if not file_path.exists() or not file_path.is_file():
         raise GuardedCodeError("File not found", "FILE_NOT_FOUND", 404)
     size = file_path.stat().st_size
@@ -539,15 +573,14 @@ def build_unified_diff(relative_path: str, old_text: str, new_text: str) -> str:
     ))
 
 
-def _restore_from_backup(file_path: Path, original_content: str, context: str) -> None:
-    """Best-effort restore of original bytes after a post-backup failure in apply.
+def _restore_from_backup(file_path: Path, original: bytes, context: str) -> None:
+    """Put the pre-edit bytes back after a failure in apply.
 
-    Surfaces a combined error if the restore itself fails (the .backup file next
-    to the target remains the operator's ultimate recovery mechanism). Never
-    silently leaves a half-written file when we can avoid it.
+    Raises a combined error if the restore itself fails (the .backup file next
+    to the target then holds the original).
     """
     try:
-        file_path.write_text(original_content, encoding="utf-8")
+        _write_bytes_atomic(file_path, original)
     except Exception as restore_err:
         raise GuardedCodeError(
             f"Failed to {context}; in-place rollback to the pre-edit content also failed. "
@@ -557,42 +590,70 @@ def _restore_from_backup(file_path: Path, original_content: str, context: str) -
             500,
         ) from restore_err
 
-def _find_fuzzy_match(content: str, old_text: str, threshold: float = 0.85) -> Optional[str]:
-    """Find a unique fuzzy match for old_text in content."""
-    if len(old_text.strip()) < 15:
-        return None  # Too short for safe fuzzy matching
-        
-    content_lines = content.splitlines()
-    old_lines = old_text.splitlines()
-    
-    if not old_lines or not content_lines:
+
+def _indent_of(line: str) -> str:
+    return line[: len(line) - len(line.lstrip(" \t"))]
+
+
+def _find_reindented_match(content: str, old_text: str, new_text: str) -> Optional[tuple[str, str, str]]:
+    """Locate ``old_text`` when it differs from the file only in whitespace
+    at the ends of its lines.
+
+    Models often quote a block with its indentation shifted or its trailing
+    spaces dropped. That is the only difference tolerated: every line must
+    carry the same code, the block must occur once, and the indentation must
+    differ by one constant prefix, which is then applied to ``new_text`` too.
+    Returns (text before the block, the block as it is in the file, the
+    replacement re-indented), or None.
+    """
+    lead = len(old_text) - len(old_text.lstrip("\n"))
+    trail = len(old_text) - len(old_text.rstrip("\n"))
+    old_lines = old_text.strip("\n").split("\n")
+    keys = [line.strip() for line in old_lines]
+    if len("".join(keys)) < 15:
+        return None  # too little text to place safely
+    lines = content.split("\n")
+    span = len(keys)
+    hits = [n for n in range(len(lines) - span + 1)
+            if all(lines[n + m].strip() == keys[m] for m in range(span))]
+    if len(hits) != 1:
         return None
-        
-    target_len = len(old_lines)
-    window_sizes = [target_len - 1, target_len, target_len + 1, target_len + 2]
-    window_sizes = [w for w in window_sizes if w > 0]
-    
-    matches = []
-    
-    for w in window_sizes:
-        for i in range(len(content_lines) - w + 1):
-            window_text = "\n".join(content_lines[i:i+w])
-            ratio = difflib.SequenceMatcher(None, window_text, old_text).ratio()
-            if ratio >= threshold:
-                matches.append((ratio, window_text))
-                
-    if not matches:
-        return None
-        
-    max_ratio = max(m[0] for m in matches)
-    # Filter matches that are very close to max_ratio
-    best_matches = set(m[1] for m in matches if max_ratio - m[0] < 0.01)
-    
-    if len(best_matches) > 1:
-        # Not unique
-        return None
-        
-    return best_matches.pop()
+    start = hits[0]
+    found = lines[start:start + span]
+
+    add = drop = None
+    for theirs, ours in zip(old_lines, found):
+        if not ours.strip():
+            continue
+        a, b = _indent_of(theirs), _indent_of(ours)
+        if b.endswith(a) and (add is None or add == b[: len(b) - len(a)]) and not drop:
+            add = b[: len(b) - len(a)]
+        elif a.endswith(b) and (drop is None or drop == a[: len(a) - len(b)]) and not add:
+            drop = a[: len(a) - len(b)]
+        else:
+            return None  # indentation differs unevenly: not safe to carry over
+
+    body = new_text
+    for _ in range(lead):
+        body = body[1:] if body.startswith("\n") else body
+    for _ in range(trail):
+        body = body[:-1] if body.endswith("\n") else body
+    shifted = []
+    for line in body.split("\n"):
+        if not line.strip():
+            shifted.append(line)
+        elif add:
+            shifted.append(add + line)
+        elif drop:
+            if not line.startswith(drop):
+                return None
+            shifted.append(line[len(drop):])
+        else:
+            shifted.append(line)
+    before = "\n".join(lines[:start])
+    if start:
+        before += "\n"
+    return before, "\n".join(found), "\n".join(shifted)
 
 
 def apply_exact_replacement(
@@ -609,8 +670,14 @@ def apply_exact_replacement(
     expected_mtime: Optional[float] = None,
     origin: str = "self_code",
     human_approved: bool = False,
+    allow_reindent: bool = True,
 ) -> GuardedEditResult:
     """Apply one exact replacement after all guarded-code checks.
+
+    The text must occur exactly once. With ``allow_reindent`` (the default,
+    for text a model quoted) a block that differs only in indentation or
+    trailing spaces is still placed, and the result says so; a caller that
+    holds the exact text a person approved passes False.
 
     The inbound guard reads the change last, once the text to replace is
     settled. ``origin`` names the path it came by in the guard's record;
@@ -649,14 +716,18 @@ def apply_exact_replacement(
         if lifecycle_reason:
             raise GuardedCodeError(lifecycle_reason, "READONLY_LIFECYCLE", 403)
 
-    current_content = _read_text_file(file_path)
+    original_bytes, current_content, newline = _read_for_edit(file_path)
+    # Callers quote text they read with universal newlines; compare like with like.
+    old_text = old_text.replace("\r\n", "\n")
+    new_text = new_text.replace("\r\n", "\n")
 
     # Drift guard: if the caller provided a hash or mtime from when it read
     # the file, verify that the on-disk version has not changed since.
     # This prevents "read then clobber" races when multiple agents or the
     # user edit the same file.
     if expected_hash is not None:
-        current_hash = hashlib.sha256(current_content.encode("utf-8")).hexdigest()
+        as_read = current_content.replace("\r\n", "\n").replace("\r", "\n")
+        current_hash = hashlib.sha256(as_read.encode("utf-8")).hexdigest()
         if current_hash != expected_hash:
             raise GuardedCodeError(
                 "File content has changed since it was read (drift detected). "
@@ -669,55 +740,48 @@ def apply_exact_replacement(
     if expected_mtime is not None:
         try:
             current_mtime = file_path.stat().st_mtime
-            if abs(current_mtime - expected_mtime) > 0.0001:  # tolerate floating point
-                raise GuardedCodeError(
-                    "File mtime has changed since it was read (drift detected). "
-                    "Re-read before editing.",
-                    "FILE_DRIFT_DETECTED",
-                    409,
-                )
-        except Exception:
-            # If we can't stat, don't block the edit — the hash guard is stronger anyway.
-            pass
+        except OSError:
+            # Cannot stat: the hash guard, when given, has already answered.
+            current_mtime = None
+        if current_mtime is not None and abs(current_mtime - expected_mtime) > 0.0001:
+            raise GuardedCodeError(
+                "File mtime has changed since it was read (drift detected). "
+                "Re-read before editing.",
+                "FILE_DRIFT_DETECTED",
+                409,
+            )
 
+    if old_text == "":
+        raise GuardedCodeError("old_text is empty; quote the text to replace.", "MISSING_OLD_TEXT")
+
+    match = "exact"
     occurrence_count = current_content.count(old_text)
-
-    using_normalized = False
-    if occurrence_count == 0:
-        # Fallback to normalized line ending search
-        normalized_content = current_content.replace("\r\n", "\n")
-        normalized_old = old_text.replace("\r\n", "\n")
-        occurrence_count = normalized_content.count(normalized_old)
-        if occurrence_count == 1:
-            using_normalized = True
-            current_content = normalized_content
-            old_text = normalized_old
-            new_text = new_text.replace("\r\n", "\n")
-
-    if occurrence_count == 0:
-        # Final fallback: Fuzzy matching
-        fuzzy_match = _find_fuzzy_match(current_content, old_text)
-        if fuzzy_match:
-            # We found a unique block of code that is very similar to old_text
-            old_text = fuzzy_match
-            occurrence_count = current_content.count(old_text)
-            logger.info(f"Fuzzy match successful. Applying edit via fuzzy block.")
-
-    if occurrence_count == 0:
-        raise GuardedCodeError("Exact text was not found; edit was not applied.", "TEXT_NOT_FOUND", 409)
     if occurrence_count > 1:
         raise GuardedCodeError("Exact text is not unique; edit was not applied.", "TEXT_NOT_UNIQUE", 409)
+    if occurrence_count == 1:
+        updated_content = current_content.replace(old_text, new_text)
+    else:
+        placed = _find_reindented_match(current_content, old_text, new_text) if allow_reindent else None
+        if placed is None:
+            raise GuardedCodeError("Exact text was not found; edit was not applied.", "TEXT_NOT_FOUND", 409)
+        before, old_text, new_text = placed
+        updated_content = before + new_text + current_content[len(before) + len(old_text):]
+        match = "whitespace"
+        logger.info("Edit to %s placed after ignoring indentation and trailing whitespace", relative_path)
 
-    updated_content = current_content.replace(old_text, new_text)
     diff = build_unified_diff(relative_path, old_text, new_text)
 
     verdict = _inbound_gate(file_path, relative_path, current_content, old_text, new_text,
                             origin=origin, human_approved=human_approved, dry_run=dry_run)
 
+    checked, syntax_error = syntax_check(file_path, updated_content)
+    syntax_note = "syntax checked" if checked else "syntax not checked for this file type"
+    match_note = "" if match == "exact" else " The quoted text differed from the file in indentation or trailing spaces only."
+
     if dry_run:
-        # Dry run syntax check
-        if not verify_syntax(file_path, updated_content):
-            raise GuardedCodeError("Edit would introduce syntax errors.", "SYNTAX_CHECK_FAILED", 400)
+        if syntax_error:
+            raise GuardedCodeError(f"Edit would introduce a syntax error ({syntax_error}).",
+                                   "SYNTAX_CHECK_FAILED", 400)
 
         return GuardedEditResult(
             file_path=str(file_path),
@@ -727,35 +791,36 @@ def apply_exact_replacement(
             verification={
                 "command": "exact_text_replacement",
                 "return_code": 0,
-                "output_summary": "Dry run succeeded: content matched and verified syntax.",
+                "match": match,
+                "syntax_checked": checked,
+                "output_summary": f"Dry run succeeded: the text was found once; {syntax_note}.{match_note}",
             },
         )
 
-    backup_path = file_path.with_suffix(file_path.suffix + ".backup")
-    backup_path.write_text(current_content, encoding="utf-8")
+    if syntax_error:
+        raise GuardedCodeError(f"Edit would introduce a syntax error ({syntax_error}); it was not applied.",
+                               "SYNTAX_CHECK_FAILED", 400)
 
-    if backup_path.stat().st_size != len(current_content.encode("utf-8")):
+    backup_path = file_path.with_suffix(file_path.suffix + ".backup")
+    backup_path.write_bytes(original_bytes)
+
+    if backup_path.stat().st_size != len(original_bytes):
         raise GuardedCodeError("Backup verification failed; edit was not applied.", "BACKUP_FAILED", 500)
 
+    updated_bytes = (updated_content.replace("\n", "\r\n") if newline == "\r\n" else updated_content).encode("utf-8")
     try:
-        file_path.write_text(updated_content, encoding="utf-8")
+        _write_bytes_atomic(file_path, updated_bytes)
     except Exception as e:
-        _restore_from_backup(file_path, current_content, "write the edit")
         raise GuardedCodeError(f"Write failed: {e}", "WRITE_FAILED", 500) from e
 
-    # Validate syntax on the newly written file
-    if not verify_syntax(file_path):
-        _restore_from_backup(file_path, current_content, "rollback after syntax verification failure")
-        raise GuardedCodeError("Edit introduced syntax errors; edit was rolled back.", "SYNTAX_CHECK_FAILED", 400)
-
     try:
-        verify_content = file_path.read_text(encoding="utf-8")
+        written = file_path.read_bytes()
     except Exception as e:
-        _restore_from_backup(file_path, current_content, "rollback after post-write read verification failure")
+        _restore_from_backup(file_path, original_bytes, "rollback after post-write read verification failure")
         raise GuardedCodeError(f"Post-write verify read failed: {e}", "VERIFY_READ_FAILED", 500) from e
 
-    if verify_content != updated_content:
-        _restore_from_backup(file_path, current_content, "restore after post-write verification mismatch")
+    if written != updated_bytes:
+        _restore_from_backup(file_path, original_bytes, "restore after post-write verification mismatch")
         raise GuardedCodeError("Post-write verification failed; edit was rolled back.", "VERIFY_FAILED", 500)
 
     if verdict is not None:
@@ -772,11 +837,9 @@ def apply_exact_replacement(
         verification={
             "command": "exact_text_replacement",
             "return_code": 0,
-            "output_summary": (
-                "File content matched expected post-write content and syntax verified."
-                if file_path.suffix in (".py", ".json")
-                else "File content matched expected post-write content; syntax not checked for this file type."
-            ),
+            "match": match,
+            "syntax_checked": checked,
+            "output_summary": f"File content matched expected post-write content; {syntax_note}.{match_note}",
         },
     )
 

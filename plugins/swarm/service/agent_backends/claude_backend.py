@@ -16,7 +16,7 @@ from typing import Any
 
 from ..backend_url import backend_api_url
 from ..models import AgentStatus, SwarmTask
-from .base_backend import AgentProcess, BaseBackend
+from .base_backend import AgentProcess, BaseBackend, agent_env
 
 logger = logging.getLogger("swarm.backend.claude")
 
@@ -66,8 +66,14 @@ class ClaudeBackend(BaseBackend):
         # "don't ask mode" and the agent returns a text-only refusal instead
         # of actually creating files. The worktree is the sandbox; that's
         # exactly the case this flag is designed for.
-        args = config.get("args", ["--print", "--bare", "--dangerously-skip-permissions"])
-        return [command] + list(args)
+        args = list(config.get("args", ["--print", "--bare", "--dangerously-skip-permissions"]))
+        if "--bare" in args and not os.environ.get("ANTHROPIC_API_KEY"):
+            # --bare signs in with ANTHROPIC_API_KEY only; without one it
+            # answers "Not logged in". A signed-in CLI runs instead with the
+            # user's own settings, hooks and MCP servers left out.
+            args = [a for a in args if a != "--bare"] + [
+                "--setting-sources", "project,local", "--strict-mcp-config", "--no-session-persistence"]
+        return [command] + args
 
     def spawn(self, worktree_path: str, task: SwarmTask, config: dict[str, Any]) -> AgentProcess:
         wt = Path(worktree_path)
@@ -108,6 +114,7 @@ class ClaudeBackend(BaseBackend):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,  # detach from our process group
+            env=agent_env(keep=("ANTHROPIC_API_KEY",)),
         )
 
         logger.info(f"Launched Claude agent for '{task.id}' (pid={proc.pid})")

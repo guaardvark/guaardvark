@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from ..models import AgentStatus, SwarmTask
-from .base_backend import AgentProcess, BaseBackend
+from .base_backend import AgentProcess, BaseBackend, agent_env
 
 logger = logging.getLogger("swarm.backend.cline")
 
@@ -87,6 +87,10 @@ def resolve_cli_command(config: dict[str, Any]) -> str | None:
 
 WRAPPER_SCRIPT = """#!/bin/bash
 cd "{worktree_path}"
+
+# A status left by an earlier attempt in this worktree would be read as this
+# run's result before it has started.
+rm -f .swarm-status
 
 # the actual cline invocation — stdout/stderr go to the log file
 {cline_command} >> "{log_file}" 2>&1
@@ -174,6 +178,7 @@ class ClineBackend(BaseBackend):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
+            env=agent_env(),
         )
 
         logger.info(f"Launched Cline agent for '{task.id}' (model={model}, pid={proc.pid})")

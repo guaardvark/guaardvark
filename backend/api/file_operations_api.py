@@ -12,6 +12,7 @@ from backend.services.guarded_code_service import (
     apply_exact_replacement,
     default_repo_root,
     is_codebase_locked,
+    refuse_credential_file,
     protected_file_reason,
     resolve_repo_path,
 )
@@ -61,6 +62,23 @@ def _guard_mutation_path(path):
         raise GuardedCodeError(reason, "PROTECTED_FILE", 403)
     return resolved, relative_path
 
+def _protected_inside(folder):
+    """Relative path of the first protected file under ``folder``, or None."""
+    root = default_repo_root()
+    if (Path(folder) / ".git").exists():
+        return ".git"
+    for current, dirs, files in os.walk(folder):
+        dirs[:] = [d for d in dirs if d not in ("node_modules", "venv", ".venv", "__pycache__")]
+        for name in files:
+            try:
+                relative = str((Path(current) / name).relative_to(root))
+            except ValueError:
+                continue
+            if protected_file_reason(relative):
+                return relative
+    return None
+
+
 def _inbound_refusal(changes, subject, payload):
     """Ask the inbound guard about a code-editor file operation.
 
@@ -97,6 +115,7 @@ def read_file():
 
         try:
             file_path, _relative_path = resolve_repo_path(data['filePath'])
+            refuse_credential_file(file_path)
         except GuardedCodeError as e:
             return jsonify({"error": str(e), "code": e.code}), e.status_code
 
@@ -190,7 +209,8 @@ def write_file():
             if not resolved_path.exists():
                 return jsonify({"error": "File not found"}), 404
             old_content = resolved_path.read_text(encoding='utf-8')
-            apply_exact_replacement(str(resolved_path), old_content, content, origin="code_editor")
+            apply_exact_replacement(str(resolved_path), old_content, content, origin="code_editor",
+                                    allow_reindent=False)
         except GuardedCodeError as e:
             return jsonify({"error": str(e), "code": e.code}), e.status_code
 
@@ -401,6 +421,15 @@ def rename_file():
 
         if os.path.exists(resolved_new):
             return jsonify({"error": "Target already exists"}), 409
+
+        if os.path.isdir(resolved_old):
+            # Moving a folder moves every protected file inside it.
+            held = _protected_inside(resolved_old)
+            if held:
+                return jsonify({
+                    "error": f"This folder holds a protected file ({held}) and cannot be renamed here.",
+                    "code": "PROTECTED_FILE",
+                }), 403
 
         from backend.services import inbound_guard_service as guard
 

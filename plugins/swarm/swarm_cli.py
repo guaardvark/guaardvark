@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -176,55 +177,79 @@ def cmd_status(args: argparse.Namespace, config: SwarmConfig) -> None:
             print()
 
 
+def _manifests(repo_path: Path, config: SwarmConfig):
+    """(swarm id, manifest) for every swarm with worktrees under ``repo_path``."""
+    base = repo_path / config.worktree_base
+    if not base.is_dir():
+        return
+    for folder in sorted(base.iterdir()):
+        manifest_file = folder / "manifest.json"
+        if manifest_file.exists():
+            try:
+                yield folder.name, json.loads(manifest_file.read_text())
+            except (OSError, ValueError):
+                continue
+
+
 def cmd_logs(args: argparse.Namespace, config: SwarmConfig) -> None:
-    """Show logs for a specific agent task."""
+    """Show the log an agent wrote for a task (.swarm-agent.log in its worktree)."""
     task_id = args.task_id
-    session_name = f"swarm-{task_id}"
+    repo_path = Path(getattr(args, "repo", None) or Path.cwd())
+    for swarm_id, manifest in _manifests(repo_path, config):
+        worktree = (manifest.get("worktrees") or {}).get(task_id)
+        if not worktree:
+            continue
+        log_file = Path(worktree["worktree_path"]) / ".swarm-agent.log"
+        if not log_file.exists():
+            print(f"{C.YELLOW}Task '{task_id}' ({swarm_id}) has written no log yet{C.RESET}")
+            return
+        lines = log_file.read_text(errors="replace").splitlines()
+        print("\n".join(lines[-args.lines:]))
+        return
+    print(f"{C.RED}No worktree found for task '{task_id}' under {repo_path / config.worktree_base}{C.RESET}")
 
-    import subprocess
-    result = subprocess.run(
-        ["tmux", "capture-pane", "-t", session_name, "-p", "-S", f"-{args.lines}"],
-        capture_output=True, text=True,
+
+def _service_post(repo_path: Path, path: str, body: dict):
+    """POST to the swarm service on this machine. Returns (status, data), or
+    (None, reason) when it could not be reached."""
+    import urllib.error
+    import urllib.request
+
+    secret = os.environ.get("SWARM_INTERNAL_SECRET", "").strip()
+    if not secret:
+        root = Path(os.environ.get("GUAARDVARK_ROOT") or Path(__file__).resolve().parents[2])
+        try:
+            secret = (root / "data" / ".swarm_internal_secret").read_text().strip()
+        except OSError:
+            secret = ""
+    request = urllib.request.Request(
+        f"http://127.0.0.1:8210{path}", data=json.dumps(body).encode(), method="POST",
+        headers={"Content-Type": "application/json", "X-Swarm-Internal-Token": secret},
     )
-
-    if result.returncode == 0:
-        print(result.stdout)
-    else:
-        print(f"{C.RED}No active tmux session found for task '{task_id}'{C.RESET}")
-        print(f"  (session name: {session_name})")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.status, json.loads(response.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        return e.code, {"error": e.read().decode(errors="replace")[:300]}
+    except (urllib.error.URLError, OSError) as e:
+        return None, str(e)
 
 
 def cmd_cancel(args: argparse.Namespace, config: SwarmConfig) -> None:
-    """Cancel a running swarm."""
+    """Cancel a swarm the swarm service is running."""
     repo_path = Path(args.repo) if args.repo else Path.cwd()
-
-    import subprocess
-
-    # find and kill all tmux sessions matching this swarm
-    swarm_prefix = f"swarm-"
-    if args.swarm_id:
-        # load manifest to find task IDs
-        manifest_path = repo_path / config.worktree_base / args.swarm_id / "manifest.json"
-        if manifest_path.exists():
-            with open(manifest_path) as f:
-                manifest = json.load(f)
-            for task_id in manifest.get("worktrees", {}):
-                session = f"swarm-{task_id}"
-                subprocess.run(["tmux", "kill-session", "-t", session], capture_output=True)
-                print(f"  Killed session: {session}")
-        print(f"{C.GREEN}Cancelled swarm {args.swarm_id}{C.RESET}")
-    else:
-        # kill all swarm sessions
-        result = subprocess.run(
-            ["tmux", "list-sessions", "-F", "#{session_name}"],
-            capture_output=True, text=True,
-        )
-        if result.returncode == 0:
-            for session in result.stdout.strip().split("\n"):
-                if session.startswith(swarm_prefix):
-                    subprocess.run(["tmux", "kill-session", "-t", session], capture_output=True)
-                    print(f"  Killed session: {session}")
-        print(f"{C.GREEN}Cancelled all swarm sessions{C.RESET}")
+    if not args.swarm_id:
+        print(f"{C.RED}Name the swarm to cancel (see `status`){C.RESET}")
+        sys.exit(1)
+    status, data = _service_post(repo_path, "/swarm/cancel", {"swarm_id": args.swarm_id})
+    if status is None:
+        print(f"{C.RED}The swarm service was not reached ({data}); nothing was cancelled.{C.RESET}")
+        print("  A swarm started with `launch` in a terminal is stopped with Ctrl+C in that terminal.")
+        sys.exit(1)
+    if status >= 400:
+        print(f"{C.RED}Not cancelled ({status}): {data.get('error') or data.get('detail') or data}{C.RESET}")
+        sys.exit(1)
+    print(f"{C.GREEN}Cancelled swarm {args.swarm_id}{C.RESET}")
 
 
 def cmd_merge(args: argparse.Namespace, config: SwarmConfig) -> None:
@@ -255,7 +280,16 @@ def cmd_merge(args: argparse.Namespace, config: SwarmConfig) -> None:
         )
         tasks.append(task)
 
-    base_branch = data.get("base_branch", "main")
+    # The branch the swarm started from is in its manifest; "main" only when
+    # the manifest is gone.
+    base_branch = data.get("base_branch")
+    if not base_branch:
+        try:
+            manifest = json.loads((repo_path / config.worktree_base / args.swarm_id / "manifest.json").read_text())
+            base_branch = manifest.get("base_branch")
+        except (OSError, ValueError):
+            base_branch = None
+    base_branch = base_branch or "main"
     
     mgr = MergeManager(
         repo_path, 
@@ -304,6 +338,10 @@ def cmd_cleanup(args: argparse.Namespace, config: SwarmConfig) -> None:
 
     count = mgr.cleanup_all(delete_branches=True)
     print(f"{C.GREEN}Cleaned up {count} worktrees for {args.swarm_id}{C.RESET}")
+    if mgr.kept_branches:
+        print(f"{C.YELLOW}Kept {len(mgr.kept_branches)} branch(es) whose work was never merged:{C.RESET}")
+        for branch in mgr.kept_branches:
+            print(f"  {branch}")
 
 
 def cmd_templates(args: argparse.Namespace, config: SwarmConfig) -> None:

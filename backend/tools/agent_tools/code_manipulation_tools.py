@@ -771,7 +771,8 @@ class EditCodeTool(BaseTool):
                               "whitespace, then retry with enough surrounding context for one unique match.")
             return ToolResult(success=False, error=error_msg, metadata={"filepath": filepath, "blocked_by": e.code})
         rel = record["files"][0]["path"]
-        checks = "; ".join(f"{c['check']}: {'ok' if c['ok'] else c['detail']}" for c in record["checks"])
+        checks = "; ".join(
+            f"{c['check']}: {'ok' if c['ok'] and c.get('checked', True) else c['detail']}" for c in record["checks"])
         if record["status"] == "failed_checks":
             return ToolResult(
                 success=False,

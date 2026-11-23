@@ -460,10 +460,12 @@ class ResearchRunService:
             if not isinstance(payload, dict):
                 payload = data if isinstance(data, dict) else {}
             st = (payload.get("status") or "").lower()
-            if st in ("completed", "done", "failed", "stopped", "error"):
+            if st in ("completed", "done", "failed", "stopped", "error", "cancelled"):
                 return st or "completed"
             if status == 404:
-                return "completed"
+                # The swarm service no longer knows this swarm (it restarted):
+                # the outcome is unknown, which is not "completed".
+                return "error"
             time.sleep(SWARM_POLL_S)
         return "budget_exhausted"
 

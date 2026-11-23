@@ -697,6 +697,9 @@ class CodeAnalysisTool(BaseTool):
     """
 
     name = "analyze_code"
+    # The review is the answer, and it cost a model call: the chat model reads
+    # it, not its first two lines. 6000 is read_ast_node's budget.
+    observation_chars = 6000
     read_only = True
     description = (
         "Review one text file with Guaardvark's local LLM (Ollama) and return its written findings; "

@@ -1170,7 +1170,7 @@ def _land_pending_fix(row, *, by: str, note: str) -> List[str]:
     try:
         apply_exact_replacement(
             str(path), fix.original_content, fix.proposed_new_content,
-            origin="approved_fix", human_approved=True,
+            origin="approved_fix", human_approved=True, allow_reindent=False,
             expected_hash=hashlib.sha256(current.encode("utf-8")).hexdigest(),
         )
     except GuardedCodeError:
