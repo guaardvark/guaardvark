@@ -58,6 +58,28 @@ def _cuda_available() -> bool:
         return False
 
 
+def _hand_back_vram() -> None:
+    """Return this process's freed CUDA memory to the card after an unload.
+
+    A backend's own empty_cache() runs while the model's reference cycles are
+    still alive, and a cached block holding one of their tensors cannot be
+    released. Measured 2026-11-23 (one effect, one Chatterbox line, four Kokoro
+    lines, then both backends unloaded): the process still held 2192 MB with
+    nothing loaded, and 296 MB after a collection and a second empty_cache().
+    """
+    import gc
+    import sys
+
+    gc.collect()
+    # A backend that held CUDA memory imported torch itself; do not pull it in here.
+    torch = sys.modules.get("torch")
+    try:
+        if torch is not None and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _free_vram_mb() -> Optional[int]:
     """Free memory on the card in MB, or None when it cannot be read."""
     try:
@@ -363,6 +385,7 @@ class Dispatcher:
                         pass
                     
                     backend.unload()
+                    _hand_back_vram()
                     slot_id = f"{_SLOT_PREFIX}:{intent.value}"
                     self._claimed.discard(intent)
                     self._orch.evict(slot_id)
@@ -393,13 +416,6 @@ class Dispatcher:
             if free is None or free >= vram_req + _HEADROOM_MB:
                 break
             if self.unload(other):
-                # Hand the freed blocks back now, so the next reading sees them
-                # and the loop stops at the first unload that was enough.
-                try:
-                    import torch
-                    torch.cuda.empty_cache()
-                except Exception:
-                    pass
                 logger.info(
                     "Unloaded %s to make room for %s (%d MB free, %d MB wanted)",
                     other.value, intent.value, free, vram_req,
@@ -513,12 +529,7 @@ class Dispatcher:
             backend.unload()
         except Exception as e:  # noqa: BLE001
             logger.warning("Unload of %s after out-of-memory failed: %s", backend.name, e)
-        try:
-            import torch
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        except Exception:
-            pass
+        _hand_back_vram()
 
     def _drop_after_oom(self, intent: Intent, backend: AudioBackend) -> None:
         """Unload a backend whose generation ran out of memory and forget its slot.
