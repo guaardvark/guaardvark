@@ -68,6 +68,10 @@ class WorktreeManager:
         self.swarm_id = swarm_id
         self.swarm_dir = self.repo_path / worktree_base / swarm_id
         self.manifest_path = self.swarm_dir / "manifest.json"
+        # Branches a cleanup left in place because their work is not merged.
+        self.kept_branches: list[str] = []
+        # Dependency branches the last create() could not merge into the worktree.
+        self.dependency_problems: list[str] = []
 
         # figure out what branch we're on — that's the base for all worktrees
         self.base_branch = self._get_current_branch()
@@ -81,13 +85,19 @@ class WorktreeManager:
         # make sure .swarm-worktrees is in .git/info/exclude so it never gets committed
         self._ensure_git_excluded(worktree_base)
 
-    def create(self, task_id: str) -> WorktreeInfo:
+    def create(self, task_id: str, start_points: list[str] | None = None) -> WorktreeInfo:
         """
         Create a worktree for a task.
 
         Returns a WorktreeInfo with the path and branch name.
-        The worktree starts as a copy of the current branch.
+        The worktree starts as a copy of the current branch, or, for a task
+        that depends on others, of their branches (``start_points``): the
+        first is the starting commit and the rest are merged in, so the agent
+        works on top of the code it depends on. A dependency that does not
+        merge cleanly is left out and named in ``dependency_problems``.
         """
+        self.dependency_problems: list[str] = []
+        start_points = [b for b in (start_points or []) if b]
         branch_name = f"swarm/{self.swarm_id}/{task_id}"
         worktree_path = self.swarm_dir / task_id
 
@@ -109,7 +119,7 @@ class WorktreeManager:
 
         # git worktree add -b <branch> <path>
         result = self._git(
-            "worktree", "add", "-b", branch_name, str(worktree_path),
+            "worktree", "add", "-b", branch_name, str(worktree_path), *start_points[:1],
             check=False,
         )
 
@@ -124,6 +134,17 @@ class WorktreeManager:
                 raise RuntimeError(
                     f"Failed to create worktree for {task_id}: {result.stderr}"
                 )
+        else:
+            for other in start_points[1:]:
+                merged = subprocess.run(
+                    ["git", "-C", str(worktree_path), "merge", "--no-edit", other],
+                    capture_output=True, text=True, timeout=120,
+                )
+                if merged.returncode != 0:
+                    subprocess.run(["git", "-C", str(worktree_path), "merge", "--abort"],
+                                   capture_output=True, text=True, timeout=60)
+                    self.dependency_problems.append(other)
+                    logger.warning(f"Task {task_id}: dependency branch {other} did not merge cleanly; left out")
 
         info = WorktreeInfo(
             task_id=task_id,
@@ -146,9 +167,19 @@ class WorktreeManager:
         """Get info about a specific worktree."""
         return self.manifest.worktrees.get(task_id)
 
-    def cleanup(self, task_id: str, delete_branch: bool = False) -> bool:
+    def _branch_is_merged(self, branch_name: str) -> bool:
+        """Whether every commit on the branch is already in the base branch
+        (true as well for a branch the agent never committed to)."""
+        result = self._git("merge-base", "--is-ancestor", branch_name, self.manifest.base_branch, check=False)
+        return result.returncode == 0
+
+    def cleanup(self, task_id: str, delete_branch: bool = False, discard_unmerged: bool = False) -> bool:
         """
         Remove a worktree and optionally its branch.
+
+        A branch holding commits that are not in the base branch is the only
+        copy of that work, so it is kept (and named in ``kept_branches``)
+        unless ``discard_unmerged`` is set.
 
         Returns True if cleanup succeeded.
         """
@@ -168,8 +199,12 @@ class WorktreeManager:
 
         # optionally delete the branch
         if delete_branch and info.branch_name:
-            self._git("branch", "-D", info.branch_name, check=False)
-            logger.info(f"Deleted branch {info.branch_name}")
+            if discard_unmerged or self._branch_is_merged(info.branch_name):
+                self._git("branch", "-D", info.branch_name, check=False)
+                logger.info(f"Deleted branch {info.branch_name}")
+            else:
+                self.kept_branches.append(info.branch_name)
+                logger.info(f"Kept branch {info.branch_name}: it has commits not in {self.manifest.base_branch}")
 
         del self.manifest.worktrees[task_id]
         self._save_manifest()
@@ -177,16 +212,17 @@ class WorktreeManager:
         logger.info(f"Cleaned up worktree for task {task_id}")
         return True
 
-    def cleanup_all(self, delete_branches: bool = False) -> int:
+    def cleanup_all(self, delete_branches: bool = False, discard_unmerged: bool = False) -> int:
         """
         Remove all worktrees for this swarm. Returns count of cleaned up worktrees.
 
-        The nuclear option — for when a swarm goes sideways.
+        Branches with unmerged commits are kept unless ``discard_unmerged``;
+        ``kept_branches`` lists them afterwards.
         """
         task_ids = list(self.manifest.worktrees.keys())
         count = 0
         for task_id in task_ids:
-            if self.cleanup(task_id, delete_branch=delete_branches):
+            if self.cleanup(task_id, delete_branch=delete_branches, discard_unmerged=discard_unmerged):
                 count += 1
 
         # prune any orphaned worktree refs

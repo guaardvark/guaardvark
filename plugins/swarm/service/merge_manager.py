@@ -19,6 +19,16 @@ from .models import MergeResult, SwarmTask, SwarmStatus
 
 logger = logging.getLogger("swarm.merge")
 
+
+def _test_env() -> dict[str, str]:
+    """Environment for a pre-merge test run: an agent's branch is running, so
+    it gets no secrets and a database URL that reaches nothing."""
+    from .agent_backends.base_backend import agent_env
+
+    env = agent_env()
+    env.update(DATABASE_URL="postgresql://swarm-merge-tests@127.0.0.1:1/none", GUAARDVARK_MODE="test")
+    return env
+
 # The inbound guard ships with the Guaardvark checkout this plugin lives in.
 _GUAARDVARK_ROOT = Path(__file__).resolve().parents[3]
 
@@ -118,10 +128,9 @@ class MergeManager:
         """
         task_id = branch_name.split("/")[-1] if "/" in branch_name else branch_name
 
-        # make sure we're on the base branch
-        current = self._git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
-        if current != self.base_branch:
-            self._git("checkout", self.base_branch, check=False)
+        off_base = self._off_base_branch()
+        if off_base:
+            return MergeResult(task_id=task_id, success=False, error=off_base)
 
         # try a dry-run merge
         result = self._git(
@@ -173,12 +182,19 @@ class MergeManager:
 
         # optionally run tests in the worktree before merging
         if run_tests and task.worktree_path:
-            test_passed = self._run_tests(task.worktree_path, test_command)
-            if not test_passed:
+            # The tests that cover what the branch changed, run in its
+            # worktree. The whole suite does not finish inside the time limit
+            # on a large repository, which read as "tests failed" every time.
+            touched = self._git("diff", "--name-only", f"{self.base_branch}...{task.branch_name}",
+                                check=False).stdout.splitlines()
+            targets = self._test_targets(touched)
+            if targets and not self._run_tests(task.worktree_path, test_command, targets):
                 return MergeResult(
                     task_id=task.id, success=False,
-                    error=f"Tests failed in worktree — refusing to merge",
+                    error=f"Tests failed in the worktree ({' '.join(targets)}); not merged",
                 )
+            if not targets:
+                logger.info(f"No tests cover the files {task.id} changed; merging without a test run")
 
         # check for conflicts first
         check = self.check_conflicts(task.branch_name)
@@ -192,9 +208,9 @@ class MergeManager:
             return check
 
         # actually merge
-        current = self._git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
-        if current != self.base_branch:
-            self._git("checkout", self.base_branch)
+        off_base = self._off_base_branch()
+        if off_base:
+            return MergeResult(task_id=task.id, success=False, error=off_base)
 
         result = self._git(
             "merge", "--no-ff", task.branch_name,
@@ -232,8 +248,10 @@ class MergeManager:
         leaves the task for review.
         """
         logger.info(f"Conflict detected for {task.id}, invoking MergerAgent...")
+        off_base = self._off_base_branch()
+        if off_base:
+            return MergeResult(task_id=task.id, success=False, error=off_base)
         try:
-            self._git("checkout", self.base_branch)
             self._git("merge", "--no-ff", "--no-commit", task.branch_name, check=False)
             conflicts = self._get_conflict_files() or check.conflict_files
 
@@ -402,6 +420,16 @@ class MergeManager:
             raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr}")
         return result
 
+    def _off_base_branch(self) -> str | None:
+        """Why a merge cannot run here, or None. The checkout is the running
+        install: its branch is the person's to change, never switched for a
+        merge."""
+        current = self._git("rev-parse", "--abbrev-ref", "HEAD", check=False).stdout.strip()
+        if current == self.base_branch:
+            return None
+        return (f"The repository is on '{current}', and this swarm branched from '{self.base_branch}'. "
+                f"Switch back to '{self.base_branch}' and merge again; the task branches are kept.")
+
     def _get_conflict_files(self) -> list[str]:
         """Get list of files with merge conflicts."""
         result = self._git("diff", "--name-only", "--diff-filter=U", check=False)
@@ -420,6 +448,7 @@ class MergeManager:
                 capture_output=True,
                 text=True,
                 timeout=300,  # 5 minute timeout for tests
+                env=_test_env(),
             )
             if result.returncode == 0:
                 logger.info(f"Tests passed in {worktree_path}")

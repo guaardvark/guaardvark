@@ -157,6 +157,7 @@ const SwarmPage = () => {
   const [flightMode, setFlightMode] = useState(false);
   const [maxAgents, setMaxAgents] = useState(5);
   const [autoMerge, setAutoMerge] = useState(false);
+  const [dirtyTreeSeen, setDirtyTreeSeen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [launching, setLaunching] = useState(false);
 
@@ -253,7 +254,8 @@ const SwarmPage = () => {
   const handleTemplateSelect = (filename) => {
     setSelectedTemplate(filename);
     if (filename) {
-      setPlanPath(`plugins/swarm/templates/${filename}`);
+      const picked = templates.find((tmpl) => tmpl.filename === filename);
+      setPlanPath(picked?.plan_path || `plugins/swarm/templates/${filename}`);
     }
   };
 
@@ -271,6 +273,7 @@ const SwarmPage = () => {
         flightMode,
         maxAgents,
         autoMerge,
+        acknowledgeDirtyTree: dirtyTreeSeen,
       });
       if (res.success !== false) {
         const data = res.data || res;
@@ -278,12 +281,20 @@ const SwarmPage = () => {
         setLaunchOpen(false);
         setPlanPath("");
         setSelectedTemplate("");
+        setDirtyTreeSeen(false);
         await fetchStatus();
       } else {
         showMessage(res.message || t("swarm.messages.launchFailed"), "error");
       }
     } catch (err) {
-      showMessage(err.message || t("swarm.messages.launchFailed"), "error");
+      // A checkout with uncommitted changes: agents start from the last
+      // commit, so those changes are not in their copies. Say so in the
+      // dialog; the next press of Launch goes ahead.
+      if (!dirtyTreeSeen && /uncommitted changes/i.test(err.message || "")) {
+        setDirtyTreeSeen(true);
+      } else {
+        showMessage(err.message || t("swarm.messages.launchFailed"), "error");
+      }
     } finally {
       setLaunching(false);
     }
@@ -318,8 +329,11 @@ const SwarmPage = () => {
   const handleCleanup = async (swarmId) => {
     if (!swarmId) { showMessage(t("swarm.messages.noSwarmId"), "warning"); return; }
     try {
+      // Branches whose work was never merged are kept by the service and
+      // named in its reply.
       const res = await cleanupSwarm(swarmId, { deleteBranches: true });
-      showMessage(res.message || t("swarm.messages.cleanedUp"), "success");
+      const kept = (res.data || res).branches_kept || [];
+      showMessage(res.message || t("swarm.messages.cleanedUp"), kept.length ? "warning" : "success");
       await fetchStatus();
       await fetchHistory();
     } catch (err) {
@@ -398,7 +412,8 @@ const SwarmPage = () => {
       if (res.success !== false) {
         showMessage(t("swarm.messages.planSaved"), "success");
         await fetchTemplates();
-        setPlanPath(`plugins/swarm/templates/${res.filename || editorFilename}`);
+        const saved = res.data || res;
+        setPlanPath(saved.plan_path || `data/outputs/swarm_plans/${saved.filename || editorFilename}`);
         setEditorOpen(false);
       } else {
         showMessage(res.message || t("swarm.messages.saveFailed"), "error");
@@ -460,7 +475,7 @@ const SwarmPage = () => {
           label: t("swarm.menu.launch"),
           onClick: () => {
             handleTemplateSelect(p.tmpl.filename);
-            setLaunchOpen(true);
+            (setDirtyTreeSeen(false), setLaunchOpen(true));
           },
         },
       ];
@@ -560,7 +575,7 @@ const SwarmPage = () => {
           <Button
             variant="contained"
             startIcon={<LaunchIcon />}
-            onClick={() => setLaunchOpen(true)}
+            onClick={() => (setDirtyTreeSeen(false), setLaunchOpen(true))}
             disabled={!serviceOnline}
           >
             {t("swarm.header.launchSwarm")}
@@ -628,7 +643,7 @@ const SwarmPage = () => {
           <Button
             variant="contained"
             startIcon={<LaunchIcon />}
-            onClick={() => setLaunchOpen(true)}
+            onClick={() => (setDirtyTreeSeen(false), setLaunchOpen(true))}
             disabled={!serviceOnline}
           >
             {t("swarm.empty.launchFirst")}
@@ -662,7 +677,7 @@ const SwarmPage = () => {
                   }}
                   onClick={() => {
                     handleTemplateSelect(tmpl.filename);
-                    setLaunchOpen(true);
+                    (setDirtyTreeSeen(false), setLaunchOpen(true));
                   }}
                   onContextMenu={(e) => itemMenu.open(e, { kind: "template", tmpl })}
                 >
@@ -833,6 +848,11 @@ const SwarmPage = () => {
             {flightMode && (
               <Alert severity="info" variant="outlined">
                 {t("swarm.launchDialog.flightModeInfo")}
+              </Alert>
+            )}
+            {dirtyTreeSeen && (
+              <Alert severity="warning" variant="outlined">
+                {t("swarm.launchDialog.dirtyTree")}
               </Alert>
             )}
           </Stack>
@@ -1145,11 +1165,13 @@ const SwarmCard = ({
             <Chip
               label={
                 swarm.status === "failed" ? t("swarm.swarmStatus.failed") :
+                swarm.status === "cancelled" ? t("swarm.taskStatus.cancelled") :
                 isRunning ? t("swarm.swarmStatus.running") : t("swarm.swarmStatus.completed")
               }
               size="small"
               color={
                 swarm.status === "failed" ? "error" :
+                swarm.status === "cancelled" ? "warning" :
                 isRunning ? "primary" : "default"
               }
               variant={isRunning ? "filled" : "outlined"}

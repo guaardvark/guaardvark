@@ -283,7 +283,7 @@ class SwarmOrchestrator:
                 self._release_gpu_hold(task_id)
 
         # merge phase
-        if do_merge and self.merge_mgr:
+        if do_merge and self.merge_mgr and not self._cancel_event.is_set():
             self._run_merge_phase(tasks)
 
         # final summary
@@ -343,6 +343,23 @@ class SwarmOrchestrator:
 
         self._emit_event("swarm_cancelled", "swarm", {"swarm_id": self.swarm_id})
 
+    def _overall_status(self) -> str:
+        """running, cancelled, failed or completed. "completed" means the run
+        ended by itself and at least one task finished its work; a run that
+        was cancelled, crashed, or in which no task got anywhere is not
+        reported as completed."""
+        if self.is_running():
+            return "running"
+        if self._cancel_event.is_set():
+            return "cancelled"
+        if getattr(self, "_error", None):
+            return "failed"
+        tasks = self.result.tasks if self.result else []
+        finished = {SwarmStatus.DONE, SwarmStatus.MERGED, SwarmStatus.NEEDS_REVIEW, SwarmStatus.NO_CHANGES}
+        if tasks and not any(t.status in finished for t in tasks):
+            return "failed"
+        return "completed"
+
     def is_running(self) -> bool:
         """Is the swarm still running?"""
         if self._thread:
@@ -375,7 +392,8 @@ class SwarmOrchestrator:
 
         return {
             "swarm_id": self.swarm_id,
-            "status": "running" if self.is_running() else "completed",
+            "status": self._overall_status(),
+            "error": getattr(self, "_error", None),
             "flight_mode": self.result.flight_mode,
             "tasks": [t.to_dict() for t in self.result.tasks],
             "tasks_by_status": self.result.tasks_by_status,
@@ -572,7 +590,17 @@ class SwarmOrchestrator:
             raise RuntimeError(f"Backend '{backend_config.name}' not initialized")
 
         # create worktree
-        wt_info = self.worktree_mgr.create(task.id)
+        # A task that depends on others starts from their branches, not from
+        # the base branch: their work is not merged until the swarm ends.
+        dependency_branches = [
+            dep.branch_name for dep in (self._find_task(d) for d in (task.dependencies or []))
+            if dep is not None and dep.branch_name and dep.status in (SwarmStatus.DONE, SwarmStatus.MERGED)
+        ]
+        wt_info = self.worktree_mgr.create(task.id, start_points=dependency_branches)
+        if self.worktree_mgr.dependency_problems:
+            task.tags["dependency_note"] = (
+                "Started without the work of " + ", ".join(self.worktree_mgr.dependency_problems)
+                + ": it did not merge cleanly with the other dependencies.")
         task.branch_name = wt_info.branch_name
         task.worktree_path = wt_info.worktree_path
         task.backend_name = backend_config.name
