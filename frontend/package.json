@@ -23,7 +23,7 @@
     "@mui/material": "^9.5.0",
     "@novnc/novnc": "^1.7.0",
     "@popperjs/core": "^2.11.8",
-    "axios": "^1.21.0",
+    "axios": "^1.21.1",
     "d3-force": "^3.0.1",
     "dompurify": "^3.4.17",
     "i18next": "^27.1.5",
