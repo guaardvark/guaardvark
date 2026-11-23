@@ -50,6 +50,10 @@ from backend.services.mcp_config import (
 
 logger = logging.getLogger(__name__)
 
+# How long an on-demand connect leaves a server alone after it failed to
+# start. Unmeasured: long enough that one chat turn does not wait on it twice.
+RECONNECT_COOLDOWN_S = 60
+
 # Kept as module attributes for backwards compatibility with existing imports.
 MCP_ENABLED = app_config.MCP_ENABLED
 MCP_TIMEOUT = app_config.MCP_TIMEOUT
@@ -220,10 +224,24 @@ class MCPClientService:
                 self._stop_runtime_sync(name)
             elif rt.connected:
                 self._notify("tools_changed", name)  # policy may have changed
+        # A server whose entry changed is started again with the new entry;
+        # stopped only, its tools were gone from chat until something called it.
+        restarted, failed = [], {}
+        for name in changed:
+            rt = self._runtimes.get(name)
+            if rt is None or rt.config.disabled:
+                continue
+            res = self.connect(name)
+            if res.get("success"):
+                restarted.append(name)
+            else:
+                failed[name] = res.get("error") or "could not reconnect"
         return {
             "success": True,
             "servers": sorted(self._runtimes),
-            "restarted": changed,
+            "restarted": restarted,
+            "stopped": [n for n in changed if n not in restarted],
+            "reconnect_errors": failed,
             "errors": list(self._config_errors),
         }
 
@@ -358,7 +376,9 @@ class MCPClientService:
             command=cfg.command,
             args=list(cfg.args),
             env=build_child_env(cfg),
-            cwd=cfg.cwd or None,
+            # Relative commands and paths in an entry mean "inside this
+            # install", wherever the backend process was started from.
+            cwd=cfg.cwd or str(app_config.GUAARDVARK_ROOT),
         )
         read, write = await stack.enter_async_context(stdio_client(params, errlog=errlog))
         return read, write
@@ -544,6 +564,13 @@ class MCPClientService:
             return {"success": False, "error": f"Unknown server: {name}. Configured: {sorted(self._runtimes)}"}
         return None
 
+    @property
+    def _connect_failed_at(self) -> Dict[str, float]:
+        """When an on-demand connect to each server last failed."""
+        if not hasattr(self, "_connect_failures"):
+            self._connect_failures = {}
+        return self._connect_failures
+
     def connect(self, name: str) -> Dict[str, Any]:
         err = self._precheck(name)
         if err:
@@ -590,8 +617,21 @@ class MCPClientService:
         rt = self._runtimes[name]
         if rt.connected:
             return None
+        # A server that just failed to start is not tried again on every call:
+        # each attempt can wait out the whole connect timeout, in the middle
+        # of a chat turn.
+        failed_at = self._connect_failed_at.get(name)
+        if failed_at and time.time() - failed_at < RECONNECT_COOLDOWN_S:
+            wait = int(RECONNECT_COOLDOWN_S - (time.time() - failed_at)) + 1
+            return {"success": False, "server": name,
+                    "error": (f"MCP server '{name}' did not start a moment ago ({rt.last_error or 'no detail'}); "
+                              f"not retried for another {wait} s. Connect it from MCP Servers to retry now.")}
         res = self.connect(name)
-        return None if res.get("success") else res
+        if res.get("success"):
+            self._connect_failed_at.pop(name, None)
+            return None
+        self._connect_failed_at[name] = time.time()
+        return res
 
     def get_tool(self, server: str, tool: str) -> Optional[Dict[str, Any]]:
         rt = self._runtimes.get(server)
