@@ -190,7 +190,8 @@ def write_file():
             if not resolved_path.exists():
                 return jsonify({"error": "File not found"}), 404
             old_content = resolved_path.read_text(encoding='utf-8')
-            apply_exact_replacement(str(resolved_path), old_content, content, origin="code_editor")
+            apply_exact_replacement(str(resolved_path), old_content, content, origin="code_editor",
+                                    allow_reindent=False)
         except GuardedCodeError as e:
             return jsonify({"error": str(e), "code": e.code}), e.status_code
 
