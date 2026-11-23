@@ -44,6 +44,13 @@ _HELP_GROUPS: list[tuple[str, list[str]]] = [
 ]
 
 
+# edit_code refusals a local search/replace must not go around.
+_BACKEND_REFUSALS_THAT_STAND = frozenset({
+    "PROTECTED_FILE", "CODEBASE_LOCKED", "READONLY_LIFECYCLE", "SENSITIVE_PATH", "PRIVATE_PATH",
+    "needs_plan", "TEXT_NOT_FOUND", "TEXT_NOT_UNIQUE", "SYNTAX_CHECK_FAILED", "FILE_DRIFT_DETECTED",
+})
+
+
 class SlashRouter:
     """Routes /command args to the appropriate handler.
 
@@ -1166,14 +1173,19 @@ class SlashRouter:
 
         if old_t and new_t:
             # Strongly prefer the real backend edit_code (guarded, audited, part of the backend tool engine)
+            answered = False
             try:
-                from llx.client import get_client, LlxConnectionError, LlxError
+                from llx.client import get_client
+                from llx.local_tools import _resolve_path
                 client = get_client(server)
                 res = client.execute_tool("edit_code", {
-                    "filepath": path,
+                    # The file this folder means, not one of the same name in
+                    # the backend's own checkout.
+                    "filepath": str(_resolve_path(path, self._state.get("cwd"))),
                     "old_text": old_t,
                     "new_text": new_t
                 })
+                answered = True
                 out = res.get("result", res)
                 if res.get("success") and not (isinstance(out, dict) and out.get("success") is False):
                     self._console.print("[llx.success]Used backend edit_code tool (guarded)[/llx.success]")
@@ -1185,7 +1197,15 @@ class SlashRouter:
                         self._console.print(diff)
                     return
             except Exception:
-                pass  # fall to local
+                pass  # the backend could not be reached: edit locally
+            blocked_by = ((out.get("metadata") or {}).get("blocked_by")
+                          if answered and isinstance(out, dict) else None)
+            if blocked_by in _BACKEND_REFUSALS_THAT_STAND:
+                # A protected file, a lock, text that was not found: the
+                # backend's answer stands, and a local write would go around
+                # the check that refused it.
+                self._console.print(f"[llx.error]The edit was not made: {out.get('error') or blocked_by}[/llx.error]")
+                return
         elif len(rest) > 20:
             # Instruction-style edit: the backend proposes a change; nothing is
             # written, because its reply mixes code with explanation.
@@ -1225,7 +1245,9 @@ class SlashRouter:
             res = apply_search_replace(path, "", new_content, cwd=self._state.get("cwd"))
         else:
             if not (old_t and new_t):
-                self._console.print("[llx.dim]No explicit old -> new. Use 'old -> new' or heredoc.[/llx.dim]")
+                self._console.print(
+                    "[llx.dim]Say what to change as: /edit <file> old text -> new text. "
+                    "For a described change, ask in plain words instead (no slash).[/llx.dim]")
                 return
             res = apply_search_replace(path, old_t, new_t, cwd=self._state.get("cwd"))
 
@@ -1258,23 +1280,28 @@ class SlashRouter:
 
         server = self._state.get("server")
         used_backend = False
-        # Heuristic: if it looks like python code, try execute_python backend tool
-        if cmd.strip().startswith("python") or cmd.strip().startswith("python3") or ".py" in cmd or "import " in cmd or cmd.strip().startswith("exec"):
+        # Only an inline snippet (`python -c "<code>"`) goes to the backend's
+        # execute_python. Anything else, `python -m pytest` and `python file.py`
+        # included, is a command and runs here, in the working folder.
+        snippet = None
+        try:
+            parts = shlex.split(cmd)
+        except ValueError:
+            parts = []
+        if len(parts) == 3 and parts[0] in ("python", "python3") and parts[1] == "-c":
+            snippet = parts[2]
+        if snippet is not None:
             try:
                 from llx.client import get_client
                 client = get_client(server)
-                # Extract code if possible
-                code = cmd
-                if cmd.startswith("python") or cmd.startswith("python3"):
-                    # naive: take after -c "
-                    if "-c " in cmd:
-                        code = cmd.split("-c ", 1)[1].strip().strip('"').strip("'")
-                bres = client.execute_tool("execute_python", {"code": code, "timeout": 30})
-                if bres.get("success"):
-                    out = bres.get("result", {})
-                    self._console.print(f"[llx.dim]execute_python (backend) for snippet[/llx.dim]")
+                bres = client.execute_tool("execute_python", {"code": snippet, "timeout": 30})
+                # The route answers success for any tool that was called; the
+                # tool's own result says whether the code ran.
+                out = bres.get("result") or {}
+                if bres.get("success") and out.get("success"):
+                    self._console.print("[llx.dim]execute_python (backend) for snippet[/llx.dim]")
                     content = out.get("output") or str(out)
-                    self._console.print(content[:3000])
+                    self._console.print(str(content)[:3000])
                     used_backend = True
             except Exception:
                 pass

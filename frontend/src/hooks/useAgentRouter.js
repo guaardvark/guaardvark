@@ -25,7 +25,7 @@ export const RouteType = {
  * A file route without a typed name gets one with the extension the request
  * asked for (tool_params.extension, from agent_router.requested_file): "create
  * a python file" proposes a .py. A generate_file request that names no
- * language proposes a .txt; codegen keeps .js.
+ * language proposes a .txt; a code request that names none proposes a .js.
  * @param {Object} routeDecision - Route decision from backend
  * @returns {Object} Detection result compatible with ChatPage
  */
@@ -51,7 +51,8 @@ export function routeToDetection(routeDecision) {
       const extension = routeDecision.tool_params?.extension || "txt";
       filename = `generated_file_${Date.now()}.${extension}`;
     } else if (isCode) {
-      filename = `generated_code_${Date.now()}.js`;
+      const extension = routeDecision.tool_params?.extension || "js";
+      filename = `generated_code_${Date.now()}.${extension}`;
     }
   }
 

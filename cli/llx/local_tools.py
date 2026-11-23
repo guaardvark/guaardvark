@@ -355,6 +355,10 @@ def apply_search_replace(
 
     if old_text and old_text not in original:
         return {"success": False, "path": str(target), "error": "old_text not found in file (exact match required)"}
+    if old_text and not replace_all and original.count(old_text) > 1:
+        return {"success": False, "path": str(target), "error": (
+            f"old_text occurs {original.count(old_text)} times; quote more of the surrounding text so it "
+            "matches once")}
 
     # Create backup (even for new files, the "original" is empty)
     bak_path = target.with_name(target.name + f".bak-{int(time.time())}")

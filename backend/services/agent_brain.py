@@ -27,6 +27,7 @@ from backend.services.brain_state import (
 from backend.services.step_budget import StepBudget, TierTelemetry
 from backend.utils.llm_debug_logger import log_decision
 from backend.utils.request_phrases import declines_media
+from backend.utils.tool_markup import strip_tool_markup
 from backend.services.unified_chat_engine import (
     begin_turn,
     end_turn,
@@ -797,7 +798,7 @@ class AgentBrain:
 
             # Save assistant response (with generated images for persistence)
             if app and response:
-                clean = re.sub(r'<[^>]*>', '', response).strip()
+                clean = strip_tool_markup(response).strip()
                 extra = {}
                 if generated_images:
                     extra["generatedImages"] = generated_images
@@ -1488,7 +1489,7 @@ class AgentBrain:
             # UnifiedChatEngine which normally does the save + drain). Mirrors
             # the save block in the screen-direct path and the legacy engine.
             if app and response_text:
-                clean = re.sub(r'<[^>]*>', '', response_text).strip()
+                clean = strip_tool_markup(response_text).strip()
                 extra = {}
                 if agent_thinking_steps:
                     extra["agentThinkingSteps"] = agent_thinking_steps
