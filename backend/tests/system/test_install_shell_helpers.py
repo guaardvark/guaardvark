@@ -81,3 +81,52 @@ def test_apt_install_reports_failure_for_a_missing_package(tmp_path):
     assert "rc=0" not in r.stdout
     # One refresh per run, not one per package.
     assert calls.read_text().splitlines().count("update -qq") == 1
+
+
+DETECT_SH = REPO / "scripts" / "platform" / "detect.sh"
+LINUX_SH = REPO / "scripts" / "platform" / "linux.sh"
+
+
+def _node_env(tmp_path: Path, candidate: str) -> tuple[str, Path]:
+    """A PATH with no node or npm, where apt offers nodejs `candidate`.
+    The ~/.local/node download is the seam replaced: it only records the call."""
+    bin_dir = tmp_path / "nodebin"
+    bin_dir.mkdir()
+    calls = tmp_path / "calls.log"
+    for tool in ("awk", "true"):
+        (bin_dir / tool).symlink_to(shutil.which(tool))
+    (bin_dir / "sudo").write_text('#!/bin/bash\nwhile [ "${1#-}" != "$1" ]; do shift; done\nexec "$@"\n')
+    (bin_dir / "apt-get").write_text(f'#!/bin/bash\necho "apt-get $*" >> "{calls}"\nexit 0\n')
+    (bin_dir / "apt-cache").write_text(
+        f'#!/bin/bash\necho "nodejs:"\necho "  Installed: (none)"\necho "  Candidate: {candidate}"\n')
+    for f in ("sudo", "apt-get", "apt-cache"):
+        (bin_dir / f).chmod(0o755)
+    script = textwrap.dedent(f"""\
+        export PATH="{bin_dir}"
+        HOME="{tmp_path}"
+        vader_info() {{ echo "INFO $*"; }}; vader_warn() {{ echo "WARN $*"; }}
+        vader_error() {{ echo "ERROR $*"; }}; vader_success() {{ echo "OK $*"; }}
+        . "{DETECT_SH}"
+        . "{LINUX_SH}"
+        _linux_ensure_node_via_binary() {{ echo "binary" >> "{calls}"; return 0; }}
+        ensure_node_npm; echo "rc=$?"
+        """)
+    return script, calls
+
+
+def test_node_skips_an_apt_candidate_below_the_floor(tmp_path):
+    script, calls = _node_env(tmp_path, "18.19.1+dfsg-6ubuntu5")
+    r = _bash(script)
+    assert "rc=0" in r.stdout, r.stdout + r.stderr
+    log = calls.read_text().splitlines()
+    assert not any(line.startswith("apt-get install") for line in log)
+    assert log[-1] == "binary"
+    assert "ERROR" not in r.stdout
+    assert "Node.js 18.19.1" in r.stdout
+
+
+def test_node_uses_apt_when_it_offers_a_supported_version(tmp_path):
+    script, calls = _node_env(tmp_path, "1:22.14.0+dfsg-1")
+    r = _bash(script)
+    log = calls.read_text().splitlines()
+    assert "apt-get install -y nodejs npm" in log

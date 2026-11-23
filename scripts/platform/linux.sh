@@ -300,8 +300,18 @@ ensure_node_npm() {
         return 1
     fi
 
-    vader_info "Installing Node.js and npm via apt..."
     sudo apt-get update -qq >/dev/null 2>&1 || true
+    # Ubuntu 24.04 and older carry a Node below the floor; installing it would
+    # only add packages that the ~/.local/node install then shadows.
+    local candidate
+    candidate=$(apt-cache policy nodejs 2>/dev/null | awk '/Candidate:/{print $2}')
+    candidate="${candidate#*:}"
+    if [ -n "$candidate" ] && [ "$candidate" != "(none)" ] && ! node_version_supported "$candidate"; then
+        vader_info "apt offers Node.js ${candidate%%[+~-]*}, older than the frontend needs ($GUAARDVARK_NODE_FLOOR_TEXT)."
+        _linux_ensure_node_via_binary || return 1
+        return 0
+    fi
+    vader_info "Installing Node.js and npm via apt..."
     if sudo apt-get install -y nodejs npm >/dev/null 2>&1; then
         # Re-check the VERSION, not just presence: Ubuntu 24.04's apt ships Node 18,
         # which fails the frontend's Node floor. Without this the function reports
@@ -313,7 +323,7 @@ ensure_node_npm() {
             return 0
         fi
     fi
-    vader_error "Failed to install nodejs/npm via apt."
+    vader_warn "apt did not provide Node.js $GUAARDVARK_NODE_FLOOR_TEXT."
     _linux_ensure_node_via_binary || return 1
     return 0
 }
