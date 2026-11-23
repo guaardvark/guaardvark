@@ -148,6 +148,7 @@ mkdir -p "$SCRIPT_DIR/.start_cache"
 # shellcheck source=scripts/lib/start_lock.sh
 . "$SCRIPT_DIR/scripts/lib/start_lock.sh"
 . "$SCRIPT_DIR/scripts/lib/venv_pins.sh"
+. "$SCRIPT_DIR/scripts/lib/apt_install.sh"   # gv_apt_install
 # shellcheck source=scripts/lib/ollama_lifecycle.sh
 . "$SCRIPT_DIR/scripts/lib/ollama_lifecycle.sh"   # ollama_flag_on
 start_lock_acquire
@@ -1503,7 +1504,7 @@ pip_install_requirements() {
             if command_exists apt-get; then
                 vader_info "Auto-fix: installing python3.12-dev via apt, then retrying $(basename "$req")..."
                 _vader_sudo_v "install the Python 3.12 headers" || true
-                _vader_run "$SETUP_LOG" -- sudo apt-get install -y python3.12-dev python3.12-venv || true
+                _vader_run "$SETUP_LOG" -- gv_apt_install python3.12-dev python3.12-venv || true
                 devheaders_fixed=1
                 continue
             fi
@@ -1516,7 +1517,7 @@ pip_install_requirements() {
             if command_exists apt-get; then
                 vader_info "Auto-fix: installing build-essential via apt, then retrying $(basename "$req")..."
                 _vader_sudo_v "install a C compiler" || true
-                _vader_run "$SETUP_LOG" -- sudo apt-get install -y build-essential || true
+                _vader_run "$SETUP_LOG" -- gv_apt_install build-essential || true
                 compiler_fixed=1
                 continue
             fi
@@ -1942,7 +1943,7 @@ if ! command_exists "ollama"; then
         _vader_sudo_v "install Ollama" || true
         if ! command_exists zstd; then
             vader_info "Installing zstd (required by ollama installer)..."
-            sudo apt-get install -y zstd >/dev/null 2>&1 || vader_warn "zstd install failed; ollama install likely will too."
+            gv_apt_install zstd >>"$SETUP_LOG" 2>&1 || vader_warn "zstd install failed; ollama install likely will too."
         fi
         # Judge the result by the binary, not the installer's exit code: the
         # installer puts ollama in place and starts its service before it fetches

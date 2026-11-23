@@ -56,7 +56,7 @@ _linux_ensure_python_headers() {
     pyver=$("$py" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "3.12")
     if command -v apt-get >/dev/null 2>&1 && _linux_sudo_available; then
         vader_info "Python dev headers missing (Python.h) — installing python${pyver}-dev + python${pyver}-venv via apt..."
-        sudo apt-get install -y "python${pyver}-dev" "python${pyver}-venv" >/dev/null 2>&1 || true
+        gv_apt_install "python${pyver}-dev" "python${pyver}-venv" >/dev/null 2>&1 || true
         if _linux_python_headers_ok "$py"; then
             vader_success "Python ${pyver} dev headers installed (native wheels like evdev can build now)"
             return 0
