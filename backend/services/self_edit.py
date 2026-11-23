@@ -115,41 +115,12 @@ def _needs_restart(rel: str) -> bool:
 # Checks
 # ---------------------------------------------------------------------------
 
-def _syntax(path: Path) -> Optional[str]:
-    """The first syntax error in ``path``, or None (also when the type is not
-    one we can check, which the result says)."""
-    suffix = path.suffix.lower()
-    text = path.read_text(encoding="utf-8", errors="replace")
-    if suffix in (".py", ".json", ".js", ".mjs", ".cjs"):
-        from backend.services.code_syntax_check import check_syntax
-        language = {".py": "python", ".json": "json"}.get(suffix, "javascript")
-        if suffix in (".js", ".mjs", ".cjs") and _esbuild():
-            return _esbuild_check(text, "js")
-        found = check_syntax(text, language)
-        errors = found.get("errors") or []
-        if errors:
-            e = errors[0]
-            return f"line {e.get('line')}: {e.get('message')}"
-        return None
-    if suffix in (".jsx", ".ts", ".tsx") and _esbuild():
-        return _esbuild_check(text, suffix.lstrip("."))
-    return None
+def _syntax(path: Path) -> tuple[bool, Optional[str]]:
+    """(checked, first syntax error). ``checked`` is False for a file type
+    nothing on this machine can parse."""
+    from backend.services.guarded_code_service import syntax_check
 
-
-def _esbuild() -> Optional[str]:
-    candidate = repo_root() / "frontend" / "node_modules" / ".bin" / "esbuild"
-    return str(candidate) if candidate.exists() else None
-
-
-def _esbuild_check(text: str, loader: str) -> Optional[str]:
-    try:
-        proc = subprocess.run([_esbuild(), f"--loader={loader}", "--log-level=error"], input=text,
-                              capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired) as e:
-        return f"the syntax check could not run: {e}"
-    if proc.returncode != 0:
-        return (proc.stderr or proc.stdout or "syntax error").strip().splitlines()[0][:400]
-    return None
+    return syntax_check(path)
 
 
 def _module_of(rel: str) -> Optional[str]:
@@ -250,8 +221,11 @@ def network_findings(path: str, old_text: str, new_text: str) -> Optional[List[D
 
 def apply_change(path: str, old_text: str, new_text: str, *, group: str, title: str = "",
                  expected_hash: Optional[str] = None, expected_mtime: Optional[float] = None,
-                 origin: str = "self_edit") -> Dict[str, Any]:
+                 origin: str = "self_edit", human_approved: bool = False) -> Dict[str, Any]:
     """Make one exact replacement in Guaardvark's own code, safely.
+
+    ``human_approved`` says a person approved exactly this change (an approved
+    pending fix); it answers an inbound-guard hold, not a block.
 
     Returns the edit's record: status "applied" (checks passed),
     "failed_checks" (put back, with what failed) or raises GuardedCodeError
@@ -266,6 +240,8 @@ def apply_change(path: str, old_text: str, new_text: str, *, group: str, title: 
     edit_dir = store_dir() / edit_id
     with _lock:
         before = file_path.read_text(encoding="utf-8") if file_path.exists() else None
+        # Refused before the baseline tests run: they can take minutes.
+        _require_one_exact_match(before, old_text)
         edit_dir.mkdir(parents=True, exist_ok=True)
         if before is not None:
             (edit_dir / "before_0").write_text(before, encoding="utf-8")
@@ -273,9 +249,9 @@ def apply_change(path: str, old_text: str, new_text: str, *, group: str, title: 
         baseline = _run_tests(tests) if tests else {}
 
         try:
-            _require_one_exact_match(before, old_text)
             apply_exact_replacement(str(file_path), old_text, new_text, expected_hash=expected_hash,
-                                    expected_mtime=expected_mtime, origin=origin)
+                                    expected_mtime=expected_mtime, origin=origin,
+                                    human_approved=human_approved, allow_reindent=False)
         except Exception:
             shutil.rmtree(edit_dir, ignore_errors=True)
             raise
@@ -293,10 +269,14 @@ def apply_change(path: str, old_text: str, new_text: str, *, group: str, title: 
             "checks": [],
         }
         _write_json(_manifest_path(edit_id), record)
+        # Listed for the start guard from the moment the file changes: a stop
+        # during the checks must not leave an unchecked edit in place.
+        _list_pending(record)
 
         checks = []
-        error = _syntax(file_path)
-        checks.append({"check": "syntax", "ok": error is None, "detail": error or ""})
+        syntax_checked, error = _syntax(file_path)
+        checks.append({"check": "syntax", "ok": error is None, "checked": syntax_checked,
+                       "detail": error or ("" if syntax_checked else "not checked for this file type")})
         module = _module_of(rel)
         if error is None and module:
             error = _import_check([module])
@@ -304,10 +284,15 @@ def apply_change(path: str, old_text: str, new_text: str, *, group: str, title: 
         if error is None and tests:
             after_tests = _run_tests(tests)
             broke = [t for t, ok in after_tests.items() if ok is False and baseline.get(t) is not False]
-            checks.append({"check": "tests", "ok": not broke, "detail": (
-                f"newly failing: {', '.join(broke)}" if broke else f"{len(after_tests)} test file(s) pass as before")})
-            if broke:
-                error = f"tests that passed before now fail: {', '.join(broke)}"
+            hung = [t for t, ok in after_tests.items() if ok is None and baseline.get(t) is True]
+            detail = "; ".join(part for part in (
+                f"newly failing: {', '.join(broke)}" if broke else "",
+                f"no longer finishing within {TEST_TIMEOUT_S} s: {', '.join(hung)}" if hung else "",
+            ) if part)
+            checks.append({"check": "tests", "ok": not (broke or hung),
+                           "detail": detail or f"{len(after_tests)} test file(s) pass as before"})
+            if broke or hung:
+                error = f"tests that passed before the change do not pass now ({detail})"
         record["checks"] = checks
 
         if error is not None:
@@ -315,6 +300,7 @@ def apply_change(path: str, old_text: str, new_text: str, *, group: str, title: 
             record["status"] = "failed_checks"
             record["error"] = error
             _write_json(_manifest_path(edit_id), record)
+            _unlist_pending(edit_id)
             logger.warning("Self-edit %s on %s undone: %s", edit_id, rel, error)
             return record
 
@@ -340,18 +326,33 @@ def _require_one_exact_match(content: Optional[str], old_text: str) -> None:
         raise GuardedCodeError("Exact text is not unique; edit was not applied.", "TEXT_NOT_UNIQUE", 409)
 
 
-def _mark_pending(record: Dict[str, Any]) -> None:
-    """Note a backend edit no start has proven yet, and tell the UI a restart
-    is due. A frontend edit cannot stop the backend starting, so it is never
-    put back by the start guard."""
+def _pending_ids() -> List[str]:
+    try:
+        return list(json.loads(pending_path().read_text()).get("edits", []))
+    except (OSError, ValueError):
+        return []
+
+
+def _list_pending(record: Dict[str, Any]) -> None:
+    """Put a backend edit on the list the start guard reads. A frontend edit
+    cannot stop the backend starting, so it is never listed."""
     if not record.get("restart_needed"):
         return
-    try:
-        data = json.loads(pending_path().read_text()) if pending_path().exists() else {"edits": []}
-    except (OSError, ValueError):
-        data = {"edits": []}
-    data["edits"] = [e for e in data.get("edits", []) if e != record["id"]] + [record["id"]]
-    _write_json(pending_path(), data)
+    _write_json(pending_path(), {"edits": [e for e in _pending_ids() if e != record["id"]] + [record["id"]]})
+
+
+def _unlist_pending(edit_id: str) -> None:
+    ids = _pending_ids()
+    if edit_id in ids:
+        _write_json(pending_path(), {"edits": [e for e in ids if e != edit_id]})
+
+
+def _mark_pending(record: Dict[str, Any]) -> None:
+    """Note a backend edit no start has proven yet, and tell the UI a restart
+    is due."""
+    if not record.get("restart_needed"):
+        return
+    _list_pending(record)
     try:
         from backend.utils.update_state import record_update_applied
         record_update_applied(str(repo_root()), [f["path"] for f in record["files"]])
@@ -383,12 +384,18 @@ def revert(edit_or_group: str, *, force: bool = False) -> Dict[str, Any]:
         root = repo_root()
         conflicts = []
         if not force:
+            # Newest first, each file is expected to hold what the edit left
+            # and then what it replaced, so a later edit in the same group is
+            # not mistaken for an outside change.
+            expected: Dict[str, Optional[str]] = {}
             for r in records:
                 for f in r["files"]:
-                    target = root / f["path"]
-                    now = target.read_text(encoding="utf-8") if target.exists() else None
-                    if _sha(now) != f["after_sha"]:
+                    if f["path"] not in expected:
+                        target = root / f["path"]
+                        expected[f["path"]] = _sha(target.read_text(encoding="utf-8") if target.exists() else None)
+                    if expected[f["path"]] != f["after_sha"]:
                         conflicts.append(f["path"])
+                    expected[f["path"]] = f.get("before_sha")
             if conflicts:
                 return {"reverted": [], "conflicts": sorted(set(conflicts)),
                         "error": "These files changed again after the edit; revert anyway to lose those changes."}
@@ -410,9 +417,57 @@ def revert(edit_or_group: str, *, force: bool = False) -> Dict[str, Any]:
         return {"reverted": reverted, "conflicts": [], "restart_needed": restart}
 
 
+# An edit still "checking" this long after it was written has lost the process
+# that was checking it: the import check and the after-tests are bounded by
+# IMPORT_CHECK_TIMEOUT_S + MAX_TEST_FILES * TEST_TIMEOUT_S (13 minutes).
+INTERRUPTED_AFTER_S = 30 * 60
+
+
+def recover_interrupted() -> int:
+    """Put back edits whose checks never finished (the process stopped
+    mid-check). A file changed again since the edit is left alone and the
+    record says so."""
+    recovered = 0
+    with _lock:
+        for record in list_edits(limit=1000):
+            if record.get("status") != "checking":
+                continue
+            try:
+                age = (datetime.now() - datetime.fromisoformat(record["created_at"])).total_seconds()
+            except (KeyError, ValueError):
+                age = INTERRUPTED_AFTER_S
+            if age < INTERRUPTED_AFTER_S:
+                continue
+            root = repo_root()
+            if record.get("root") and Path(record["root"]).resolve() != root:
+                continue
+            untouched = True
+            for f in record["files"]:
+                target = root / f["path"]
+                now = target.read_text(encoding="utf-8") if target.exists() else None
+                untouched = untouched and _sha(now) == f["after_sha"]
+            if untouched:
+                _restore(record, store_dir() / record["id"])
+                record["error"] = "Guaardvark stopped before this change was checked, so it was undone."
+            else:
+                record["error"] = ("Guaardvark stopped before this change was checked. The file has changed "
+                                   "since, so it was left as it is.")
+            record["status"] = "failed_checks"
+            _write_json(_manifest_path(record["id"]), record)
+            _unlist_pending(record["id"])
+            recovered += 1
+    if recovered:
+        logger.warning("Self-edit: %d change(s) interrupted mid-check were closed out", recovered)
+    return recovered
+
+
 def confirm_boot() -> int:
     """At backend start: edits waiting for a start have now been through one.
     Called by the server process after it is up."""
+    try:
+        recover_interrupted()
+    except Exception:
+        logger.warning("could not close out interrupted self-edits", exc_info=True)
     try:
         data = json.loads(pending_path().read_text())
     except (OSError, ValueError):

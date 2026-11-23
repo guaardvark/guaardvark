@@ -45,7 +45,8 @@ def get_status():
     fixes_applied = db.session.query(PendingFix).filter_by(status="applied").count()
 
     return success_response(data={
-        "enabled": enabled_setting.value.lower() == "true" if enabled_setting else False,
+        # No stored choice means on, as the scheduler reads it.
+        "enabled": enabled_setting.value.lower() == "true" if enabled_setting else True,
         "codebase_locked": (
             (locked_setting and locked_setting.value.lower() == "true") or
             os.path.exists(lock_file)
@@ -287,22 +288,42 @@ def apply_fix(fix_id):
     try:
         if fix.original_content is None or fix.proposed_new_content is None:
             return error_response("Fix is missing original or new content", 400)
-        from backend.services.guarded_code_service import GuardedCodeError, apply_exact_replacement
+        from backend.services import self_edit
+        from backend.services.guarded_code_service import (
+            GuardedCodeError, apply_exact_replacement, resolve_repo_path,
+        )
 
         # The approval above is a person's answer to an inbound-guard hold on
-        # this edit; a block still needs its own approval.
-        apply_result = apply_exact_replacement(
-            fix.file_path,
-            fix.original_content,
-            fix.proposed_new_content,
-            origin="approved_fix",
-            human_approved=True,
-        )
-        fix.review_notes = (
-            (fix.review_notes or "")
-            + f"\n\nApplied via guarded_code_service. "
-              f"Verification: {apply_result.verification['output_summary']}"
-        ).strip()
+        # this edit; a block still needs its own approval. The text that was
+        # approved is applied exactly, or not at all.
+        target, _rel = resolve_repo_path(fix.file_path)
+        if self_edit.is_own_code(target):
+            # Same path as every other change to the install's own code: a
+            # restore point, the import and test checks, and Revert.
+            record = self_edit.apply_change(
+                str(target), fix.original_content, fix.proposed_new_content,
+                group=f"fix-{fix.id}", title=(fix.fix_description or "")[:120] or f"Fix {fix.id}",
+                origin="approved_fix", human_approved=True,
+            )
+            checks = "; ".join(
+                f"{c['check']}: {'ok' if c['ok'] and c.get('checked', True) else c['detail']}"
+                for c in record["checks"])
+            if record["status"] == "failed_checks":
+                return error_response(
+                    f"The fix was applied, failed its checks and was undone: {record.get('error')} ({checks})",
+                    409, error_code="FIX_FAILED_CHECKS", data={"self_edit": record})
+            applied = {"relative_path": record["files"][0]["path"], "self_edit_id": record["id"],
+                       "restart_needed": record.get("restart_needed", False), "checks": record["checks"]}
+            summary = f"Checks: {checks}. Change {record['id']} can be reverted."
+        else:
+            apply_result = apply_exact_replacement(
+                fix.file_path, fix.original_content, fix.proposed_new_content,
+                origin="approved_fix", human_approved=True, allow_reindent=False,
+            )
+            applied = {"relative_path": apply_result.relative_path, "backup_path": apply_result.backup_path,
+                       "verification": apply_result.verification}
+            summary = f"Verification: {apply_result.verification['output_summary']}"
+        fix.review_notes = ((fix.review_notes or "") + f"\n\nApplied. {summary}").strip()
         fix.status = "applied"
         fix.applied_at = datetime.now()
         db.session.commit()
@@ -311,11 +332,7 @@ def apply_fix(fix_id):
         inbound_guard_service.resolve_for_fix(fix.id, "approve", by=fix.reviewed_by or "user",
                                               note=fix.review_notes or "")
         return success_response(
-            data={**fix.to_dict(), "apply_result": {
-                "relative_path": apply_result.relative_path,
-                "backup_path": apply_result.backup_path,
-                "verification": apply_result.verification,
-            }},
+            data={**fix.to_dict(), "apply_result": applied},
             message="Fix applied successfully",
         )
     except GuardedCodeError as e:
