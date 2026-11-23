@@ -384,9 +384,6 @@ def test_each_clip_carries_whether_guidance_was_named(tmp_path, monkeypatch, giv
     assert (clip.cfg_explicit, clip.guidance_scale) == (explicit, value)
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "batch metadata (steps_explicit, upscale, teacache_threshold, "
-    "feta_weight) never reaches the per-clip request"))
 def test_batch_metadata_reaches_each_clip(tmp_path, monkeypatch):
     clip = _run_clip(tmp_path, monkeypatch, enhance_prompt=False,
                      metadata={"steps_explicit": True, "upscale": True, "teacache_threshold": 0.2})
