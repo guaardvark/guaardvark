@@ -190,6 +190,7 @@ def _generator(comfy, tmp_path, monkeypatch, **params):
     gen.base_output_dir = tmp_path / "Videos"
     gen.active_batches, gen.cancel_events, gen.queue_order = {}, {}, []
     gen.batch_lock = threading.Lock()
+    gen._pause_requested = set()
     gen.batch_queue = queue.Queue()
     gen.video_generator = comfy.gen
     gen._running_batch_id = None
@@ -320,6 +321,7 @@ def test_cancel_all_leaves_another_jobs_claim_alone(lease):
     gen = BatchVideoGenerator.__new__(BatchVideoGenerator)
     gen.active_batches, gen.cancel_events, gen.queue_order = {}, {}, []
     gen.batch_lock = threading.Lock()
+    gen._pause_requested = set()
     gen.video_generator = SimpleNamespace(interrupt=lambda *a, **k: True)
     gen._running_batch_id = None
     gate = jog.get_gate()
