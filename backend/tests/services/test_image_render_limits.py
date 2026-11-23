@@ -43,6 +43,8 @@ OLD_STILLS_DEFAULTS = {
     # MOSS-Image and FLUX 3 Klein (distilled): their official templates' values.
     "moss-image": {"width": 1024, "height": 1024, "steps": 25, "guidance": 2.5, "prompt_style": "natural"},
     "flux3-klein": {"width": 1024, "height": 1024, "steps": 15, "guidance": 1.0, "prompt_style": "natural"},
+    # MiniMax H3 stills: the template's 30 steps is also the floor, no CFG.
+    "minimax-h3-t2i": {"min_steps": 30, "width": 1024, "height": 1024, "steps": 30, "guidance": 0.0, "prompt_style": "natural"},
 }
 
 OLD_MODEL_SETTINGS = {'epic-realism': {'best_for': ['faces', 'portraits', 'cinematic'],
@@ -204,7 +206,24 @@ OLD_MODEL_SETTINGS = {'epic-realism': {'best_for': ['faces', 'portraits', 'cinem
                           'recommended_guidance': 4.5,
                           'recommended_steps': 2,
                           'steps_range': (1, 4),
-                          'warnings': ['Ignores negative prompts.']}}
+                          'warnings': ['Ignores negative prompts.']},
+     'minimax-h3-t2i': {'best_for': ['text', 'prompt_adherence'],
+                        'engine': 'comfy',
+                        'force_max_workers': 1,
+                        'guidance_range': (0.0, 0.0),
+                        'hard_clamp': False,
+                        'max_dimensions': (1344, 1344),
+                        'max_pixels': 1048576,
+                        'min_dimensions': (768, 768),
+                        'recommended_dimensions': (1024, 1024),
+                        'recommended_guidance': 0.0,
+                        'recommended_steps': 30,
+                        'steps_range': (30, 50),
+                        'warnings': ["Runs through ComfyUI 0.46 or newer (needs Comfy up + the MiniMax H3 video "
+                                     "model's files).",
+                                     'Heavy VRAM — batch max_workers forced to 1.',
+                                     'MiniMax H3 Community License: the USA, EU, UK and South Korea are Excluded '
+                                     "Territories; commercial products must display 'MiniMax H3'."]}}
 
 OLD_FAMILY_LIMITS = {  # image_resolution_limits: (max_side, max_pixels)
     "zimage": (2688, 2048 * 2048), "krea2": (2688, 2048 * 2048),

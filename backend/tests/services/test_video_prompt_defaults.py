@@ -323,6 +323,7 @@ def _batch(tmp_path, **params):
     gen.base_output_dir = tmp_path
     gen.active_batches, gen.cancel_events, gen.queue_order = {}, {}, []
     gen.batch_lock = threading.Lock()
+    gen._pause_requested = set()
     gen.batch_queue = queue.Queue()
     gen._save_metadata = lambda status: None
     status = gen._start_batch(batch_id="b1", items=[BatchVideoItem(id="i1", prompt="a fox")],
@@ -368,6 +369,7 @@ def _run_clip(tmp_path, monkeypatch, **params):
     gen.video_generator = _Recorder()
     gen.cancel_events = {"b1": threading.Event()}
     gen.batch_lock = threading.Lock()
+    gen._pause_requested = set()
     gen.active_batches = {}
     monkeypatch.chdir(tmp_path)
     with Flask(__name__).app_context():

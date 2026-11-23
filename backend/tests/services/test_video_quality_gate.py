@@ -156,6 +156,7 @@ def _run_one(tmp_path, monkeypatch, source, **request_fields):
     gen.video_generator = _Renderer(source)
     gen.cancel_events = {"b1": threading.Event()}
     gen.batch_lock = threading.Lock()
+    gen._pause_requested = set()
     gen.active_batches = {}
     # Clip registration asks _get_batch_dir where the batch is, which reads this.
     gen.base_output_dir = tmp_path
@@ -461,6 +462,7 @@ def _held_batch(tmp_path, made):
     shutil.copyfile(made["washed_out"], clip)
     gen = bvg.BatchVideoGenerator.__new__(bvg.BatchVideoGenerator)
     gen.batch_lock = threading.Lock()
+    gen._pause_requested = set()
     gen.base_output_dir = tmp_path
     result = bvg.BatchVideoResult(
         item_id="item1", success=True, video_path="item1/videos/clip.mp4",
