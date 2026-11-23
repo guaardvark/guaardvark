@@ -403,6 +403,17 @@ def resolve_repo_path(
     return candidate, str(candidate)
 
 
+def refuse_credential_file(file_path: Path) -> None:
+    """Every read of a repository file, by a tool, the Code Editor or a
+    route, refuses credential and key files, decided from the name before the
+    file is touched."""
+    from backend.utils.path_safety import is_sensitive
+
+    if is_sensitive(str(file_path)):
+        raise GuardedCodeError("Credential and key files are not read through the code tools or the Code Editor",
+                               "SENSITIVE_PATH", 403)
+
+
 def read_repo_file(
     path: str,
     repo_root: str | Path | None = None,
@@ -411,6 +422,7 @@ def read_repo_file(
     allow_external: bool = False,
 ) -> dict:
     file_path, relative_path = resolve_repo_path(path, repo_root, allow_external=allow_external)
+    refuse_credential_file(file_path)
     if not file_path.exists() or not file_path.is_file():
         raise GuardedCodeError("File not found", "FILE_NOT_FOUND", 404)
     size = file_path.stat().st_size

@@ -76,6 +76,7 @@ export const executeJavaScriptCode = async (code, options = {}) => {
       output: result.output || "",
       error: result.error || "",
       executionTime: result.executionTime || 0,
+      exitCode: result.exitCode || 0,
       stdout: result.stdout || "",
       stderr: result.stderr || ""
     };
@@ -211,7 +212,12 @@ export const lintCode = async (code, language, options = {}) => {
       warnings: result.warnings || [],
       suggestions: result.suggestions || [],
       score: result.score || 0,
-      language: result.language || language
+      language: result.language || language,
+      // Which checker ran and what it could not check; without these a
+      // syntax-only pass reads as "no problems".
+      tool: result.tool || null,
+      note: result.note || "",
+      supported: result.supported !== false
     };
   } catch (error) {
     console.error("Code linting failed:", error);
