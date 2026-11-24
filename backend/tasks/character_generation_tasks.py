@@ -166,8 +166,13 @@ def _render_cast_still(
     comfy_gen=None,
     subject=None,
     use_lora: bool = True,
+    should_stop=None,
 ) -> str:
-    """Render one Cast still via character_still_pipeline; raises on failure."""
+    """Render one Cast still via character_still_pipeline; raises on failure.
+
+    ``should_stop`` is polled while ComfyUI renders; True stops this still's
+    prompt and nothing else in ComfyUI.
+    """
     from backend.services.character_still_pipeline import render_character_still
 
     still = render_character_still(
@@ -182,10 +187,23 @@ def _render_cast_still(
         seed=seed,
         output_path=output_path,
         keep_pipeline=True,
+        should_stop=should_stop,
     )
     if not still.success or not still.image_path:
         raise RuntimeError(still.error or "character still failed")
     return still.image_path
+
+
+def _sample_stop_check(sample_id: int, job_id):
+    """True once the sample or its job is cancelled (the cancel commits from the web process)."""
+    from backend.models import db, SubjectSample
+    from backend.services.character_generation_cancel import job_is_cancelled
+
+    def should_stop() -> bool:
+        status = db.session.query(SubjectSample.status).filter(SubjectSample.id == sample_id).scalar()
+        return status == "cancelled" or job_is_cancelled(job_id)
+
+    return should_stop
 
 
 def _verify_angle_relabel_regen(
@@ -655,6 +673,7 @@ def generate_samples(subject_id: int, job_id: str | None = None, use_lora: bool 
                         comfy_gen=comfy_gen,
                         subject=subject,
                         use_lora=bool(loras_for_gen),
+                        should_stop=_sample_stop_check(row.id, job_id),
                     )
                     # Cancel may have landed while sampling — don't overwrite cancelled.
                     db.session.refresh(row)
@@ -932,6 +951,7 @@ def regen_sample(sample_id: int, prompt_override: str | None = None, seed: int |
                     comfy_gen=comfy_gen,
                     subject=subject,
                     use_lora=use_lora,
+                    should_stop=_sample_stop_check(row.id, job_id),
                 )
                 db.session.refresh(row)
                 if row.status == "cancelled" or job_is_cancelled(job_id):

@@ -24,7 +24,16 @@ def app():
         db.drop_all()
 
 
-def test_cancel_marks_pending_and_generating(app, monkeypatch):
+@pytest.fixture(autouse=True)
+def comfy_posts(monkeypatch):
+    """Every requests.post a cancel makes; ComfyUI is reached by the render loop, not here."""
+    import requests
+    calls = []
+    monkeypatch.setattr(requests, "post", lambda url, **kw: calls.append((url, kw.get("json"))))
+    return calls
+
+
+def test_cancel_marks_pending_and_generating(app, monkeypatch, comfy_posts):
     with app.app_context():
         s = Subject(name="Test", kind="character")
         db.session.add(s)
@@ -37,7 +46,6 @@ def test_cancel_marks_pending_and_generating(app, monkeypatch):
         db.session.commit()
 
         monkeypatch.setattr(cgc, "_find_active_jobs", lambda _sid: [])
-        monkeypatch.setattr(cgc, "_comfy_interrupt", lambda: True)
 
         result = cgc.cancel_character_generation(sid)
         assert result["cancelled"] is True
@@ -50,6 +58,8 @@ def test_cancel_marks_pending_and_generating(app, monkeypatch):
         assert statuses[0] == "done"
         assert statuses[1] == "cancelled"
         assert statuses[2] == "cancelled"
+        # No bare /interrupt and no /queue clear: other ComfyUI work keeps running.
+        assert comfy_posts == []
 
 
 def test_cancel_noop_when_idle(app, monkeypatch):
@@ -58,7 +68,6 @@ def test_cancel_noop_when_idle(app, monkeypatch):
         db.session.add(s)
         db.session.commit()
         monkeypatch.setattr(cgc, "_find_active_jobs", lambda _sid: [])
-        monkeypatch.setattr(cgc, "_comfy_interrupt", lambda: True)
 
         result = cgc.cancel_character_generation(s.id)
         assert result["cancelled"] is False
@@ -81,7 +90,6 @@ def test_cancel_revokes_celery_and_progress(app, monkeypatch):
             cgc, "_find_active_jobs",
             lambda _sid: [("job-1", {"celery_task_id": "celery-abc", "operation": "generate_samples"})],
         )
-        monkeypatch.setattr(cgc, "_comfy_interrupt", lambda: True)
 
         fake_celery = MagicMock()
         fake_celery.control.revoke = lambda tid, **k: revoked.append(tid)
@@ -110,3 +118,24 @@ def test_cancel_revokes_celery_and_progress(app, monkeypatch):
         assert result["cancelled"] is True
         assert revoked == ["celery-abc"]
         assert cancelled == ["job-1"]
+
+
+def test_the_render_loop_sees_the_cancel_while_comfyui_samples(app, monkeypatch):
+    """The render stops its own prompt once the cancel is committed."""
+    from backend.services import character_generation_cancel
+    from backend.tasks.character_generation_tasks import _sample_stop_check
+
+    monkeypatch.setattr(character_generation_cancel, "job_is_cancelled", lambda _job: False)
+    with app.app_context():
+        s = Subject(name="Busy", kind="character")
+        db.session.add(s)
+        db.session.commit()
+        row = SubjectSample(subject_id=s.id, index=0, status="generating")
+        db.session.add(row)
+        db.session.commit()
+
+        should_stop = _sample_stop_check(row.id, "job-1")
+        assert should_stop() is False
+        row.status = "cancelled"
+        db.session.commit()
+        assert should_stop() is True

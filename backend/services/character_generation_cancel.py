@@ -1,38 +1,19 @@
 """Cancel in-flight Cast Studio character sample generation.
 
-Mirrors ``cancel_lora_train``: best-effort revoke of Celery + unified progress,
-cooperative stop via SubjectSample status, and ComfyUI /interrupt so the current
-sampler does not keep burning GPU after the user hits Cancel.
+Mirrors ``cancel_lora_train``: best-effort revoke of Celery + unified progress
+and a cooperative stop via SubjectSample status. The render loop polls that
+status while ComfyUI samples and stops its own prompt (queue delete, then an
+interrupt scoped to its prompt id), so other ComfyUI work keeps running.
 """
 from __future__ import annotations
 
 import logging
-
-import requests
 
 from backend.models import db, Subject, SubjectSample
 
 log = logging.getLogger(__name__)
 
 _CHAR_GEN_OPS = frozenset({"generate_samples", "regen_sample"})
-
-
-def _comfy_interrupt() -> bool:
-    """Abort the current ComfyUI sampler + clear its queue (best-effort)."""
-    try:
-        from backend.services.comfyui_image_generator import ComfyUIImageGenerator
-        gen = ComfyUIImageGenerator()
-        url = gen.comfy_url.rstrip("/")
-        requests.post(f"{url}/interrupt", timeout=5)
-        try:
-            requests.post(f"{url}/queue", json={"clear": True}, timeout=5)
-        except Exception:
-            pass
-        log.info("character_generation_cancel: sent ComfyUI interrupt at %s", url)
-        return True
-    except Exception as e:
-        log.warning("character_generation_cancel: ComfyUI interrupt failed (%s)", e)
-        return False
 
 
 def _find_active_jobs(subject_id: int) -> list[tuple[str, dict]]:
@@ -116,8 +97,6 @@ def cancel_character_generation(subject_id: int) -> dict:
         row.status = "cancelled"
         marked += 1
     db.session.commit()
-
-    _comfy_interrupt()
 
     return {
         "cancelled": True,

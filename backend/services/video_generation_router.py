@@ -146,18 +146,19 @@ class VideoGenerationRouter:
             "ComfyUI is not running and Offline generator is not installed."
         )
 
-    def interrupt(self, prompt_id: Optional[str] = None) -> bool:
-        """Tell whichever backend is currently sampling to abort.
+    def interrupt(self, prompt_id: Optional[str] = None, owner: Optional[str] = None) -> bool:
+        """Stop our own prompts in whichever backend is sampling.
 
         Returns True if a backend acknowledged the interrupt. ComfyUI honours
         this immediately; the offline generator can only stop between items.
-        ``prompt_id`` narrows it to one ComfyUI prompt; without it every prompt
-        this process queued is stopped.
+        ``prompt_id`` names one ComfyUI prompt, ``owner`` the job whose tagged
+        prompts are stopped; with neither, the prompts this process queued.
+        See ComfyUIVideoGenerator.interrupt.
         """
         if self._check_comfyui():
             try:
                 comfy = self._get_comfyui()
-                return comfy.interrupt(prompt_id)
+                return comfy.interrupt(prompt_id, owner=owner)
             except Exception as e:
                 logger.warning(f"Router interrupt to ComfyUI failed: {e}")
                 return False

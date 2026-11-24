@@ -518,6 +518,7 @@ class FakeComfyUI:
     def __init__(self, info: Optional[dict] = None):
         self.info = info if info is not None else object_info()
         self.prompts: list = []
+        self.extra_data: list = []       # each queued prompt's extra_data (owner tag)
         self.uploads: list = []
         # Scripted replies for the failure tests; the defaults are the above.
         self.alive = True                # False: every request fails to connect
@@ -552,7 +553,9 @@ class FakeComfyUI:
                 "messages": [["execution_error", {"exception_message": self.STOP}]],
             }}})
         if path.startswith("queue"):
-            running = [[0, f"contract-{len(self.prompts)}"]] if self.running and self.prompts else []
+            # Items as ComfyUI lists them: [number, prompt_id, prompt, extra_data, outputs].
+            running = ([[0, f"contract-{len(self.prompts)}", {}, self.extra_data[-1], []]]
+                       if self.running and self.prompts else [])
             return _Response(200, {"queue_running": running, "queue_pending": []})
         if path.startswith("view"):
             name = (kwargs.get("params") or {}).get("filename", "")
@@ -565,6 +568,7 @@ class FakeComfyUI:
         self._connect()
         if url.endswith("/prompt"):
             self.prompts.append(json["prompt"])
+            self.extra_data.append(dict(json.get("extra_data") or {}))
             if self.prompt_reply is not None:
                 return _Response(*self.prompt_reply)
             if self.die_after_prompt:

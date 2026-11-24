@@ -30,6 +30,7 @@ from backend.services.video_generation_router import (
 from backend.services.gpu_resource_coordinator import get_gpu_coordinator
 from backend.utils.path_guard import PathEscapesRoot, contained
 from backend.services.job_types import RenderErrorKind
+from backend.services.comfyui_prompt_owner import job_owner
 
 try:
     from backend.config import UPLOAD_DIR
@@ -1475,6 +1476,7 @@ class BatchVideoGenerator:
                         meta.setdefault("item_id", item.id)
                         # The ComfyUI progress bridge tags the clip's video_render events with it.
                         meta.setdefault("batch_id", batch_request.batch_id)
+                        meta["comfy_owner"] = job_owner("video_batch", batch_request.batch_id)
                         meta["batch_controlled"] = True
                         if cast_lora_paths or cast_keyframe_image or getattr(batch_request, "subject_ids", None):
                             meta["cast"] = True
@@ -2138,8 +2140,8 @@ class BatchVideoGenerator:
         """Cancel a queued or running batch.
 
         Two-layer interrupt: flip the cancel event (so the worker bails out
-        between items) and, if the batch is mid-render, yell at ComfyUI's
-        /interrupt endpoint so the current sampler aborts immediately.
+        between items) and, if the batch is mid-render, stop the prompts this
+        batch queued in ComfyUI so the current sampler aborts immediately.
         """
         cancellable = ("queued", "running", "pending", "processing", "paused")
 
@@ -2165,7 +2167,8 @@ class BatchVideoGenerator:
                 # Force ComfyUI to abort the current sampler. Without this,
                 # cancel only fires between items — useless for a 20-min Wan run.
                 try:
-                    interrupted = self.video_generator.interrupt()
+                    interrupted = self.video_generator.interrupt(
+                        owner=job_owner("video_batch", batch_id))
                     logger.info(
                         f"Cancel batch {batch_id}: running, interrupt sent "
                         f"(ack={interrupted})"

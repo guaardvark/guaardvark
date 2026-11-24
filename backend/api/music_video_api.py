@@ -785,8 +785,9 @@ def cancel_music_video(mv_id):
 
     if was_generating:
         try:
+            from backend.services.comfyui_prompt_owner import job_owner
             from backend.services.video_generation_router import get_video_router
-            interrupted = get_video_router().interrupt()
+            interrupted = get_video_router().interrupt(owner=job_owner("music_video", mv_id))
             log.info(
                 "Music video %s cancel: ComfyUI interrupt sent (ack=%s)",
                 mv_id,
