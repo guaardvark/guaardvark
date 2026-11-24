@@ -1,6 +1,7 @@
 """Embedding through the GPU Embedding plugin (plugins/gpu_embedding).
 
-EmbeddingRouter asks ``PluginEmbeddingGate`` before each call. The plugin is
+EmbeddingRouter and the index's client (backend/utils/index_embedding.py)
+ask ``PluginEmbeddingGate`` before each passage call. The plugin is
 used only when it is switched on in Settings, answers on its port, serves the
 same Ollama model the router embeds with, and a probe text comes back as the
 same vector (length, direction and norm) the router's own path produces.
