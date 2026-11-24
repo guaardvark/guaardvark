@@ -125,21 +125,40 @@ def _candidates_for_doc(doc) -> list[Path]:
     return candidates
 
 
+def _uploads_root() -> Optional[Path]:
+    """The uploads folder, read the way the Files routes read it: the running
+    app's UPLOAD_FOLDER (set once at start from backend.config.UPLOAD_DIR),
+    else that setting itself when there is no app context (a worker, a script).
+    The candidates below are built from the app's folder, so the check on them
+    must use the same one."""
+    try:
+        from backend.api.files_api import get_upload_base_path
+        return get_upload_base_path()
+    except Exception:  # noqa: BLE001 - no app context, or the key is unset
+        pass
+    try:
+        from backend.config import UPLOAD_DIR
+        return Path(UPLOAD_DIR)
+    except ImportError:
+        return None
+
+
 def _servable(candidate: Path) -> bool:
     """True when a candidate lies in the uploads folder or in this install's
     data and generator folders. Document.path is joined onto the install root
     and the generator bases as it is stored, so a row holding ``..`` segments
     or naming a file at the root (``.env``) must not resolve."""
-    try:
-        from backend.config import UPLOAD_DIR
-        from backend.utils.path_guard import PathEscapesRoot, contained_path
+    uploads = _uploads_root()
+    if uploads is not None:
         try:
-            contained_path(UPLOAD_DIR, candidate)
-            return True
-        except PathEscapesRoot:
+            from backend.utils.path_guard import PathEscapesRoot, contained_path
+            try:
+                contained_path(str(uploads), candidate)
+                return True
+            except PathEscapesRoot:
+                pass
+        except ImportError:
             pass
-    except ImportError:
-        pass
     return _inside_install_outputs(candidate)
 
 
@@ -159,10 +178,12 @@ def file_outside_uploads(doc) -> Optional[Path]:
     try:
         if not candidate.is_file() or not _inside_install_outputs(candidate):
             return None
-        from backend.config import UPLOAD_DIR
         from backend.utils.path_guard import PathEscapesRoot, contained_path
+        uploads = _uploads_root()
+        if uploads is None:
+            return None
         try:
-            contained_path(UPLOAD_DIR, candidate)
+            contained_path(str(uploads), candidate)
             return None  # inside uploads: the ordinary join handles it
         except PathEscapesRoot:
             return candidate.resolve()

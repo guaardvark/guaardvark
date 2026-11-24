@@ -31,11 +31,7 @@ def uploads(tmp_path):
 
 
 @pytest.fixture
-def app(uploads, monkeypatch):
-    # The document-id form goes through resolve_document_path, which serves a
-    # file only from the configured uploads folder or the install's outputs.
-    from backend import config
-    monkeypatch.setattr(config, "UPLOAD_DIR", str(uploads))
+def app(uploads):
     app = Flask(__name__)
     app.config.update({
         "TESTING": True,
@@ -133,3 +129,35 @@ def test_a_file_outside_an_images_dir_does_not_look_one_level_up(client, uploads
     resp = client.get("/api/files/thumbnail?path=Images/Trip/photo.png")
 
     assert resp.data == FULL
+
+
+def test_document_id_and_path_forms_agree_when_only_the_app_names_the_uploads_folder(client, uploads):
+    """This app sets UPLOAD_FOLDER and leaves backend.config.UPLOAD_DIR at its
+    own value, so the two differ here. Both forms of the route must still find
+    the same file: the resolver reads the folder the way the Files routes do."""
+    from backend import config
+    assert str(uploads) != str(config.UPLOAD_DIR)
+    batch = _batch(uploads)
+    (batch / "thumbnails" / "ImageGen_001.jpg").write_bytes(THUMB)
+    doc = DBDocument(filename="ImageGen_001.png",
+                     path="Images/ImageBatch_10-10-2026_151527_134/images/ImageGen_001.png",
+                     type=".png", size=len(FULL), index_status="STORED")
+    db.session.add(doc)
+    db.session.commit()
+
+    by_path = client.get("/api/files/thumbnail?path=" + doc.path)
+    by_id = client.get(f"/api/files/thumbnail?document_id={doc.id}")
+
+    assert by_path.status_code == by_id.status_code == 200
+    assert by_path.data == by_id.data == THUMB
+
+
+def test_a_row_naming_a_file_outside_uploads_and_outputs_is_still_refused(client, uploads, tmp_path):
+    secret = tmp_path / "elsewhere" / "secret.png"
+    secret.parent.mkdir()
+    secret.write_bytes(b"not for serving")
+    doc = DBDocument(filename="secret.png", path=str(secret), type=".png", size=5, index_status="STORED")
+    db.session.add(doc)
+    db.session.commit()
+
+    assert client.get(f"/api/files/thumbnail?document_id={doc.id}").status_code == 404
