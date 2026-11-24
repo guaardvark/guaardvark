@@ -835,7 +835,7 @@ def _backend_refusal(exc: BaseException) -> Optional[dict]:
 
 
 class GenerationStatusTool(BaseTool):
-    """Read the state of a queued image or video batch, bulk CSV job, song or tool job by id."""
+    """Read the state of a queued image or video batch, bulk CSV job, song, style analysis or tool job by id."""
 
     name = "get_generation_status"
     read_only = True
@@ -846,13 +846,14 @@ class GenerationStatusTool(BaseTool):
         "from generate_video, a bulk CSV job (bulk_gen_...) from generate_bulk_csv, a song "
         "(a 32-character job id) from generate_music, or a tool job (tooljob_...) from edit_image, "
         "outpaint_image, remove_background or generate_animation called over MCP, "
+        "a style analysis (a 12-character job id) from analyze_video_style, "
         "a music video (music_video:<id>) from generate_music_video, or a Film Crew production "
         "(production:<id>) from start_film_crew. "
         "Returns status (a tool job is queued, running, done or failed, with the time since it "
         "started), progress while running (a video batch names its pipeline stage, such as gpu_wait "
         "or generate, with the share of clips finished), and each finished file (URL for images, video and "
         "animations; for a CSV, its path and how many rows it holds; for a song, its download "
-        "link), or the error of a failed job. Use after a queued generate call, or when the user "
+        "link; for a style analysis, the measured profile and style clause), or the error of a failed job. Use after a queued generate call, or when the user "
         "asks whether a render is done. Read-only; an unknown id is an error, and so is a backend "
         "that does not answer (over MCP the backend must be running)."
     )
@@ -1196,6 +1197,54 @@ class GenerationStatusTool(BaseTool):
         resp.raise_for_status()
         return cls._audio_info(job_id, resp.json())
 
+    _STYLE_JOB_ID = re.compile(r"^[0-9a-f]{12}$")
+
+    @staticmethod
+    def _style_info(view: dict):
+        """A style analysis, as GET /api/video-style/<id> returns it, in this tool's shape."""
+        from backend.tools.video_style_tools import profile_summary
+        job_id = view.get("id")
+        status = view.get("status")
+        info = {
+            "kind": "style analysis", "noun": "job", "batch_id": job_id, "status": status,
+            "progress": view.get("progress"), "stage": view.get("stage"), "message": view.get("message") or "",
+            "error": view.get("error") if status == "failed" else None, "errors": [], "files": [],
+            "studio_url": None,
+        }
+        if status == "complete":
+            info["profile"] = view.get("profile")
+            info["style_clause"] = view.get("style_clause")
+            info["output"] = (
+                profile_summary(view.get("profile") or {}, view.get("style_clause"))
+                + f"\nFull record: GET /api/video-style/{job_id}; save it as a recipe with "
+                  f"POST /api/video-style/{job_id}/recipe."
+            )
+        elif status == "cancelled":
+            info["note"] = "Cancelled before it finished; analyze_video_style starts a new run."
+        return info
+
+    @classmethod
+    def _style_status(cls, job_id: str):
+        if not cls._STYLE_JOB_ID.match(job_id):
+            return None
+        from backend.api.video_style_api import _job_view
+        from backend.services.video_style import jobs
+        job = jobs.load_job(job_id)
+        return cls._style_info(_job_view(job)) if job else None
+
+    @classmethod
+    def _style_status_http(cls, job_id: str):
+        if not cls._STYLE_JOB_ID.match(job_id):
+            return None
+        try:
+            d = _http_json("GET", f"/api/video-style/{job_id}")
+        except BackendError as e:
+            # The route answers an unknown id with 404 {"error": "not found"}.
+            if e.status == 404:
+                return None
+            raise
+        return cls._style_info(d) if isinstance(d, dict) and d.get("status") else None
+
     @staticmethod
     def _tool_job_info(snapshot: dict):
         """A tool job (backend/services/tool_jobs.py) in this tool's shape."""
@@ -1303,10 +1352,10 @@ class GenerationStatusTool(BaseTool):
             readers = (self._tool_job_status_http,) if remote else (self._tool_job_status,)
         else:
             readers = (
-                (self._bulk_status_http, self._bulk_status_tracking, self._audio_status_http,
-                 self._image_status_http, self._video_status_http)
+                (self._style_status_http, self._bulk_status_http, self._bulk_status_tracking,
+                 self._audio_status_http, self._image_status_http, self._video_status_http)
                 if remote else
-                (self._bulk_status, self._bulk_status_tracking, self._audio_status,
+                (self._style_status, self._bulk_status, self._bulk_status_tracking, self._audio_status,
                  self._image_status, self._video_status)
             )
         for reader in readers:
@@ -1352,7 +1401,8 @@ class GenerationStatusTool(BaseTool):
                 hint = (f" A music video or Film Crew id needs its kind: music_video:{batch_id} "
                         f"or production:{batch_id}.")
             return ToolResult(success=False, error=(
-                f"No image, video, audio, bulk CSV, music video or Film Crew job named {batch_id}.{hint}"))
+                f"No image, video, audio, bulk CSV, style analysis, music video or Film Crew job named "
+                f"{batch_id}.{hint}"))
         if info.get("missing"):
             return ToolResult(success=False, error=info["missing"])
         total = info.get("total")

@@ -107,7 +107,7 @@ def test_an_unknown_pipeline_id_is_not_found(monkeypatch, batch_id):
     _serve(monkeypatch, {})
     result = _tool().execute(batch_id=batch_id)
     assert not result.success
-    assert result.error.startswith("No image, video, audio, bulk CSV, music video or Film Crew job named")
+    assert result.error.startswith("No image, video, audio, bulk CSV, style analysis, music video or Film Crew job named")
     assert "did not answer" not in result.error
 
 
