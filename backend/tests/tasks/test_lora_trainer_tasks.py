@@ -298,3 +298,248 @@ def test_training_vram_follows_the_base_storage_format():
     assert train_vram_mb(zimage, "float8") < train_vram_mb(zimage, "bf16")
     sdxl = get_profile("sdxl-legacy")
     assert train_vram_mb(sdxl, "float8") == sdxl["vram_train_mb"]
+
+
+# --- 'trained' waits for the post-train smoke render -------------------------
+#
+# 'trained' is the signal the Cast page, the job handoff ("cast_lora" reads it
+# as completed) and the night shift act on, so it must not be committed while
+# the smoke render still holds the card.
+
+
+class _Progress:
+    """Records the unified progress calls the task makes, with the member's
+    committed status at the moment each one was made."""
+
+    def __init__(self, subject_id):
+        self.subject_id = subject_id
+        self.calls = []
+
+    def _status(self):
+        from sqlalchemy import text
+        row = db.session.execute(
+            text("SELECT training_status FROM subjects WHERE id = :id"), {"id": self.subject_id}
+        ).first()
+        return row[0] if row else None
+
+    def update_process(self, job_id, pct, msg, *a, **k):
+        self.calls.append(("update", pct, msg, self._status()))
+
+    def complete_process(self, job_id, msg, additional_data=None, **k):
+        self.calls.append(("complete", msg, additional_data, self._status()))
+
+    def error_process(self, job_id, msg, *a, **k):
+        self.calls.append(("error", msg, self._status()))
+
+
+@pytest.fixture
+def real_train_result(app, tmp_path, monkeypatch):
+    """A member in 'training' whose (stubbed) trainer returns a verified-real
+    LoRA, so the task goes on to the smoke render. Returns (subject_id, progress)."""
+    with app.app_context():
+        s = Subject(name="Hero", kind="character", training_status="training",
+                    ref_image_paths=["/tmp/ref1.jpg"])
+        db.session.add(s)
+        db.session.commit()
+        sid = s.id
+
+    lora_path = tmp_path / "hero.safetensors"
+    lora_path.write_bytes(b"x" * 200)
+    lora_path.with_suffix(".json").write_text(json.dumps({"mock": False, "subject_id": sid}))
+    monkeypatch.setattr(
+        "backend.tasks.lora_trainer_tasks._train_impl",
+        lambda subject_id, job_id=None: {
+            "status": "ok", "lora_path": str(lora_path), "lora_version": 1,
+            "used_images": ["/tmp/ref1.jpg"],
+        },
+    )
+    monkeypatch.setattr(
+        "backend.services.comfyui_image_generator.ensure_lora_in_comfyui", lambda p: None
+    )
+    progress = _Progress(sid)
+    monkeypatch.setattr(
+        "backend.utils.unified_progress_system.get_unified_progress", lambda: progress
+    )
+    return sid, progress
+
+
+def _committed(sid):
+    from sqlalchemy import text
+    return db.session.execute(
+        text("SELECT training_status, lora_path FROM subjects WHERE id = :id"), {"id": sid}
+    ).first()
+
+
+def _stub_smoke(monkeypatch, fn):
+    monkeypatch.setattr("backend.services.lora_posttrain_smoke.run_lora_smoke_test", fn)
+
+
+def test_status_stays_training_while_the_smoke_render_runs(app, monkeypatch, real_train_result):
+    sid, progress = real_train_result
+    seen = {}
+
+    def smoke(**kw):
+        seen["during"] = tuple(_committed(sid))
+        return {"ok": True, "path": "/x/smoke.png"}
+
+    _stub_smoke(monkeypatch, smoke)
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        status, lora = _committed(sid)
+
+    # The LoRA is already saved when the check starts, but the member is not
+    # yet 'trained'; it becomes so only after the render returned.
+    assert seen["during"][0] == "training"
+    assert seen["during"][1] and seen["during"][1].endswith("hero.safetensors")
+    assert status == "trained"
+    kinds = [c[0] for c in progress.calls]
+    assert kinds[-1] == "complete"
+    # The checking step is shown while still 'training'; completion follows 'trained'.
+    checking = [c for c in progress.calls if c[0] == "update" and "test render" in c[2]]
+    assert checking and checking[0][3] == "training"
+    assert progress.calls[-1][3] == "trained"
+    assert progress.calls[-1][2]["smoke_test"]["ok"] is True
+
+
+def test_smoke_render_failure_still_ends_trained(app, monkeypatch, real_train_result):
+    sid, progress = real_train_result
+    _stub_smoke(monkeypatch, lambda **kw: {"ok": False, "error": "GPU busy: render in progress"})
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        assert _committed(sid)[0] == "trained"
+    assert progress.calls[-1][0] == "complete"
+    assert "smoke render skipped" in progress.calls[-1][1]
+
+
+@pytest.mark.parametrize("exc", [
+    RuntimeError("render pipeline crashed"),
+    TimeoutError("smoke render timed out"),
+])
+def test_smoke_render_raising_still_ends_trained(app, monkeypatch, real_train_result, exc):
+    sid, progress = real_train_result
+
+    def smoke(**kw):
+        raise exc
+
+    _stub_smoke(monkeypatch, smoke)
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        status, lora = _committed(sid)
+    assert status == "trained"
+    assert lora.endswith("hero.safetensors")
+    final = progress.calls[-1]
+    assert final[0] == "complete" and final[3] == "trained"
+    assert final[2]["smoke_test"]["ok"] is False
+    assert type(exc).__name__ in final[2]["smoke_test"]["error"]
+
+
+def test_soft_time_limit_during_smoke_ends_trained(app, monkeypatch, real_train_result):
+    from celery.exceptions import SoftTimeLimitExceeded
+    sid, progress = real_train_result
+
+    def smoke(**kw):
+        raise SoftTimeLimitExceeded()
+
+    _stub_smoke(monkeypatch, smoke)
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        assert _committed(sid)[0] == "trained"
+    assert progress.calls[-1][0] == "complete"
+
+
+def test_smoke_render_leaving_a_failed_session_still_ends_trained(app, monkeypatch, real_train_result):
+    """The smoke render commits on the task's session; a commit that fails there
+    must not stop the member from leaving 'training'."""
+    sid, progress = real_train_result
+
+    def smoke(**kw):
+        db.session.add(Subject(name=None, kind="character"))
+        try:
+            db.session.commit()
+        except Exception:
+            pass  # as _run_smoke_once does: logged, not rolled back
+        return {"ok": False, "error": "could not persist"}
+
+    _stub_smoke(monkeypatch, smoke)
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        assert _committed(sid)[0] == "trained"
+    assert progress.calls[-1][0] == "complete"
+
+
+def test_cancel_during_smoke_is_not_overwritten(app, monkeypatch, real_train_result):
+    sid, progress = real_train_result
+
+    def smoke(**kw):
+        from backend.services.lora_train_dispatch import cancel_lora_train
+        assert cancel_lora_train(sid)["cancelled"] is True
+        return {"ok": True}
+
+    _stub_smoke(monkeypatch, smoke)
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        status, _ = _committed(sid)
+        s = db.session.get(Subject, sid)
+        assert status == "failed"
+        assert s.training_error == "Cancelled by user"
+    assert progress.calls[-1][0] == "error"
+    assert "superseded" in progress.calls[-1][1]
+    assert not any(c[0] == "complete" for c in progress.calls)
+
+
+def test_delete_during_smoke_ends_quietly(app, monkeypatch, real_train_result):
+    sid, progress = real_train_result
+
+    def smoke(**kw):
+        db.session.delete(db.session.get(Subject, sid))
+        db.session.commit()
+        return {"ok": True}
+
+    _stub_smoke(monkeypatch, smoke)
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        assert _committed(sid) is None
+    assert progress.calls[-1][0] == "error"
+    assert "deleted" in progress.calls[-1][1]
+
+
+def test_unverified_train_skips_smoke_and_ends_trained(app, tmp_path, monkeypatch):
+    """No smoke render runs for an unverified adapter; the member goes straight
+    to 'trained' as before."""
+    s_id = _seed_trainable_subject(app, tmp_path)
+    monkeypatch.setattr("backend.tasks.lora_trainer_tasks._output_dir", lambda: str(tmp_path))
+    monkeypatch.setenv("GUAARDVARK_LORA_BACKEND", "mock")
+    called = []
+    _stub_smoke(monkeypatch, lambda **kw: called.append(kw) or {"ok": True})
+    with app.app_context():
+        train_subject_lora_for_subject(s_id)
+        assert _committed(s_id)[0] == "trained"
+    assert called == []
+
+
+def test_handoff_keeps_following_while_training():
+    from backend.services.job_handoff import _read_cast_lora
+    assert _read_cast_lora({"training_status": "training"})["ended"] is None
+    assert _read_cast_lora({"training_status": "trained"})["ended"] == "completed"
+
+
+def test_real_smoke_refused_by_the_gpu_gate_ends_trained(app, monkeypatch, real_train_result):
+    """The real smoke helper, with its GPU claim refused the way the gate
+    refuses it: the member still ends 'trained' and the job completes."""
+    from contextlib import contextmanager
+    from backend.services.job_operation_gate import GpuBusyError
+    sid, progress = real_train_result
+
+    @contextmanager
+    def busy_gpu_session(*a, **k):
+        raise GpuBusyError("GPU busy: another render holds the card")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr("backend.services.gpu_resource_policy.gpu_session", busy_gpu_session)
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        assert _committed(sid)[0] == "trained"
+    final = progress.calls[-1]
+    assert final[0] == "complete" and final[3] == "trained"
+    assert final[2]["smoke_test"]["ok"] is False
+    assert "busy" in final[2]["smoke_test"]["error"].lower()
