@@ -676,7 +676,7 @@ def run_editor(prod_id: int, i2v=None, audio_foundry=None, ffmpeg=None):
         scene_renderer = None
         vram_estimate_mb = 14000
         from backend.services.video_model_registry import (
-            resolve_active_video_model, model_capabilities, vram_mb_for_model,
+            resolve_active_video_model, model_capabilities, admission_vram_mb,
         )
         resolved, resolve_err = resolve_active_video_model(
             "i2v", video_model, surface="film-crew",
@@ -699,7 +699,7 @@ def run_editor(prod_id: int, i2v=None, audio_foundry=None, ffmpeg=None):
             ctx.fail(comfyui_down_failure(resolve_err, "film-crew"))
             return
         caps = model_capabilities(resolved)
-        vram_estimate_mb = vram_mb_for_model(resolved, default=14000)
+        vram_estimate_mb = admission_vram_mb(resolved, default=14000)
         if caps.get("audio_out") and (caps.get("supports_i2v") or "ref2v" in caps.get("modes", [])):
             from backend.services.comfyui_video_generator import MiniMaxH3SceneGenerator
             scene_renderer = MiniMaxH3SceneGenerator(model=resolved)

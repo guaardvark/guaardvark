@@ -1329,11 +1329,11 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         """
         try:
             from backend.services.gpu_memory_orchestrator import get_orchestrator
-            from backend.services.video_model_registry import vram_mb_for_model
+            from backend.services.video_model_registry import admission_vram_mb
         except Exception as e:  # noqa: BLE001
             logger.warning("VRAM admission unavailable (%s); queuing without it", e)
             return None
-        estimate_mb = vram_mb_for_model(model)
+        estimate_mb = admission_vram_mb(model)
         slot_id = f"video:comfyui:{op_id}"
         try:
             budget_s = max(0.0, float(os.environ.get(VRAM_WAIT_ENV, VRAM_WAIT_DEFAULT_S)))

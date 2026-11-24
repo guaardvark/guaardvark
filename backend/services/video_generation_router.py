@@ -208,7 +208,7 @@ class VideoGenerationRouter:
         try:
             from backend.services.gpu_resource_policy import gpu_session
             from backend.services.job_types import JobKind
-            from backend.services.video_model_registry import vram_mb_for_model
+            from backend.services.video_model_registry import admission_vram_mb
         except Exception:  # noqa: BLE001 — policy is optional at this seam
             import contextlib
             return contextlib.nullcontext()
@@ -222,7 +222,7 @@ class VideoGenerationRouter:
             on_busy="register",
             evict_ollama=True,
             free_comfyui=False,
-            vram_estimate_mb=vram_mb_for_model(request.model),
+            vram_estimate_mb=admission_vram_mb(request.model),
         )
 
     @property
