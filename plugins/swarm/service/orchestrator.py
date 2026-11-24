@@ -215,8 +215,9 @@ class SwarmOrchestrator:
         max_a = max_agents if max_agents is not None else self.config.max_concurrent_agents
         do_merge = auto_merge if auto_merge is not None else self.config.auto_merge
 
-        # generate swarm identity
-        self.swarm_id = generate_swarm_id()
+        # Swarm identity. launch_async has already issued one and handed it to
+        # the caller, which tracks the swarm under it; keep that id.
+        self.swarm_id = self.swarm_id or generate_swarm_id()
         logger.info(f"Starting swarm {self.swarm_id} from {plan_path}")
 
         # parse the plan
@@ -366,8 +367,10 @@ class SwarmOrchestrator:
             if backend:
                 backend.kill(process)
             self._release_gpu_hold(task_id)
+            # _processes keeps finished agents too; only a task still running
+            # was cancelled.
             task = self._find_task(task_id)
-            if task:
+            if task and task.status == SwarmStatus.RUNNING:
                 task.status = SwarmStatus.CANCELLED
 
         self._emit_event("swarm_cancelled", "swarm", {"swarm_id": self.swarm_id})
