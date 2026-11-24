@@ -104,7 +104,7 @@ def test_missing_files_reconcile_link_and_report_vae(tmp_path, monkeypatch):
     monkeypatch.setattr(gen_mod, "COMFYUI_DIR", str(tmp_path))
     missing = _gen()._cogvideox_i2v_missing_files("cogvideox-5b-i2v")
     linked = models / "diffusion_models" / "CogVideoX_1_5_5b_I2V_bf16.safetensors"
-    assert linked.exists() and linked.read_bytes() == b"weights"
+    assert linked.exists() and linked.read_bytes() == canonical.read_bytes()
     assert missing == ["vae/cogvideox_vae_bf16.safetensors"]
 
 
