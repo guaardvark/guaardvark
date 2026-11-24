@@ -114,17 +114,11 @@ def configure_cuda_optimizations(verbose=True):
         if sys_opt['high_performance_mode']:
             print(f"High Performance Mode Detected")
 
-    try:
-        dummy = torch.zeros(1, device='cuda')
-        _ = dummy + dummy
-        del dummy
-        torch.cuda.synchronize()
-        config_status["optimizations_applied"].append("GPU warmup")
-        if verbose:
-            print("GPU warmed up and ready")
-    except Exception as e:
-        if verbose:
-            print(f"GPU warmup warning: {e}")
+    # No warmup tensor here. Placing one opens a CUDA context, and this runs
+    # in the backend and in every Celery worker: each then held about 245 MB
+    # of the card for as long as it lived, whether or not it ever ran a model
+    # (measured 2026-11-23, backend 248 MB and worker 244 MB idle on a 16 GB
+    # card). The first model a process loads opens the context itself.
 
     alloc_conf = os.environ.get('PYTORCH_CUDA_ALLOC_CONF', 'Not set')
     if verbose:
