@@ -5,7 +5,8 @@
 `get_physical_path` (backend/api/files_api.py) joins UPLOAD_BASE + path,
 which works when files are written under data/uploads/. ComfyUI
 generations land under plugins/comfyui/ComfyUI/output/ — outside
-UPLOAD_BASE — and `register_file`'s fallback path stores a constructed
+UPLOAD_BASE. `register_file` stores such a file by its real location
+(relative to the install root), but older rows carry a constructed
 virtual path with no link back to the real bytes.
 
 This resolver tries every plausible location until one exists. Used by
@@ -19,6 +20,7 @@ this resolver bridges the gap for old rows that predate that invariant.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -164,6 +166,36 @@ def resolve_document_path(doc) -> Optional[Path]:
         getattr(doc, "filename", "?"),
     )
     return None
+
+
+def resolved_files(doc) -> list[Path]:
+    """Every distinct servable file ``doc`` could resolve to, in the order
+    :func:`resolve_document_path` tries them."""
+    found: list[Path] = []
+    if doc is None:
+        return found
+    for candidate in _candidates_for_doc(doc):
+        try:
+            if candidate.is_file() and _servable(candidate):
+                real = candidate.resolve()
+                if real not in found:
+                    found.append(real)
+        except (OSError, ValueError):
+            continue
+    return found
+
+
+def output_dirs() -> list[Path]:
+    """Folders generators write to outside the uploads folder (OUTPUT_DIR and
+    the known generator output bases), symlinks resolved."""
+    root = _project_root()
+    dirs = [root / base for base in _GENERATOR_OUTPUT_BASES]
+    try:
+        from backend.config import OUTPUT_DIR
+        dirs.insert(0, Path(OUTPUT_DIR))
+    except Exception:  # noqa: BLE001 — the repo-relative bases still apply
+        pass
+    return [Path(os.path.realpath(d)) for d in dirs]
 
 
 def resolve_by_id(doc_id) -> Optional[Path]:

@@ -191,20 +191,28 @@ def registrable_path(physical_path) -> Optional[Path]:
     return None
 
 
-def _virtual_path_problem(db_path: str, physical: Path) -> Optional[str]:
-    """Why a constructed Document.path may not be stored, or None.
-
-    The names come from the caller (a sidecar over HTTP included) and the
-    path is later joined onto the uploads folder and the install root to find
-    the file, so it must be a plain relative path, and where one of those
-    joins already names a file, that file must be the one being registered.
-    """
-    from backend.config import GUAARDVARK_ROOT
+def _plain_relative_problem(db_path: str) -> Optional[str]:
+    """Why ``db_path``, built from caller-supplied folder and file names (a
+    sidecar over HTTP included), is not a plain relative path, or None."""
     if "\\" in db_path or "\x00" in db_path:
         return "the folder or file name holds a backslash or a null character"
     parts = db_path.split("/")
     if db_path.startswith("/") or any(part in ("", ".", "..") for part in parts):
         return "the folder or file name is not a plain relative path"
+    return None
+
+
+def _virtual_path_problem(db_path: str, physical: Path) -> Optional[str]:
+    """Why a Document.path may not be stored for ``physical``, or None.
+
+    The path is later joined onto the uploads folder and the install root to
+    find the file, so it must be a plain relative path, and where one of those
+    joins already names a file, that file must be the one being registered.
+    """
+    from backend.config import GUAARDVARK_ROOT
+    problem = _plain_relative_problem(db_path)
+    if problem:
+        return problem
     for base in (UPLOAD_DIR, GUAARDVARK_ROOT):
         other = Path(base) / db_path
         try:
@@ -213,6 +221,50 @@ def _virtual_path_problem(db_path: str, physical: Path) -> Optional[str]:
         except OSError:
             return "that path could not be checked"
     return None
+
+
+def _outside_uploads_path(physical: Path) -> str:
+    """Document.path for a file outside the uploads folder: its real location,
+    relative to the install root when it lies there, else absolute (an outputs
+    folder moved elsewhere). The document path resolver serves both forms."""
+    from backend.config import GUAARDVARK_ROOT
+    try:
+        return physical.relative_to(os.path.abspath(GUAARDVARK_ROOT)).as_posix()
+    except ValueError:
+        return str(physical)
+
+
+def output_location_problem(physical_path) -> Optional[str]:
+    """Why ``physical_path`` may not be registered from where it lies, or None.
+
+    A file outside the uploads folder is registered by its real location, so
+    that location, symlinks followed, must be in an output folder: the rest of
+    the data folder holds keys and internal state, not outputs.
+    """
+    from backend.services.document_path_resolver import output_dirs
+    try:
+        contained(UPLOAD_DIR, physical_path)
+        return None
+    except PathEscapesRoot:
+        pass
+    real = Path(os.path.realpath(physical_path))
+    for base in output_dirs():
+        try:
+            real.relative_to(base)
+            return None
+        except ValueError:
+            continue
+    return "files outside the uploads folder are registered only from an output folder"
+
+
+def _only_resolves_to(doc: DBDocument, physical: Path) -> bool:
+    """Whether ``doc`` resolves to ``physical`` and to no other file."""
+    from backend.services.document_path_resolver import resolved_files
+    found = resolved_files(doc)
+    try:
+        return len(found) == 1 and found[0].samefile(physical)
+    except OSError:
+        return False
 
 
 def ensure_subfolder(parent_folder_name: str, subfolder_name: str) -> Folder:
@@ -308,22 +360,28 @@ def register_file(
     upload_base = Path(UPLOAD_DIR)
     try:
         db_path = str(p.relative_to(upload_base))
+        library_path = db_path
     except ValueError:
-        # File is outside UPLOAD_DIR — fall back to constructed path
+        # Outside UPLOAD_DIR the row is filed under the folder names given,
+        # but its path is the file's real location: a display name shared
+        # with another file must not make the two one row.
         if subfolder_name:
-            db_path = f"{folder_name}/{subfolder_name}/{filename}"
+            library_path = f"{folder_name}/{subfolder_name}/{filename}"
         else:
-            db_path = f"{folder_name}/{filename}"
-        problem = _virtual_path_problem(db_path, p)
+            library_path = f"{folder_name}/{filename}"
+        db_path = _outside_uploads_path(p)
+        problem = output_location_problem(p) or _plain_relative_problem(library_path)
+        if not problem and not os.path.isabs(db_path):
+            problem = _virtual_path_problem(db_path, p)
         if problem:
-            logger.warning(f"Refusing to register {physical_path} as {db_path!r}: {problem}")
+            logger.warning(f"Refusing to register {physical_path} as {library_path!r}: {problem}")
             return None
 
     # Ensure folder record exists. The subfolder is the one the file really
     # sits in: a batch folder moved below its top-level folder keeps its record.
     if subfolder_name:
         folder = None
-        parts = Path(db_path).parts[:-1]
+        parts = Path(library_path).parts[:-1]
         for i in range(len(parts), 0, -1):
             if parts[i - 1] == subfolder_name:
                 folder = _ensure_folder_path("/".join(parts[:i]))
@@ -340,13 +398,12 @@ def register_file(
     if existing:
         logger.debug(f"Document already registered: {db_path}")
         return existing
-
-    # Apply the filename collision resolver — picks a name that doesn't clash
-    # with any sibling Document in the same folder. Files-app convention:
-    # `name (2).ext`, `name (3).ext`, never random hex. Pairs with the
-    # UNIQUE (folder_id, filename) constraint added in migration 005.
-    from backend.utils.filename_resolver import resolve_filename
-    filename = resolve_filename(folder_id, filename, db.session, DBDocument)
+    if library_path != db_path:
+        # The same file may hold a row filed under its folder-name path.
+        legacy = DBDocument.query.filter_by(path=library_path).first()
+        if legacy and _only_resolves_to(legacy, p):
+            logger.debug(f"Document already registered: {library_path}")
+            return legacy
 
     # File size
     try:
@@ -357,25 +414,41 @@ def register_file(
     import json
     metadata_str = json.dumps(file_metadata) if file_metadata else None
 
-    doc = DBDocument(
-        filename=filename,
-        path=db_path,
-        type=file_type,
-        folder_id=folder_id,
-        size=file_size,
-        index_status="STORED",
-        file_metadata=metadata_str,
-        uploaded_at=datetime.now(),
-    )
-    db.session.add(doc)
-    try:
-        db.session.commit()
-        logger.info(f"Registered output: {db_path} (doc id={doc.id})")
-        return doc
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Failed to register file {db_path}: {e}")
-        return None
+    # The filename collision resolver picks a name no sibling Document in the
+    # folder holds (Files-app convention: `name (2).ext`), backed by the
+    # UNIQUE (folder_id, filename) constraint from migration 005. A parallel
+    # registration can take the name between the check and the insert, so a
+    # refused insert is tried once more.
+    from sqlalchemy.exc import IntegrityError
+    from backend.utils.filename_resolver import resolve_filename
+    for attempt in (1, 2):
+        doc = DBDocument(
+            filename=resolve_filename(folder_id, filename, db.session, DBDocument),
+            path=db_path,
+            type=file_type,
+            folder_id=folder_id,
+            size=file_size,
+            index_status="STORED",
+            file_metadata=metadata_str,
+            uploaded_at=datetime.now(),
+        )
+        db.session.add(doc)
+        try:
+            db.session.commit()
+            logger.info(f"Registered output: {db_path} (doc id={doc.id})")
+            return doc
+        except IntegrityError as e:
+            db.session.rollback()
+            existing = DBDocument.query.filter_by(path=db_path).first()
+            if existing:
+                return existing
+            if attempt == 2:
+                logger.error(f"Failed to register file {db_path}: {e}")
+                return None
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Failed to register file {db_path}: {e}")
+            return None
 
 
 def get_output_dir(folder_name: str, subfolder_name: Optional[str] = None) -> Path:
