@@ -54,14 +54,44 @@ def _inside_install_outputs(path: Path) -> bool:
     return _real_file_in(path, output_dirs()) is not None
 
 
+# Folders directly under an output folder that hold records about people, not
+# generated work: likeness-consent records and exported chat transcripts. They
+# are read from disk by the code that owns them (consent_records,
+# chat_export_service) and are never served, registered as documents or handed
+# to another machine. A folder whose name starts with a dot is internal state.
+PRIVATE_OUTPUT_FOLDERS = ("consent", "chat-exports")
+
+
+def private_output_folder(path) -> Optional[str]:
+    """The private folder ``path`` really sits in (its name), or None.
+
+    Judged on the real location, so a link elsewhere that points into one of
+    these folders is caught, and a file merely named like one is not."""
+    try:
+        real = Path(os.path.realpath(path))
+    except (OSError, ValueError):
+        return None
+    for out in output_dirs():
+        try:
+            parts = real.relative_to(out).parts
+        except ValueError:
+            continue
+        if len(parts) > 1 and (parts[0] in PRIVATE_OUTPUT_FOLDERS or parts[0].startswith(".")):
+            return parts[0]
+    return None
+
+
 def _real_file_in(path, roots: list[Path]) -> Optional[Path]:
-    """The real location of ``path`` when it is a file inside one of ``roots``."""
+    """The real location of ``path`` when it is a file inside one of ``roots``
+    and not in a private output folder."""
     from backend.utils.path_guard import PathEscapesRoot, contained_path
     try:
         real = os.path.realpath(path)
         if not os.path.isfile(real):
             return None
     except (OSError, ValueError):
+        return None
+    if private_output_folder(real) is not None:
         return None
     for root in roots:
         try:
