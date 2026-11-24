@@ -106,7 +106,7 @@ pydantic-settings>=2.15.0
 # scipy/tqdm/PyYAML stay here — shared transitive deps of the always-on stack.
 scipy>=1.10.0  # used by image/audio paths; also a GFPGAN dep
 tqdm>=4.65.0   # transitive dep of transformers/huggingface_hub (always-on)
-PyYAML>=6.0    # transitive dep of transformers/huggingface_hub (always-on)
+PyYAML>=6.0.4    # transitive dep of transformers/huggingface_hub (always-on)
 
 # Video Processing Dependencies
 imageio==2.38.1
