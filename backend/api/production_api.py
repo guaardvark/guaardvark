@@ -334,6 +334,7 @@ def cast_subject(prod_id, subject_id):
             return jsonify({"error": "existing_lora_id not found or has no trained LoRA"}), 404
         subj.lora_path = existing.lora_path
         subj.training_status = "trained"
+        subj.training_error = None
 
     elif action == "train_from_uploads":
         refs = body.get("ref_image_paths") or []

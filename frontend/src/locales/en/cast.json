@@ -79,6 +79,7 @@
     "smokeScore": "Post-train smoke identity score: {{score}} ({{method}})",
     "identityNotMeasuredReason": "Identity: not measured — {{reason}}",
     "identityNotMeasured": "Identity: not measured",
+    "identityNoRenderForLora": "the current LoRA has no finished test render",
     "progressGenerating": "Generating… {{done}}/{{total}} done",
     "progressCancelledFailed": "Cancelled — {{done}}/{{total}} kept · {{failed}} failed.",
     "progressCancelled": "Cancelled — {{done}}/{{total}} kept.",
@@ -157,6 +158,7 @@
     "busyNote": "(health/celery may report busy/503; this is expected for long GPU tasks)",
     "failed": "Training failed",
     "failedHelp": "Fix the problem, then click “Train LoRA” again. New training data (additional outfits etc.) will be incorporated on the next run (amend).",
+    "noteLoraSavedWorkerStopped": "Training finished and the LoRA file was saved complete, but the worker stopped during its test render.",
     "scheduledName": "Train LoRA: {{name}}"
   },
   "page": {

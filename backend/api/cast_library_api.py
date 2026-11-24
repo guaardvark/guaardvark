@@ -140,8 +140,8 @@ def _serialize(s: Subject) -> dict:
         "train_ready": bool(base_prof.get("train_ready")),
         "train_status_note": base_prof.get("train_status_note"),
         "caption_coverage": _caption_coverage_for(s),
-        "smoke_identity": ((s.training_settings_json or {}).get("smoke_identity")
-                           if getattr(s, "training_settings_json", None) else None),
+        "smoke_identity": _smoke_identity_for(s),
+        "training_note": _training_note(s),
         "bible_vision_grounded": bool(
             (getattr(s, "training_settings_json", None) or {}).get("bible_vision_grounded")
         ),
@@ -155,6 +155,69 @@ def _serialize(s: Subject) -> dict:
             (getattr(s, "training_settings_json", None) or {}).get("class_token") or None
         ),
     }
+
+
+def _smoke_identity_for(s: Subject) -> dict | None:
+    """The stored smoke-render record, with ``current`` saying whether it scored
+    the member's default LoRA.
+
+    A killed or failed smoke render leaves the previous LoRA's record in place,
+    and an import or a version switch changes the default without a render.
+    """
+    rec = (getattr(s, "training_settings_json", None) or {}).get("smoke_identity")
+    if not isinstance(rec, dict):
+        return None
+    rec = dict(rec)
+    default = s.lora_path
+    scored = rec.get("lora_path")
+    if not default:
+        rec["current"] = False
+    elif scored:
+        rec["current"] = scored == default
+    else:
+        # A record from before the LoRA path was stored. A saved-LoRA note means
+        # the default's own render never finished; otherwise go by file times.
+        rec["current"] = _training_note(s) is None and _legacy_smoke_scored(s, rec.get("path"))
+    return rec
+
+
+def _legacy_smoke_scored(s: Subject, still: str | None) -> bool:
+    """Whether a record without a LoRA path can only have scored the default.
+
+    The still is written after the LoRA it tested, so the default must be the
+    member's newest LoRA file and no newer than the still. Anything else (an
+    older version made default, a missing file) cannot be told apart.
+    """
+    try:
+        default_mtime = os.path.getmtime(s.lora_path)
+        if os.path.getmtime(still) < default_mtime:
+            return False
+    except (TypeError, OSError):
+        return False
+    for row in getattr(s, "lora_versions", None) or []:
+        if row.lora_path == s.lora_path:
+            continue
+        try:
+            if os.path.getmtime(row.lora_path) > default_mtime:
+                return False
+        except (TypeError, OSError):
+            continue
+    return True
+
+
+def _training_note(s: Subject) -> str | None:
+    """The code of a note the Cast page shows on a 'trained' member, or None.
+
+    The note is about one LoRA: switching the default away hides it. An error
+    text with no note record belongs to an earlier failed run and is not shown.
+    """
+    if s.training_status != "trained" or not getattr(s, "training_error", None):
+        return None
+    from backend.tasks.lora_trainer_tasks import TRAINING_NOTE_KEY
+    note = (getattr(s, "training_settings_json", None) or {}).get(TRAINING_NOTE_KEY)
+    if not isinstance(note, dict) or not s.lora_path or note.get("lora_path") != s.lora_path:
+        return None
+    return note.get("code") or None
 
 
 def _identity_marks_for_captions(s: Subject) -> str:
@@ -1294,6 +1357,7 @@ def import_subject_lora(subject_id):
     )
     s.lora_version = next_import_seq
     s.training_status = "trained"
+    s.training_error = None
     became_default = s.lora_path == resolved_path
     if became_default:
         # Member-level fields are the default LoRA's own — only touch them when

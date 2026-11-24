@@ -671,6 +671,7 @@ def _member(sid):
 def test_worker_died_after_save_is_marked_trained(app, monkeypatch, saved_lora):
     from backend.tasks.lora_trainer_tasks import (
         LORA_SAVED_FOR_JOB_KEY, LORA_SAVED_NOTE, LORA_SMOKE_REAP_AFTER_S,
+        NOTE_LORA_SAVED, TRAINING_NOTE_KEY,
     )
     sid, _ = saved_lora
     _die_during_smoke(app, monkeypatch, sid)
@@ -690,6 +691,8 @@ def test_worker_died_after_save_is_marked_trained(app, monkeypatch, saved_lora):
         assert s.training_error == LORA_SAVED_NOTE
         assert s.lora_path.endswith("hero.safetensors")
         assert LORA_SAVED_FOR_JOB_KEY not in (s.training_settings_json or {})
+        assert s.training_settings_json[TRAINING_NOTE_KEY] == {
+            "code": NOTE_LORA_SAVED, "lora_path": s.lora_path}
 
 
 def test_worker_died_after_save_past_the_train_cap_is_marked_trained(app, monkeypatch, saved_lora):
@@ -801,6 +804,7 @@ def test_render_overrunning_the_window_still_completes(app, monkeypatch, saved_l
         s = _member(sid)
         assert s.training_status == "trained"
         assert s.training_error is None
+        assert "training_note" not in (s.training_settings_json or {})
     assert progress.calls[-1][0] == "complete"
 
 

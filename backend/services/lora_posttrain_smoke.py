@@ -170,6 +170,8 @@ def _run_smoke_once(
             cfg["smoke_identity"] = {
                 "ok": True,
                 "path": still.image_path,
+                # The Cast page shows the score only while this is still the default.
+                "lora_path": lora_path,
                 "score": identity.get("score"),
                 "method": identity.get("method"),
                 "status": identity.get("status") or "not_measured",
