@@ -723,6 +723,15 @@ VIDEO_MODEL_REGISTRY = {
         # ComfyUI's WanFirstLastFrameToVideo, so a clip can be made to arrive at a
         # given picture.
         "modes": ["i2v", "flf2v"],
+        # An 8 GB card runs these experts with the weights kept in system memory.
+        # Measured 2026-11-23 on ComfyUI 0.46.0 with a second process holding the
+        # rest of a 16 GB RTX 40-series card (8188 MB left for everything, about
+        # 5.9 GB of it free when the render began): 832x480, 81 frames, start
+        # image; Standard 25 steps in 793 s, Lightning 4 steps in 155 s, card peak
+        # 5.9-6.0 GB, clean frames in both. Not measured: a real 8 GB card, less
+        # than 59 GB of system memory, sizes above 832x480, 6 GB cards.
+        "min_vram_gb": 8,
+        "vram_mb_paged": 4800,
         # ComfyUI's ck (Comfy Kitchen INT8) attention put NaN patch tokens into these
         # experts' latents, decoded as black rectangles: 6 of 9 Lightning renders at
         # 960x544, seed 1984, 16 GB card (2026-09-12). The same graphs with PyTorch
@@ -736,7 +745,7 @@ VIDEO_MODEL_REGISTRY = {
     },
     "wan22-5b": {
         "name": "Wan 2.2 TI2V-5B (fp16)",
-        "description": "Single 5B text+image-to-video model built for 16GB cards — fits VRAM (no CPU offload, no 22GB MoE), fast. Native 1280x704 @ 24fps. The consumer-GPU answer to the A14B.",
+        "description": "Single 5B text+image-to-video model. Native 1280x704 @ 24fps. Renders on cards from 6 GB up; holds whole on 12 GB and larger.",
         "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
         "local_subdir": "diffusion_models",
         "files": [
@@ -770,8 +779,18 @@ VIDEO_MODEL_REGISTRY = {
         # 34-121 frames, 73 s at 36 frames and 181 s at 121, so a plan of long
         # cuts takes longer than this.
         "music_video_cut_s": {"seconds": 86, "steps": 25, "width": 832, "height": 480, "frames": 47},
-        # Fits an 11 GB card without offload; the other Wan entries take the family's 16.
-        "min_vram_gb": 11,
+        # Holds whole on a 12 GB card. Below that ComfyUI's dynamic loader keeps
+        # part of the 9.5 GB of weights in system memory. Measured 2026-11-23 on
+        # ComfyUI 0.46.0 with a second process holding the rest of a 16 GB RTX
+        # 40-series card, so 8188 MB and then 6144 MB were left for everything
+        # (desktop, backend, ComfyUI): 1280x704, 121 frames, 20 steps, text and
+        # image to video, rendered clean in 326-330 s at 12.5-12.8 s/step at both
+        # sizes; card peak 6.7-7.1 GB of the 8 and 5.7 GB of the 6. The 6 GB run
+        # started with 3970 MB free, which is what the paged booking plus the
+        # 1 GB fit margin asks for. Not measured: a real 6 or 8 GB card, less
+        # than 59 GB of system memory, 4 GB cards.
+        "min_vram_gb": 6,
+        "vram_mb_paged": 2900,
         # video_wan2_2_5B_ti2v: KSampler cfg 5 (the 14B templates use 3.5).
         "cfg_when_unset": 5.0,
     },
@@ -2282,11 +2301,40 @@ def _normalize_registry() -> None:
             entry["check_files"] = [entry["hf_filename"]]
 
 
+_VRAM_FIT_MARGIN_MB = 1024
+# A card that reports up to this much under a declared min_vram_gb still counts
+# for it ("8 GB" cards report 8188 MB, "16 GB" ones 15.5-16.0 GB).
+_MIN_VRAM_GRACE_MB = 512
+
+
 def vram_mb_for_model(model_id: str, *, default: int = 11000) -> int:
     """VRAM debit estimate for gpu_session / orchestrator (registry SSOT)."""
     entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
     vram = int(entry.get("vram_mb") or 0)
     return vram if vram > 0 else default
+
+
+def admission_vram_mb(model_id: str, *, default: int = 11000, total_vram_mb=None) -> int:
+    """VRAM a render of ``model_id`` is booked for on this card.
+
+    ``vram_mb`` is what the model takes when the card can hold it. An entry that
+    also declares ``vram_mb_paged`` renders on a smaller card, where ComfyUI
+    keeps the weights that do not fit in system memory and moves them through
+    the card as it samples; there the render is booked for the paged figure, so
+    admission does not turn away a model the card runs. A card that holds
+    ``vram_mb`` plus the fit margin is booked exactly as before. Probes the card
+    when ``total_vram_mb`` is not given; an unread card gets ``vram_mb``.
+    """
+    full = vram_mb_for_model(model_id, default=default)
+    entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
+    paged = int(entry.get("vram_mb_paged") or 0)
+    if paged <= 0 or paged >= full:
+        return full
+    if total_vram_mb is None:
+        total_vram_mb = _probe_total_vram_mb()
+    if total_vram_mb and full + _VRAM_FIT_MARGIN_MB > float(total_vram_mb):
+        return paged
+    return full
 
 
 def music_video_cut_seconds(model_id: str) -> Optional[dict]:
@@ -2870,7 +2918,6 @@ def model_capabilities(model_id: str) -> dict:
     return caps
 
 
-_VRAM_FIT_MARGIN_MB = 1024
 _SURFACE_SETTING = {
     "music-video": "active_video_model_music_video",
     "film-crew": "active_video_model_film_crew",
@@ -2902,7 +2949,13 @@ def _fits_card(model_id: str, total_vram_mb) -> bool:
     """
     if not total_vram_mb:
         return False
-    return vram_mb_for_model(model_id) + _VRAM_FIT_MARGIN_MB <= float(total_vram_mb)
+    # The generator refuses a card under the declared floor (with the same
+    # half-GB grace), so an automatic pick must not land on one.
+    floor_gb = (model_capabilities(model_id) or {}).get("min_vram_gb") or 0
+    if floor_gb and float(total_vram_mb) + _MIN_VRAM_GRACE_MB < float(floor_gb) * 1024:
+        return False
+    booked = admission_vram_mb(model_id, total_vram_mb=total_vram_mb)
+    return booked + _VRAM_FIT_MARGIN_MB <= float(total_vram_mb)
 
 
 def _video_setting(key: str) -> str:
