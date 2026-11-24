@@ -156,7 +156,7 @@ numba>=0.61  # librosa's JIT; its numpy ceiling is what bounds the numpy line in
 soundfile>=0.14.0  # WAV/FLAC IO for voice_api + audio_foundry backends
 
 # Testing Dependencies
-pytest==9.0.3
+pytest==9.2.0
 pytest-timeout==2.4.0
 pytest-playwright==0.8.0  # 0.7.0 caps pytest<9.0.0; 0.8.0 supports pytest 9.x
 playwright==1.52.0

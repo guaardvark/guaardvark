@@ -117,7 +117,7 @@ piper-tts==1.8.0
 onnxruntime==1.30.0
 
 # Testing Dependencies
-pytest==9.0.3
+pytest==9.2.0
 pytest-timeout==2.4.0
 pytest-playwright==0.8.0  # 0.7.0 caps pytest<9.0.0; 0.8.0 supports pytest 9.x
 playwright==1.52.0
