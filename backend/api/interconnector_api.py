@@ -572,9 +572,15 @@ def _list_output_files(sub_path: Optional[str], limit: int = 200, offset: int = 
     if not base.exists():
         return results
 
+    from backend.services.document_path_resolver import private_output_folder
+
     try:
         for idx, path in enumerate(base.rglob("*")):
             if not path.is_file():
+                continue
+            # Consent records and exported chats are not listed either: their
+            # names carry file hashes and chat ids.
+            if private_output_folder(path) is not None:
                 continue
             if idx < offset:
                 continue
@@ -2747,6 +2753,11 @@ def fetch_output_content():
             return validation_error_response("Invalid path")
 
         if not target_path.exists() or not target_path.is_file():
+            return not_found_response(f"Output file not found: {rel_path}")
+        # Consent records and exported chats stay on this machine; answered as
+        # not found, the same as a file that is not there.
+        from backend.services.document_path_resolver import private_output_folder
+        if private_output_folder(target_path) is not None:
             return not_found_response(f"Output file not found: {rel_path}")
 
         mime_type, _ = mimetypes.guess_type(str(target_path))
