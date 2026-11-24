@@ -426,19 +426,30 @@ async def _await_result(task: asyncio.Future, name: str, timeout: float, read_on
         rec["error_code"] = "tool_failed"
 
     payload = getattr(tool_result, "output", tool_result)
+    meta = None
     if not success:
         # A failed ToolResult carries its reason in ``error``; lead with it, then
         # any output the tool attached, so the client always sees why.
         error = getattr(tool_result, "error", None)
+        meta = _failure_meta(tool_result)
         if payload in (None, ""):
             payload = error or "Tool failed without a message."
         elif error and error != payload:
             blocks = [mcp_types.TextContent(type="text", text=str(error))] + _content_blocks_from_result(payload)
             rec["bytes_out"] = sum(len(getattr(b, "text", "")) for b in blocks)
-            return mcp_types.CallToolResult(content=blocks, is_error=True)
+            return mcp_types.CallToolResult(content=blocks, is_error=True, meta=meta)
     blocks = _content_blocks_from_result(payload) + (_image_blocks(tool_result) if success else [])
     rec["bytes_out"] = sum(len(getattr(b, "text", "") or getattr(b, "data", "")) for b in blocks)
-    return mcp_types.CallToolResult(content=blocks, is_error=not success)
+    return mcp_types.CallToolResult(content=blocks, is_error=not success, meta=meta)
+
+
+def _failure_meta(tool_result: Any) -> dict[str, Any] | None:
+    """``_meta`` for a failed call: the failure's kind (job_types.RenderErrorKind
+    value) when the tool named one, so a client can branch on it without
+    parsing the text."""
+    meta = getattr(tool_result, "metadata", None)
+    kind = meta.get("error_kind") if isinstance(meta, dict) else None
+    return {"error_kind": str(kind)} if kind else None
 
 
 def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:

@@ -124,3 +124,21 @@ def resolve_chat_model(preferred: str, *, installed: Optional[Iterable[str]] = N
         return _log(gemmas[0], "installed gemma")
 
     return _log(sorted(tags)[0], "first installed chat model")
+
+
+def active_chat_model(app=None, *, installed: Optional[Iterable[str]] = None) -> str:
+    """The installed model chat answers with, for background work that talks
+    to the same model (recipe induction, the lesson distiller).
+
+    Starts from the chat LLM the app loaded, else the saved choice, else
+    config.get_default_llm, and resolves it against what Ollama has, so a
+    saved name that was never pulled gives way to an installed model.
+    """
+    preferred = None
+    if app is not None:
+        preferred = getattr(app.config.get("LLAMA_INDEX_LLM"), "model", None)
+    preferred = preferred or _saved_active_model()
+    if not preferred:
+        from backend.config import get_default_llm
+        preferred = get_default_llm()
+    return resolve_chat_model(preferred, installed=installed)

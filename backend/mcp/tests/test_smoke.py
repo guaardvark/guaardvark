@@ -414,3 +414,18 @@ async def test_failed_tool_result_carries_its_error_text(monkeypatch):
     result = await on_call(None, _call_params("fake_echo", {}))
     assert result.is_error
     assert result.content[0].text == "GPU busy: try again"
+
+
+@pytest.mark.asyncio
+async def test_tools_call_failure_carries_its_error_kind(monkeypatch):
+    from backend.services.agent_tools import ToolResult
+
+    _on_list, on_call = _build_fake_tool_handlers(
+        monkeypatch, lambda **kw: ToolResult(
+            success=False, error="Model not installed: none on disk.",
+            metadata={"error_kind": "model_not_installed"}))
+    result = await on_call(None, _call_params("fake_echo", {}))
+
+    assert result.is_error
+    assert result.content[0].text == "Model not installed: none on disk."
+    assert (result.meta or {}).get("error_kind") == "model_not_installed"
