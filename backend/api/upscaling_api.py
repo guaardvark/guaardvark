@@ -359,8 +359,9 @@ def preview_upscale():
 
 def _get_upload_dir() -> Path:
     """Get the upload staging directory for upscaling."""
-    project_root = Path(__file__).resolve().parent.parent.parent
-    upload_dir = project_root / "data" / "outputs" / "upscaling"
+    from backend import config
+
+    upload_dir = Path(config.OUTPUT_DIR) / "upscaling"
     upload_dir.mkdir(parents=True, exist_ok=True)
     return upload_dir
 

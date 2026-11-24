@@ -1121,6 +1121,13 @@ def _download_ggml_model_direct(model_name, model_path):
             f"({size} bytes) — aborting")
     os.replace(tmp_path, model_path)
 
+def _narrations_dir() -> str:
+    """Folder narration audio is written to and served from, under the configured output root."""
+    from backend import config
+
+    return os.path.join(config.OUTPUT_DIR, "narrations")
+
+
 def get_backend_path():
     """Get the absolute path to the backend directory."""
     return os.path.dirname(os.path.abspath(__file__)).replace('/api', '')
@@ -1384,9 +1391,7 @@ def text_to_speech():
         # Conversational TTS: try Audio Foundry (Kokoro — natural, fast) FIRST,
         # then fall through to Piper (CPU-floor) on miss/timeout. Mirrors the
         # /narrate expressive route so no-plugin installs still speak.
-        backend_path = get_backend_path()
-        guaardvark_root = os.environ.get("GUAARDVARK_ROOT", os.path.dirname(backend_path))
-        narrations_dir = os.path.join(guaardvark_root, "data", "outputs", "narrations")
+        narrations_dir = _narrations_dir()
         os.makedirs(narrations_dir, exist_ok=True)
 
         # The voice setting names Piper voices; Kokoro speaks one only when it
@@ -1670,9 +1675,8 @@ def narrate():
             output_format = "wav"
 
         # Ensure narrations output directory exists — both engines write here.
+        narrations_dir = _narrations_dir()
         backend_path = get_backend_path()
-        guaardvark_root = os.environ.get("GUAARDVARK_ROOT", os.path.dirname(backend_path))
-        narrations_dir = os.path.join(guaardvark_root, "data", "outputs", "narrations")
         os.makedirs(narrations_dir, exist_ok=True)
 
         # Expressive route: try audio_foundry first, fall through to Piper on miss.
@@ -1861,11 +1865,9 @@ def get_audio_file(filename):
         if '/' in filename or '\\' in filename or '..' in filename:
             return jsonify({"error": "Invalid filename"}), 400
 
-        # Narration files are stored persistently in data/outputs/narrations/
+        # Narration files are stored persistently under the output root.
         if starts_with_narration:
-            backend_path = get_backend_path()
-            guaardvark_root = os.environ.get("GUAARDVARK_ROOT", os.path.dirname(backend_path))
-            search_dir = os.path.join(guaardvark_root, "data", "outputs", "narrations")
+            search_dir = _narrations_dir()
         else:
             search_dir = current_app.config.get("TEMP_DIR", tempfile.gettempdir())
 
