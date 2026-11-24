@@ -285,7 +285,9 @@ def default_base_url() -> str:
         url = meta.config.service_url if meta else None
     except Exception:
         url = None
-    return (url or "http://127.0.0.1:8188").rstrip("/")
+    if not url:
+        from backend.config import COMFYUI_URL as url
+    return url.rstrip("/")
 
 
 def default_log_path() -> Path:

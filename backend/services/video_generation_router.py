@@ -13,14 +13,15 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+from backend.config import COMFYUI_URL
+
 try:
     from backend.config import (
-        COMFYUI_URL, COMFYUI_DIR, COMFYUI_VENV,
+        COMFYUI_DIR, COMFYUI_VENV,
         VIDEO_GENERATION_BACKEND, COMFYUI_IDLE_TIMEOUT,
         LOG_DIR, GUAARDVARK_ROOT,
     )
 except ImportError:
-    COMFYUI_URL = os.environ.get("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188")
     COMFYUI_DIR = os.environ.get("GUAARDVARK_COMFYUI_DIR", os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "plugins", "comfyui", "ComfyUI"))
     COMFYUI_VENV = os.environ.get("GUAARDVARK_COMFYUI_VENV", os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "backend", "venv"))
     VIDEO_GENERATION_BACKEND = os.environ.get("GUAARDVARK_VIDEO_BACKEND", "auto")

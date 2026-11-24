@@ -24,7 +24,6 @@ same point it requests VRAM.
 from __future__ import annotations
 
 import logging
-import os
 import re
 import threading
 import time
@@ -205,10 +204,7 @@ def _is_comfyui_url(url: str) -> bool:
     """True when ``url`` is on ComfyUI's port (config.COMFYUI_URL). The host is
     not compared: localhost and 127.0.0.1 both name this machine."""
     from urllib.parse import urlsplit
-    try:
-        from backend.config import COMFYUI_URL
-    except Exception:  # noqa: BLE001 - config needs the full backend environment
-        COMFYUI_URL = os.environ.get("GUAARDVARK_COMFYUI_URL") or "http://127.0.0.1:8188"
+    from backend.config import COMFYUI_URL
     try:
         return urlsplit(url).port == urlsplit(COMFYUI_URL).port
     except ValueError:

@@ -31,11 +31,7 @@ from backend.services.job_types import RenderErrorKind as K, RenderFailure
 
 logger = logging.getLogger(__name__)
 
-try:
-    from backend.config import COMFYUI_URL
-    _COMFY_URL = COMFYUI_URL
-except Exception:  # pragma: no cover - config import is environment-specific
-    _COMFY_URL = os.environ.get("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188")
+from backend.config import COMFYUI_URL as _COMFY_URL
 
 # DiffusersLoader reads from ComfyUI/models/diffusers/<this>. Set up as a symlink
 # to the diffusers-format SDXL base by the LoRA-consistency wiring.

@@ -21,8 +21,10 @@ logger = logging.getLogger(__name__)
 
 from backend.services.user_video_models import resolve_text_encoder
 
+from backend.config import COMFYUI_URL
+
 try:
-    from backend.config import CACHE_DIR, COMFYUI_URL, COMFYUI_OUTPUT_DIR, COMFYUI_DIR
+    from backend.config import CACHE_DIR, COMFYUI_OUTPUT_DIR, COMFYUI_DIR
     config_available = True
 except ImportError:
     config_available = False
@@ -364,7 +366,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     def __init__(self):
         project_root = Path(__file__).parent.parent.parent
 
-        self.comfy_url = COMFYUI_URL if config_available else os.environ.get("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188")
+        self.comfy_url = COMFYUI_URL
 
         self.templates_dir = project_root / "data" / "templates"
         self.templates_dir.mkdir(parents=True, exist_ok=True)
@@ -2004,7 +2006,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         if not self.service_available:
             return VideoGenerationResult(
                 success=False,
-                error="ComfyUI service not available. Please start ComfyUI at http://127.0.0.1:8188",
+                error=f"ComfyUI service not available. Please start ComfyUI at {self.comfy_url}",
                 error_kind=RenderErrorKind.COMFYUI_DOWN.value,
                 prompt_used=request.prompt,
             )

@@ -102,7 +102,12 @@ def _probe_live_cpu_percent() -> int:
 
 def _probe_services_running() -> dict:
     import shutil
-    candidates = {"ollama": 11434, "comfyui": 8188, "whisper": None, "piper": None,
+    from urllib.parse import urlsplit
+
+    from backend.config import COMFYUI_URL
+    comfy = urlsplit(COMFYUI_URL)
+    comfy_port = comfy.port or (443 if comfy.scheme == "https" else 80)
+    candidates = {"ollama": 11434, "comfyui": comfy_port, "whisper": None, "piper": None,
                   "celery": None, "postgres": 5432, "redis": 6379}
     out = {}
     for name, port in candidates.items():
