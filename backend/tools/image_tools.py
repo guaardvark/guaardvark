@@ -1999,6 +1999,10 @@ class VideoGeneratorTool(BaseTool):
                 style: Optional[str] = None, reference_clips=None, **kwargs) -> ToolResult:
         import time as _time
 
+        # The wait counts model preflight and queueing too, so the answer beats the
+        # caller's read timeout (MAX_WAIT_S + 60) even after a ComfyUI cold start.
+        started = _time.monotonic()
+
         prompt = (prompt or "").strip()
         if not prompt:
             return ToolResult(success=False, error="Empty video prompt")
@@ -2125,7 +2129,7 @@ class VideoGeneratorTool(BaseTool):
                     },
                 )
 
-            deadline = _time.monotonic() + self.MAX_WAIT_S
+            deadline = started + self.MAX_WAIT_S
             while _time.monotonic() < deadline:
                 _time.sleep(self.POLL_INTERVAL_S)
                 status = generator.get_batch_status(batch_id)

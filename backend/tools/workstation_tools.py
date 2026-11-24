@@ -115,7 +115,7 @@ def _safe_root(root_arg: Optional[str]) -> Path:
     try:
         rel = candidate.relative_to(base)
     except ValueError as exc:
-        raise ValueError(f"root must be inside the Guaardvark tree ({base})") from exc
+        raise ValueError("root must be inside Guaardvark's checkout") from exc
     # The mapper skips these folders at any depth below the checkout, so a root
     # inside one (data/uploads, logs, a venv) is refused rather than mapped.
     from backend.services.system_mapper.core import DEFAULT_EXCLUDE_DIRS
@@ -125,8 +125,14 @@ def _safe_root(root_arg: Optional[str]) -> Path:
             f"root is inside '{skipped}', a folder the System Mapper always skips. "
             "For an uploaded Code Repository use get_repository_map or get_dependency_graph."
         )
+    # Same answer whether a git-ignored folder exists or not.
+    if rel.parts:
+        from backend.services.guarded_code_service import private_path_reason
+        reason = private_path_reason(rel.as_posix(), base)
+        if reason:
+            raise ValueError(reason)
     if not candidate.is_dir():
-        raise ValueError(f"Not a directory: {candidate}")
+        raise ValueError(f"Not a directory: {_root_label(candidate)}")
     return candidate
 
 
@@ -341,7 +347,7 @@ class MapCodebaseTool(BaseTool):
         ),
         "root": ToolParameter(
             name="root", type="string", required=False, default="",
-            description="Folder inside the Guaardvark checkout to map instead of all of it, absolute or relative to the checkout (e.g. 'backend/api'); paths outside are refused. Folders named data, logs, backups, outputs, build, dist, env, venv, node_modules, migrations, plans, audit, voice or ComfyUI, among others, are always skipped, and a root inside one is refused. In a git checkout only files git tracks, or has not been told to ignore, are mapped, so a git-ignored folder maps as empty.",
+            description="Folder inside the Guaardvark checkout to map instead of all of it, absolute or relative to the checkout (e.g. 'backend/api'); paths outside are refused. Folders named data, logs, backups, outputs, build, dist, env, venv, node_modules, migrations, plans, audit, voice or ComfyUI, among others, are always skipped, and a root inside one is refused. In a git checkout only files git tracks, or has not been told to ignore, are mapped; a git-ignored folder is refused as a root.",
         ),
         "limit": ToolParameter(
             name="limit", type="int", required=False, default=15, minimum=1, maximum=40,
@@ -381,7 +387,8 @@ class MapCodebaseTool(BaseTool):
             return ToolResult(success=True, output=text, metadata=meta)
         except Exception as e:
             logger.exception("map_codebase failed")
-            return ToolResult(success=False, error=str(e))
+            from backend.utils.display_paths import display_text
+            return ToolResult(success=False, error=display_text(str(e)))
 
 
 def _query_inputs(root: Path, wait_seconds: float) -> Tuple[Optional[dict], Optional[dict], Optional[str]]:
@@ -470,7 +477,8 @@ class SystemMapQueryTool(BaseTool):
             return ToolResult(success=True, output=text, metadata={"mode": mode, "q": q})
         except Exception as e:
             logger.exception("system_map_query failed")
-            return ToolResult(success=False, error=str(e))
+            from backend.utils.display_paths import display_text
+            return ToolResult(success=False, error=display_text(str(e)))
 
 
 def _plan_instead(tool, kwargs, objective: str) -> Optional[ToolResult]:
@@ -555,7 +563,8 @@ class DispatchMapFindingTool(BaseTool):
             return ToolResult(success=bool(result.get("success")), output=result, error=result.get("reason"))
         except Exception as e:
             logger.exception("dispatch_map_finding failed")
-            return ToolResult(success=False, error=str(e))
+            from backend.utils.display_paths import display_text
+            return ToolResult(success=False, error=display_text(str(e)))
 
 
 class InspectGpuTool(BaseTool):

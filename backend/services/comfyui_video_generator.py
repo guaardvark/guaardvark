@@ -75,6 +75,26 @@ VRAM_WAIT_DEFAULT_S = 600.0
 DEAD_PROBE_LIMIT = 30
 
 
+# Connect, then the longest silence allowed while ComfyUI sends a result file.
+VIEW_DOWNLOAD_TIMEOUT = (5, 300)
+
+
+def download_comfyui_view(view_url: str, params: dict, destination) -> None:
+    """Save one file from ComfyUI's /view to ``destination``. Raises on an HTTP
+    error or a stalled transfer; a partial file is never left at ``destination``."""
+    destination = Path(destination)
+    part = destination.with_name(destination.name + ".part")
+    with requests.get(view_url, params=params, stream=True, timeout=VIEW_DOWNLOAD_TIMEOUT) as resp:
+        resp.raise_for_status()
+        try:
+            with open(part, "wb") as fh:
+                for chunk in resp.iter_content(chunk_size=1 << 20):
+                    fh.write(chunk)
+            os.replace(part, destination)
+        finally:
+            part.unlink(missing_ok=True)
+
+
 def _looks_like_blank_video(video_path) -> Optional[str]:
     """Zero-placebo guard for the ComfyUI/Wan path (issue #36 Phase 3).
 
@@ -317,8 +337,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     # Prompt ids this process has queued, newest last. Class-level because
     # generate and cancel do not always hold the same generator: the batch
     # runner uses the module singleton, the router keeps its own instance and
-    # replaces it on every get_active_generator(). Bounded, and a stale id
-    # costs nothing — ComfyUI matches it against what is actually running.
+    # replaces it on every get_active_generator(). Bounded. Every waiter forgets
+    # its id: while any is listed, interrupt() skips the unscoped fallback.
     _queued_prompts: deque = deque(maxlen=16)
     _queued_prompts_lock = threading.Lock()
 
@@ -1933,14 +1953,11 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             if subfolder:
                 params["subfolder"] = subfolder
 
-            query = urllib.parse.urlencode(params)
-            url = f"{self.comfy_url}/view?{query}"
-
             destination_path = destination_dir / filename
             destination_path.parent.mkdir(parents=True, exist_ok=True)
 
-            logger.info(f"Downloading from ComfyUI: {url}")
-            urllib.request.urlretrieve(url, destination_path)
+            logger.info(f"Downloading from ComfyUI: {self.comfy_url}/view?{urllib.parse.urlencode(params)}")
+            download_comfyui_view(f"{self.comfy_url}/view", params, destination_path)
 
             return [str(destination_path)]
 
@@ -2763,10 +2780,12 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 f"soft_timeout: {gen_timeout}s, hard_ceiling: {hard_ceiling}s, "
                 f"steps: {steps}, upscale: {has_upscale}, high_res: {is_high_res}, fpb={fpb})..."
             )
-            outputs = self._wait_for_completion(
-                prompt_id, timeout=gen_timeout, hard_ceiling_s=hard_ceiling
-            )
-            self._forget_prompt(prompt_id)
+            try:
+                outputs = self._wait_for_completion(
+                    prompt_id, timeout=gen_timeout, hard_ceiling_s=hard_ceiling
+                )
+            finally:
+                self._forget_prompt(prompt_id)
             # The /history poll decides the outcome; the bridge closes its job with it.
             progress_bridge.finish(bool(outputs))
 

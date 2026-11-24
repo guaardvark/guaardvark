@@ -85,6 +85,11 @@ def _registry_names(system_map: dict | Any) -> set[str]:
         if fn:
             names.add(str(fn))
             names.add(f"route:{fn}")
+    # Celery tasks the dispatch graph found registered.
+    for t in (system_map or {}).get("celery_tasks") or []:
+        if isinstance(t, dict) and t.get("name"):
+            names.add(str(t["name"]))
+            names.add(f"task:{t['name']}")
     return names
 
 

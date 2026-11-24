@@ -1480,6 +1480,12 @@ class AgentBrain:
             except Exception:
                 pass
 
+            # Stop already told the chat the turn ended; a late reply would land
+            # after the person's next message.
+            if is_aborted(session_id):
+                return {"success": False, "error": "Stopped.", "aborted": True,
+                        "iterations": result.iterations, "tier": 3}
+
             self._emit_response(
                 emit_fn, session_id, response_text, request_id or "",
                 complete_extra={"verified": verified} if verified is not None else None,
