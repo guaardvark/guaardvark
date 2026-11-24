@@ -16,6 +16,7 @@ VOICE_CHECK=1
 VOICE_AVAILABLE=1
 PARALLEL_CHECKS=0
 FORCE_PORTS=1
+FORCE_PORTS_TYPED=0
 BUILD_CHECK=1
 AUTO_BUILD_FRONTEND=1
 LAUNCH_BROWSER=0
@@ -73,7 +74,7 @@ for arg in "$@"; do
     --profile) EXPECT_PROFILE=1 ;;
     --profile=*) REQUESTED_PROFILE="${arg#--profile=}" ;;
     --parallel) PARALLEL_CHECKS=1 ;;
-    --force-ports) FORCE_PORTS=1 ;;
+    --force-ports) FORCE_PORTS=1; FORCE_PORTS_TYPED=1 ;;
     --no-force-ports) FORCE_PORTS=0 ;;
     --no-build-check) BUILD_CHECK=0 ;;
     --build-frontend) AUTO_BUILD_FRONTEND=1 ;;
@@ -120,6 +121,8 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # foreign pidfile is not a live overlap — take it over.
 START_PID_FILE="$SCRIPT_DIR/.start_cache/start.sh.pid"
 mkdir -p "$SCRIPT_DIR/.start_cache"
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$SCRIPT_DIR/scripts/lib/proc_owner.sh"
 # shellcheck source=scripts/lib/start_lock.sh
 . "$SCRIPT_DIR/scripts/lib/start_lock.sh"
 . "$SCRIPT_DIR/scripts/lib/venv_pins.sh"
@@ -390,15 +393,12 @@ FLASK_PROCESS_PATTERN="python.*backend[./]app|flask run"
 # empty if it can't be determined. Every "is this process from THIS checkout?" guard funnels
 # through here — without the lsof fallback, the cwd check silently returned empty on macOS and
 # our own stale frontend/backend/celery were never reaped (issue #41: zombie vite on :4173).
-_proc_cwd() {
-    local pid="$1" cwd=""
-    if [ -e "/proc/$pid/cwd" ]; then
-        cwd=$(readlink -f "/proc/$pid/cwd" 2>/dev/null)
-    elif command -v lsof >/dev/null 2>&1; then
-        cwd=$(lsof -a -d cwd -p "$pid" -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)
-    fi
-    printf '%s' "$cwd"
-}
+_proc_cwd() { proc_cwd "$1"; }
+
+# True when PID runs from this checkout and not from another install, a worktree
+# nested inside this one included (scripts/lib/proc_owner.sh). "cwd" judges by the
+# working directory alone, for sweeps that match on a command-line pattern.
+_ours() { proc_in_install "$1" "$SCRIPT_DIR" "${2:-}"; }
 
 FLASK_DEBUG_FLAG=""
 if [[ " $* " == *" --debug "* ]]; then
@@ -712,8 +712,7 @@ kill_process() {
         local port_pids=$(lsof -i TCP:"$port" -sTCP:LISTEN -t 2>/dev/null)
         if [ -n "$port_pids" ]; then
             for pid in $port_pids; do
-                local proc_cwd=$(_proc_cwd "$pid")
-                if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
+                if _ours "$pid"; then
                     kill -15 "$pid" 2>/dev/null
                     sleep 1
                     if kill -0 "$pid" 2>/dev/null; then
@@ -726,21 +725,15 @@ kill_process() {
     fi
 
     if [ "$confirmed_stopped" -eq 0 ]; then
-        if [ -f "$SCRIPT_DIR/pids/backend.pid" ] && [ "$name" = "Flask backend" ]; then
-            local saved_pid=$(cat "$SCRIPT_DIR/pids/backend.pid" 2>/dev/null)
-            if [ -n "$saved_pid" ] && kill -0 "$saved_pid" 2>/dev/null; then
-                kill -15 "$saved_pid" 2>/dev/null
-                sleep 2
-                if kill -0 "$saved_pid" 2>/dev/null; then
-                    kill -9 "$saved_pid" 2>/dev/null
-                fi
-                confirmed_stopped=1
-            fi
-        fi
-
-        if [ -f "$SCRIPT_DIR/pids/frontend.pid" ] && [ "$name" = "Vite frontend" ]; then
-            local saved_pid=$(cat "$SCRIPT_DIR/pids/frontend.pid" 2>/dev/null)
-            if [ -n "$saved_pid" ] && kill -0 "$saved_pid" 2>/dev/null; then
+        local pid_file=""
+        case "$name" in
+            "Flask backend") pid_file="$SCRIPT_DIR/pids/backend.pid" ;;
+            "Vite frontend") pid_file="$SCRIPT_DIR/pids/frontend.pid" ;;
+        esac
+        if [ -n "$pid_file" ] && [ -f "$pid_file" ]; then
+            local saved_pid=$(cat "$pid_file" 2>/dev/null)
+            # A pid file outlives a crash or reboot; its number may now be someone else's.
+            if [ -n "$saved_pid" ] && kill -0 "$saved_pid" 2>/dev/null && _ours "$saved_pid"; then
                 kill -15 "$saved_pid" 2>/dev/null
                 sleep 2
                 if kill -0 "$saved_pid" 2>/dev/null; then
@@ -756,8 +749,7 @@ kill_process() {
         if [ -n "$pid_list" ]; then
             local env_pids=""
             for pid in $pid_list; do
-                local proc_cwd=$(_proc_cwd "$pid")
-                if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
+                if _ours "$pid" cwd; then
                     env_pids="$env_pids $pid"
                 fi
             done
@@ -807,30 +799,48 @@ start_service() {
     fi
 }
 
-port_owned_elsewhere() {
-    local port=$1
-    local owner_cwd=""
-    local owner_pid=""
+# One line per listener on $1 that is not this checkout's: "pid|install|cwd", where
+# install is the other Guaardvark install's root, or empty for any other program.
+port_foreign_listeners() {
+    local pid
+    for pid in $(port_listener_pids "$1"); do
+        _ours "$pid" && continue
+        printf '%s|%s|%s\n' "$pid" "$(proc_install_root "$pid")" "$(_proc_cwd "$pid")"
+    done
+}
 
-    if command_exists lsof; then
-        owner_pid=$(lsof -i TCP:"$port" -sTCP:LISTEN -t 2>/dev/null | head -1)
-        if [ -n "$owner_pid" ]; then
-            owner_cwd=$(_proc_cwd "$owner_pid")
-        fi
-    elif command_exists ss; then
-        owner_pid=$(ss -tlpn 2>/dev/null | awk -v p=":$port" '$4 ~ p {print $NF}' | sed 's/users://;s/"//g' | cut -d',' -f2 | cut -d'=' -f2 | head -1)
-        if [ -n "$owner_pid" ]; then
-            owner_cwd=$(_proc_cwd "$owner_pid")
-        fi
-    fi
-
-    if [ -n "$owner_pid" ] && [ -n "$owner_cwd" ]; then
-        case "$owner_cwd" in
-            "$GUAARDVARK_ROOT"|"$GUAARDVARK_ROOT"/*) return 1 ;;
-            *) echo "$owner_pid|$owner_cwd"; return 0 ;;
-        esac
-    fi
-    return 1
+# Free the given ports of listeners that are not this checkout's, or refuse (return 1).
+# Another Guaardvark install is never stopped unless --force-ports was typed; any other
+# program is stopped under FORCE_PORTS (the default) as before.
+free_ports_or_refuse() {
+    local port pid root cwd
+    for port in "$@"; do
+        while IFS='|' read -r pid root cwd; do
+            [ -n "$pid" ] || continue
+            if [ -n "$root" ]; then
+                if [ "${FORCE_PORTS_TYPED:-0}" = 1 ]; then
+                    vader_warn "Port $port is held by the Guaardvark install at $root (PID $pid). Stopping it, as --force-ports asks."
+                else
+                    vader_error "Port $port is held by another Guaardvark install at $root (PID $pid). Leaving it running."
+                    vader_info "Stop that install with $root/stop.sh, or give this one other ports (FLASK_PORT and VITE_PORT in $SCRIPT_DIR/.env)."
+                    return 1
+                fi
+            elif [ -z "$cwd" ]; then
+                continue
+            elif [ "${FORCE_PORTS:-0}" -eq 1 ]; then
+                vader_warn "Port $port is in use by PID $pid from '$cwd' (outside $GUAARDVARK_ROOT). Forcing stop."
+            else
+                vader_error "Port $port is in use by PID $pid from '$cwd' (outside $GUAARDVARK_ROOT). Stop that process or rerun with --force-ports."
+                return 1
+            fi
+            kill -15 "$pid" 2>/dev/null
+            sleep 1
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -9 "$pid" 2>/dev/null
+            fi
+        done < <(port_foreign_listeners "$port")
+    done
+    return 0
 }
 
 check_frontend_build() {
@@ -975,11 +985,8 @@ repo_listener_pids() {
     [ -z "$pids" ] && return 0
     local out="" matched=0
     for pid in $pids; do
-        local proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ]; then
-            if { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
-                out="$out $pid"; matched=1
-            fi
+        if _ours "$pid" cwd; then
+            out="$out $pid"; matched=1
         fi
     done
     # No /proc available anywhere (couldn't verify any cwd) -> trust the raw listeners.
@@ -1781,24 +1788,7 @@ fi
 echo "--- Log Start: $(date) ---" > "$BACKEND_STARTUP_LOG_FILE"
 echo "--- Log Start: $(date) ---" > "$FRONTEND_LOG_FILE"
 
-for port_check in "$FLASK_PORT" "$VITE_PORT"; do
-  conflict=$(port_owned_elsewhere "$port_check")
-  if [ -n "$conflict" ]; then
-    conflict_pid="${conflict%%|*}"
-    conflict_cwd="${conflict#*|}"
-    if [ "${FORCE_PORTS:-0}" -eq 1 ]; then
-      vader_warn "Port $port_check is in use by PID $conflict_pid from '$conflict_cwd' (outside $GUAARDVARK_ROOT). Forcing stop."
-      kill -15 "$conflict_pid" 2>/dev/null
-      sleep 1
-      if kill -0 "$conflict_pid" 2>/dev/null; then
-        kill -9 "$conflict_pid" 2>/dev/null
-      fi
-    else
-      vader_error "Port $port_check is in use by PID $conflict_pid from '$conflict_cwd' (outside $GUAARDVARK_ROOT). Stop that process or rerun with --force-ports."
-      exit 1
-    fi
-  fi
-done
+free_ports_or_refuse "$FLASK_PORT" "$VITE_PORT" || exit 1
 
 vader_step 1 "Stopping previous application servers..."
 if [ -f "$SCRIPT_DIR/stop.sh" ]; then
@@ -1818,8 +1808,7 @@ wait "$_kp_flask" "$_kp_vite"
 if [ -f "$SCRIPT_DIR/pids/celery.pid" ]; then
     celery_pid=$(cat "$SCRIPT_DIR/pids/celery.pid" 2>/dev/null)
     if [ -n "$celery_pid" ] && kill -0 "$celery_pid" 2>/dev/null; then
-        proc_cwd=$(_proc_cwd "$celery_pid")
-        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
+        if _ours "$celery_pid"; then
             kill -15 "$celery_pid" 2>/dev/null
             sleep 2
             if kill -0 "$celery_pid" 2>/dev/null; then
@@ -1834,8 +1823,7 @@ fi
 celery_pids=$(pgrep -f "celery.*(worker|beat)" 2>/dev/null)
 if [ -n "$celery_pids" ]; then
     for pid in $celery_pids; do
-        proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
+        if _ours "$pid" cwd; then
             kill -15 "$pid" 2>/dev/null
             sleep 1
             if kill -0 "$pid" 2>/dev/null; then
@@ -2403,8 +2391,13 @@ elif [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ "$OLLAMA_ENABLED" != "False" ]; then
         # Listeners only: a backend with an open client connection to Ollama
         # also shows up on this port — the other install's, when two share a
         # box — and that is not the process to kill.
+        # Nor is one another Guaardvark install started: that install stops its own.
         OLLAMA_ZOMBIE_PID=$(lsof -ti TCP:11434 -sTCP:LISTEN 2>/dev/null | head -1)
-        if [ -n "$OLLAMA_ZOMBIE_PID" ]; then
+        _zombie_root=""
+        [ -n "$OLLAMA_ZOMBIE_PID" ] && _zombie_root=$(proc_install_root "$OLLAMA_ZOMBIE_PID")
+        if [ -n "$_zombie_root" ] && ! _ours "$OLLAMA_ZOMBIE_PID"; then
+            vader_warn "Port 11434 is held by an unresponsive Ollama from the install at $_zombie_root (PID: $OLLAMA_ZOMBIE_PID); leaving it to that install."
+        elif [ -n "$OLLAMA_ZOMBIE_PID" ]; then
             vader_info "Killing unresponsive process on port 11434 (PID: $OLLAMA_ZOMBIE_PID)..."
             kill -9 "$OLLAMA_ZOMBIE_PID" 2>/dev/null
             sleep 2
@@ -3125,8 +3118,7 @@ if [ -f "$SCRIPT_DIR/start_celery.sh" ]; then
     CELERY_PID=""
     for _pid in $(pgrep -f "celery -A backend.celery_app.celery worker" 2>/dev/null); do
         ps -p "$_pid" -o args= 2>/dev/null | grep -q -- "--queues=research" && continue
-        _cwd=$(_proc_cwd "$_pid")
-        case "$_cwd" in "$SCRIPT_DIR"|"$SCRIPT_DIR"/*) CELERY_PID="$_pid"; break ;; esac
+        _ours "$_pid" cwd && { CELERY_PID="$_pid"; break; }
     done
     if [ -n "$CELERY_PID" ]; then
         echo "$CELERY_PID" > "$SCRIPT_DIR/pids/celery.pid"

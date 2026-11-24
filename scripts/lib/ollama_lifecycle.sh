@@ -3,12 +3,13 @@
 #
 #   . scripts/lib/ollama_lifecycle.sh
 #   mode=$(ollama_stop_mode "$STOP_ALL" "$KEEP_OLLAMA")   # keep | owned | all
-#   stop_ollama "$mode" "$PIDS_DIR/ollama.pid"           # sets $ollama_killed
+#   stop_ollama "$mode" "$PIDS_DIR/ollama.pid" "$ROOT"   # sets $ollama_killed
 #
 # Modes:
 #   keep   touch nothing (--keep-ollama, or GUAARDVARK_OLLAMA_KEEP_RUNNING=1 in the environment;
 #          1/true/yes/on all count, see ollama_flag_on)
-#   owned  stop only the instance start.sh launched, named by the PID file (the default)
+#   owned  stop only the instance start.sh launched, named by the PID file (the default);
+#          given ROOT, only while that PID still runs from the install at ROOT
 #   all    also stop user-owned `ollama serve` processes, the systemd service and any
 #          unresponsive holder of port 11434 (--all)
 #
@@ -56,7 +57,7 @@ _ollama_kill() {
 }
 
 stop_ollama() {
-    local mode="$1" pid_file="$2"
+    local mode="$1" pid_file="$2" root="${3:-}"
     ollama_killed=0
 
     if [ "$mode" = keep ]; then
@@ -64,11 +65,14 @@ stop_ollama() {
         return 0
     fi
 
-    # 1. The instance start.sh launched, by PID file. Always ours to stop.
+    # 1. The instance start.sh launched, by PID file.
     if [ -f "$pid_file" ]; then
         local pid
         pid=$(cat "$pid_file" 2>/dev/null)
-        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && [ -n "$root" ] \
+           && command -v proc_in_install >/dev/null 2>&1 && ! proc_in_install "$pid" "$root"; then
+            ollama_log "PID $pid from the Ollama pid file is not this install's process; leaving it running."
+        elif [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
             ollama_log "Stopping Ollama started by start.sh (PID: $pid)..."
             _ollama_kill "$pid" && ollama_killed=$((ollama_killed + 1))
         fi
