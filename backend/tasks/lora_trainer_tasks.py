@@ -40,6 +40,11 @@ LORA_SAVED_FOR_JOB_KEY = "lora_saved_for_job"
 # after its save lost its worker.
 LORA_SMOKE_REAP_AFTER_S = 2 * LORA_LOAD_TIMEOUT_S + 30 * 60
 LORA_SAVED_NOTE = "Training finished and the LoRA was saved (worker stopped during the test render). Ready to use."
+# training_settings_json key holding a note for the Cast page as a stable code
+# plus the LoRA it is about. The page shows it only while training_error is set
+# (every new run clears that) and that LoRA is still the member's default.
+TRAINING_NOTE_KEY = "training_note"
+NOTE_LORA_SAVED = "lora_saved_worker_stopped"
 
 
 def _output_dir() -> str:
@@ -387,6 +392,7 @@ def _promote_to_trained(subject_id: int, job_id: str | None = None) -> tuple[Sub
         if s.training_error == LORA_SAVED_NOTE:
             s.training_error = None
         _clear_saved_marker(s)
+        _set_training_note(s, None)
         db.session.commit()
         return s, None
     moved_to = _superseded_by(s, job_id)
@@ -394,6 +400,7 @@ def _promote_to_trained(subject_id: int, job_id: str | None = None) -> tuple[Sub
         return None, moved_to
     s.training_status = "trained"
     _clear_saved_marker(s)
+    _set_training_note(s, None)
     db.session.commit()
     return s, None
 
@@ -404,6 +411,17 @@ def _clear_saved_marker(s: Subject) -> None:
         cfg = dict(cfg)
         cfg.pop(LORA_SAVED_FOR_JOB_KEY)
         s.training_settings_json = cfg
+
+
+def _set_training_note(s: Subject, code: str | None) -> None:
+    cfg = dict(s.training_settings_json or {})
+    if code:
+        cfg[TRAINING_NOTE_KEY] = {"code": code, "lora_path": s.lora_path}
+    elif TRAINING_NOTE_KEY in cfg:
+        cfg.pop(TRAINING_NOTE_KEY)
+    else:
+        return
+    s.training_settings_json = cfg
 
 
 def _saved_lora_for_current_run(s: Subject) -> dict | None:
@@ -760,6 +778,7 @@ def _mark_saved_run_trained(s: Subject) -> None:
     s.training_status = "trained"
     s.training_error = LORA_SAVED_NOTE
     _clear_saved_marker(s)
+    _set_training_note(s, NOTE_LORA_SAVED)
     logger.warning(
         "reap_stuck_training: subject %s (%s) stuck in 'training' after its run saved %s — marked trained",
         s.id, s.name, s.lora_path,

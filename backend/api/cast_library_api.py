@@ -163,8 +163,6 @@ def _smoke_identity_for(s: Subject) -> dict | None:
 
     A killed or failed smoke render leaves the previous LoRA's record in place,
     and an import or a version switch changes the default without a render.
-    Records from before the LoRA path was stored fall back to file times: the
-    smoke still is written after the LoRA it tested.
     """
     rec = (getattr(s, "training_settings_json", None) or {}).get("smoke_identity")
     if not isinstance(rec, dict):
@@ -177,23 +175,49 @@ def _smoke_identity_for(s: Subject) -> dict | None:
     elif scored:
         rec["current"] = scored == default
     else:
-        try:
-            rec["current"] = os.path.getmtime(rec["path"]) >= os.path.getmtime(default)
-        except (KeyError, TypeError, OSError):
-            rec["current"] = False
+        # A record from before the LoRA path was stored. A saved-LoRA note means
+        # the default's own render never finished; otherwise go by file times.
+        rec["current"] = _training_note(s) is None and _legacy_smoke_scored(s, rec.get("path"))
     return rec
 
 
-def _training_note(s: Subject) -> str | None:
-    """A code for a note the Cast page shows on a 'trained' member, or None.
+def _legacy_smoke_scored(s: Subject, still: str | None) -> bool:
+    """Whether a record without a LoRA path can only have scored the default.
 
-    Only the reaper's saved-LoRA note qualifies; any other text left in
-    training_error belongs to an earlier failed run.
+    The still is written after the LoRA it tested, so the default must be the
+    member's newest LoRA file and no newer than the still. Anything else (an
+    older version made default, a missing file) cannot be told apart.
+    """
+    try:
+        default_mtime = os.path.getmtime(s.lora_path)
+        if os.path.getmtime(still) < default_mtime:
+            return False
+    except (TypeError, OSError):
+        return False
+    for row in getattr(s, "lora_versions", None) or []:
+        if row.lora_path == s.lora_path:
+            continue
+        try:
+            if os.path.getmtime(row.lora_path) > default_mtime:
+                return False
+        except (TypeError, OSError):
+            continue
+    return True
+
+
+def _training_note(s: Subject) -> str | None:
+    """The code of a note the Cast page shows on a 'trained' member, or None.
+
+    The note is about one LoRA: switching the default away hides it. An error
+    text with no note record belongs to an earlier failed run and is not shown.
     """
     if s.training_status != "trained" or not getattr(s, "training_error", None):
         return None
-    from backend.tasks.lora_trainer_tasks import LORA_SAVED_NOTE
-    return "lora_saved_worker_stopped" if s.training_error == LORA_SAVED_NOTE else None
+    from backend.tasks.lora_trainer_tasks import TRAINING_NOTE_KEY
+    note = (getattr(s, "training_settings_json", None) or {}).get(TRAINING_NOTE_KEY)
+    if not isinstance(note, dict) or not s.lora_path or note.get("lora_path") != s.lora_path:
+        return None
+    return note.get("code") or None
 
 
 def _identity_marks_for_captions(s: Subject) -> str:
