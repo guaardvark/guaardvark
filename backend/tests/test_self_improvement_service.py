@@ -409,3 +409,12 @@ class TestPendingFixDisplayPath:
             outside = PendingFix(file_path="/elsewhere/y.py", proposed_diff="", status="proposed")
             assert inside.to_dict()["file_path"] == "backend/x.py"
             assert outside.to_dict()["file_path"] == "/elsewhere/y.py"
+
+
+def test_test_counts_reads_pytests_closing_line():
+    from backend.services.self_improvement_service import SelfImprovementService
+
+    counts = SelfImprovementService._test_counts
+    assert counts("....\n12 passed, 4 deselected in 1.62s\n") == {"passed": 12, "deselected": 4}
+    assert counts("===== 3 failed, 9 passed, 2 warnings in 12.01s =====") == {"failed": 3, "passed": 9, "warnings": 2}
+    assert counts("collected nothing") == {}

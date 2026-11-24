@@ -272,6 +272,30 @@ def _in_turn_root(tool):
         yield
 
 
+def _outside_project_reason(tool, filepath: str) -> Optional[str]:
+    """With Settings → Agents → "Project folder only" on: why the code tools
+    will not touch ``filepath``, or None when it is inside the chat's project
+    folder, this install, the upload and data folders or
+    GUAARDVARK_ALLOWED_PATHS. Off, always None."""
+    from backend.utils.settings_utils import get_confine_tool_paths
+
+    if not filepath or not get_confine_tool_paths():
+        return None
+    from backend.tools.code_tools import _confine_candidates
+    from backend.utils.path_safety import is_within
+
+    turn_root = _turn_project_root(tool)
+    path = filepath
+    if not os.path.isabs(path):
+        path = os.path.join(turn_root or os.environ.get("GUAARDVARK_ROOT", "") or os.getcwd(), path)
+    path = os.path.realpath(path)
+    if turn_root and is_within(path, [turn_root]):
+        return None
+    if _confine_candidates([path]):
+        return None
+    return f"'{filepath}' is outside the project folder (Settings: Project folder only)"
+
+
 class ReadCodeTool(BaseTool):
     """Tool to read source code files"""
 
@@ -337,6 +361,10 @@ class ReadCodeTool(BaseTool):
             except ValueError as e:
                 return ToolResult(success=False, error=f"ERROR reading '{filepath}': {e}", metadata={"filepath": filepath})
 
+            refused = _outside_project_reason(self, filepath)
+            if refused:
+                return ToolResult(success=False, error=refused,
+                                  metadata={"filepath": filepath, "blocked_by": "project_folder_only"})
             with _in_turn_root(self):
                 result = read_code(filepath, allow_external=not is_mcp_transport(self))
 
@@ -530,6 +558,10 @@ class EditCodeTool(BaseTool):
                 success=False,
                 error="Missing required parameter: old_text"
             )
+        refused = _outside_project_reason(self, filepath)
+        if refused:
+            return ToolResult(success=False, error=refused,
+                              metadata={"filepath": filepath, "blocked_by": "project_folder_only"})
 
         # Kill switch: block all edits when codebase is locked
         if is_codebase_locked():
@@ -922,6 +954,10 @@ class VerifyChangeTool(BaseTool):
         if isinstance(should_exist, str):
             should_exist = should_exist.lower() in ('true', '1', 'yes')
 
+        refused = _outside_project_reason(self, filepath)
+        if refused:
+            return ToolResult(success=False, error=refused,
+                              metadata={"filepath": filepath, "blocked_by": "project_folder_only"})
         try:
             with _in_turn_root(self):
                 result = verify_change(filepath, expected_text, should_exist, allow_external=not is_mcp_transport(self))

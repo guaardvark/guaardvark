@@ -30,6 +30,7 @@ export const runStatusLabel = (status) =>
     success: translate("selfImprovement.runStatus.success"),
     failed: translate("selfImprovement.runStatus.failed"),
     cancelled: translate("selfImprovement.runStatus.cancelled"),
+    no_change: translate("selfImprovement.runStatus.no_change"),
     blocked_by_guardian: translate("selfImprovement.runStatus.blocked_by_guardian"),
   })[status] ?? status;
 
@@ -171,7 +172,7 @@ export default function SelfImprovementRuns({ onTotal }) {
                               <Typography variant="body2">{run.uncle_feedback}</Typography>
                             </Box>
                           )}
-                          {run.changes_made && (
+                          {run.changes_made && run.changes_made.length > 0 && (
                             <Box sx={{ mb: 1 }}>
                               <Typography variant="caption" sx={{ fontWeight: "bold" }}>{t("selfImprovement.runs.changesMade")}:</Typography>
                               <Box component="pre" sx={{ fontSize: "0.7rem", bgcolor: "background.default", p: 1, borderRadius: 1, overflow: "auto", maxHeight: 200 }}>

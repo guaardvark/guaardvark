@@ -57,6 +57,7 @@
     "success": "success",
     "failed": "failed",
     "cancelled": "cancelled",
+    "no_change": "no change",
     "blocked_by_guardian": "blocked_by_guardian"
   },
   "trigger": {

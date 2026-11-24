@@ -282,8 +282,9 @@ _confine_tool_paths: Optional[bool] = None
 
 
 def get_confine_tool_paths() -> bool:
-    """True when file-reading tools (system_command, codegen) are limited to the
-    project folder and GUAARDVARK_ALLOWED_PATHS. Off by default."""
+    """True when the file tools (system_command, codegen, read_code, edit_code,
+    verify_change) are limited to the project folder and
+    GUAARDVARK_ALLOWED_PATHS. Off by default."""
     global _confine_tool_paths
     if has_app_context() or _confine_tool_paths is None:
         _confine_tool_paths = bool(get_setting("confine_tool_paths", default=False, cast=bool))
