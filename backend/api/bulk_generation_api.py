@@ -870,7 +870,8 @@ def start_bulk_csv_job(data):
         # together (chat can run tools in parallel), so a short random suffix follows.
         import time
         import uuid
-        job_id = f"bulk_gen_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+        from backend.services.csv_job import WRITER_JOB_PREFIX
+        job_id = f"{WRITER_JOB_PREFIX}{int(time.time())}_{uuid.uuid4().hex[:6]}"
         logger.info(f"Starting bulk CSV generation. Job ID: {job_id}")
         
         # Use existing task or create new database Task for job management
@@ -1050,7 +1051,8 @@ def start_bulk_csv_job(data):
                     logger.error(f"[{thread_name}] Full traceback:\n{traceback.format_exc()}")
                     # Mark progress as error on failure
                     progress_system.error_process(job_id, f"CSV generation failed: {str(e)}")
-                    # Note: Database Task status updates removed to avoid application context errors in background thread
+                    # Not every failure inside the writer fails the row itself.
+                    generator._update_task_status("failed", f"CSV generation failed: {e}")
                 finally:
                     _release_bulk_name(secure_output_filename)
                     logger.info(f"[{thread_name}] CSV generation thread exiting for job {job_id}")
@@ -1664,8 +1666,12 @@ def retry_failed_rows():
         if not tracking_file:
             return jsonify({"error": "tracking_file is required"}), 400
         
-        # Validate tracking file exists
-        tracking_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'outputs', 'tracking')
+        output_dir = current_app.config.get("OUTPUT_DIR")
+        if not output_dir:
+            return jsonify({"error": "Server configuration error: Output directory not set"}), 500
+
+        # Validate tracking file exists; the writer keeps its logs in OUTPUT_DIR/tracking.
+        tracking_dir = os.path.join(output_dir, 'tracking')
         try:
             tracking_path = contained_path(tracking_dir, tracking_file)
         except PathEscapesRoot:
@@ -1695,8 +1701,6 @@ def retry_failed_rows():
         logger.info(f"Found {len(failed_topics)} failed topics to retry")
         logger.info(f"Original job context: {job_context}")
         
-        # Create output directory
-        output_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'outputs')
         os.makedirs(output_dir, exist_ok=True)
         
         # Generate unique filename
