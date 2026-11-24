@@ -337,8 +337,9 @@ def real_train_result(app, tmp_path, monkeypatch):
     """A member in 'training' whose (stubbed) trainer returns a verified-real
     LoRA, so the task goes on to the smoke render. Returns (subject_id, progress)."""
     with app.app_context():
+        # dispatch_lora_train commits the run's job id before the task starts.
         s = Subject(name="Hero", kind="character", training_status="training",
-                    ref_image_paths=["/tmp/ref1.jpg"])
+                    current_training_job_id="job-1", ref_image_paths=["/tmp/ref1.jpg"])
         db.session.add(s)
         db.session.commit()
         sid = s.id
@@ -543,3 +544,64 @@ def test_real_smoke_refused_by_the_gpu_gate_ends_trained(app, monkeypatch, real_
     assert final[0] == "complete" and final[3] == "trained"
     assert final[2]["smoke_test"]["ok"] is False
     assert "busy" in final[2]["smoke_test"]["error"].lower()
+
+
+def _cancel_and_train_again(sid, new_job_id="job-2"):
+    """What Cancel, then Train, commit from the web process: the old run is
+    cancelled and a new run owns 'training' under its own job id."""
+    from backend.services.lora_train_dispatch import cancel_lora_train
+    assert cancel_lora_train(sid)["cancelled"] is True
+    s = db.session.get(Subject, sid)
+    s.training_status = "training"
+    s.current_training_job_id = new_job_id
+    db.session.commit()
+
+
+def test_cancel_then_retrain_during_smoke_leaves_the_new_run_alone(app, monkeypatch, real_train_result):
+    sid, progress = real_train_result
+
+    def smoke(**kw):
+        _cancel_and_train_again(sid)
+        return {"ok": True}
+
+    _stub_smoke(monkeypatch, smoke)
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        status, _ = _committed(sid)
+        assert status == "training"
+        assert db.session.get(Subject, sid).current_training_job_id == "job-2"
+    assert progress.calls[-1][0] == "error"
+    assert "superseded" in progress.calls[-1][1]
+    assert not any(c[0] == "complete" for c in progress.calls)
+
+    # The new run's task then starts and is not skipped.
+    progress.calls.clear()
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-2")
+        assert _committed(sid)[0] == "trained"
+    assert not any(c[0] == "error" and "skipped" in c[1] for c in progress.calls)
+    assert progress.calls[-1][0] == "complete"
+
+
+def test_cancel_then_retrain_during_training_is_not_recorded(app, monkeypatch, real_train_result):
+    """The same race before the smoke render: the old run's result is dropped
+    and the new run keeps its 'training' and its own LoRA path."""
+    sid, progress = real_train_result
+    from backend.tasks import lora_trainer_tasks
+    finish = lora_trainer_tasks._train_impl
+
+    def train_then_race(subject_id, job_id=None):
+        result = finish(subject_id, job_id=job_id)
+        _cancel_and_train_again(subject_id)
+        return result
+
+    monkeypatch.setattr("backend.tasks.lora_trainer_tasks._train_impl", train_then_race)
+    smoke_calls = []
+    _stub_smoke(monkeypatch, lambda **kw: smoke_calls.append(kw) or {"ok": True})
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        status, lora = _committed(sid)
+    assert status == "training"
+    assert lora is None
+    assert smoke_calls == []
+    assert progress.calls[-1][0] == "error"

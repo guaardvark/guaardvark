@@ -345,22 +345,36 @@ def create_lora_trainer_tasks(celery_app: Celery):
     return {"train_lora": train_lora_task, "reap_stuck_training": reap_stuck_training_task}
 
 
-def _promote_to_trained(subject_id: int) -> tuple[Subject | None, str | None]:
+def _superseded_by(s: Subject, job_id: str | None) -> str | None:
+    """Why this run no longer owns the member's 'training' state, or None.
+
+    A cancel moves the status; a cancel followed by a new Train puts it back to
+    'training' under the new run's job id, which this run must not finish.
+    """
+    if s.training_status != "training":
+        return s.training_status
+    if job_id and s.current_training_job_id != job_id:
+        return f"training (job {s.current_training_job_id})"
+    return None
+
+
+def _promote_to_trained(subject_id: int, job_id: str | None = None) -> tuple[Subject | None, str | None]:
     """Mark a finished run 'trained' once the post-train smoke render is over.
 
     'trained' is what the Cast page, the job handoff and the night shift treat
     as "the card is free for the next job", so it is committed only after the
     smoke render has released the GPU, whether it passed, failed or raised.
-    Returns ``(subject, None)`` when promoted, or ``(None, status)`` when a
-    cancel or delete moved the row meanwhile (``"deleted"`` for a missing row).
+    Returns ``(subject, None)`` when promoted, or ``(None, reason)`` when a
+    cancel, a newer run or a delete took the row meanwhile.
     """
     # The smoke render commits on this session and may have left it failed.
     db.session.rollback()
     s = db.session.get(Subject, subject_id, populate_existing=True)
     if s is None:
         return None, "deleted"
-    if s.training_status != "training":
-        return None, s.training_status
+    moved_to = _superseded_by(s, job_id)
+    if moved_to:
+        return None, moved_to
     s.training_status = "trained"
     db.session.commit()
     return s, None
@@ -418,16 +432,17 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
         return
 
     # Cancel or delete may have moved the row while the GPU work ran; only a
-    # Subject still marked 'training' may be promoted to 'trained'.
+    # Subject still in this run's 'training' may be promoted to 'trained'.
     db.session.refresh(s)
-    if s.training_status != "training":
+    moved_to = _superseded_by(s, job_id)
+    if moved_to:
         logger.warning(
             "lora train for %s finished but status is %r; result not recorded",
-            subject_id, s.training_status,
+            subject_id, moved_to,
         )
         if job_id:
             try:
-                get_unified_progress().error_process(job_id, f"training superseded (status={s.training_status})")
+                get_unified_progress().error_process(job_id, f"training superseded (status={moved_to})")
             except Exception:
                 pass
         return
@@ -562,7 +577,7 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
             logger.warning("lora smoke test for subject %s raised (non-fatal): %s", subject_id, e)
             smoke = {"ok": False, "error": f"{type(e).__name__}: {e}"}
         finally:
-            s, moved_to = _promote_to_trained(subject_id)
+            s, moved_to = _promote_to_trained(subject_id, job_id)
 
         if s is None:
             logger.warning(
