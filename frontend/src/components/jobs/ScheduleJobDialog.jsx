@@ -160,7 +160,7 @@ const ScheduleJobDialog = ({ open, onClose, onScheduled }) => {
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
                 {t("jobs.schedule.onPages")}
               </Typography>
-              <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1.5}>
+              <Stack direction="row" useFlexGap spacing={1.5} sx={{ flexWrap: "wrap" }}>
                 {pages.map((k) => (
                   <Link key={k.id} component={RouterLink} to={k.page} onClick={onClose} variant="caption">
                     {k.label}
