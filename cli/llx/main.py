@@ -1,8 +1,10 @@
+from pathlib import Path
+
 import typer
 
 from llx import __version__
 from llx import output
-from llx.global_opts import set_global_opts
+from llx.global_opts import get_global_json, set_global_opts
 from llx.commands.system import health, status, doctor, start, stop, init as setup_wizard, models_app
 from llx.commands.chat import chat
 from llx.commands.search import search
@@ -47,30 +49,56 @@ app = typer.Typer(
 
 # Top-level analyze and init for headless / natural use (e.g. guaardvark analyze /path )
 # These delegate to the REPL logic but run non-interactively when --non-interactive or no REPL needed.
+def _headless_router():
+    from llx.slash import SlashRouter
+    from llx.working_memory import empty_working_memory
+    state = {"server": None, "session_id": "headless", "cwd": None, "working_memory": empty_working_memory()}
+    return SlashRouter(state)
+
+
 def _run_analyze(
     project: str = typer.Argument(None, help="Folder to analyze (default: the current one)"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Report what was found and written as JSON"),
 ):
     """Analyze a project folder: languages, structure, entry points.
 
     Writes GUAARDVARK.md into the folder when it has none; an existing one is
     never overwritten (guaardvark init --force rewrites it)."""
-    from llx.slash import SlashRouter
-    from llx.working_memory import empty_working_memory
-    state = {"server": None, "session_id": "headless", "cwd": None, "working_memory": empty_working_memory()}
-    router = SlashRouter(state)
-    router.dispatch(f"analyze {project}" if project else "analyze")
+    router = _headless_router()
+    if not (json_out or get_global_json()):
+        router.dispatch(f"analyze {project}" if project else "analyze")
+        return
+    output.set_json_mode(True)
+    target = project or "."
+    if not Path(target).expanduser().is_dir():
+        output.print_json({"status": "error", "error": {
+            "code": "PATH_NOT_FOUND", "message": f"Not a folder: {target}"}})
+        raise typer.Exit(1)
+    try:
+        report = router.analyze_project(str(Path(target).expanduser()))
+    except Exception as e:
+        output.print_json({"status": "error", "error": {"code": "ANALYZE_FAILED", "message": str(e)}})
+        raise typer.Exit(1)
+    output.print_json({"status": "success", "data": report})
 
 app.command("analyze")(_run_analyze)
 
 def _run_init(
     force: bool = typer.Option(False, "--force", help="Overwrite an existing GUAARDVARK.md"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Report what was written as JSON"),
 ):
     """Scan this project and write GUAARDVARK.md, the instructions chat and /suggest follow."""
-    from llx.slash import SlashRouter
-    from llx.working_memory import empty_working_memory
-    state = {"server": None, "session_id": "headless", "cwd": None, "working_memory": empty_working_memory()}
-    router = SlashRouter(state)
-    router.dispatch("init --force" if force else "init")
+    router = _headless_router()
+    if not (json_out or get_global_json()):
+        router.dispatch("init --force" if force else "init")
+        return
+    output.set_json_mode(True)
+    try:
+        result = router.init_project(force)
+    except Exception as e:
+        output.print_json({"status": "error", "error": {"code": "INIT_FAILED", "message": str(e)}})
+        raise typer.Exit(1)
+    output.print_json({"status": "success", "data": {**result, "written": result.get("status") == "created"}})
 
 app.command("init")(_run_init)
 

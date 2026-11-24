@@ -535,18 +535,13 @@ def install_skills(dry_run: bool = False) -> list[InstallResult]:
     return results
 
 
-def run_install(clients: list[str] | None, dry_run: bool = False, skills: bool = False) -> int:
-    """
-    Install the guaardvark server entry. With no explicit ``clients``,
-    auto-detect and configure everything present. With ``skills``, also link
-    the agent skills. Returns a process exit code.
-    """
+def _install_results(clients: list[str] | None, dry_run: bool, skills: bool) -> list[InstallResult] | None:
+    """Install into ``clients`` (default: every detected one) and, with
+    ``skills``, link the skills. None when there was nothing to install into."""
     explicit = bool(clients)
     targets = clients or [c for c in CLIENTS if _detect(c)]
     if not targets and not skills:
-        print("No supported MCP clients detected "
-              f"(looked for: {', '.join(CLIENTS)}).", file=sys.stderr)
-        return 1
+        return None
 
     _save_checkout_root(dry_run)
     # With --skills, Antigravity gets the plugin (skills, rules and server)
@@ -558,6 +553,20 @@ def run_install(clients: list[str] | None, dry_run: bool = False, skills: bool =
         results.extend(install_skills(dry_run=dry_run))
     if agy_plugin:
         results.append(install_antigravity_plugin(dry_run=dry_run))
+    return results
+
+
+def run_install(clients: list[str] | None, dry_run: bool = False, skills: bool = False) -> int:
+    """
+    Install the guaardvark server entry. With no explicit ``clients``,
+    auto-detect and configure everything present. With ``skills``, also link
+    the agent skills. Returns a process exit code.
+    """
+    results = _install_results(clients, dry_run, skills)
+    if results is None:
+        print("No supported MCP clients detected "
+              f"(looked for: {', '.join(CLIENTS)}).", file=sys.stderr)
+        return 1
     if not results:
         return 1
 
@@ -573,3 +582,21 @@ def run_install(clients: list[str] | None, dry_run: bool = False, skills: bool =
         print("\nRestart the client (or reload its MCP servers) to pick up the change.")
         print("Verify with: python -m backend.mcp doctor")
     return 1 if failed else 0
+
+
+def install_report(clients: list[str] | None, dry_run: bool = False,
+                   skills: bool = False) -> tuple[int, dict[str, Any]]:
+    """What run_install does, as ``(exit code, {status, data[, error]})``:
+    one row per client or skill with what was written, run or skipped."""
+    results = _install_results(clients, dry_run, skills)
+    if results is None:
+        return 1, {"status": "error", "data": {"dry_run": dry_run, "results": []}, "error": {
+            "code": "NO_CLIENTS", "message": f"No supported MCP clients detected (looked for: {', '.join(CLIENTS)})."}}
+    rows = [{"client": r.client, "status": r.status, "detail": r.detail} for r in results]
+    failed = [r.client for r in results if r.status == "failed"]
+    data = {"dry_run": dry_run, "results": rows, "failed": failed,
+            "restart_needed": not dry_run and any(r.status == "installed" for r in results)}
+    if failed or not results:
+        return 1, {"status": "error", "data": data, "error": {
+            "code": "INSTALL_FAILED", "message": f"Failed: {', '.join(failed)}" if failed else "Nothing to install"}}
+    return 0, {"status": "success", "data": data}

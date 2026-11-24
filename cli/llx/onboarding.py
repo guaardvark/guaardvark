@@ -119,8 +119,10 @@ def _pick_mode() -> str:
 def run_onboarding(
     auto_yes: bool = False,
     model: str | None = None,
+    quiet: bool = False,
 ) -> dict:
-    """Run the first-launch onboarding wizard. Returns the saved config dict."""
+    """Run the first-launch onboarding wizard. Returns the saved config dict.
+    ``quiet`` (with ``auto_yes``) prints nothing, for callers that report as JSON."""
     console = make_console()
     ollama_url = resolve_ollama_url()
 
@@ -151,6 +153,8 @@ def run_onboarding(
     cfg["mode"] = mode
     cfg["ollama_base_url"] = ollama_url
     save_launch_config(cfg)
+    if quiet:
+        return cfg
 
     console.print(f"\n[llx.success]Onboarding complete.[/llx.success]")
     if model:

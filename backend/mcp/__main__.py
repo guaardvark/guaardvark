@@ -112,6 +112,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Show what would be written/run without touching anything",
     )
     install_cmd.add_argument(
+        "--json", action="store_true",
+        help="Print one JSON document saying what was written, run or skipped",
+    )
+    install_cmd.add_argument(
         "--skills", action="store_true",
         help="Also link the agent skills in .agents/skills into ~/.claude/skills "
              "(and into this checkout's .claude/skills) so Claude Code loads them",
@@ -124,6 +128,10 @@ def _build_parser() -> argparse.ArgumentParser:
     doctor_cmd.add_argument(
         "--call", action="store_true",
         help="Also make real read-only tool calls, one per tool family",
+    )
+    doctor_cmd.add_argument(
+        "--json", action="store_true",
+        help="Print one JSON document with every check instead of PASS/FAIL lines",
     )
 
     list_tools_cmd = sub.add_parser(
@@ -161,6 +169,17 @@ def _refuse_to_start(reason: Exception) -> int:
     JSON-RPC pipe, and a client shows the server's stderr in its MCP log."""
     print(f"guaardvark mcp: {reason}", file=sys.stderr)
     return 1
+
+
+def _print_report(build) -> int:
+    """Run ``build() -> (exit code, report)`` with stray prints sent to stderr,
+    then print the report alone on stdout."""
+    import json
+
+    with _stdout_to_stderr():
+        code, report = build()
+    print(json.dumps(report, indent=2, default=str))
+    return code
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -210,10 +229,16 @@ def main(argv: list[str] | None = None) -> int:
         return print_snippet(args.client)
 
     if cmd == "install":
+        if args.json:
+            from backend.mcp.installer import install_report
+            return _print_report(lambda: install_report(args.clients, dry_run=args.dry_run, skills=args.skills))
         from backend.mcp.installer import run_install
         return run_install(args.clients, dry_run=args.dry_run, skills=args.skills)
 
     if cmd == "doctor":
+        if args.json:
+            from backend.mcp.doctor import doctor_report
+            return _print_report(lambda: doctor_report(call=args.call))
         from backend.mcp.doctor import run_doctor
         return run_doctor(call=args.call)
 

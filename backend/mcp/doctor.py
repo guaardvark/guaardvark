@@ -14,7 +14,8 @@ Answers "why doesn't my agent see Guaardvark?" in one command:
      one per tool family. A tool whose prerequisite is down (backend, plugin,
      media player) is reported as a warning, not a failure.
 
-Plain-text PASS/FAIL output; exit code 0 only when every check passes.
+Plain-text PASS/FAIL output, or with ``--json`` one ``{status, data}``
+document; exit code 0 only when every check passes.
 """
 
 from __future__ import annotations
@@ -43,8 +44,16 @@ _PASS = "PASS"
 _FAIL = "FAIL"
 _WARN = "warn"
 
+# Set by doctor_report(): checks are collected here instead of printed.
+_collected: list[dict[str, Any]] | None = None
+_section = "server"
+
 
 def _report(status: str, name: str, detail: str = "") -> bool:
+    if _collected is not None:
+        _collected.append({"section": _section, "name": name, "status": status.lower(),
+                           "ok": status != _FAIL, "detail": detail})
+        return status != _FAIL
     line = f"  [{status:>4}] {name}"
     if detail:
         line += f" — {detail}"
@@ -395,3 +404,34 @@ def run_doctor(call: bool = False) -> int:
         return 0
     print("Some checks FAILED — fix the items above and re-run.")
     return 1
+
+
+def doctor_report(call: bool = False) -> tuple[int, dict[str, Any]]:
+    """The same checks as run_doctor, as ``(exit code, {status, data[, error]})``
+    instead of printed lines."""
+    global _collected, _section
+    _collected, _section = [], "server"
+    server_checks_skipped = False
+    try:
+        ok = _check_python()
+        ok = _check_sdk() and ok
+        if ok:
+            ok = _check_build() and ok
+            ok = _check_stdio() and ok
+            if call and ok:
+                _section = "calls"
+                ok = _check_calls() and ok
+        else:
+            server_checks_skipped = True
+        _section = "clients"
+        ok = _check_clients() and ok
+        checks = _collected
+    finally:
+        _collected, _section = None, "server"
+
+    failed = [c["name"] for c in checks if not c["ok"]]
+    data = {"checks": checks, "failed": failed, "server_checks_skipped": server_checks_skipped}
+    if ok:
+        return 0, {"status": "success", "data": data}
+    return 1, {"status": "error", "data": data, "error": {
+        "code": "CHECKS_FAILED", "message": f"Failed: {', '.join(failed)}"}}

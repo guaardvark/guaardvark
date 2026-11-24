@@ -750,7 +750,7 @@ guaardvark doctor --cli
 - Config: `~/.guaardvark/cli.json` (legacy `~/.llx/config.json` still read)
 
 ### Quality Roadmap (v2.5.3)
-- **Standardized JSON contracts** for all automation outputs
+- **JSON output** — `doctor`, `jobs watch`, `mcp install`, `mcp doctor`, `analyze`, `init`, `setup` and `launch --config` / `launch --full` take `--json` (or the global `guaardvark --json`) and print one `{status, data}` document; a failure prints `{status: "error", error: {code, message}}` and exits non-zero
 - **Quality gates** — every release runs the CLI against a fixture suite before publishing
 - **Cross-platform PATH handling** — wrapper scripts work on macOS, Linux, WSL
 

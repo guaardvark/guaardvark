@@ -325,12 +325,23 @@ def status(
         raise typer.Exit(1)
 
 
-def init():
+def init(
+    server: str = typer.Option(None, "--server", "-s", help="Server URL (default: the saved one)"),
+    api_key: str = typer.Option(None, "--api-key", help="API key to save; an empty value clears it"),
+    json_out: bool = typer.Option(False, "--json", "-j",
+                                  help="No prompts: test the server, save it, and report as JSON"),
+):
     """Point the CLI at a Guaardvark server and save it (asks for the URL and API key)."""
+    server = server or get_global_server()
+    if json_out or get_global_json():
+        output.set_json_mode(True)
+        _setup_json(server, api_key)
+        return
+
     console.print("[llx.brand]Guaardvark Setup[/llx.brand]\n")
 
     config = load_config()
-    server = typer.prompt("Server URL", default=config["server"])
+    server = typer.prompt("Server URL", default=server or config["server"])
 
     console.print(f"\nTesting connection to [bold]{server}[/bold]...")
     try:
@@ -350,7 +361,8 @@ def init():
     except LlxError:
         pass
 
-    api_key = typer.prompt("API key (leave blank for none)", default="", show_default=False)
+    if api_key is None:
+        api_key = typer.prompt("API key (leave blank for none)", default="", show_default=False)
 
     config["server"] = server
     config["api_key"] = api_key if api_key else None
@@ -358,6 +370,36 @@ def init():
 
     console.print(f"\n[llx.success]Config saved to {CONFIG_FILE}[/llx.success]")
     console.print("Run [bold]guaardvark --install-completion[/bold] for tab completions.")
+
+
+def _setup_json(server: str | None, api_key: str | None) -> None:
+    """setup without prompts. The server is saved only when it answers; the API
+    key changes only when --api-key is given. The key itself is never printed."""
+    config = load_config()
+    server = server or config["server"]
+    data = {"server": server, "saved": False, "config_file": str(CONFIG_FILE)}
+    client = get_client(server)
+    try:
+        health = client.get("/api/health")
+    except (LlxConnectionError, LlxError) as e:
+        output.print_json({"status": "error", "data": data, "error": {
+            "code": "CONNECTION_ERROR", "message": e.message,
+            "hint": "Start the server (guaardvark start) and run setup again; nothing was saved."}})
+        raise typer.Exit(1)
+    data["version"] = health.get("version")
+    try:
+        data["active_model"] = _payload(client.get("/api/model/status")).get("text_model")
+    except LlxError:
+        data["active_model"] = None
+
+    config["server"] = server
+    if api_key is not None:
+        config["api_key"] = api_key or None
+    save_config(config)
+    data["saved"] = True
+    data["api_key"] = "set" if config.get("api_key") else "none"
+    data["api_key_changed"] = api_key is not None
+    output.print_json({"status": "success", "data": data})
 
 
 @models_app.command("list")

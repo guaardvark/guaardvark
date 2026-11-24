@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -89,6 +90,34 @@ def _run_mcp(args: list[str]) -> int:
     return result.returncode
 
 
+def _run_mcp_json(args: list[str]) -> int:
+    """Run a `backend.mcp` subcommand with --json and relay its {status, data}
+    report. A missing checkout, or a run that ends without a report, is a JSON
+    error as well."""
+    from llx.commands.system import _ANSI_ESCAPE
+
+    py, root = _python_and_root()
+    if root is None:
+        output.print_json({"status": "error", "error": {
+            "code": "CHECKOUT_NOT_FOUND", "message": _CHECKOUT_NOT_FOUND_MSG.strip()}})
+        return 1
+    result = subprocess.run([py, "-m", "backend.mcp", *args, "--json"], cwd=str(root),
+                            capture_output=True, text=True)
+    try:
+        report = json.loads(result.stdout)
+    except ValueError:
+        report = None
+    if not isinstance(report, dict) or "status" not in report:
+        output.print_json({"status": "error", "data": {
+            "returncode": result.returncode,
+            "output": _ANSI_ESCAPE.sub("", result.stdout),
+            "errors": _ANSI_ESCAPE.sub("", result.stderr)[-2000:]}, "error": {
+            "code": "MCP_ERROR", "message": f"mcp {args[0]} ended (exit {result.returncode}) without a report"}})
+        return result.returncode or 1
+    output.print_json(report)
+    return result.returncode
+
+
 # The names live in backend/mcp/config.py (TOOLSETS); the server lists them when given a wrong one.
 _TOOLSET_HELP = (
     "Serve one named toolset of at most 15 tools, such as media, knowledge or code, or all "
@@ -139,6 +168,7 @@ def mcp_install(
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would change, change nothing"),
     skills: bool = typer.Option(False, "--skills", help="Also link Guaardvark's agent skills for Claude Code"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Report what was written, run or skipped as JSON"),
 ):
     """Write the Guaardvark MCP entry into agent client configs."""
     args = ["install"]
@@ -148,15 +178,23 @@ def mcp_install(
         args.append("--skills")
     for c in client or []:
         args.extend(["--client", c])
+    if json_out or get_global_json():
+        output.set_json_mode(True)
+        raise typer.Exit(_run_mcp_json(args))
     raise typer.Exit(_run_mcp(args))
 
 
 @mcp_app.command("doctor")
 def mcp_doctor(
     call: bool = typer.Option(False, "--call", help="Also make a few read-only tool calls"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output every check as JSON"),
 ):
     """Diagnose MCP server + client config."""
-    raise typer.Exit(_run_mcp(["doctor", "--call"] if call else ["doctor"]))
+    args = ["doctor", "--call"] if call else ["doctor"]
+    if json_out or get_global_json():
+        output.set_json_mode(True)
+        raise typer.Exit(_run_mcp_json(args))
+    raise typer.Exit(_run_mcp(args))
 
 
 @mcp_app.command("list-tools")

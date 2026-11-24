@@ -1663,27 +1663,48 @@ class SlashRouter:
 
     def _cmd_analyze(self, args: list[str]):
         """Analyze a project/site (especially for CSS/styling improvements). Takes initiative: explores structure, reviews build.py, finds CSS, writes GUAARDVARK.md when the project has none (never overwrites one; /init --force rewrites it), loads it, creates todos."""
+        report = self.analyze_project(" ".join(args).strip() or ".")
+        root = report["root"]
+        md = report["guaardvark_md"]
+        if md["status"] == "created":
+            self._console.print(f"[llx.success]Wrote GUAARDVARK.md at {md.get('path')} (the project had none; "
+                                f"/init --force rewrites it)[/llx.success]")
+        elif md["status"] == "error":
+            self._console.print(f"[llx.dim]Could not auto-create GUAARDVARK.md: {md.get('error')}[/llx.dim]")
+
+        self._console.print(f"[llx.success]Analyzed project at {root}[/llx.success]")
+        if report["summary"]:
+            self._console.print(report["summary"])
+        if report["build_py_excerpt"]:
+            self._console.print("[llx.dim]build.py snippet (first 800 chars):[/llx.dim]")
+            self._console.print(report["build_py_excerpt"])
+        if report["css_files"]:
+            self._console.print(f"CSS files: {', '.join(report['css_files'][:5])}")
+        backend_note = " (used backend code tools)" if report["used_backend_tools"] else " (local fast path)"
+        self._console.print(f"\n[llx.dim]Todos created for analysis{backend_note}. Use chat to ask for suggestions, or /context /suggest /tool edit_code etc. GUAARDVARK.md loaded if present.[/llx.dim]")
+
+    def analyze_project(self, target: str) -> dict:
+        """The work behind /analyze, returning what it found and did instead of printing it."""
         from llx.utils import populate_project_context, find_project_root
         from llx.local_tools import read_file
         from llx.working_memory import normalize_working_memory, apply_todos
         from llx.todo import TodoStore
 
-        target = " ".join(args).strip() or "."
         root = find_project_root(target)
         mem = normalize_working_memory(self._state.get("working_memory"))
         populate_project_context(mem, root)
 
         # Auto-create GUAARDVARK.md if missing (agent initiative)
+        md = {"status": "present" if mem.get("guaardvark_instructions") else "absent"}
         if not mem.get("guaardvark_instructions"):
             try:
                 from llx.utils import generate_and_write_guaardvark_md
                 gen_res = generate_and_write_guaardvark_md(root, force=False)
                 if gen_res.get("status") == "created":
-                    self._console.print(f"[llx.success]Wrote GUAARDVARK.md at {gen_res.get('path')} (the project had none; "
-                                        f"/init --force rewrites it)[/llx.success]")
+                    md = {"status": "created", "path": gen_res.get("path")}
                     populate_project_context(mem, root)  # reload
             except Exception as e:
-                self._console.print(f"[llx.dim]Could not auto-create GUAARDVARK.md: {e}[/llx.dim]")
+                md = {"status": "error", "error": str(e)}
 
         # Take initiative: review build.py if present (prefer backend code tools for shared architecture)
         build_path = root / "build.py"
@@ -1728,25 +1749,27 @@ class SlashRouter:
         # Create initiative todos
         store = self._state.get("_todo_store") or TodoStore(self._state.get("session_id"))
         self._state["_todo_store"] = store
-        store.add(f"Review build.py for styling/build pipeline (in {root.name})")
+        todos = [f"Review build.py for styling/build pipeline (in {root.name})"]
         if mem.get("css_files"):
-            store.add("Analyze CSS files for improvements (modern practices, variables, responsive)")
-        store.add("Suggest concrete CSS/styling improvements based on project")
+            todos.append("Analyze CSS files for improvements (modern practices, variables, responsive)")
+        todos.append("Suggest concrete CSS/styling improvements based on project")
+        for todo in todos:
+            store.add(todo)
         apply_todos(mem, store.all())
 
         self._state["working_memory"] = mem
         self._state["cwd"] = root
 
-        self._console.print(f"[llx.success]Analyzed project at {root}[/llx.success]")
-        if mem.get("project_summary"):
-            self._console.print(mem["project_summary"])
-        if build_content:
-            self._console.print("[llx.dim]build.py snippet (first 800 chars):[/llx.dim]")
-            self._console.print(build_content[:800])
-        if mem.get("css_files"):
-            self._console.print(f"CSS files: {', '.join(mem['css_files'][:5])}")
-        backend_note = " (used backend code tools)" if used_backend_tools else " (local fast path)"
-        self._console.print(f"\n[llx.dim]Todos created for analysis{backend_note}. Use chat to ask for suggestions, or /context /suggest /tool edit_code etc. GUAARDVARK.md loaded if present.[/llx.dim]")
+        return {
+            "root": str(root),
+            "guaardvark_md": md,
+            "summary": mem.get("project_summary") or "",
+            "key_files": list((mem.get("key_files") or {}).keys()),
+            "css_files": list(mem.get("css_files") or []),
+            "build_py_excerpt": build_content[:800],
+            "used_backend_tools": used_backend_tools,
+            "todos_added": todos,
+        }
 
     def _cmd_init(self, args: list[str]):
         """
@@ -1755,15 +1778,12 @@ class SlashRouter:
         and writes a rich project instruction file so future analysis/suggestions follow project rules.
         Use this instead of (or in addition to) dragging a folder.
         """
-        from llx.utils import find_project_root, generate_and_write_guaardvark_md
-        from llx.working_memory import normalize_working_memory
+        from llx.utils import find_project_root
 
         force = "--force" in " ".join(args).lower() or "force" in args
         root = find_project_root(self._state.get("cwd") or ".")
-        mem = normalize_working_memory(self._state.get("working_memory"))
-
         self._console.print(f"[llx.brand_bright]Initializing GUAARDVARK.md for {root}...[/llx.brand_bright]")
-        result = generate_and_write_guaardvark_md(root, force=force)
+        result = self.init_project(force)
 
         if result.get("status") == "exists":
             self._console.print("[llx.dim]GUAARDVARK.md already exists. Use /init --force to overwrite.[/llx.dim]")
@@ -1771,13 +1791,23 @@ class SlashRouter:
             self._console.print(f"[llx.success]Created {result.get('path')} via {result.get('via')}[/llx.success]")
             self._console.print(f"Detected type: {result.get('detected_type')}, build.py: {result.get('has_build_py')}, CSS files: {result.get('css_count')}")
 
+        self._console.print("[llx.dim]Project context refreshed. You can now /analyze or chat about the project with full instructions.[/llx.dim]")
+
+    def init_project(self, force: bool = False) -> dict:
+        """The work behind /init: write GUAARDVARK.md (an existing one only with
+        ``force``) and reload the project context. Returns what was done."""
+        from llx.utils import find_project_root, generate_and_write_guaardvark_md, populate_project_context
+        from llx.working_memory import normalize_working_memory
+
+        root = find_project_root(self._state.get("cwd") or ".")
+        mem = normalize_working_memory(self._state.get("working_memory"))
+        result = generate_and_write_guaardvark_md(root, force=force)
+
         # Re-populate context so the new md is loaded immediately
-        from llx.utils import populate_project_context
         populate_project_context(mem, root)
         self._state["working_memory"] = mem
         self._state["cwd"] = root
-
-        self._console.print("[llx.dim]Project context refreshed. You can now /analyze or chat about the project with full instructions.[/llx.dim]")
+        return {"root": str(root), **result}
 
     def _cmd_load(self, args: list[str]):
         """Load a skill / instructions file (.md) and inject into project context for this session.

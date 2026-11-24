@@ -5,9 +5,14 @@ import sys
 import threading
 import time
 
+from pathlib import Path
+
 import typer
 
+from llx import output
+from llx.global_opts import get_global_json
 from llx.launch_config import (
+    _config_path,
     is_first_launch,
     load_launch_config,
     resolve_guaardvark_root,
@@ -25,6 +30,8 @@ def launch(
     full: bool = typer.Option(False, "--full", help="Launch with full stack (PostgreSQL, Redis, web UI)"),
     lite: bool = typer.Option(False, "--lite", help="Force lite mode (SQLite, TUI only)"),
     port: int = typer.Option(5002, "--port", "-p", help="Backend server port"),
+    json_out: bool = typer.Option(False, "--json", "-j",
+                                  help="No REPL: report the configuration (--config) or the started full stack (--full) as JSON"),
 ):
     """Launch Guaardvark with Ollama integration.
 
@@ -36,6 +43,11 @@ def launch(
     Lite mode (default): instant start with SQLite, no external dependencies.
     Full mode: PostgreSQL, Redis, Celery, web UI at localhost:5173.
     """
+    if json_out or get_global_json():
+        output.set_json_mode(True)
+        _launch_json(project, model, config_only, yes, full, lite)
+        return
+
     console = make_console()
 
     # 1. Onboarding on first launch
@@ -86,6 +98,62 @@ def launch(
     launch_repl()
 
 
+def _json_error(code: str, message: str, hint: str | None = None, data: dict | None = None):
+    error = {"code": code, "message": message}
+    if hint:
+        error["hint"] = hint
+    payload = {"status": "error", "error": error}
+    if data is not None:
+        payload = {"status": "error", "data": data, "error": error}
+    output.print_json(payload)
+    raise typer.Exit(1)
+
+
+def _launch_json(project, model, config_only: bool, yes: bool, full: bool, lite: bool) -> None:
+    """launch for scripts: never prompts and never opens the REPL.
+
+    The lite server lives inside the REPL's process, so only --config (save the
+    launch settings) and the full stack (start.sh, which outlives this command)
+    can be reported."""
+    onboarded = False
+    if is_first_launch() or config_only:
+        if not yes:
+            _json_error("CONFIRMATION_REQUIRED",
+                        "Onboarding asks for confirmation; nothing was saved.",
+                        hint="Pass --yes to accept the onboarding notice and save the defaults.")
+        from llx.onboarding import run_onboarding
+        cfg = run_onboarding(auto_yes=True, model=model, quiet=True)
+        onboarded = True
+        model = cfg.get("model")
+        if config_only:
+            output.print_json({"status": "success", "data": {
+                "onboarded": True, "started": None, **_launch_summary(cfg)}})
+            return
+
+    cfg = load_launch_config()
+    mode = "full" if full else "lite" if lite else cfg.get("mode", "lite")
+    if mode != "full":
+        _json_error("LITE_NEEDS_REPL",
+                    "The lite server runs inside the interactive session, so it cannot be started for JSON output.",
+                    hint="Use --full to start the full stack, or --config to save settings only.",
+                    data={"onboarded": onboarded, "started": None, **_launch_summary(cfg)})
+
+    if model:
+        cfg["model"] = model
+        save_launch_config(cfg)
+    started = _start_full_stack(None, cfg, quiet=True)
+    data = {"onboarded": onboarded, "started": started, **_launch_summary(cfg)}
+    if project:
+        p = Path(project).expanduser().resolve()
+        data["project"] = {"path": str(p), "found": p.is_dir()}
+    output.print_json({"status": "success", "data": data})
+
+
+def _launch_summary(cfg: dict) -> dict:
+    return {"mode": cfg.get("mode"), "model": cfg.get("model"),
+            "ollama_base_url": cfg.get("ollama_base_url"), "config_file": str(_config_path())}
+
+
 def _start_lite_mode(console, port: int):
     """Start the embedded lite server in a background thread."""
     from llx.lite_server import create_lite_app
@@ -125,21 +193,28 @@ def _start_lite_mode(console, port: int):
     console.print("[llx.warning]Lite server may not be ready yet[/llx.warning]")
 
 
-def _start_full_stack(console, cfg: dict):
-    """Start the full Guaardvark stack via start.sh."""
+def _start_full_stack(console, cfg: dict, quiet: bool = False) -> dict:
+    """Start the full Guaardvark stack via start.sh. ``quiet`` reports failures
+    as JSON and returns {root, server_url, ready} without printing."""
     root = resolve_guaardvark_root()
 
     if root is None:
+        if quiet:
+            _json_error("INSTALL_NOT_FOUND", "Guaardvark installation not found.",
+                        hint="Set GUAARDVARK_ROOT to the folder that holds start.sh.")
         console.print("[llx.error]Guaardvark installation not found.[/llx.error]")
         console.print("[llx.dim]Set GUAARDVARK_ROOT or run: guaardvark launch --lite[/llx.dim]")
         raise typer.Exit(1)
 
     start_script = root / "start.sh"
     if not start_script.exists():
+        if quiet:
+            _json_error("START_SCRIPT_NOT_FOUND", f"start.sh not found at {root}")
         console.print(f"[llx.error]start.sh not found at {root}[/llx.error]")
         raise typer.Exit(1)
 
-    console.print(f"[llx.dim]Starting full stack from {root}...[/llx.dim]")
+    if not quiet:
+        console.print(f"[llx.dim]Starting full stack from {root}...[/llx.dim]")
 
     # start.sh runs in the foreground — launch it in a background process
     subprocess.Popen(
@@ -154,17 +229,22 @@ def _start_full_stack(console, cfg: dict):
     import httpx
     from llx.backend_bootstrap import resolve_flask_port
     server_url = cfg.get("server_url", f"http://localhost:{resolve_flask_port(root)}")
+    ready = False
     for _ in range(60):
         try:
             resp = httpx.get(f"{server_url}/api/health", timeout=2)
             if resp.status_code == 200:
-                console.print(f"[llx.success]Full stack ready[/llx.success]")
+                ready = True
+                if not quiet:
+                    console.print(f"[llx.success]Full stack ready[/llx.success]")
                 break
         except Exception:
             time.sleep(1)
     else:
-        console.print("[llx.warning]Backend may still be starting...[/llx.warning]")
+        if not quiet:
+            console.print("[llx.warning]Backend may still be starting...[/llx.warning]")
 
     cfg["guaardvark_root"] = str(root)
     cfg["mode"] = "full"
     save_launch_config(cfg)
+    return {"root": str(root), "server_url": server_url, "ready": ready}
