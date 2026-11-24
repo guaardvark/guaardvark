@@ -50,6 +50,45 @@ SYNC_TEMP_SUFFIX = ".sync-tmp"
 # Applied last: rewriting it restarts the Vite dev server, which reloads open pages.
 _WRITE_LAST = "frontend/vite.config.js"
 
+# The tracked part of the top-level extensions/ folder. Every other folder in it
+# belongs to one install (extensions/.gitignore) and never leaves it by a sync.
+EXTENSIONS_SCAFFOLD = (
+    "extensions/.gitignore",
+    "extensions/README.md",
+    "extensions/__init__.py",
+    "extensions/_template/",
+)
+# Comma-separated extension ids this install may send anyway, e.g. a vertical
+# its operator deploys to a box of their own. Unset, none are sent.
+SYNC_EXTENSIONS_ENV = "GUAARDVARK_SYNC_EXTENSIONS"
+
+
+def private_path_reason(project_root, file_path) -> Optional[str]:
+    """Why ``file_path`` must never leave this install by a sync, or None.
+
+    Two rules, both independent of the sync paths a caller asks for: a path whose
+    real location is outside the install (a symlinked folder or file), and
+    anything under extensions/ beyond the tracked scaffold.
+    """
+    root = os.path.abspath(os.fspath(project_root))
+    root_real = os.path.realpath(root)
+    lexical = os.path.abspath(os.path.join(root, os.fspath(file_path)))
+    real = os.path.realpath(lexical)
+    if real != root_real and not real.startswith(root_real.rstrip(os.sep) + os.sep):
+        return "its real location is outside the install"
+    rel = os.path.relpath(lexical, root).replace(os.sep, "/")
+    if rel == "extensions" or not rel.startswith("extensions/"):
+        return None
+    if any(rel == s.rstrip("/") or (s.endswith("/") and rel.startswith(s)) for s in EXTENSIONS_SCAFFOLD):
+        return None
+    folder = rel.split("/")[1]
+    allowed = {
+        x.strip() for x in os.environ.get(SYNC_EXTENSIONS_ENV, "").split(",") if x.strip()
+    }
+    if folder in allowed and not folder.startswith((".", "_")):
+        return None
+    return "a private extension folder"
+
 
 def complete_frontend_sync_paths(sync_paths, include_patterns=None):
     """Carry frontend dependency manifests and locale data with source profiles."""
@@ -409,6 +448,11 @@ class InterconnectorFileSyncService:
                 continue
             
             logger.debug(f"[FILE_SYNC] Scanning path: {sync_path} -> {full_path}")
+
+            refusal = private_path_reason(project_root, full_path)
+            if refusal:
+                logger.warning(f"[FILE_SYNC] Not sending {sync_path}: {refusal}")
+                continue
             
             if not full_path.exists():
                 logger.warning(f"[FILE_SYNC] Sync path does not exist: {full_path}")
@@ -477,6 +521,10 @@ class InterconnectorFileSyncService:
             if self.should_exclude_file(str(file_path)):
                 logger.warning(f"[FILE_SYNC] Requested path excluded by policy: {rel_path}")
                 continue
+            refusal = private_path_reason(project_root, file_path)
+            if refusal:
+                logger.warning(f"[FILE_SYNC] Not sending {rel_path}: {refusal}")
+                continue
             files_list.extend(
                 self._scan_file(file_path, project_root, since=None, include_content=include_content)
             )
@@ -521,6 +569,10 @@ class InterconnectorFileSyncService:
         file_str = str(file_path)
         if self.should_exclude_file(file_str, exclude_patterns):
             logger.debug(f"[FILE_SYNC] File excluded: {file_path}")
+            return files_list
+        refusal = private_path_reason(project_root, file_path)
+        if refusal:
+            logger.debug(f"[FILE_SYNC] Not sending {file_path}: {refusal}")
             return files_list
 
         if include_patterns:
