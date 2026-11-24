@@ -874,3 +874,47 @@ def test_run_curator_all_pass_keeps_the_storyboard_gate(app, production):
     assert production.current_stage == "awaiting_approval"
     sent = [c.args[0] for c in mock_send_task.call_args_list]
     assert "production.run_editor" not in sent
+
+
+def test_storyboard_sessions_book_the_shot_keyframe_model(app, production, monkeypatch, tmp_path):
+    """The storyboard session books the keyframe model's registry price, read for
+    the card it runs on; a Z-Image shot keeps the 11 GB booking."""
+    import contextlib
+    from types import SimpleNamespace
+    import backend.services.gpu_resource_policy as grp
+    import backend.services.video_model_registry as vmr
+    import backend.tasks.production_swarm_tasks as pst
+
+    booked = []
+
+    @contextlib.contextmanager
+    def recording_session(*args, **kwargs):
+        booked.append(kwargs.get("vram_estimate_mb"))
+        yield True
+
+    monkeypatch.setattr(grp, "gpu_session", recording_session)
+    monkeypatch.setattr(vmr, "_probe_total_vram_mb", lambda: 8188)
+    monkeypatch.setattr(pst, "_storyboard_path", lambda p, sc, sh: str(tmp_path / f"shot_{sc}_{sh}.png"))
+    monkeypatch.setattr(pst, "_shot_loras_and_prompt", lambda shot: (["/loras/x.safetensors"], "Wide shot"))
+    monkeypatch.setattr(
+        "backend.services.media_model_registry.resolve_inference_for_loras",
+        lambda paths: {"offline_model_key": "sd-xl", "comfy_model_tag": "sdxl"},
+    )
+
+    production.current_stage = "storyboard_gen"
+    shot = ProductionShot(production_id=production.id, scene_number=1, shot_number=1, description="Wide shot")
+    db.session.add(shot)
+    db.session.commit()
+
+    def fake_still(prompt, *, output_path, **kw):
+        return SimpleNamespace(success=True, image_path=output_path, error=None)
+
+    with patch("backend.services.character_still_pipeline.render_character_still", side_effect=fake_still):
+        run_storyboard_artist(production.id, image_generator=None)
+        production.current_stage = "awaiting_approval"
+        db.session.commit()
+        regen_storyboard_shot(shot.id)
+        monkeypatch.setattr(pst, "_shot_loras_and_prompt", lambda shot: ([], "Wide shot"))
+        regen_storyboard_shot(shot.id)
+
+    assert booked == [5700, 5700, 11000]

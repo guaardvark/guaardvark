@@ -410,6 +410,20 @@ def _zimage_keyframes(s: dict) -> bool:
     return (s.get("keyframe_model") or "").strip().lower() in ("zimage-turbo", "zimage", "z-image-turbo")
 
 
+def _keyframe_vram_mb(s: dict, ceiling_mb: int) -> int:
+    """VRAM a storyboard session books for the chosen keyframe model: its
+    registry price on this card at the still canvas, at most ``ceiling_mb``
+    (also what a model without a price is booked at)."""
+    from backend.services.image_render_limits import still_vram_mb
+    price = still_vram_mb(
+        s.get("keyframe_model"),
+        default=ceiling_mb,
+        width=s.get("still_width", 1024),
+        height=s.get("still_height", 576),
+    )
+    return min(price, ceiling_mb)
+
+
 def _keyframe_lora_strength(s: dict) -> float:
     """Model-aware default keyframe LoRA strength, shared by the clip path AND both
     storyboard endpoints so review thumbnails match the final render. Delegates to the shared
@@ -1443,7 +1457,8 @@ def run_storyboard_generator(mv_id: int, force: bool = False):
     last_still_error = None
     try:
         with gpu_session(JobKind.VIDEO_RENDER, f"mv_storyboards_{mv_id}", evict_ollama=True,
-                         free_comfyui=True, vram_estimate_mb=10000, require_fit=True):
+                         free_comfyui=True, vram_estimate_mb=_keyframe_vram_mb(s, 10000),
+                         require_fit=True):
             for c in clips:
                 has_existing = bool(c.get("storyboard_path") and os.path.exists(c.get("storyboard_path")))
                 if has_existing and not force:

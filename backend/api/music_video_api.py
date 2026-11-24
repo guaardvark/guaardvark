@@ -907,7 +907,8 @@ def regen_mv_storyboard(mv_id, idx):
     s = _settings_for_mv(mv)
     from backend.services.comfyui_image_generator import ComfyUIImageGenerator
     from backend.tasks.music_video_tasks import (
-        _clip_dir, _keyframe_cast_context, _keyframe_lora_strength, _zimage_keyframes,
+        _clip_dir, _keyframe_cast_context, _keyframe_lora_strength, _keyframe_vram_mb,
+        _zimage_keyframes,
     )
     import copy
 
@@ -944,7 +945,8 @@ def regen_mv_storyboard(mv_id, idx):
     still_path = str(out_dir / f"storyboard_{idx}.png")
     try:
         with gpu_session(JobKind.VIDEO_RENDER, f"mv_storyboard_{mv_id}_{idx}", evict_ollama=True,
-                         free_comfyui=True, vram_estimate_mb=11000, require_fit=True):
+                         free_comfyui=True, vram_estimate_mb=_keyframe_vram_mb(s, 11000),
+                         require_fit=True):
             if kf_loras or _zimage_keyframes(s):
                 from backend.services.character_still_pipeline import render_character_still
                 still = render_character_still(
