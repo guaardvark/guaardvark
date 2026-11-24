@@ -425,3 +425,16 @@ def test_launch_full_refuses_when_another_install_holds_the_port(tmp_path, monke
     error = _envelope(result)["error"]
     assert error["code"] == "PORT_HELD_BY_OTHER_INSTALL"
     assert "/srv/other" in error["message"] and "4242" in error["message"]
+
+
+def test_a_port_lookup_that_fails_reports_no_listeners(monkeypatch, caplog):
+    from llx import port_owner
+
+    def broken(*args, **kwargs):
+        raise OSError("lsof: cannot execute")
+
+    monkeypatch.setattr(port_owner.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(port_owner.subprocess, "run", broken)
+    with caplog.at_level("WARNING", logger="llx.port_owner"):
+        assert port_owner.port_listener_pids(5000) == []
+    assert "port 5000" in caplog.text

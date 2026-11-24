@@ -6,11 +6,14 @@ and refuses to start one install over another's running services.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def install_root_of(path: str | os.PathLike) -> Path | None:
@@ -76,19 +79,27 @@ def process_install_root(pid: int) -> Path | None:
 
 
 def port_listener_pids(port: int) -> list[int]:
-    """PIDs listening on TCP ``port`` (only processes this user can see)."""
-    if shutil.which("lsof"):
-        out = subprocess.run(["lsof", "-i", f"TCP:{port}", "-sTCP:LISTEN", "-t"],
-                             capture_output=True, text=True).stdout
-        pids = out.split()
-    elif shutil.which("ss"):
-        out = subprocess.run(["ss", "-tlpn"], capture_output=True, text=True).stdout
-        pids = []
-        for line in out.splitlines():
-            fields = line.split()
-            if len(fields) >= 4 and fields[3].rsplit(":", 1)[-1] == str(port):
-                pids += re.findall(r"pid=(\d+)", line)
-    else:
+    """PIDs listening on TCP ``port`` (only processes this user can see).
+
+    Empty when neither lsof nor ss is installed, and when the lookup itself
+    fails: the port's holder is then unknown here, and start.sh, which looks
+    for itself, still decides."""
+    try:
+        if shutil.which("lsof"):
+            out = subprocess.run(["lsof", "-i", f"TCP:{port}", "-sTCP:LISTEN", "-t"],
+                                 capture_output=True, text=True, timeout=10).stdout
+            pids = out.split()
+        elif shutil.which("ss"):
+            out = subprocess.run(["ss", "-tlpn"], capture_output=True, text=True, timeout=10).stdout
+            pids = []
+            for line in out.splitlines():
+                fields = line.split()
+                if len(fields) >= 4 and fields[3].rsplit(":", 1)[-1] == str(port):
+                    pids += re.findall(r"pid=(\d+)", line)
+        else:
+            return []
+    except (OSError, subprocess.SubprocessError, TypeError) as exc:
+        logger.warning("Could not look up who listens on port %s: %s", port, exc)
         return []
     return sorted({int(p) for p in pids if p.isdigit()})
 
