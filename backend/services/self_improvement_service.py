@@ -312,6 +312,15 @@ class SelfImprovementService:
 
     _NO_DETAIL = "Test failed (see output for details)"
 
+    @staticmethod
+    def _test_counts(pytest_output: str) -> Dict[str, int]:
+        """The counts on pytest's closing line ("12 passed, 4 deselected in
+        1.6s"), by name; empty when the run printed none."""
+        closing = re.findall(r"^=*\s*((?:\d+ [a-z]+(?:, )?)+) in [\d.]+s", pytest_output, re.MULTILINE)
+        if not closing:
+            return {}
+        return {name: int(number) for number, name in re.findall(r"(\d+) ([a-z]+)", closing[-1])}
+
     def _parse_test_failures(self, pytest_output: str) -> List[Dict[str, str]]:
         """Each failed test once, with the error pytest reported for it.
 
@@ -458,11 +467,16 @@ class SelfImprovementService:
             # would change working code: only failures that repeat are acted on.
             failures, flaky = self._confirm_failures(failures, root)
 
+            counts = self._test_counts(test_output)
             run_record.test_results_before = json.dumps({
                 "total_failures": len(failures),
                 "failures": failures,
                 "flaky": flaky,
                 "return_code": result.returncode,
+                # What "success" on a clean run covers: how many tests ran, of
+                # which files, and how many were left out as model-driven.
+                **counts,
+                "test_files": [arg for arg in _HEALTH_RUN_TESTS if arg.endswith(".py")],
             })
 
             if self._cancel_requested(run_id):
@@ -475,8 +489,10 @@ class SelfImprovementService:
                 run_record.status = "success"
                 run_record.duration_seconds = time.time() - start_time
                 db.session.commit()
-                self._emit_progress("complete", "All tests passing", 1.0, status="success")
-                return {"success": True, "message": "All tests passing", "failures": 0}
+                passed = counts.get("passed")
+                message = f"All {passed} self-check tests passing" if passed else "All tests passing"
+                self._emit_progress("complete", message, 1.0, status="success")
+                return {"success": True, "message": message, "failures": 0, **counts}
 
             if not failures and flaky:
                 run_record.status = "success"
