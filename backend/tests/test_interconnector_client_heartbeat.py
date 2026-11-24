@@ -50,7 +50,7 @@ def _client_identity(tmp_path, monkeypatch):
     monkeypatch.setenv(node_identity.NODE_ID_ENV, "stable-machine-id")
     monkeypatch.setattr(node_auth, "is_master", lambda: False)
     # Avoid probing real hardware; give a deterministic profile.
-    monkeypatch.setattr(hb, "_local_profile", lambda: {"node_id": "prof-id", "hostname": "alpaca"})
+    monkeypatch.setattr(hb, "_local_profile", lambda: {"node_id": "prof-id", "hostname": "node-b"})
 
 
 def _set_config(cfg):
@@ -61,7 +61,7 @@ def _set_config(cfg):
 CLIENT_CFG = {
     "is_enabled": True, "node_mode": "client",
     "master_url": MASTER_URL + "/", "master_api_key": "secret-key",
-    "node_name": "alpaca",
+    "node_name": "node-b",
 }
 
 

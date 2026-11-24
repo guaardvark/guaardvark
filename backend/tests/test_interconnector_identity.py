@@ -94,17 +94,17 @@ def test_same_machine_two_ips_yields_one_row(app):
     """The core fix: same machine reachable at a different IP (LAN vs VPN) must
     stay ONE node, not spawn a duplicate."""
     client = app.test_client()
-    r1 = _register(client, stable_id="alpaca-stable", hostname="alpaca", client_ip="192.168.1.112")
+    r1 = _register(client, stable_id="node-b-stable", hostname="node-b", client_ip="192.0.2.12")
     assert r1.status_code in (200, 201), r1.get_data(as_text=True)
-    r2 = _register(client, stable_id="alpaca-stable", hostname="alpaca", client_ip="10.100.0.2")
+    r2 = _register(client, stable_id="node-b-stable", hostname="node-b", client_ip="198.51.100.2")
     assert r2.status_code in (200, 201), r2.get_data(as_text=True)
     # Same node_id returned both times — identity is IP-independent.
-    assert r1.get_json()["data"]["node_id"] == "alpaca-stable"
-    assert r2.get_json()["data"]["node_id"] == "alpaca-stable"
+    assert r1.get_json()["data"]["node_id"] == "node-b-stable"
+    assert r2.get_json()["data"]["node_id"] == "node-b-stable"
     with app.app_context():
         rows = InterconnectorNode.query.all()
         assert len(rows) == 1, f"expected 1 row, got {[n.node_id for n in rows]}"
-        assert rows[0].host == "10.100.0.2"  # address updated to the latest path
+        assert rows[0].host == "198.51.100.2"  # address updated to the latest path
         assert rows[0].online is True
 
 
@@ -128,21 +128,21 @@ def test_registration_prunes_leftover_duplicate_rows(app):
     """Self-heal: rows left by the old IP-coupled logic for the same machine
     are collapsed on the next registration."""
     with app.app_context():
-        for old_id, ip in [("old-1", "192.168.1.112"), ("old-2", "10.100.0.2")]:
+        for old_id, ip in [("old-1", "192.0.2.12"), ("old-2", "198.51.100.2")]:
             db.session.add(InterconnectorNode(
                 node_id=old_id, node_name="studio-client", node_mode="client",
                 host=ip, port=5002, status="disconnected", online=True,
-                hardware_profile=json.dumps({"hostname": "alpaca"})))
+                hardware_profile=json.dumps({"hostname": "node-b"})))
         db.session.commit()
         assert InterconnectorNode.query.count() == 2
 
     client = app.test_client()
-    r = _register(client, stable_id="alpaca-stable", hostname="alpaca", client_ip="192.168.1.112")
+    r = _register(client, stable_id="node-b-stable", hostname="node-b", client_ip="192.0.2.12")
     assert r.status_code in (200, 201)
     with app.app_context():
         rows = InterconnectorNode.query.all()
         assert len(rows) == 1, f"duplicates not pruned: {[n.node_id for n in rows]}"
-        assert rows[0].node_id == "alpaca-stable"
+        assert rows[0].node_id == "node-b-stable"
 
 
 def test_prune_skips_weak_fingerprints(app):
