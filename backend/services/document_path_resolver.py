@@ -143,6 +143,33 @@ def _servable(candidate: Path) -> bool:
     return _inside_install_outputs(candidate)
 
 
+def file_outside_uploads(doc) -> Optional[Path]:
+    """The file a row names by its own location when that file lives outside
+    the uploads folder (a text overlay, an editor render), else None.
+
+    Only the row's stored path is followed: absolute, or relative to the
+    install root. The name-based guesses resolve_document_path also tries can
+    land on another document's file of the same name, which is fine for
+    serving a best effort and wrong for moving or deleting.
+    """
+    stored = (getattr(doc, "path", None) or "").strip()
+    if not stored:
+        return None
+    candidate = Path(stored) if stored.startswith("/") else _project_root() / stored
+    try:
+        if not candidate.is_file() or not _inside_install_outputs(candidate):
+            return None
+        from backend.config import UPLOAD_DIR
+        from backend.utils.path_guard import PathEscapesRoot, contained_path
+        try:
+            contained_path(UPLOAD_DIR, candidate)
+            return None  # inside uploads: the ordinary join handles it
+        except PathEscapesRoot:
+            return candidate.resolve()
+    except (OSError, ValueError, ImportError):
+        return None
+
+
 def resolve_document_path(doc) -> Optional[Path]:
     """Return the first candidate path that actually exists on disk.
 

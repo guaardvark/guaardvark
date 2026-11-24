@@ -975,14 +975,10 @@ def _delete_folder_recursive(folder: Folder, deleted_folders: list, deleted_docu
     doc_ids_to_deindex = []
     for document in documents:
         doc_ids_to_deindex.append((document.id, getattr(document, "project_id", None)))
-        doc_path = document.path
-        physical_doc_path = get_physical_path(doc_path)
-        if physical_doc_path.exists():
-            try:
-                physical_doc_path.unlink()
-                logger.info(f"Deleted physical document: {physical_doc_path}")
-            except Exception as e:
-                logger.warning(f"Failed to delete physical document {physical_doc_path}: {e}")
+        try:
+            _delete_document_file(document)
+        except Exception as e:
+            logger.warning(f"Failed to delete the file of document {document.id}: {e}")
         db.session.delete(document)
         deleted_documents.append(document.filename)
 
@@ -1309,6 +1305,21 @@ def move_document(doc_id):
                 return error_response("Destination folder not found", 404, "DEST_NOT_FOUND")
             dest_folder_id = dest_folder.id
         old_path = document.path
+        from backend.services.document_path_resolver import file_outside_uploads
+        if file_outside_uploads(document) is not None:
+            # A generated file kept outside uploads (a text overlay, an editor
+            # render) is filed, not relocated: the record keeps naming the
+            # file where it is and only changes folder. Rewriting the path to
+            # the folder's would leave the record pointing at nothing.
+            from backend.utils.filename_resolver import resolve_filename
+            document.filename = resolve_filename(
+                dest_folder_id, document.filename, db.session, DBDocument, exclude_id=document.id,
+            )
+            document.folder_id = dest_folder_id
+            document.updated_at = datetime.datetime.now()
+            db.session.commit()
+            logger.info(f"Filed document {doc_id} under {dest_path or '/'}; its file stays at {old_path}")
+            return success_response(document.to_dict())
         old_physical_path = get_physical_path(old_path)
         # Apply the resolver against the destination folder — was a silent
         # overwrite before, which is the fastest way to lose a file.
@@ -1443,6 +1454,36 @@ def copy_document(doc_id):
         return error_response("Failed to copy document", 500, "COPY_ERROR")
 
 
+def _delete_document_file(document) -> bool:
+    """Remove the file behind a document that is being deleted. True when a
+    file was removed.
+
+    A file in uploads is found by the usual join. A generated file kept
+    outside uploads is removed only when the record names that exact file and
+    no other record does; a record that merely shares a name with a file is
+    never grounds to delete it.
+    """
+    from backend.services.document_path_resolver import file_outside_uploads
+
+    outside = file_outside_uploads(document)
+    if outside is None:
+        physical_path = get_physical_path(document.path)
+        if physical_path.exists() and physical_path.is_file():
+            physical_path.unlink()
+            logger.info(f"Deleted physical file: {physical_path}")
+            return True
+        return False
+    shared = DBDocument.query.filter(
+        DBDocument.path == document.path, DBDocument.id != document.id,
+    ).count()
+    if shared:
+        logger.info(f"Kept {outside}: {shared} other document(s) name the same file")
+        return False
+    outside.unlink()
+    logger.info(f"Deleted physical file outside uploads: {outside}")
+    return True
+
+
 @files_bp.route("/document/<int:doc_id>", methods=["DELETE"])
 @ensure_db_session_cleanup
 def delete_document(doc_id):
@@ -1453,11 +1494,7 @@ def delete_document(doc_id):
         if not document:
             return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
         doc_filename = document.filename
-        doc_path = document.path
-        physical_path = get_physical_path(doc_path)
-        if physical_path.exists():
-            physical_path.unlink()
-            logger.info(f"Deleted physical file: {physical_path}")
+        _delete_document_file(document)
         # Remove from vector index if it was indexed
         index_instance = current_app.config.get("LLAMA_INDEX_INDEX")
         storage_dir = current_app.config.get("STORAGE_DIR")
@@ -1541,14 +1578,10 @@ def bulk_delete():
                         errors.append({"type": "document", "id": iid, "error": "not found"})
                         continue
                     doc_ids_to_deindex.append((document.id, getattr(document, "project_id", None)))
-                    doc_path = document.path
-                    physical_path = get_physical_path(doc_path)
-                    if physical_path.exists():
-                        try:
-                            physical_path.unlink()
-                            logger.info(f"Deleted physical file: {physical_path}")
-                        except Exception as e:
-                            logger.warning(f"Failed to delete physical file {physical_path}: {e}")
+                    try:
+                        _delete_document_file(document)
+                    except Exception as e:
+                        logger.warning(f"Failed to delete the file of document {document.id}: {e}")
                     deleted_documents.append(document.filename)
                     db.session.delete(document)
                 else:

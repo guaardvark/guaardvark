@@ -41,10 +41,14 @@ logger = logging.getLogger(__name__)
 
 video_overlay_bp = Blueprint("video_overlay_api", __name__, url_prefix="/api/video-overlay")
 
-# Where rendered overlay outputs land. Lives under data/outputs/ so the
-# existing backup/portability rules apply, in its own subfolder so the
-# files don't mingle with raw model outputs.
-_OVERLAY_SUBDIR = Path("data/outputs/videos/text-overlay")
+def _overlay_dir() -> Path:
+    """Where rendered overlays land: videos/text-overlay under the configured
+    output folder, beside the editor renders, in its own subfolder so the
+    files do not mingle with raw model outputs. Never the process's working
+    directory, which is wherever the backend happened to be started."""
+    from backend import config
+
+    return Path(config.OUTPUT_DIR) / "videos" / "text-overlay"
 
 # Conservative cap on user-supplied text length — drawtext can technically
 # render huge strings but the UX collapses well before that and a 10k-char
@@ -355,19 +359,20 @@ def overlay_text():
     # the path — sticking with .mp4 keeps things broadly compatible.
     # Source-named with sequential suffix per the filename plan. Pattern:
     # "<source_basename>_001.mp4", "_002.mp4" on subsequent renders of the
-    # same source. Bumps until it finds a free slot in _OVERLAY_SUBDIR.
-    _OVERLAY_SUBDIR.mkdir(parents=True, exist_ok=True)
+    # same source. Bumps until it finds a free slot in the overlay folder.
+    overlay_dir = _overlay_dir()
+    overlay_dir.mkdir(parents=True, exist_ok=True)
     source_stem = Path(doc.filename).stem
     n = 1
     while True:
-        candidate = _OVERLAY_SUBDIR / f"{source_stem}_{n:03d}.mp4"
+        candidate = overlay_dir / f"{source_stem}_{n:03d}.mp4"
         if not candidate.exists():
             output_path = candidate.resolve()
             break
         n += 1
         if n > 999:
             # Absurdity guard — shouldn't happen in practice
-            output_path = (_OVERLAY_SUBDIR / f"{source_stem}_{uuid.uuid4().hex[:8]}.mp4").resolve()
+            output_path = (overlay_dir / f"{source_stem}_{uuid.uuid4().hex[:8]}.mp4").resolve()
             break
 
     try:

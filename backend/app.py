@@ -2781,6 +2781,32 @@ def db_health_cli():
     print(json.dumps(status, indent=2))
 
 
+@app.cli.command("repair-overlay-records")
+@click.option("--apply", "apply_changes", is_flag=True,
+              help="Make the changes. Without it the command only prints what it would change.")
+def repair_overlay_records_cli(apply_changes):
+    """Point old text-overlay Library records at their files.
+
+    Prints the plan; nothing is written without --apply. Records that several
+    files fit are listed and left alone."""
+    from pathlib import Path
+
+    from backend.config import GUAARDVARK_ROOT, UPLOAD_DIR
+    from backend.models import Document
+    from backend.services import overlay_record_repair as repair
+
+    rows = [{"id": d.id, "filename": d.filename, "path": d.path, "file_metadata": d.file_metadata}
+            for d in db.session.query(Document.id, Document.filename, Document.path, Document.file_metadata)]
+    plan = repair.plan_repair(rows, root=Path(GUAARDVARK_ROOT), upload_dir=Path(UPLOAD_DIR),
+                              overlay_dirs=repair.overlay_dirs(Path(GUAARDVARK_ROOT)))
+    print(repair.format_plan(plan))
+    if not apply_changes:
+        print("Dry run: nothing was changed. Run again with --apply to repoint the records marked ->.")
+        return
+    done = repair.apply_plan(plan, db.session, Document)
+    print(f"Repointed {done['repointed']} record(s); {done['skipped']} skipped because they changed since the plan.")
+
+
 @app.cli.command("celery-health")
 def celery_health_cli():
     """One line, "up: <answer>" or "down: <reason>"; exit status 1 when down."""
