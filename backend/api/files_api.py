@@ -1701,13 +1701,12 @@ def download_document(doc_id):
         document = db.session.get(DBDocument, doc_id)
         if not document:
             return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
-        # Use the multi-base resolver so files outside UPLOAD_DIR (notably
-        # plugins/comfyui/ComfyUI/output/) still resolve. Fall back to the
-        # naive UPLOAD_BASE join for files that ARE under UPLOAD_DIR — the
-        # resolver tries that first anyway, so this is a safety net.
+        # The resolver finds files outside UPLOAD_DIR too (generator output
+        # folders) and serves only what lies, symlinks followed, inside the
+        # uploads or an output folder.
         from backend.services.document_path_resolver import resolve_document_path
-        physical_path = resolve_document_path(document) or get_physical_path(document.path)
-        if not physical_path or not physical_path.exists():
+        physical_path = resolve_document_path(document)
+        if not physical_path:
             return error_response("File not found on disk", 404, "FILE_NOT_FOUND")
         # Serve inline for media files and PDFs so <video>, <img>, <audio>, and <iframe>
         # tags can play/display them; fall back to attachment for everything else.
@@ -1782,10 +1781,12 @@ def _thumb_cache_path(source: Path, tag: str) -> Path:
 def _video_frame(physical: Path) -> Optional[Path]:
     """A still of a video: the generator's own thumbnail when there is one,
     else its first frame, extracted once into the thumbnail cache."""
+    from backend.services.document_path_resolver import servable_file
     for candidate_dir in _thumbnail_dirs(physical):
         for name in (f"{physical.stem}_thumb.jpg", f"{physical.stem}.jpg"):
-            if (candidate_dir / name).is_file():
-                return candidate_dir / name
+            found = servable_file(candidate_dir / name)
+            if found is not None:
+                return found
     frame = _thumb_cache_path(physical, "frame")
     if frame.is_file():
         return frame
@@ -1866,6 +1867,8 @@ def get_thumbnail():
       &v=<stamp>   - the file's modification stamp; the reply may then be
                      cached by the browser for a week.
     """
+    from backend.services.document_path_resolver import resolve_document_path, servable_file
+
     doc_id_arg = request.args.get("document_id", "").strip()
     doc_path = request.args.get("path", "").strip()
 
@@ -1882,7 +1885,6 @@ def get_thumbnail():
         doc_row = db.session.get(DBDocument, doc_id)
         if doc_row is None:
             return error_response("Document not found", 404, "DOCUMENT_NOT_FOUND")
-        from backend.services.document_path_resolver import resolve_document_path
         doc_physical = resolve_document_path(doc_row)
         if doc_physical is None:
             return error_response("File not found", 404, "FILE_NOT_FOUND")
@@ -1890,8 +1892,8 @@ def get_thumbnail():
         if not ensure_path_is_safe(doc_path):
             return error_response("Invalid path", 400, "INVALID_PATH")
         base = get_upload_base_path()
-        doc_physical = contained(base, doc_path.lstrip("/"))
-        if not doc_physical.exists():
+        doc_physical = servable_file(contained(base, doc_path.lstrip("/")))
+        if doc_physical is None:
             return error_response("File not found", 404, "FILE_NOT_FOUND")
     else:
         return error_response("path or document_id parameter required", 400, "NO_TARGET")
@@ -1915,13 +1917,15 @@ def get_thumbnail():
         for name, mimetype in ((doc_physical.stem + ".jpg", "image/jpeg"),
                                (doc_physical.stem + ".png", "image/png"),
                                (doc_physical.stem + "_thumb.jpg", "image/jpeg")):
-            candidate = candidate_dir / name
-            if candidate.exists():
+            candidate = servable_file(candidate_dir / name)
+            if candidate is not None:
                 return send_file(str(candidate), mimetype=mimetype, max_age=cache_age)
 
     # For video files, try to generate a thumbnail on the fly via ffmpeg
     video_exts = {'.mp4', '.webm', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.m4v'}
-    if doc_physical.suffix.lower() in video_exts:
+    # ffmpeg -y writes through a link, so only into a real folder and a new name.
+    if (doc_physical.suffix.lower() in video_exts
+            and not thumb_dir.is_symlink() and not os.path.lexists(thumb_path)):
         try:
             import subprocess
             thumb_dir.mkdir(parents=True, exist_ok=True)

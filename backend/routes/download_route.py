@@ -20,7 +20,8 @@ def download_output(filename):
     except PathEscapesRoot:
         abort(403, description="Invalid file path.")
 
-    if not os.path.isfile(safe_path):
+    from backend.services.document_path_resolver import servable_file
+    if not os.path.isfile(safe_path) or servable_file(safe_path, outputs_dir) is None:
         abort(404, description="File not found.")
 
     rel_path = os.path.relpath(safe_path, outputs_dir)
