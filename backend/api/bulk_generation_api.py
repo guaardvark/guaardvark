@@ -672,7 +672,6 @@ def start_bulk_csv_job(data):
                 geographic_coverage = client_obj.geographic_coverage
 
                 # Parse JSON fields
-                import json
                 keywords = []
                 if client_obj.keywords:
                     try:
@@ -881,16 +880,27 @@ def start_bulk_csv_job(data):
                 # Update existing task instead of creating new one
                 database_task = db.session.get(Task, existing_task_id)
                 if database_task:
+                    try:
+                        saved_config = json.loads(database_task.workflow_config or "{}")
+                    except (TypeError, ValueError):
+                        saved_config = {}
+                    if not isinstance(saved_config, dict):
+                        saved_config = {}
+                    # The saved items and settings stay for the next start; the
+                    # name asked for stays too, while the row points at this run's file.
+                    saved_config.setdefault("output_filename", database_task.output_filename or output_filename)
                     database_task.job_id = job_id
-                    database_task.status = "pending"
-                    database_task.model_name = get_active_model_name()
+                    database_task.status = "in-progress"
+                    database_task.model_name = model_name
+                    database_task.output_filename = secure_output_filename
                     database_task.workflow_config = json.dumps({
+                        **saved_config,
                         "type": "bulk_csv_generation",
                         "items_count": len(tasks),
                         "client": client,
                         "project": project,
                         "website": website,
-                        "target_word_count": target_word_count
+                        "target_word_count": target_word_count,
                     })
                     db.session.commit()
                     logger.info(f"Updated existing Task {database_task.id} for bulk CSV job {job_id}")

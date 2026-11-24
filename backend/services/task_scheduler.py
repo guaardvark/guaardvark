@@ -51,6 +51,17 @@ def _execute_task(app, task_id: int) -> None:
                 logger.warning("Task %s not found after claim", task_id)
                 return
 
+            from backend.services import csv_job
+            if csv_job.is_csv_job(task.type, task.workflow_config):
+                started = csv_job.start(task)
+                if started.get("error"):
+                    db.session.refresh(task)
+                    task.status = "failed"
+                    task.error_message = f"Could not start the CSV writer: {started['error']}"[:1000]
+                    task.updated_at = datetime.datetime.now(datetime.timezone.utc)
+                    db.session.commit()
+                return
+
             process_id = None
             try:
                 unified_progress = get_unified_progress()
