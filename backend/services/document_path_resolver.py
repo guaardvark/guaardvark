@@ -178,10 +178,12 @@ def file_outside_uploads(doc) -> Optional[Path]:
     try:
         if not candidate.is_file() or not _inside_install_outputs(candidate):
             return None
-        from backend.config import UPLOAD_DIR
         from backend.utils.path_guard import PathEscapesRoot, contained_path
+        uploads = _uploads_root()
+        if uploads is None:
+            return None
         try:
-            contained_path(UPLOAD_DIR, candidate)
+            contained_path(str(uploads), candidate)
             return None  # inside uploads: the ordinary join handles it
         except PathEscapesRoot:
             return candidate.resolve()
