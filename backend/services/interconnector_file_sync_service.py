@@ -175,6 +175,7 @@ class InterconnectorFileSyncService:
             "backend/__init__.py",
             "backend/models.py",
             "backend/no_netrc.py",
+            "backend/nltk_data.py",
             "backend/rule_utils.py",
             "backend/seed_data.py",
             "backend/seed_models.py",

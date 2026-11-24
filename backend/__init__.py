@@ -14,4 +14,10 @@ from .no_netrc import install as _install_no_netrc  # noqa: E402
 # ~/.netrc login (see backend/no_netrc.py).
 _install_no_netrc()
 
+from .nltk_data import install as _install_nltk_data  # noqa: E402
+
+# Before anything imports nltk: it reads its data from a folder only this
+# account can write to (see backend/nltk_data.py).
+_install_nltk_data()
+
 from .socketio_events import socketio  # noqa: E402
