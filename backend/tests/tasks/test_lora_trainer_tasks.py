@@ -605,3 +605,219 @@ def test_cancel_then_retrain_during_training_is_not_recorded(app, monkeypatch, r
     assert lora is None
     assert smoke_calls == []
     assert progress.calls[-1][0] == "error"
+
+
+# --- the reaper keeps a LoRA its run already saved ----------------------------
+#
+# A worker that dies during the smoke render (or a failed write of 'trained')
+# leaves the member 'training' with its new LoRA saved as the default. The
+# reaper marks such a run 'trained' instead of 'failed'. Its train-cap query is
+# Postgres SQL, so these tests stand in for it.
+
+
+class _WorkerDied(BaseException):
+    """A kill: nothing after it in the task runs, finally blocks included."""
+
+
+def _write_valid_lora(path):
+    import struct
+    header = json.dumps({"w": {"dtype": "F32", "shape": [32], "data_offsets": [0, 128]}}).encode()
+    path.write_bytes(struct.pack("<Q", len(header)) + header + b"\0" * 128)
+
+
+def _die_during_smoke(app, monkeypatch, sid):
+    """Run the task until the smoke render, then kill it there."""
+    def smoke(**kw):
+        raise _WorkerDied()
+
+    def killed(*a, **k):
+        raise _WorkerDied()
+
+    _stub_smoke(monkeypatch, smoke)
+    monkeypatch.setattr("backend.tasks.lora_trainer_tasks._promote_to_trained", killed)
+    with app.app_context():
+        with pytest.raises(_WorkerDied):
+            train_subject_lora_for_subject(sid, job_id="job-1")
+        db.session.rollback()
+
+
+def _reap(monkeypatch, after_s, past_cap=False):
+    """Run the reaper ``after_s`` seconds from now; ``past_cap`` stands in for
+    the train-cap query matching every member still in 'training'."""
+    from datetime import timedelta
+    from backend.tasks import lora_trainer_tasks as t
+    from backend.utils.clock import utcnow
+    later = utcnow() + timedelta(seconds=after_s)
+    monkeypatch.setattr(t, "utcnow", lambda: later)
+    monkeypatch.setattr(
+        t, "_past_train_cap",
+        lambda: Subject.query.filter(Subject.training_status == "training").all() if past_cap else [],
+    )
+    db.session.expire_all()
+    return t.reap_stuck_training_subjects()
+
+
+@pytest.fixture
+def saved_lora(real_train_result, tmp_path):
+    _write_valid_lora(tmp_path / "hero.safetensors")
+    return real_train_result
+
+
+def _member(sid):
+    db.session.expire_all()
+    return db.session.get(Subject, sid)
+
+
+def test_worker_died_after_save_is_marked_trained(app, monkeypatch, saved_lora):
+    from backend.tasks.lora_trainer_tasks import (
+        LORA_SAVED_FOR_JOB_KEY, LORA_SAVED_NOTE, LORA_SMOKE_REAP_AFTER_S,
+    )
+    sid, _ = saved_lora
+    _die_during_smoke(app, monkeypatch, sid)
+    with app.app_context():
+        s = _member(sid)
+        assert s.training_status == "training"
+        assert s.training_settings_json[LORA_SAVED_FOR_JOB_KEY]["job_id"] == "job-1"
+
+        # Still inside the render's window: left alone.
+        assert _reap(monkeypatch, LORA_SMOKE_REAP_AFTER_S - 60)["reaped"] == 0
+        assert _member(sid).training_status == "training"
+
+        out = _reap(monkeypatch, LORA_SMOKE_REAP_AFTER_S + 60)
+        assert out == {"reaped": 1, "failed": 0, "trained": 1}
+        s = _member(sid)
+        assert s.training_status == "trained"
+        assert s.training_error == LORA_SAVED_NOTE
+        assert s.lora_path.endswith("hero.safetensors")
+        assert LORA_SAVED_FOR_JOB_KEY not in (s.training_settings_json or {})
+
+
+def test_worker_died_after_save_past_the_train_cap_is_marked_trained(app, monkeypatch, saved_lora):
+    sid, _ = saved_lora
+    _die_during_smoke(app, monkeypatch, sid)
+    with app.app_context():
+        # The marker's time is unreadable, so only the train-cap rule sees it.
+        s = _member(sid)
+        from backend.tasks.lora_trainer_tasks import LORA_SAVED_FOR_JOB_KEY
+        cfg = dict(s.training_settings_json)
+        cfg[LORA_SAVED_FOR_JOB_KEY] = dict(cfg[LORA_SAVED_FOR_JOB_KEY], saved_at="?")
+        s.training_settings_json = cfg
+        db.session.commit()
+        assert _reap(monkeypatch, 0, past_cap=True) == {"reaped": 1, "failed": 0, "trained": 1}
+        assert _member(sid).training_status == "trained"
+
+
+def test_failed_write_of_trained_is_recovered_by_the_reaper(app, monkeypatch, saved_lora):
+    from sqlalchemy.exc import OperationalError
+    from backend.tasks.lora_trainer_tasks import LORA_SMOKE_REAP_AFTER_S
+    sid, progress = saved_lora
+    _stub_smoke(monkeypatch, lambda **kw: {"ok": True})
+
+    def db_gone(*a, **k):
+        raise OperationalError("UPDATE subjects", {}, Exception("server closed the connection"))
+
+    monkeypatch.setattr("backend.tasks.lora_trainer_tasks._promote_to_trained", db_gone)
+    with app.app_context():
+        with pytest.raises(OperationalError):
+            train_subject_lora_for_subject(sid, job_id="job-1")
+        db.session.rollback()
+        assert _member(sid).training_status == "training"
+        assert _reap(monkeypatch, LORA_SMOKE_REAP_AFTER_S + 60)["trained"] == 1
+        assert _member(sid).training_status == "trained"
+    assert not any(c[0] == "complete" for c in progress.calls)
+
+
+def test_worker_died_before_save_fails_as_before(app, monkeypatch, saved_lora):
+    from backend.tasks.lora_trainer_tasks import LORA_SMOKE_REAP_AFTER_S
+    sid, _ = saved_lora
+
+    def killed(subject_id, job_id=None):
+        raise _WorkerDied()
+
+    monkeypatch.setattr("backend.tasks.lora_trainer_tasks._train_impl", killed)
+    with app.app_context():
+        with pytest.raises(_WorkerDied):
+            train_subject_lora_for_subject(sid, job_id="job-1")
+        db.session.rollback()
+        assert _reap(monkeypatch, LORA_SMOKE_REAP_AFTER_S + 60)["reaped"] == 0
+        assert _member(sid).training_status == "training"
+
+        assert _reap(monkeypatch, 0, past_cap=True) == {"reaped": 1, "failed": 1, "trained": 0}
+        s = _member(sid)
+        assert s.training_status == "failed"
+        assert s.training_error == "Training did not finish (worker stopped or timed out). Safe to retry."
+        assert s.lora_path is None
+
+
+def test_newer_run_is_left_alone(app, monkeypatch, saved_lora):
+    """The marker belongs to job-1; once Cancel and Train start job-2 the
+    saved-LoRA rule does not touch the member."""
+    from backend.tasks.lora_trainer_tasks import LORA_SMOKE_REAP_AFTER_S
+    sid, _ = saved_lora
+    _die_during_smoke(app, monkeypatch, sid)
+    with app.app_context():
+        _cancel_and_train_again(sid, "job-2")
+        assert _reap(monkeypatch, LORA_SMOKE_REAP_AFTER_S + 60)["reaped"] == 0
+        s = _member(sid)
+        assert s.training_status == "training"
+        assert s.current_training_job_id == "job-2"
+        assert s.training_error == "Cancelled by user"
+
+
+@pytest.mark.parametrize("damage", ["truncated", "missing", "default_moved"])
+def test_saved_lora_without_evidence_is_not_promoted(app, monkeypatch, saved_lora, tmp_path, damage):
+    from backend.tasks.lora_trainer_tasks import LORA_SMOKE_REAP_AFTER_S
+    sid, _ = saved_lora
+    _die_during_smoke(app, monkeypatch, sid)
+    lora = tmp_path / "hero.safetensors"
+    with app.app_context():
+        if damage == "truncated":
+            lora.write_bytes(lora.read_bytes()[:-40])
+        elif damage == "missing":
+            lora.unlink()
+        else:
+            s = _member(sid)
+            s.lora_path = str(tmp_path / "other.safetensors")
+            db.session.commit()
+        assert _reap(monkeypatch, LORA_SMOKE_REAP_AFTER_S + 60)["reaped"] == 0
+        assert _member(sid).training_status == "training"
+        assert _reap(monkeypatch, 0, past_cap=True)["failed"] == 1
+        assert _member(sid).training_status == "failed"
+
+
+def test_render_overrunning_the_window_still_completes(app, monkeypatch, saved_lora):
+    """A live render that outlasts the window: the reaper promotes the member,
+    and the task then completes its job instead of calling itself superseded."""
+    from backend.tasks.lora_trainer_tasks import LORA_SMOKE_REAP_AFTER_S
+    sid, progress = saved_lora
+
+    def slow_smoke(**kw):
+        assert _reap(monkeypatch, LORA_SMOKE_REAP_AFTER_S + 60)["trained"] == 1
+        return {"ok": True, "path": "/x/smoke.png"}
+
+    _stub_smoke(monkeypatch, slow_smoke)
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        s = _member(sid)
+        assert s.training_status == "trained"
+        assert s.training_error is None
+    assert progress.calls[-1][0] == "complete"
+
+
+def test_normal_run_clears_its_save_marker(app, monkeypatch, saved_lora):
+    from backend.tasks.lora_trainer_tasks import LORA_SAVED_FOR_JOB_KEY
+    sid, _ = saved_lora
+    seen = {}
+
+    def smoke(**kw):
+        seen["marker"] = (_member(sid).training_settings_json or {}).get(LORA_SAVED_FOR_JOB_KEY)
+        return {"ok": True}
+
+    _stub_smoke(monkeypatch, smoke)
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        s = _member(sid)
+        assert s.training_status == "trained"
+        assert LORA_SAVED_FOR_JOB_KEY not in (s.training_settings_json or {})
+    assert seen["marker"]["job_id"] == "job-1"
+    assert seen["marker"]["lora_path"].endswith("hero.safetensors")
