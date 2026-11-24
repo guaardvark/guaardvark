@@ -5,7 +5,8 @@
 `get_physical_path` (backend/api/files_api.py) joins UPLOAD_BASE + path,
 which works when files are written under data/uploads/. ComfyUI
 generations land under plugins/comfyui/ComfyUI/output/ — outside
-UPLOAD_BASE — and `register_file`'s fallback path stores a constructed
+UPLOAD_BASE. `register_file` stores such a file by its real location
+(relative to the install root), but older rows carry a constructed
 virtual path with no link back to the real bytes.
 
 This resolver tries every plausible location until one exists. Used by
