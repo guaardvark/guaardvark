@@ -811,6 +811,13 @@ def test_run_editor_honours_a_silent_i2v_model(app, production, monkeypatch):
     monkeypatch.setattr(
         "backend.services.comfyui_video_generator.Wan22I2VGenerator", _I2V,
     )
+    # The model's files and ComfyUI are not what is under test: without these
+    # the stage stops at "not installed" on a machine that lacks the model.
+    monkeypatch.setattr(
+        "backend.services.video_model_registry.resolve_active_video_model",
+        lambda mode, model, surface=None: (model, None),
+    )
+    monkeypatch.setattr("backend.services.plugin_bridge.job_service_start_enabled", lambda: False)
     with patch("backend.tasks.production_swarm_tasks.Editor") as MockEditor:
         from backend.services.swarm.agents.editor import RenderResult
         MockEditor.return_value.render.return_value = RenderResult(
