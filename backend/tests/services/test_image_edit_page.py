@@ -75,12 +75,20 @@ def test_facexlib_files_count_only_when_every_loader_has_them(tmp_path, monkeypa
     entry = registry.VIDEO_MODEL_REGISTRY["facexlib-face"]
     assert "parsing_bisenet.pth" in entry["check_files"]
     assert registry.resolve_entry_dir(entry) == comfy
+    def whole(path, name):
+        # A stand-in of the published size: a shorter legacy .pth reads as cut short.
+        with open(path, "wb") as f:
+            f.write(b"x")
+            f.truncate(entry["file_bytes"][name])
+
     for name in entry["check_files"]:
-        (backend / name).write_bytes(b"x")
+        whole(backend / name, name)
     assert not registry.entry_files_present(entry)
     for name in entry["check_files"]:
-        (comfy / name).write_bytes(b"x")
+        whole(comfy / name, name)
     assert registry.entry_files_present(entry)
+    (comfy / "parsing_bisenet.pth").write_bytes(b"front part")
+    assert not registry.entry_files_present(entry)
 
 
 def test_two_people_get_chained_apply_nodes_each_with_its_mask():

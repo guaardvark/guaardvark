@@ -12,6 +12,17 @@ def _forbid_downloads(monkeypatch):
     monkeypatch.setattr(model_manager_module, "urlretrieve", _no_download)
 
 
+def _registry_size(name):
+    return next(m["size_bytes"] for m in MODEL_REGISTRY if m["name"] == name)
+
+
+def _write_whole(path, name, head=b"\x80\x02\x8a\nlegacy"):
+    """A stand-in of the registry model's published size (sparse, no disk used)."""
+    with open(path, "wb") as f:
+        f.write(head)
+        f.truncate(_registry_size(name))
+
+
 def test_model_registry_has_default_models():
     """Registry contains the five standard Real-ESRGAN models."""
     names = [m["name"] for m in MODEL_REGISTRY]
@@ -42,7 +53,7 @@ def test_model_manager_list_available(tmp_path):
 def test_model_manager_list_downloaded(tmp_path):
     """Downloaded .pth files appear in downloaded list."""
     fake_model = tmp_path / "RealESRGAN_x4plus.pth"
-    fake_model.write_bytes(b"fake")
+    _write_whole(fake_model, "RealESRGAN_x4plus")
     mm = ModelManager(models_dir=str(tmp_path), precision="fp32", compile_enabled=False)
     result = mm.list_models()
     downloaded_names = [m["name"] for m in result["downloaded"]]
@@ -75,7 +86,7 @@ def test_missing_model_message_tells_registry_and_unknown_models_apart(tmp_path)
     assert "is not installed" in mm.missing_model_message("RealESRGAN_x2plus")
     assert "was not found" in mm.missing_model_message("my-own-model")
 
-    (tmp_path / "RealESRGAN_x2plus.pth").write_bytes(b"fake")
+    _write_whole(tmp_path / "RealESRGAN_x2plus.pth", "RealESRGAN_x2plus")
     (tmp_path / "my-own-model.pth").write_bytes(b"fake")
     assert mm.missing_model_message("RealESRGAN_x2plus") is None
     assert mm.missing_model_message("my-own-model") is None
@@ -94,8 +105,7 @@ def test_download_model_is_the_install_path(tmp_path, monkeypatch):
 
     def _fake_retrieve(url, dest):
         fetched.append(url)
-        with open(dest, "wb") as f:
-            f.write(b"weights")
+        _write_whole(dest, "RealESRGAN_x2plus")
 
     monkeypatch.setattr(model_manager_module, "urlretrieve", _fake_retrieve)
     mm = ModelManager(models_dir=str(tmp_path), precision="fp32", compile_enabled=False)
@@ -183,17 +193,26 @@ def test_install_replaces_a_truncated_file(tmp_path, monkeypatch):
     assert mm.is_downloaded("RealESRGAN_x2plus")
 
 
-def test_legacy_pickle_checkpoint_passes_when_not_empty(tmp_path):
-    """A non-zip .pth has no length to check against; only an empty one fails."""
+def test_legacy_pickle_checkpoint_is_checked_against_its_published_size(tmp_path):
+    """A non-zip .pth has no length of its own: a registry model is compared
+    with the size the registry records, and a model a person dropped in only
+    has to be non-empty."""
     mm = ModelManager(models_dir=str(tmp_path), precision="fp32", compile_enabled=False)
     path = tmp_path / "RealESRGAN_x2plus.pth"
-    path.write_bytes(b"\x80\x02\x8a\nlegacy")
+    _write_whole(path, "RealESRGAN_x2plus")
     assert mm.is_downloaded("RealESRGAN_x2plus")
 
-    path.write_bytes(b"")
+    path.write_bytes(b"\x80\x02\x8a\nfront part of a download")
+    assert not mm.is_downloaded("RealESRGAN_x2plus")
+    assert mm.incomplete_reason("RealESRGAN_x2plus").startswith("truncated")
 
+    path.write_bytes(b"")
     assert not mm.is_downloaded("RealESRGAN_x2plus")
     assert mm.incomplete_reason("RealESRGAN_x2plus") == "empty"
+
+    own = tmp_path / "my-own-model.pth"
+    own.write_bytes(b"\x80\x02\x8a\nlegacy")
+    assert mm.is_downloaded("my-own-model")
 
 
 def test_safetensors_check_matches_the_header(tmp_path):

@@ -188,7 +188,10 @@ def test_upscale_video_refuses_the_default_model_before_queueing(client, monkeyp
 def test_a_request_without_a_model_uses_an_installed_one_when_the_default_is_missing(client, monkeypatch, tmp_path):
     app_module = _empty_models_dir(monkeypatch, tmp_path)
     assert app_module._default_model() == app_module._config.default_model
-    (tmp_path / "models" / "4x-UltraSharp.pth").write_bytes(b"weights")
+    # A stand-in of the published size: a shorter legacy .pth reads as cut short.
+    with open(tmp_path / "models" / "4x-UltraSharp.pth", "wb") as f:
+        f.write(b"weights")
+        f.truncate(66961958)
     assert app_module._default_model() == "4x-UltraSharp"
     assert app_module._require_installed(None) == "4x-UltraSharp"
 

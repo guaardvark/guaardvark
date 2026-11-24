@@ -32,3 +32,4 @@ EMPTY = _shared.EMPTY
 file_problem = _shared.file_problem
 file_complete = _shared.file_complete
 file_incomplete = _shared.file_incomplete
+expect_size = _shared.expect_size

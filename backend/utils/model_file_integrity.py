@@ -14,7 +14,9 @@ for a zip, the end record) and never the tensor data:
 
 Formats with no length of their own to compare against (legacy pickle
 checkpoints, CTranslate2 and other raw .bin) are reported whole when they are
-non-empty; ``check_kind`` returns None for them.
+non-empty; ``check_kind`` returns None for them. A registry that knows such a
+file's size as published records it with ``expect_size``, and the file is then
+cut short when it is smaller than that.
 
 Verdicts are cached per path and dropped when the file's mtime or size changes.
 Standard library only, so plugin services can import it.
@@ -42,6 +44,8 @@ _MAYBE_ZIP_SUFFIXES = (".pt", ".pth", ".ckpt", ".bin")
 _CACHE_LIMIT = 4096
 _cache: dict = {}
 _cache_lock = threading.Lock()
+# path -> size in bytes the registry that owns the file recorded for it.
+_expected_sizes: dict = {}
 
 
 class _Truncated(Exception):
@@ -335,9 +339,28 @@ def check_kind(path: Union[str, Path]) -> Optional[str]:
     return None
 
 
+def expect_size(path: Union[str, Path], nbytes: Optional[int]) -> None:
+    """Record the size a registry publishes for ``path``. Used only for a file
+    whose format has no structure check: one smaller than this is reported cut
+    short. A larger or equal file is left alone, since a person may have
+    dropped in another build of the same model."""
+    if not nbytes or int(nbytes) <= 0:
+        return
+    key = os.fspath(path)
+    with _cache_lock:
+        if _expected_sizes.get(key) != int(nbytes):
+            _expected_sizes[key] = int(nbytes)
+            _cache.pop(key, None)
+
+
 def _examine(path: str, size: int) -> Optional[str]:
     try:
         kind = check_kind(path)
+        if kind is None:
+            want = _expected_sizes.get(path)
+            if want and size < want:
+                return f"truncated: {_gb(size)} on disk, the published file is {_gb(want)}"
+            return None
         if kind == "safetensors":
             return _safetensors_problem(path, size)
         if kind == "gguf":
