@@ -57,7 +57,11 @@ def is_docker_checkout(root: Path) -> bool:
 
 
 def resolve_flask_port(root: Path | None = None) -> int:
-    """Resolution order: env → repo .env → runtime.json → default 5000."""
+    """Resolution order: env → repo .env → runtime.json → default 5000.
+
+    runtime.json is one file per user; with ``root`` given, a port it records for
+    another install is skipped.
+    """
     env_port = os.environ.get("FLASK_PORT") or os.environ.get("FLASK_RUN_PORT")
     if env_port:
         try:
@@ -73,12 +77,35 @@ def resolve_flask_port(root: Path | None = None) -> int:
         try:
             runtime = json.loads(RUNTIME_FILE.read_text())
             port = runtime.get("backend_port")
-            if port:
+            if port and not _runtime_for_other_root(runtime, root):
                 return int(port)
-        except (json.JSONDecodeError, OSError, ValueError, TypeError):
+        except (json.JSONDecodeError, OSError, ValueError, TypeError, AttributeError):
             pass
 
     return DEFAULT_FLASK_PORT
+
+
+def _runtime_for_other_root(runtime: dict, root: Path | None) -> bool:
+    recorded = runtime.get("root")
+    if root is None or not recorded:
+        return False
+    return Path(recorded).resolve() != Path(root).resolve()
+
+
+def other_install_on_port(root: Path, port: int) -> tuple[int, Path] | None:
+    """The listener on ``port`` when it belongs to a Guaardvark install other than
+    ``root`` (a worktree nested inside it included), as (pid, that install's root).
+
+    None when the listener is this install's, or when nothing tells whose it is
+    (no listener this user can see, such as a container's port proxy).
+    """
+    from llx.port_owner import other_install_holders
+
+    try:
+        held = other_install_holders(root, [port])
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return (held[0]["pid"], Path(held[0]["install"])) if held else None
 
 
 def server_url_for_port(port: int) -> str:
@@ -151,6 +178,14 @@ def ensure_backend_running(console=None, quiet: bool = False) -> tuple[str, bool
     server_url = server_url_for_port(port)
 
     if is_backend_healthy(server_url):
+        other = other_install_on_port(root, port)
+        if other is not None:
+            pid, other_root = other
+            raise RuntimeError(
+                f"Port {port} is answered by the Guaardvark install at {other_root} (PID {pid}), "
+                f"not this one at {root}. Stop that install, or give this one its own "
+                f"FLASK_PORT in {root / '.env'}."
+            )
         return server_url, False
 
     start_script = root / "start.sh"
