@@ -71,13 +71,10 @@ def model_path(model_id: str) -> Path:
 
 def installed_model() -> Optional[str]:
     """The best installed model id, or None."""
+    from backend.utils.model_file_integrity import file_complete
     for mid in PREFERENCE:
-        p = model_path(mid)
-        try:
-            if p.is_file() and p.stat().st_size > 0:
-                return mid
-        except OSError:
-            continue
+        if file_complete(model_path(mid)):
+            return mid
     return None
 
 

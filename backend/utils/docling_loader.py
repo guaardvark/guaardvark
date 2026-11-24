@@ -79,8 +79,8 @@ def _repo_folder(repo_id: str) -> str:
 
 
 def _has_files(folder: Path, model: Dict[str, Any]) -> bool:
-    return all((folder / name).is_file() and (folder / name).stat().st_size > 0
-               for name in model["files"])
+    from backend.utils.model_file_integrity import file_complete
+    return all(file_complete(folder / name) for name in model["files"])
 
 
 def _own_artifacts_path() -> Optional[Path]:

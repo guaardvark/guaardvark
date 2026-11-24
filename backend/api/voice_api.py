@@ -21,6 +21,7 @@ from pathlib import Path
 from flask import Blueprint, Response, current_app, jsonify, request, send_file
 from werkzeug.utils import secure_filename
 from backend.utils.response_utils import success_response, error_response
+from backend.utils.model_file_integrity import MISSING, file_complete, file_incomplete, file_problem
 from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 from backend.utils.privileged_apt import (
     escalation_method,
@@ -915,7 +916,7 @@ def _installed_piper_voice(voice: str) -> Optional[str]:
 
     def installed(voice_id):
         config = PIPER_VOICES.get(voice_id)
-        return bool(config) and os.path.exists(os.path.join(backend_path, config["model"]))
+        return bool(config) and file_complete(os.path.join(backend_path, config["model"]))
 
     for candidate in (voice, DEFAULT_VOICE, *PIPER_VOICES):
         if installed(candidate):
@@ -1037,8 +1038,11 @@ def ensure_whisper_model_downloaded(model_config):
     backend_path = get_backend_path()
     model_path = os.path.join(backend_path, model_config["path"])
 
-    if os.path.exists(model_path):
+    problem = file_problem(model_path)
+    if problem is None:
         return True, model_path, None
+    if problem != MISSING:
+        return False, model_path, f"{os.path.basename(model_path)} is incomplete ({problem}); install it again"
 
     return False, model_path, f"{os.path.basename(model_path)} is not installed"
 
@@ -1053,7 +1057,7 @@ def _whisper_missing_parts(backend_path, model_id, model_config):
     """
     missing = []
     whisper_cli_built = os.path.exists(os.path.join(backend_path, WHISPER_CLI_PATH))
-    if whisper_cli_built and not os.path.exists(os.path.join(backend_path, model_config["path"])):
+    if whisper_cli_built and not file_complete(os.path.join(backend_path, model_config["path"])):
         missing.append("ggml")
     try:
         from backend.utils import faster_whisper_utils as fw
@@ -1455,7 +1459,7 @@ def stream_tts(stream_id):
     voice_config = PIPER_VOICES[voice]
     piper_model = os.path.join(backend_path, voice_config["model"])
     
-    if not os.path.exists(piper_model):
+    if not file_complete(piper_model):
         return jsonify({"error": f"Piper model not found: {voice}"}), 500
 
     # Get sample rate from config
@@ -1930,7 +1934,7 @@ def _piper_reply_voices():
             "id": voice_id,
             "name": voice_config["name"],
             "description": voice_config["description"],
-            "available": os.path.exists(os.path.join(backend_path, voice_config["model"])),
+            "available": file_complete(os.path.join(backend_path, voice_config["model"])),
             "engine": "piper-tts",
         })
     default = next((v["id"] for v in voices if v["id"] == DEFAULT_VOICE and v["available"]), None)
@@ -1991,7 +1995,7 @@ def get_available_models():
         
         for model_id, model_config in WHISPER_MODELS.items():
             model_path = os.path.join(backend_path, model_config["path"])
-            is_available = os.path.exists(model_path)
+            is_available = file_complete(model_path)
             
             available_models[model_id] = {
                 "name": model_config["name"],
@@ -2032,7 +2036,7 @@ def voice_status():
         available_models = []
         for model_id, model_config in WHISPER_MODELS.items():
             model_path = os.path.join(backend_path, model_config["path"])
-            if os.path.exists(model_path):
+            if file_complete(model_path):
                 available_models.append(model_id)
 
         whisper_available = whisper_cli_available and len(available_models) > 0
@@ -2053,7 +2057,7 @@ def voice_status():
         available_voices = []
         for voice_id, voice_config in PIPER_VOICES.items():
             model_path = os.path.join(backend_path, voice_config["model"])
-            if os.path.exists(model_path):
+            if file_complete(model_path):
                 available_voices.append(voice_id)
             else:
                 piper_available = False
@@ -2437,7 +2441,7 @@ def install_voice_model():
         config_path = model_path + ".json"
 
         # Check if already installed
-        if os.path.exists(model_path) and os.path.exists(config_path):
+        if file_complete(model_path) and os.path.exists(config_path):
             return jsonify({
                 "success": True,
                 "message": f"Voice model '{voice_config['name']}' is already installed",
@@ -2457,10 +2461,11 @@ def install_voice_model():
             from piper.download_voices import download_voice
             from pathlib import Path
 
+            _discard_incomplete_voice_model(model_path)
             download_voice(voice_name_full, Path(piper_models_dir))
 
             # Verify download was successful
-            if os.path.exists(model_path) and os.path.exists(config_path):
+            if file_complete(model_path) and os.path.exists(config_path):
                 model_size = os.path.getsize(model_path)
                 logger.info(f"Voice API: Successfully installed voice model '{voice_config['name']}' ({model_size / 1024 / 1024:.1f} MB)")
 
@@ -2784,6 +2789,19 @@ def download_voice_model():
         return error_response(str(e), 500)
 
 
+def _discard_incomplete_voice_model(model_path):
+    """Remove a voice model that is on disk but cut short, so the download
+    replaces it instead of taking it for the finished file."""
+    reason = file_incomplete(model_path)
+    if not reason:
+        return
+    logger.warning("Voice API: replacing %s (%s)", model_path, reason)
+    try:
+        os.unlink(model_path)
+    except OSError as e:
+        logger.warning("Voice API: could not remove %s: %s", model_path, e)
+
+
 def _do_piper_download(backend_path, voice_id, voice_config):
     """Download a Piper TTS voice model (called from background thread)."""
     model_rel_path = voice_config["model"]
@@ -2793,8 +2811,9 @@ def _do_piper_download(backend_path, voice_id, voice_config):
     model_path = os.path.join(backend_path, model_rel_path)
     config_path = model_path + ".json"
 
-    if os.path.exists(model_path) and os.path.exists(config_path):
+    if file_complete(model_path) and os.path.exists(config_path):
         return  # Already installed
+    _discard_incomplete_voice_model(model_path)
 
     model_filename = os.path.basename(model_rel_path)
     voice_name_full = model_filename.replace(".onnx", "")
@@ -2804,7 +2823,7 @@ def _do_piper_download(backend_path, voice_id, voice_config):
         from piper.download_voices import download_voice
         from pathlib import Path
         download_voice(voice_name_full, Path(piper_models_dir))
-        if os.path.exists(model_path) and os.path.exists(config_path):
+        if file_complete(model_path) and os.path.exists(config_path):
             return
     except ImportError:
         pass
@@ -2831,17 +2850,23 @@ def _do_piper_download(backend_path, voice_id, voice_config):
     }
 
     model_url = url_format.format(extension=".onnx", **format_args)
+    # An interrupted fetch must not leave its front part under the final name.
+    part_path = model_path + ".part"
     with urlopen(model_url) as response:
-        with open(model_path, "wb") as f:
+        with open(part_path, "wb") as f:
             _shutil.copyfileobj(response, f)
+    os.replace(part_path, model_path)
 
     config_url = url_format.format(extension=".onnx.json", **format_args)
     with urlopen(config_url) as response:
         with open(config_path, "wb") as f:
             _shutil.copyfileobj(response, f)
 
-    if not os.path.exists(model_path):
+    problem = file_problem(model_path)
+    if problem == MISSING:
         raise RuntimeError(f"Download completed but model file not found: {model_path}")
+    if problem:
+        raise RuntimeError(f"Downloaded voice model is incomplete ({problem}): {model_path}")
 
 
 def _do_whisper_download(backend_path, model_id, model_config):

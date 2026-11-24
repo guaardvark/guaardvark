@@ -15,6 +15,7 @@ import pytest
 from PIL import Image
 
 from backend.services import background_removal as bg
+from backend.tests.fixtures.model_files import write_model_file
 from backend.tools import image_tools as it
 
 
@@ -46,7 +47,7 @@ def cuda_build(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "onnxruntime", fake)
     monkeypatch.setattr(bg, "_sessions", {})
     monkeypatch.setattr(bg, "model_path", lambda mid: tmp_path / bg.MODELS[mid]["file"])
-    (tmp_path / "u2net.onnx").write_bytes(b"onnx")
+    write_model_file(tmp_path / "u2net.onnx")
     return created
 
 

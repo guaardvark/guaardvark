@@ -68,7 +68,9 @@ def _model_root() -> Optional[str]:
     if not entry:
         return None
     folder = resolve_entry_dir(entry)
-    if not folder.is_dir() or not any(folder.glob("*.onnx")):
+    from backend.utils.model_file_integrity import file_complete
+    weights = list(folder.glob("*.onnx")) if folder.is_dir() else []
+    if not weights or not all(file_complete(w) for w in weights):
         return None
     # FaceAnalysis reads <root>/models/antelopev2.
     return str(folder.parent.parent)

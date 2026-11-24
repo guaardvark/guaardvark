@@ -3734,6 +3734,10 @@ Negative Prompt: {negative_prompt}""",
             if not p.is_file():
                 logger.warning("LoRA path missing, skipping: %s", path)
                 continue
+            from backend.utils.model_file_integrity import file_incomplete
+            cut = file_incomplete(p)
+            if cut:
+                raise RuntimeError(f"Can't use LoRA {p.name}: the file is incomplete ({cut}).")
             # Reject obvious SDXL kohya keys if sidecar says so
             try:
                 from backend.services.media_model_registry import read_lora_sidecar

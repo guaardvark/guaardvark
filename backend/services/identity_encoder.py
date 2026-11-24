@@ -104,9 +104,9 @@ def installed_path(repo: Optional[str] = None) -> Optional[Path]:
         return None
     if record.get("weights_sha256") != entry["weights_sha256"]:
         return None
+    from backend.utils.model_file_integrity import file_complete
     for name in entry["files"]:
-        path = folder / name
-        if not path.is_file() or path.stat().st_size == 0:
+        if not file_complete(folder / name):
             return None
     return folder
 

@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from backend.services import audio_foundry_models as afm
+from backend.tests.fixtures.model_files import write_model_file
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "plugins" / "audio_foundry"
@@ -54,8 +55,7 @@ def _build_env(root: Path, commit: str = CATALOG["source"]["commit"]) -> None:
 def _place_weights(root: Path) -> None:
     ckpt = root / CATALOG["local_dir"] / "checkpoints"
     for name in CATALOG["files"]:
-        (ckpt / name).parent.mkdir(parents=True, exist_ok=True)
-        (ckpt / name).write_text("x")
+        write_model_file(ckpt / name)
 
 
 def test_the_catalog_pins_what_install_and_the_runner_read():

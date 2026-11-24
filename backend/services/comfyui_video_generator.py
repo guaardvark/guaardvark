@@ -59,6 +59,7 @@ from backend.services.comfyui_video_workflows import ComfyUIVideoWorkflowMixin
 from backend.services import video_render_limits as render_limits
 from backend.services.video_render_limits import family_frame_count
 from backend.services.job_types import RenderErrorKind, RenderFailure, failure_kind, render_failed
+from backend.utils.model_file_integrity import file_complete
 
 # How long a render waits for the orchestrator to free the registry estimate
 # before it gives up instead of queuing into a starved card. Same budget the
@@ -1562,7 +1563,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         missing = []
         for key, subdir in self._LTX25_MODEL_SUBDIRS.items():
             name = files.get(key)
-            if name and not (models_root / subdir / name).exists():
+            if name and not file_complete(models_root / subdir / name):
                 missing.append(f"{subdir}/{name}")
         return missing
 
@@ -1601,8 +1602,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         missing: List[str] = []
         loader_path = models_root / self._COG_I2V_LOADER_SUBDIR / files["unet"]
         canonical = models_root / self._COG_I2V_CANONICAL_SUBDIR / files["unet"]
-        if not loader_path.exists():
-            if canonical.exists() and canonical.stat().st_size > 0:
+        if not file_complete(loader_path):
+            if file_complete(canonical) and not os.path.lexists(loader_path):
                 loader_path.parent.mkdir(parents=True, exist_ok=True)
                 try:
                     os.link(str(canonical), str(loader_path))
@@ -1612,7 +1613,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             else:
                 missing.append(f"{self._COG_I2V_CANONICAL_SUBDIR}/{files['unet']}")
         vae_path = models_root / "vae" / files["vae"]
-        if not vae_path.exists():
+        if not file_complete(vae_path):
             missing.append(f"vae/{files['vae']}")
         return missing
 
