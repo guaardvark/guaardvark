@@ -20,7 +20,7 @@ const OutreachDraftImage = ({ draft, sx }) => {
   const pending = !draft.status || BEFORE_POST.includes(draft.status);
 
   return (
-    <Stack direction="row" spacing={1} alignItems="center" sx={sx}>
+    <Stack direction="row" spacing={1} sx={{ alignItems: "center", ...sx }}>
       <Box
         component="button"
         type="button"

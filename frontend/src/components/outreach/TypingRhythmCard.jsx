@@ -88,7 +88,7 @@ const TypingRhythmCard = () => {
         size="small"
         slotProps={{ htmlInput: { spellCheck: false, autoComplete: "off" } }}
       />
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 1 }}>
         <Button
           variant="contained"
           size="small"

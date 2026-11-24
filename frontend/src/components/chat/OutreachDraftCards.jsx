@@ -80,7 +80,7 @@ const DraftCard = ({ draft, watched, onChanged, review }) => {
 
   return (
     <Paper variant="outlined" sx={{ p: 1.5 }}>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap", mb: 1 }}>
         <Chip label={`#${draft.id}`} size="small" />
         <Chip label={draft.platform} size="small" variant="outlined" />
         <Chip label={t(`approvals.outreach.status.${status}`, { defaultValue: status })} size="small" color={statusColor} />
@@ -181,7 +181,7 @@ const DraftCard = ({ draft, watched, onChanged, review }) => {
       )}
 
       {(status === "drafted" || IN_FLIGHT.includes(status)) && (
-        <Stack direction="row" spacing={1} sx={{ mt: 1 }} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 1 }}>
           {status === "drafted" && (
             <Button
               variant="contained"
@@ -318,7 +318,7 @@ const OutreachDraftCards = ({ run }) => {
   return (
     <Stack spacing={1} sx={{ mt: 1 }}>
       {waitingOnRun && (
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <CircularProgress size={16} />
           <Typography variant="body2" color="text.secondary">
             {t("approvals.outreach.chat.running", { tasks: follow.task_ids.map((id) => `#${id}`).join(", ") })}

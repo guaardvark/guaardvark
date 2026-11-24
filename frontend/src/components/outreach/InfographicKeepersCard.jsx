@@ -75,7 +75,7 @@ const Readback = ({ item }) => {
     );
   } else if (status === "reading") {
     headline = (
-      <Stack direction="row" spacing={0.75} alignItems="center">
+      <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
         <CircularProgress size={12} />
         <Typography variant="caption">{t("outreach.infographics.readback.reading")}</Typography>
       </Stack>
@@ -169,7 +169,7 @@ const InfographicKeepersCard = () => {
 
   return (
     <Paper sx={{ p: 2, mt: 2 }}>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap", mb: 0.5 }}>
         <Typography variant="subtitle2" sx={{ flex: 1 }}>
           {t("outreach.infographics.title")}
         </Typography>
@@ -273,7 +273,7 @@ const InfographicKeepersCard = () => {
             })}
           </Box>
           {list.length > visible.length && (
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 1.5 }}>
               <Button size="small" variant="outlined" onClick={() => setShown((n) => n + PAGE_SIZE)}>
                 {t("outreach.infographics.showMore")}
               </Button>
