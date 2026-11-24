@@ -821,3 +821,85 @@ def test_normal_run_clears_its_save_marker(app, monkeypatch, saved_lora):
         assert LORA_SAVED_FOR_JOB_KEY not in (s.training_settings_json or {})
     assert seen["marker"]["job_id"] == "job-1"
     assert seen["marker"]["lora_path"].endswith("hero.safetensors")
+
+
+# --- a redelivered message finishes the saved run ------------------------------
+#
+# Celery redelivers an unacked train_lora message (acks_late) with the same job
+# id. A run that already saved its LoRA is finished, not trained again, so the
+# reaper's saved-LoRA rule never lands in the middle of a second training.
+
+
+def _redeliver_after_death(app, monkeypatch, sid):
+    from backend.tasks import lora_trainer_tasks as t
+    promote = t._promote_to_trained
+    _die_during_smoke(app, monkeypatch, sid)
+    monkeypatch.setattr(t, "_promote_to_trained", promote)
+    trained = []
+
+    def retrain(subject_id, job_id=None):
+        trained.append(job_id)
+        return {"status": "failed", "error": "retrained"}
+
+    monkeypatch.setattr(t, "_train_impl", retrain)
+    return trained
+
+
+def test_redelivered_run_finishes_without_retraining(app, monkeypatch, saved_lora):
+    from backend.tasks.lora_trainer_tasks import LORA_SAVED_FOR_JOB_KEY
+    sid, progress = saved_lora
+    trained = _redeliver_after_death(app, monkeypatch, sid)
+    smokes = []
+    _stub_smoke(monkeypatch, lambda **kw: smokes.append(kw) or {"ok": True, "path": "/x/smoke.png"})
+    progress.calls.clear()
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        s = _member(sid)
+        assert s.training_status == "trained"
+        assert s.training_error is None
+        assert s.lora_path.endswith("hero.safetensors")
+        assert LORA_SAVED_FOR_JOB_KEY not in (s.training_settings_json or {})
+    assert trained == []
+    assert [k["lora_path"] for k in smokes] == [s.lora_path]
+    assert progress.calls[-1][0] == "complete"
+    assert progress.calls[-1][3] == "trained"
+
+
+def test_redelivered_run_and_the_reaper_agree(app, monkeypatch, saved_lora):
+    """The reviewer's case: a beat tick past the window lands while the
+    redelivered run works. The member ends trained on the saved LoRA and the
+    job completes instead of being superseded."""
+    from backend.tasks.lora_trainer_tasks import LORA_SMOKE_REAP_AFTER_S
+    sid, progress = saved_lora
+    trained = _redeliver_after_death(app, monkeypatch, sid)
+
+    def smoke(**kw):
+        assert _reap(monkeypatch, LORA_SMOKE_REAP_AFTER_S + 60)["trained"] == 1
+        return {"ok": True}
+
+    _stub_smoke(monkeypatch, smoke)
+    progress.calls.clear()
+    with app.app_context():
+        train_subject_lora_for_subject(sid, job_id="job-1")
+        s = _member(sid)
+        assert (s.training_status, s.training_error) == ("trained", None)
+    assert trained == []
+    assert progress.calls[-1][0] == "complete"
+    assert not any(c[0] == "error" for c in progress.calls)
+
+
+@pytest.mark.parametrize("damage", ["truncated", "other_job"])
+def test_redelivery_without_a_saved_lora_trains_again(app, monkeypatch, saved_lora, tmp_path, damage):
+    sid, _ = saved_lora
+    trained = _redeliver_after_death(app, monkeypatch, sid)
+    lora = tmp_path / "hero.safetensors"
+    job = "job-1"
+    with app.app_context():
+        if damage == "truncated":
+            lora.write_bytes(lora.read_bytes()[:-40])
+        else:
+            _cancel_and_train_again(sid, "job-2")
+            job = "job-2"
+        train_subject_lora_for_subject(sid, job_id=job)
+        assert _member(sid).training_status == "failed"
+    assert trained == [job]

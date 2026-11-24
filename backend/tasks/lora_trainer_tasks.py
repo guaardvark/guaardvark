@@ -386,7 +386,8 @@ def _promote_to_trained(subject_id: int, job_id: str | None = None) -> tuple[Sub
         # The reaper promoted this run's saved LoRA while the render overran.
         if s.training_error == LORA_SAVED_NOTE:
             s.training_error = None
-            db.session.commit()
+        _clear_saved_marker(s)
+        db.session.commit()
         return s, None
     moved_to = _superseded_by(s, job_id)
     if moved_to:
@@ -431,6 +432,84 @@ def _saved_lora_for_current_run(s: Subject) -> dict | None:
     return marker
 
 
+def _smoke_and_finish(
+    subject_id: int,
+    s: Subject,
+    job_id: str | None,
+    *,
+    run_smoke: bool,
+    used_images: list,
+    base_model_hint: str | None = None,
+) -> None:
+    """After a committed save: the smoke render, 'trained', then the job's end."""
+    from backend.utils.unified_progress_system import get_unified_progress
+
+    smoke = None
+    try:
+        if run_smoke and s.lora_path:
+            if job_id:
+                try:
+                    get_unified_progress().update_process(
+                        job_id, 92, "Checking the new LoRA with a test render",
+                    )
+                except Exception:
+                    pass
+            from backend.services.lora_posttrain_smoke import run_lora_smoke_test
+            from backend.services.lora_training_settings import settings_for_subject
+            train_settings = settings_for_subject(s)
+            smoke = run_lora_smoke_test(
+                subject_id=subject_id,
+                lora_path=s.lora_path,
+                trigger_word=s.trigger_word or s.name,
+                resolution=train_settings.get("resolution", 768),
+                base_model_id=train_settings.get("base_model_id") or base_model_hint,
+                ref_image_paths=list(used_images or [])[:8],
+                subject=s,
+            )
+            if smoke.get("ok"):
+                logger.info("lora smoke test passed for subject %s", subject_id)
+            else:
+                logger.warning(
+                    "lora smoke test did not pass for subject %s: %s",
+                    subject_id, smoke.get("error"),
+                )
+    except Exception as e:
+        # Includes Celery's SoftTimeLimitExceeded: the LoRA is saved either way.
+        logger.warning("lora smoke test for subject %s raised (non-fatal): %s", subject_id, e)
+        smoke = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+    finally:
+        s, moved_to = _promote_to_trained(subject_id, job_id)
+
+    if s is None:
+        logger.warning(
+            "lora train for %s saved its LoRA but status is %r; not marked trained",
+            subject_id, moved_to,
+        )
+        if job_id:
+            try:
+                get_unified_progress().error_process(job_id, f"training superseded (status={moved_to})")
+            except Exception:
+                pass
+        return
+
+    if job_id:
+        try:
+            get_unified_progress().update_process(job_id, 95, "Finalizing LoRA")
+            additional = {
+                "lora_path": s.lora_path,
+                "subject_id": subject_id,
+                "smoke_test": smoke,
+            }
+            msg = "LoRA training complete"
+            if smoke and smoke.get("ok"):
+                msg += " (smoke render verified LoRA loads)"
+            elif smoke and smoke.get("error"):
+                msg += f" (smoke render skipped: {smoke['error'][:120]})"
+            get_unified_progress().complete_process(job_id, msg, additional_data=additional)
+        except Exception:
+            pass
+
+
 def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -> None:
     """Module-level entry point — directly callable from tests."""
     from backend.utils.unified_progress_system import get_unified_progress
@@ -454,6 +533,22 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
                 get_unified_progress().error_process(job_id, f"skipped (status={s.training_status})")
             except Exception:
                 pass
+        return
+
+    saved = _saved_lora_for_current_run(s) if job_id else None
+    if saved is not None and saved.get("job_id") == job_id:
+        # A redelivered message for a run whose worker died after saving its
+        # LoRA: finish that run rather than train again.
+        logger.warning(
+            "lora train for %s: job %s already saved %s; finishing it without retraining",
+            subject_id, job_id, s.lora_path,
+        )
+        _smoke_and_finish(
+            subject_id, s, job_id,
+            # Recorded only after a verified real train (see below).
+            run_smoke=bool(s.last_trained_image_paths),
+            used_images=list(s.last_trained_image_paths or []),
+        )
         return
 
     if job_id:
@@ -604,71 +699,12 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
 
         db.session.commit()
 
-        smoke = None
-        try:
-            if is_real_trained and s.lora_path:
-                if job_id:
-                    try:
-                        get_unified_progress().update_process(
-                            job_id, 92, "Checking the new LoRA with a test render",
-                        )
-                    except Exception:
-                        pass
-                from backend.services.lora_posttrain_smoke import run_lora_smoke_test
-                from backend.services.lora_training_settings import settings_for_subject
-                train_settings = settings_for_subject(s)
-                smoke = run_lora_smoke_test(
-                    subject_id=subject_id,
-                    lora_path=s.lora_path,
-                    trigger_word=s.trigger_word or s.name,
-                    resolution=train_settings.get("resolution", 768),
-                    base_model_id=train_settings.get("base_model_id")
-                    or (result.get("base_model_id") if isinstance(result, dict) else None),
-                    ref_image_paths=list(used_images or [])[:8],
-                    subject=s,
-                )
-                if smoke.get("ok"):
-                    logger.info("lora smoke test passed for subject %s", subject_id)
-                else:
-                    logger.warning(
-                        "lora smoke test did not pass for subject %s: %s",
-                        subject_id, smoke.get("error"),
-                    )
-        except Exception as e:
-            # Includes Celery's SoftTimeLimitExceeded: the LoRA is saved either way.
-            logger.warning("lora smoke test for subject %s raised (non-fatal): %s", subject_id, e)
-            smoke = {"ok": False, "error": f"{type(e).__name__}: {e}"}
-        finally:
-            s, moved_to = _promote_to_trained(subject_id, job_id)
-
-        if s is None:
-            logger.warning(
-                "lora train for %s saved its LoRA but status is %r; not marked trained",
-                subject_id, moved_to,
-            )
-            if job_id:
-                try:
-                    get_unified_progress().error_process(job_id, f"training superseded (status={moved_to})")
-                except Exception:
-                    pass
-            return
-
-        if job_id:
-            try:
-                get_unified_progress().update_process(job_id, 95, "Finalizing LoRA")
-                additional = {
-                    "lora_path": s.lora_path,
-                    "subject_id": subject_id,
-                    "smoke_test": smoke,
-                }
-                msg = "LoRA training complete"
-                if smoke and smoke.get("ok"):
-                    msg += " (smoke render verified LoRA loads)"
-                elif smoke and smoke.get("error"):
-                    msg += f" (smoke render skipped: {smoke['error'][:120]})"
-                get_unified_progress().complete_process(job_id, msg, additional_data=additional)
-            except Exception:
-                pass
+        _smoke_and_finish(
+            subject_id, s, job_id,
+            run_smoke=is_real_trained,
+            used_images=used_images,
+            base_model_hint=result.get("base_model_id") if isinstance(result, dict) else None,
+        )
     else:
         s.training_status = "failed"
         err = result.get("error") or "training failed"
