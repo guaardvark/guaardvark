@@ -79,10 +79,11 @@ def resolve_ollama_url() -> str:
 
 
 def resolve_guaardvark_root() -> Path | None:
-    """Find the Guaardvark installation root directory."""
+    """Find the Guaardvark installation root directory. A set GUAARDVARK_ROOT
+    is the only answer: a missing folder there is None, never another install."""
     env = os.environ.get("GUAARDVARK_ROOT")
-    if env and Path(env).is_dir():
-        return Path(env)
+    if env:
+        return Path(env) if Path(env).is_dir() else None
 
     # 1. Resolve relative to this file dynamically (since cli/ is inside the repo root)
     try:

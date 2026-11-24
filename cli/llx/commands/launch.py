@@ -154,20 +154,37 @@ def _launch_summary(cfg: dict) -> dict:
             "ollama_base_url": cfg.get("ollama_base_url"), "config_file": str(_config_path())}
 
 
-def _wait_for_health(server_url: str, tries: int, interval: float, timeout: float) -> bool:
+def _wait_for_health(server_url: str, tries: int, interval: float, timeout: float,
+                     started_after: float | None = None) -> bool:
     """Poll /api/health until it answers 200. Every other outcome, an error
-    status included, waits ``interval`` before the next try."""
+    status included, waits ``interval`` before the next try. With
+    ``started_after`` (an epoch time), a backend whose uptime says it was
+    already running then is the old one, which start.sh is about to stop."""
     import httpx
 
     for attempt in range(tries):
         try:
-            if httpx.get(f"{server_url}/api/health", timeout=timeout).status_code == 200:
+            resp = httpx.get(f"{server_url}/api/health", timeout=timeout)
+            if resp.status_code == 200 and not _started_before(resp, started_after):
                 return True
         except Exception:
             pass
         if attempt < tries - 1:
             time.sleep(interval)
     return False
+
+
+def _started_before(resp, moment: float | None) -> bool:
+    """True when the answering backend's uptime places its start before ``moment``.
+    A reply without uptime_seconds cannot be dated and counts as new."""
+    if moment is None:
+        return False
+    try:
+        uptime = float(resp.json().get("uptime_seconds"))
+    except Exception:
+        return False
+    # One second of slack for the rounding in uptime_seconds.
+    return time.time() - uptime < moment - 1
 
 
 def _start_lite_mode(console, port: int):
@@ -208,10 +225,13 @@ def _start_full_stack(console, cfg: dict, quiet: bool = False) -> dict:
     root = resolve_guaardvark_root()
 
     if root is None:
+        env_root = os.environ.get("GUAARDVARK_ROOT")
+        message = (f"GUAARDVARK_ROOT is {env_root}, which is not a folder." if env_root
+                   else "Guaardvark installation not found.")
         if quiet:
-            _json_error("INSTALL_NOT_FOUND", "Guaardvark installation not found.",
+            _json_error("INSTALL_NOT_FOUND", message,
                         hint="Set GUAARDVARK_ROOT to the folder that holds start.sh.")
-        console.print("[llx.error]Guaardvark installation not found.[/llx.error]")
+        console.print(f"[llx.error]{message}[/llx.error]")
         console.print("[llx.dim]Set GUAARDVARK_ROOT or run: guaardvark launch --lite[/llx.dim]")
         raise typer.Exit(1)
 
@@ -226,6 +246,7 @@ def _start_full_stack(console, cfg: dict, quiet: bool = False) -> dict:
         console.print(f"[llx.dim]Starting full stack from {root}...[/llx.dim]")
 
     # start.sh runs in the foreground — launch it in a background process
+    spawned_at = time.time()
     subprocess.Popen(
         ["bash", str(start_script)],
         cwd=str(root),
@@ -236,7 +257,7 @@ def _start_full_stack(console, cfg: dict, quiet: bool = False) -> dict:
 
     from llx.backend_bootstrap import resolve_flask_port
     server_url = cfg.get("server_url", f"http://localhost:{resolve_flask_port(root)}")
-    ready = _wait_for_health(server_url, tries=60, interval=1, timeout=2)
+    ready = _wait_for_health(server_url, tries=60, interval=1, timeout=2, started_after=spawned_at)
     if not quiet:
         if ready:
             console.print(f"[llx.success]Full stack ready[/llx.success]")

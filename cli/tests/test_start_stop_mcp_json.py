@@ -42,18 +42,23 @@ def _envelope(result):
 
 @pytest.fixture
 def health_server():
-    """A loopback /api/health that answers the queued statuses in order, then 200."""
+    """A loopback /api/health that answers the queued statuses in order, then 200.
+    Queued uptimes go into the replies' uptime_seconds; with none it is left out."""
     statuses: list[int] = []
     hits: list[int] = []
+    uptimes: list[float] = []
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             code = statuses.pop(0) if statuses else 200
             hits.append(code)
+            body = {"status": "ok"}
+            if uptimes:
+                body["uptime_seconds"] = uptimes.pop(0)
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(b'{"status": "ok"}')
+            self.wfile.write(json.dumps(body).encode())
 
         def log_message(self, *args):
             pass
@@ -62,7 +67,7 @@ def health_server():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield f"http://127.0.0.1:{server.server_address[1]}", statuses, hits
+        yield f"http://127.0.0.1:{server.server_address[1]}", statuses, hits, uptimes
     finally:
         server.shutdown()
         server.server_close()
@@ -78,7 +83,7 @@ def sleeps(monkeypatch):
 def test_health_wait_sleeps_after_an_error_status(health_server, sleeps):
     from llx.commands.launch import _wait_for_health
 
-    url, statuses, hits = health_server
+    url, statuses, hits, uptimes = health_server
     statuses.extend([500, 500])
     assert _wait_for_health(url, tries=60, interval=1, timeout=2) is True
     assert hits == [500, 500, 200]
@@ -88,7 +93,7 @@ def test_health_wait_sleeps_after_an_error_status(health_server, sleeps):
 def test_health_wait_spends_every_try_on_a_failing_server(health_server, sleeps):
     from llx.commands.launch import _wait_for_health
 
-    url, statuses, hits = health_server
+    url, statuses, hits, uptimes = health_server
     statuses.extend([500] * 5)
     assert _wait_for_health(url, tries=5, interval=0.25, timeout=1) is False
     assert hits == [500] * 5
@@ -98,7 +103,7 @@ def test_health_wait_spends_every_try_on_a_failing_server(health_server, sleeps)
 def test_full_stack_waits_through_500_then_reports_ready(health_server, sleeps, tmp_path, monkeypatch):
     from llx.commands import launch
 
-    url, statuses, hits = health_server
+    url, statuses, hits, uptimes = health_server
     statuses.extend([500, 503, 500])
     root = tmp_path / "install"
     root.mkdir()
@@ -331,3 +336,73 @@ def test_mcp_config_json_without_a_report(checkout, monkeypatch):
     result = runner.invoke(app, ["mcp", "config", "--client", "vim", "--json"])
     assert result.exit_code == 2
     assert _envelope(result)["error"]["code"] == "MCP_ERROR"
+
+
+# ── launch --full: the old backend is not "ready"; GUAARDVARK_ROOT is binding ──
+
+
+def test_full_stack_ignores_the_backend_start_sh_replaces(health_server, sleeps, tmp_path, monkeypatch):
+    """The first answers come from a backend up for an hour, the one start.sh
+    stops; ready waits for one that started after the spawn."""
+    from llx.commands import launch
+
+    url, statuses, hits, uptimes = health_server
+    uptimes.extend([3600.0, 3600.0, 0.5])
+    root = tmp_path / "install"
+    root.mkdir()
+    (root / "start.sh").write_text("#!/bin/sh\nexit 0\n")
+    monkeypatch.setattr(launch, "resolve_guaardvark_root", lambda: root)
+    monkeypatch.setattr(launch.subprocess, "Popen", lambda cmd, **k: None)
+    monkeypatch.setattr(launch, "save_launch_config", lambda cfg: None)
+    started = launch._start_full_stack(None, {"server_url": url}, quiet=True)
+    assert started["ready"] is True
+    assert hits == [200, 200, 200]
+    assert sleeps == [1, 1]
+
+
+def test_full_stack_with_only_the_old_backend_is_not_ready(health_server, sleeps, tmp_path, monkeypatch):
+    from llx.commands import launch
+
+    url, statuses, hits, uptimes = health_server
+    uptimes.extend([3600.0] * 60)
+    root = tmp_path / "install"
+    root.mkdir()
+    (root / "start.sh").write_text("#!/bin/sh\nexit 0\n")
+    monkeypatch.setattr(launch, "resolve_guaardvark_root", lambda: root)
+    monkeypatch.setattr(launch.subprocess, "Popen", lambda cmd, **k: None)
+    monkeypatch.setattr(launch, "save_launch_config", lambda cfg: None)
+    assert launch._start_full_stack(None, {"server_url": url}, quiet=True)["ready"] is False
+    assert len(hits) == 60 and len(sleeps) == 59
+
+
+def test_a_reply_without_uptime_counts_as_new(health_server, sleeps):
+    import time
+
+    from llx.commands.launch import _wait_for_health
+
+    url, statuses, hits, uptimes = health_server
+    assert _wait_for_health(url, tries=3, interval=1, timeout=2, started_after=time.time()) is True
+    assert hits == [200]
+
+
+def test_guaardvark_root_set_to_a_missing_folder_finds_nothing(tmp_path, monkeypatch):
+    from llx.launch_config import resolve_guaardvark_root
+
+    monkeypatch.setenv("GUAARDVARK_ROOT", str(tmp_path / "missing"))
+    assert resolve_guaardvark_root() is None
+    monkeypatch.setenv("GUAARDVARK_ROOT", str(tmp_path))
+    assert resolve_guaardvark_root() == tmp_path
+
+
+def test_launch_full_json_names_a_bad_guaardvark_root(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".guaardvark").mkdir(parents=True)
+    (home / ".guaardvark" / "config.json").write_text(json.dumps({"onboarded": True}))
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("GUAARDVARK_ROOT", str(tmp_path / "missing"))
+    monkeypatch.setattr("llx.commands.launch.subprocess.Popen", lambda *a, **k: pytest.fail("spawned start.sh"))
+    result = runner.invoke(app, ["launch", "--full", "--yes", "--json"])
+    assert result.exit_code == 1
+    error = _envelope(result)["error"]
+    assert error["code"] == "INSTALL_NOT_FOUND"
+    assert "not a folder" in error["message"]
