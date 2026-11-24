@@ -52,7 +52,7 @@ def test_explicit_root_wins_and_missing_root_is_refused(tool, tmp_path):
 def test_falls_back_to_regex_when_the_server_is_absent(tool, tmp_path):
     with patch.object(cst, "_default_root", lambda: str(tmp_path)), \
             patch.object(cst, "_hybrid_search", lambda root, q, l: None), \
-            patch.object(cst, "_regex_search", lambda q, limit: ("backend/a.py:3: def q(): ...", q)):
+            patch.object(cst, "_regex_search", lambda q, limit, root=None: ("backend/a.py:3: def q(): ...", q)):
         res = tool.execute(query="q")
     assert res.success and res.metadata["engine"] == "regex"
 

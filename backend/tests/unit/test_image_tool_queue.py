@@ -140,6 +140,7 @@ def test_default_stays_inline_for_chat(monkeypatch):
     class _Still:
         success, image_path, image_url = False, None, None
         error = "no gpu in tests"
+        metadata = {}
 
     stills.run_stills_pipeline = lambda *a, **k: [_Still()]
     monkeypatch.setitem(sys.modules, "backend.services.stills_pipeline", stills)

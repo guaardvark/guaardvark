@@ -480,13 +480,15 @@ class TestRestApi:
         assert api.post("/api/automation/mcp/connect", json={"server": "fx"}).get_json()["success"]
         call = {"server": "fx", "tool": "add", "arguments": {"a": 1, "b": 2}}
         assert api.post("/api/automation/mcp/execute", environ_base=remote, json=call).status_code == 403
-        # An install that opens the route to other hosts still holds them to the policy.
+        # The opt-out for tool endpoints does not open a route that runs code
+        # to other hosts (auth_guard.RUNS_CODE_PATHS): with no key set it still
+        # answers this machine only.
         monkeypatch.setenv("GUAARDVARK_PROTECT_TOOL_ENDPOINTS", "false")
-        gated = api.post("/api/automation/mcp/execute", environ_base=remote,
-                         json={"server": "fx", "tool": "delete_thing", "arguments": {"name": "z"}})
-        assert gated.get_json().get("requires_confirmation") is True
-        ok = api.post("/api/automation/mcp/execute", environ_base=remote,
-                      json={"server": "fx", "tool": "add", "arguments": {"a": 1, "b": 2}})
+        for tool, arguments in (("delete_thing", {"name": "z"}), ("add", {"a": 1, "b": 2})):
+            refused = api.post("/api/automation/mcp/execute", environ_base=remote,
+                               json={"server": "fx", "tool": tool, "arguments": arguments})
+            assert refused.status_code == 403 and refused.get_json()["code"] == "local_only"
+        ok = api.post("/api/automation/mcp/execute", json=call)
         assert ok.get_json()["success"]
 
     def test_unknown_server_404(self, api):

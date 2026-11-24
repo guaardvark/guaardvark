@@ -151,7 +151,7 @@ class TestSpeechToTextReportsInstall(unittest.TestCase):
              patch.object(voice_api, "release_rate_limit") as release, \
              patch.object(voice_api.process_monitor, "get_system_status",
                           return_value={"system_overloaded": False}), \
-             patch("faster_whisper.audio.decode_audio", return_value=np.zeros(16000)), \
+             patch("backend.utils.faster_whisper_utils.decode_audio", return_value=np.zeros(16000)), \
              patch.object(fw, "transcribe_audio_faster",
                           side_effect=fw.SpeechModelMissing("tiny.en")):
             response = client.post(

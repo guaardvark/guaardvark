@@ -221,7 +221,7 @@ def test_client_holds_with_preload_mark_loaded_and_begin_use(monkeypatch):
     monkeypatch.delenv("SWARM_DISABLE_GPU_HOLD", raising=False)
     sent = []
     monkeypatch.setattr(gpu_hold.requests, "post",
-                        lambda url, json=None, timeout=None: sent.append((url, json)) or _Response())
+                        lambda url, json=None, timeout=None, headers=None: sent.append((url, json)) or _Response())
 
     client = gpu_hold.GpuHoldClient("http://localhost:5000/api")
     assert client.hold("gemma4:e4b") == "ollama:gemma4:e4b"
@@ -244,7 +244,7 @@ def test_client_refused_preload_pins_nothing(monkeypatch):
     monkeypatch.delenv("SWARM_DISABLE_GPU_HOLD", raising=False)
     sent = []
 
-    def post(url, json=None, timeout=None):
+    def post(url, json=None, timeout=None, headers=None):
         sent.append(url)
         return _Response(500 if url.endswith("/preload") else 200, {"error": "GPU short"})
 
@@ -259,7 +259,7 @@ def test_client_unreachable_backend_is_not_fatal(monkeypatch):
 
     monkeypatch.delenv("SWARM_DISABLE_GPU_HOLD", raising=False)
 
-    def down(url, json=None, timeout=None):
+    def down(url, json=None, timeout=None, headers=None):
         raise gpu_hold.requests.ConnectionError("refused")
 
     monkeypatch.setattr(gpu_hold.requests, "post", down)

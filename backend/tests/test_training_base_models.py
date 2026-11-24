@@ -286,7 +286,7 @@ def _error(response):
 def test_the_list_route_hands_out_a_token_only_with_plan(client, hub):
     plain = client.get("/api/training/base-models").get_json()["data"]
     planned = client.get("/api/training/base-models?plan=1").get_json()["data"]
-    assert [m["id"] for m in plain["models"]] == [SMALL, DEFAULT]
+    assert [m["id"] for m in plain["models"]] == [SMALL, DEFAULT, GEMMA]
     assert "plan_token" not in plain and planned["plan_token"] in tl._tokens
 
 
