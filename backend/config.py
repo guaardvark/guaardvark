@@ -431,6 +431,11 @@ if GUAARDVARK_MODE == "test":
     LOG_DIR = str(tmp_root / "logs")
     BACKUP_DIR = str(tmp_root / "backups")
 
+# The package __init__ chose the NLTK data folder before .env was read; use the
+# cache root resolved here in case .env put it somewhere else.
+from backend.nltk_data import install as _install_nltk_data
+_install_nltk_data(CACHE_DIR)
+
 INDEX_ROOT = STORAGE_DIR
 
 DEFAULT_INDEX_PROJECT_ID = None
