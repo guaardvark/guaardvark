@@ -213,7 +213,7 @@ def upscale_video():
         "model": body.get("model"),
         "scale": body.get("scale"),
         "target_width": target_width,
-        "suffix": body.get("suffix", "upscaled"),
+        "suffix": body.get("suffix") or _target_suffix(target_width),
         "two_pass": body.get("two_pass", False),
         # The options /upload takes from its form, so a request it saved for
         # later (save_for_later) runs with the same settings.
@@ -745,6 +745,11 @@ def upload_and_upscale():
     if ext not in ALLOWED_VIDEO_EXTENSIONS:
         return error_response(f"Unsupported file type: {ext}", 400)
 
+    try:
+        target_width = _parse_target_width(flask_request.form.get("target_width"))
+    except ValueError as exc:
+        return error_response(str(exc), 400)
+
     upload_dir = _get_upload_dir()
     input_path = upload_dir / "input" / filename
     input_path.parent.mkdir(parents=True, exist_ok=True)
@@ -757,10 +762,6 @@ def upload_and_upscale():
     base_name = os.path.splitext(filename)[0]
     model = flask_request.form.get("model")
     scale = flask_request.form.get("scale")
-    try:
-        target_width = _parse_target_width(flask_request.form.get("target_width"))
-    except ValueError as exc:
-        return error_response(str(exc), 400)
     suffix = _target_suffix(target_width)
     output_path = upload_dir / "output" / f"{base_name}_{suffix}{ext}"
     output_path.parent.mkdir(parents=True, exist_ok=True)

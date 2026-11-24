@@ -82,13 +82,28 @@ def test_video_upload_without_a_target_sends_none(client, posted):
     assert "target_width" not in posted[0][1]
 
 
-def test_video_upload_refuses_a_bad_target(client, posted):
-    c, _ = client
+def test_video_upload_refuses_a_bad_target_before_saving(client, posted):
+    c, root = client
     resp = c.post("/api/upscaling/upload", data={"file": _mp4(), "target_width": "4k"},
                   content_type="multipart/form-data")
 
     assert resp.status_code == 400
     assert posted == []
+    assert not (root / "input" / "clip.mp4").exists()
+
+
+@pytest.mark.parametrize("width, suffix", [(7680, "8k"), (3840, "4k"), (None, "upscaled")])
+def test_video_json_names_the_output_by_its_target(client, posted, width, suffix):
+    c, _ = client
+    body = {"input_path": "/v/clip.mp4", **({"target_width": width} if width else {})}
+    assert c.post("/api/upscaling/upscale/video", json=body).status_code == 200
+    assert posted[0][1]["suffix"] == suffix
+
+
+def test_video_json_keeps_a_suffix_the_caller_gave(client, posted):
+    c, _ = client
+    c.post("/api/upscaling/upscale/video", json={"input_path": "/v/clip.mp4", "target_width": 7680, "suffix": "final"})
+    assert posted[0][1]["suffix"] == "final"
 
 
 def test_a_scheduled_upscale_replays_the_target(client, posted):
