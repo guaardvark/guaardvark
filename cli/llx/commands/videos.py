@@ -190,6 +190,8 @@ def videos_generate(
             final = _poll_batch(api_client, batch_id, json_out)
             if save:
                 _save_first_clip(api_client, batch_id, final, save)
+            if (final or {}).get("status") != "completed":
+                raise typer.Exit(1)
             return
 
         if json_out or output.is_pipe():
@@ -244,7 +246,9 @@ def videos_from_image(
         batch_id = result.get("batch_id", "")
 
         if wait and batch_id:
-            _poll_batch(api_client, batch_id, json_out)
+            final = _poll_batch(api_client, batch_id, json_out)
+            if (final or {}).get("status") != "completed":
+                raise typer.Exit(1)
             return
 
         if json_out or output.is_pipe():

@@ -18,11 +18,16 @@ Environment=VITE_ALLOWED_HOSTS=backend
 Environment=HF_HUB_DISABLE_TELEMETRY=1
 Environment=DO_NOT_TRACK=1
 Environment=ORT_DISABLE_TELEMETRY=1
+Environment=UNSLOTH_DISABLE_STATISTICS=1
 Environment=PIP_DISABLE_PIP_VERSION_CHECK=1
 Volume=guaardvark-data:/app/data
 Volume=guaardvark-logs:/app/logs
 Volume=guaardvark-config:/root/.config/guaardvark
 Volume=guaardvark-cache:/root/.cache
+# This install's node id and the hardware it detected.
+Volume=guaardvark-home:/root/.guaardvark
+# The .env the app writes its own settings to (docker/entrypoint.sh links it).
+Volume=guaardvark-state:/app/state
 # What plugins build at runtime (the ComfyUI app and its models, plugin environments);
 # the image's plugin sources are copied onto it at every start (docker/entrypoint.sh).
 Volume=guaardvark-plugins:/app/plugins

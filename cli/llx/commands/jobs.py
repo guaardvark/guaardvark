@@ -171,7 +171,15 @@ def jobs_cancel(
     output.set_json_mode(json_out)
     try:
         client = get_client(server)
-        data = client.post(f"/api/meta/cancel_job/{job_id}")
+        if ":" in job_id:
+            # Ids as `jobs list` prints them (kind:native id). This route says
+            # whether anything was cancelled; the legacy one answers 200 either way.
+            data = client.post(f"/api/jobs/{job_id}/cancel")
+            if not data.get("cancelled"):
+                output.print_error(data.get("reason") or f"Job {job_id} was not cancelled", code="CANCEL_FAILED")
+                raise typer.Exit(1)
+        else:
+            data = client.post(f"/api/meta/cancel_job/{job_id}")
 
         if json_out or output.is_pipe():
             output.print_json({"status": "success", "data": data})

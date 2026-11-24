@@ -306,6 +306,7 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
                         continue
                     raise
 
+            stream_failed = False
             if not interactive:
                 completed = streamer.wait_for_completion(approval_handler=None)
                 if not completed:
@@ -313,10 +314,12 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
                 full_response = turn.text
                 if turn.error:
                     full_response += f"\n[ERROR] {turn.error}"
+                # A script reading the exit code or "status" must see the failure.
+                stream_failed = bool(turn.error) or not completed
                 if json_out:
                     output.print_json(
                         {
-                            "status": "success" if completed else "timeout",
+                            "status": "error" if turn.error else ("success" if completed else "timeout"),
                             "data": {
                                 "session_id": session_id,
                                 "response": full_response,
@@ -354,6 +357,8 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
 
         save_session(session_id, message[:80])
         streamer.disconnect()
+        if stream_failed:
+            raise typer.Exit(1)
 
     except LlxConnectionError as e:
         output.print_error(str(e), code="CONNECTION_ERROR")
