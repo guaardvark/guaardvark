@@ -69,6 +69,17 @@ import {
 import { ContextualLoader } from "../components/common/LoadingStates";
 import { useUiTranslation, translate, uiLocale } from "../i18n";
 
+// Fingerprint of a tab's whole text, for telling whether the session changed
+// since it was last saved. A prefix of the text misses every edit further down.
+const contentKey = (text) => {
+  if (!text) return "0";
+  let hash = 5381;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
+  }
+  return `${text.length}:${hash}`;
+};
+
 
 const buildUnavailableReason = () => translate("code.page.buildUnavailable");
 
@@ -730,7 +741,7 @@ const CodeEditorPage = () => {
         openTabs: openTabs.map(tab => ({
           id: tab.id,
           filePath: tab.filePath,
-          content: tab.content?.substring(0, 100),
+          content: contentKey(tab.content),
           language: tab.language,
           isModified: tab.isModified,
         })),
@@ -852,7 +863,7 @@ const CodeEditorPage = () => {
           openTabs: openTabs.map(tab => ({
             id: tab.id,
             filePath: tab.filePath,
-            content: tab.content?.substring(0, 100),
+            content: contentKey(tab.content),
             language: tab.language,
             isModified: tab.isModified,
           })),
@@ -1287,7 +1298,7 @@ const CodeEditorPage = () => {
                     backgroundImage: 'none',
                   }}
                 >
-                  <Typography color="warning.contrastText">
+                  <Typography sx={{ color: "warning.contrastText" }}>
                     {t("code.page.missingCard", { card: cardId })}
                   </Typography>
                 </Paper>
@@ -1299,7 +1310,10 @@ const CodeEditorPage = () => {
       </Box>
       {relatedFiles.length > 0 && (
         <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+          <Typography
+            variant="caption"
+            sx={{ color: "text.secondary", fontWeight: 'bold', display: 'block', mb: 0.5 }}
+          >
             {t("code.page.relatedFiles")}
           </Typography>
           <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
@@ -1308,9 +1322,10 @@ const CodeEditorPage = () => {
                 <ListItemText
                   primary={f.filename}
                   secondary={f.path}
-                  primaryTypographyProps={{ variant: 'caption' }}
-                  secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
-                />
+                  slotProps={{
+                    primary: { variant: 'caption' },
+                    secondary: { variant: 'caption', noWrap: true }
+                  }} />
               </ListItemButton>
             ))}
           </List>

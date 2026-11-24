@@ -289,15 +289,15 @@ const CodeEditor = ({
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {filePath || t("codeEditor.tabs.untitled")}
             </Typography>
             {isModified && (
-              <Typography variant="body2" color="warning.main">
+              <Typography variant="body2" sx={{ color: "warning.main" }}>
                 •
               </Typography>
             )}
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {detectedLanguage.toUpperCase()}
             </Typography>
           </Box>
@@ -370,7 +370,7 @@ const CodeEditor = ({
                 height: "100%",
               }}
             >
-              <Typography color="text.secondary">{t("code.editor.loading")}</Typography>
+              <Typography sx={{ color: "text.secondary" }}>{t("code.editor.loading")}</Typography>
             </Box>
           }
         />

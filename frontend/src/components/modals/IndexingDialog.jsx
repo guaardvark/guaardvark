@@ -109,7 +109,7 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
       <DialogTitle>
         {t("dialogs.indexing.title")}
         {website?.url ? (
-          <Typography variant="body2" color="text.secondary" noWrap>
+          <Typography variant="body2" noWrap sx={{ color: "text.secondary" }}>
             {website.url}
           </Typography>
         ) : null}
@@ -135,7 +135,7 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
               </Typography>
               <Typography variant="h5">
                 {status.submitted_today}
-                <Typography component="span" variant="body2" color="text.secondary">
+                <Typography component="span" variant="body2" sx={{ color: "text.secondary" }}>
                   {" "}
                   {t("dialogs.indexing.quotaDetail", { cap: status.daily_cap, remaining: status.quota_remaining })}
                 </Typography>
@@ -154,7 +154,7 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
                 <Chip label={t("dialogs.indexing.failed", { count: queue.failed || 0 })} color="error" size="small" />
               </Stack>
               {status.last_sitemap_sync && (
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
                   {t("dialogs.indexing.lastSync", { date: new Date(status.last_sitemap_sync).toLocaleString(uiLocale()) })}
                 </Typography>
               )}
@@ -175,7 +175,7 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
             </Tooltip>
           </Stack>
         ) : (
-          <Typography color="text.secondary">{t("dialogs.indexing.noStatus")}</Typography>
+          <Typography sx={{ color: "text.secondary" }}>{t("dialogs.indexing.noStatus")}</Typography>
         )}
       </DialogContent>
       <DialogActions>

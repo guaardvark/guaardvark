@@ -15,6 +15,9 @@ class ExecutePythonTool(BaseTool):
     """Execute Python code (python3 subprocess with a timeout; no network unless allowed)"""
     
     name = "execute_python"
+    # What the program printed is the answer. The 500-character default leaves
+    # about 200 once the paging footer is taken out; 4000 is search_code's budget.
+    observation_chars = 4000
     read_only = False
     description = ("Run Python code on this machine and return the output (30s timeout; the user is asked "
                    "to approve each run). It has no internet or network access unless the person allowed "
@@ -123,6 +126,7 @@ class ExecuteJavaScriptTool(BaseTool):
     """Execute JavaScript code safely (wraps existing code_execution_api)"""
     
     name = "execute_javascript"
+    observation_chars = 4000
     read_only = False
     description = ("Execute JavaScript/Node.js code and return the output. It has no internet or network "
                    "access unless the person allowed it in Settings.")

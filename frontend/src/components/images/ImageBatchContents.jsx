@@ -264,7 +264,7 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
         <CircularProgress size={32} />
-        <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>{t('images.shared.loadingImages')}</Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary", ml: 2 }}>{t('images.shared.loadingImages')}</Typography>
       </Box>
     );
   }
@@ -273,7 +273,7 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <ImageIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-        <Typography variant="body2" color="text.secondary">{t('images.batchContents.empty')}</Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>{t('images.batchContents.empty')}</Typography>
       </Box>
     );
   }
@@ -282,7 +282,7 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Toolbar */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.5, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t('images.shared.imageCount', { count: images.length })}
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
@@ -325,7 +325,7 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
             const isSelected = selectedImages.has(image.id);
 
             return (
-              <Grid item xs={6} sm={4} md={3} key={image.id}>
+              <Grid key={image.id} size={{ xs: 6, sm: 4, md: 3 }}>
                 <Card
                   sx={{
                     cursor: imageSelectMode ? 'default' : 'pointer',

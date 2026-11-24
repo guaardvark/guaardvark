@@ -903,7 +903,7 @@ ${currentTab.content}
               }}
             >
               <Typography variant="h6">{t("codeEditor.card.dropTitle")}</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t("codeEditor.card.dropHint")}
               </Typography>
             </Box>
@@ -1027,7 +1027,7 @@ ${currentTab.content}
                 <IconButton onClick={() => setEditorError(null)} color="primary">
                   <RefreshIcon />
                 </IconButton>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {t("codeEditor.card.clickToRetry")}
                 </Typography>
               </Box>
@@ -1085,13 +1085,16 @@ ${currentTab.content}
                   gap: 2,
                 }}
               >
-                <Typography variant="h6" color="text.secondary">
+                <Typography variant="h6" sx={{ color: "text.secondary" }}>
                   {t("codeEditor.card.noFiles")}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                <Typography variant="body2" sx={{ color: "text.secondary", textAlign: 'center' }}>
                   {t("codeEditor.card.emptyHint")}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 2, textAlign: 'center', maxWidth: 420 }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", mb: 2, textAlign: 'center', maxWidth: 420 }}
+                >
                   {t("codeEditor.card.dropNote")}
                 </Typography>
                 <Tooltip title={t("codeEditor.card.createNewFile")}>
@@ -1144,7 +1147,6 @@ ${currentTab.content}
           </MenuItem>
         </Menu>
 
-
         {/* Preview Dialog */}
         <Dialog 
           open={previewDialogOpen} 
@@ -1185,13 +1187,13 @@ ${currentTab.content}
         <Dialog
           open={renameDialog.open}
           onClose={() => setRenameDialog({ open: false, tabIndex: null })}
-          // autoFocus alone loses to the tab menu, which hands focus back to
-          // where it was as it closes; focus and select once the dialog is in.
-          TransitionProps={{
-            onEntered: () => {
-              renameInputRef.current?.focus();
-              renameInputRef.current?.select();
-            },
+          slotProps={{
+            transition: {
+              onEntered: () => {
+                renameInputRef.current?.focus();
+                renameInputRef.current?.select();
+              },
+            }
           }}
         >
           <DialogTitle>

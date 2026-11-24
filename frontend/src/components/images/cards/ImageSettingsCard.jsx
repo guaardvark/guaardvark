@@ -90,7 +90,7 @@ function ImageSettingsCard({
   return (
     <Box sx={{ p: 1.5 }}>
       {inputMode === 'blueprint' && (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t("imagesBatch.cards.noSettings")}
         </Typography>
       )}
@@ -100,7 +100,7 @@ function ImageSettingsCard({
         {/* Generation Settings */}
         <Box>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <FormControl fullWidth>
                   <InputLabel>{t('imagesBatch.advanced.model')}</InputLabel>
                   <Select
@@ -111,7 +111,7 @@ function ImageSettingsCard({
                       <MenuItem key={option.value} value={option.value}>
                         <Box>
                           <Typography variant="body2">{option.label}</Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: "text.secondary" }}>
                             {option.description}
                           </Typography>
                         </Box>
@@ -133,10 +133,10 @@ function ImageSettingsCard({
                 )}
                 {applicableAdapters.length > 0 && (
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 0.5 }}>
                       {t('imagesBatch.advanced.yourLoras')}
                     </Typography>
-                    <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+                    <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap" }}>
                       {applicableAdapters.map((a) => {
                         const on = selectedAdapters.includes(a.id);
                         return (
@@ -159,7 +159,7 @@ function ImageSettingsCard({
                 )}
                 {encoderSlots.length > 0 && (
                   <Box sx={{ mt: 1.5 }}>
-                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                       {encoderSlots.map((group) => (
                         <FormControl key={group.slot} size="small" sx={{ minWidth: 220 }}>
                           <InputLabel>{t('imagesBatch.advanced.textEncoderSlot', { slot: group.label })}</InputLabel>
@@ -184,14 +184,14 @@ function ImageSettingsCard({
                         </FormControl>
                       ))}
                     </Stack>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mt: 0.5 }}>
                       {t('imagesBatch.advanced.encodersHint')}
                     </Typography>
                   </Box>
                 )}
                 {unavailableModels.length > 0 && (
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 0.5 }}>
                       {t('imagesBatch.advanced.unavailable')}
                     </Typography>
                     {unavailableModels.map((m) => (
@@ -209,7 +209,7 @@ function ImageSettingsCard({
                 )}
               </Grid>
 
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <FormControl fullWidth>
                   <InputLabel>{t('imagesBatch.advanced.qualityPreset')}</InputLabel>
                   <Select
@@ -221,7 +221,7 @@ function ImageSettingsCard({
                       <MenuItem key={option.value} value={option.value}>
                         <Box>
                           <Typography variant="body2">{option.label}</Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: "text.secondary" }}>
                             {option.description}
                           </Typography>
                         </Box>
@@ -229,14 +229,14 @@ function ImageSettingsCard({
                     ))}
                   </Select>
                   {castLocked && (
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5, display: 'block' }}>
                       {castLockedNote}
                     </Typography>
                   )}
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 {/* auto_enhance picks the prompt-enhancement rung at render time
                     (stills_policy.resolve_enhance_mode): a chat-model prose rewrite
                     for a natural-language model, tag stuffing for a tag-style one.
@@ -253,7 +253,7 @@ function ImageSettingsCard({
                   label={
                     <Box>
                       <Typography variant="body2">{t('imagesBatch.enhance.label')}</Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {!autoEnhance
                           ? t('imagesBatch.enhance.off')
                           : prosePrompts
@@ -269,7 +269,7 @@ function ImageSettingsCard({
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <FormControl fullWidth>
                   <InputLabel>{t('imagesBatch.advanced.style')}</InputLabel>
                   <Select
@@ -285,14 +285,14 @@ function ImageSettingsCard({
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <TextField
                   fullWidth
                   label={t('imagesBatch.advanced.quantity')}
                   type="number"
                   value={quantity}
                   onChange={(e) => setQuantity(clampQuantity(e.target.value))}
-                  inputProps={{ min: 1, max: MAX_QUANTITY }}
+                  slotProps={{ htmlInput: { min: 1, max: MAX_QUANTITY } }}
                 />
                 {/* /batch-image/expand-concept: the chat model turns the idea above
                     into one prompt per shot and fills the prompt box with them. */}
@@ -324,7 +324,7 @@ function ImageSettingsCard({
                 </Tooltip>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <FormControl fullWidth>
                   <InputLabel>{t('imagesBatch.dimensions.title')}</InputLabel>
                   <Select
@@ -355,14 +355,14 @@ function ImageSettingsCard({
                   </Select>
                   {(comfyStills || isModernDit)
                     && (params.width * params.height > Math.max(1024 * 1024, highResOkPixels || 0)) && (
-                    <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block' }}>
+                    <Typography variant="caption" sx={{ color: "warning.main", mt: 0.5, display: 'block' }}>
                       {t('imagesBatch.dimensions.highResWarning')}
                     </Typography>
                   )}
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography gutterBottom>
                   {castLocked
                     ? t('imagesBatch.steps.cast')
@@ -387,7 +387,7 @@ function ImageSettingsCard({
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography gutterBottom>
                   {castLocked
                     ? t('imagesBatch.guidance.cast')
@@ -411,53 +411,53 @@ function ImageSettingsCard({
                   disabled={isZimage || isFlux3Klein || isH3Still || castLocked}
                 />
                 {castLocked && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: 'block' }}>
                     {castLockedNote}
                   </Typography>
                 )}
                 {isZimage && !castLocked && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {t('imagesBatch.guidance.zimageHelp')}
                   </Typography>
                 )}
                 {isQwenImage21 && !castLocked && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {t('imagesBatch.guidance.qwenHelp')}
                   </Typography>
                 )}
                 {isFlux3Klein && !castLocked && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {t('imagesBatch.guidance.flux3KleinHelp')}
                   </Typography>
                 )}
                 {isH3Still && !castLocked && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {t('imagesBatch.guidance.h3StillHelp')}
                   </Typography>
                 )}
                 {isMossImage && !castLocked && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {t('imagesBatch.guidance.mossHelp')}
                   </Typography>
                 )}
                 {family === 'auto' && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {t('imagesBatch.guidance.autoHelp')}
                   </Typography>
                 )}
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   size="small"
                   label={t('imagesBatch.seed.label')}
                   placeholder={t('imagesBatch.seed.placeholder')}
                   value={seedText}
-                  inputProps={{ inputMode: 'numeric' }}
+                  slotProps={{ htmlInput: { inputMode: 'numeric' } }}
                   onChange={(e) => setSeedText(e.target.value.replace(/\D/g, '').slice(0, String(IMAGE_MAX_SEED).length))}
                   sx={{ width: 180 }}
                 />
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mt: 0.5 }}>
                   {parseImageSeed(seedText) != null
                     ? t('imagesBatch.seed.fixed', { seed: parseImageSeed(seedText) })
                     : seedText.trim()
@@ -466,7 +466,7 @@ function ImageSettingsCard({
                 </Typography>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography gutterBottom>
                   {t('imagesBatch.workers.max', { count: effectiveWorkers })}
                 </Typography>
@@ -480,13 +480,13 @@ function ImageSettingsCard({
                   disabled={oneAtATime}
                 />
                 {oneAtATime && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: 'block' }}>
                     {oneAtATimeNote}
                   </Typography>
                 )}
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <FormControlLabel
                   control={
                     <Switch

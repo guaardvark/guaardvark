@@ -1505,14 +1505,14 @@ const StickyNotesPage = () => {
         // The menu that opened this hands focus back to the note as it closes,
         // which takes it from the field's autoFocus. Put the caret after the
         // name once the dialog is up, so typing starts at once.
-        TransitionProps={{
+        slotProps={{ transition: {
           onEntered: () => {
             const input = renameInputRef.current;
             if (!input) return;
             input.focus();
             input.setSelectionRange(input.value.length, input.value.length);
           },
-        }}
+        } }}
       >
         <DialogTitle sx={{ fontSize: "0.9rem" }}>{t("notes.renameDialog.title")}</DialogTitle>
         <DialogContent>

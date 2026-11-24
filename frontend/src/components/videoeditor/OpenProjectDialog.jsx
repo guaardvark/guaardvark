@@ -137,12 +137,14 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ mb: 2 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }
           }}
         />
 
@@ -159,7 +161,7 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
         ) : filtered.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 6 }}>
             <PosterPlaceholderIcon sx={{ fontSize: 48, color: "text.disabled", mb: 1 }} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {projects.length === 0
                 ? t("videoEditor.openProject.none")
                 : t("videoEditor.openProject.noMatch")}
@@ -173,7 +175,7 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
               const isDeleting = deletingId === project.id;
               const poster = posterUrl(project.posterDocumentId);
               return (
-                <Grid item xs={12} sm={6} md={4} key={project.id}>
+                <Grid key={project.id} size={{ xs: 12, sm: 6, md: 4 }}>
                   <Card
                     elevation={0}
                     sx={{
@@ -214,9 +216,9 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
                       <CardContent sx={{ py: 1, px: 1.5 }}>
                         <Typography
                           variant="subtitle2"
-                          fontWeight={600}
                           noWrap
                           title={project.name}
+                          sx={{ fontWeight: 600 }}
                         >
                           {project.name}
                           {isCurrent && (
@@ -232,12 +234,10 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
                         </Typography>
                         <Stack
                           direction="row"
-                          alignItems="center"
-                          justifyContent="space-between"
                           spacing={1}
-                          sx={{ mt: 0.5 }}
+                          sx={{ alignItems: "center", justifyContent: "space-between", mt: 0.5 }}
                         >
-                          <Typography variant="caption" color="text.secondary" noWrap>
+                          <Typography variant="caption" noWrap sx={{ color: "text.secondary" }}>
                             {t("videoEditor.openProject.edited", { when: formatEdited(project.updatedAt) })}
                           </Typography>
                           <Chip

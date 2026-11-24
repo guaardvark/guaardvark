@@ -208,17 +208,19 @@ const TaskQueueIndicator = ({ compact = true }) => {
                         vertical: 'bottom',
                         horizontal: 'center',
                     }}
-                    PaperProps={{
-                        sx: {
-                            width: 320,
-                            maxHeight: 400,
-                            overflow: 'hidden'
+                    slotProps={{
+                        paper: {
+                            sx: {
+                                width: 320,
+                                maxHeight: 400,
+                                overflow: 'hidden'
+                            }
                         }
                     }}
                 >
                     <Box sx={{ p: 1.5 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant="subtitle2" fontWeight="bold">
+                            <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
                                 {t('layout.taskQueue.title')}
                             </Typography>
                             <IconButton size="small" onClick={fetchQueueSummary} disabled={loading}>
@@ -275,7 +277,10 @@ const TaskQueueIndicator = ({ compact = true }) => {
                                 {/* Running tasks */}
                                 {queueData.running_tasks && queueData.running_tasks.length > 0 && (
                                     <>
-                                        <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                                        <Typography
+                                          variant="caption"
+                                          sx={{ color: "text.secondary", fontWeight: "bold" }}
+                                        >
                                             {t('layout.taskQueue.activeTasks')}
                                         </Typography>
                                         <List dense sx={{ py: 0 }}>
@@ -322,7 +327,7 @@ const TaskQueueIndicator = ({ compact = true }) => {
                                 {queueData.next_scheduled && (
                                     <>
                                         <Divider sx={{ my: 1 }} />
-                                        <Typography variant="caption" color="text.secondary">
+                                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                                             {t('layout.taskQueue.nextScheduled', {
                                                 handler: queueData.next_scheduled.handler,
                                                 time: new Date(queueData.next_scheduled.next_run_at).toLocaleTimeString(uiLocale()),
@@ -335,7 +340,10 @@ const TaskQueueIndicator = ({ compact = true }) => {
                                 {Object.keys(queueData.handler_counts || {}).length > 0 && (
                                     <>
                                         <Divider sx={{ my: 1 }} />
-                                        <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                                        <Typography
+                                          variant="caption"
+                                          sx={{ color: "text.secondary", fontWeight: "bold" }}
+                                        >
                                             {t('layout.taskQueue.byHandler')}
                                         </Typography>
                                         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
@@ -354,7 +362,10 @@ const TaskQueueIndicator = ({ compact = true }) => {
 
                                 {/* Empty state */}
                                 {totalActive === 0 && (
-                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', py: 2 }}>
+                                    <Typography
+                                      variant="caption"
+                                      sx={{ color: "text.secondary", display: 'block', textAlign: 'center', py: 2 }}
+                                    >
                                         {t('layout.taskQueue.empty')}
                                     </Typography>
                                 )}

@@ -43,14 +43,13 @@ const ThinkingCard = ({ text = "", streaming = false, elapsedMs = null, defaultE
 
         <Typography
           component="span"
-          color="text.secondary"
-          sx={{ fontSize: "0.75rem", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          sx={{ color: "text.secondary", fontSize: "0.75rem", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
         >
           {streaming ? t("chat.thinking.streaming") : t("chat.thinking.done")}
         </Typography>
 
         {!streaming && elapsedMs != null && (
-          <Typography component="span" color="text.secondary" sx={{ fontSize: "0.75rem", flexShrink: 0 }}>
+          <Typography component="span" sx={{ color: "text.secondary", fontSize: "0.75rem", flexShrink: 0 }}>
             {formatElapsed(elapsedMs)}
           </Typography>
         )}

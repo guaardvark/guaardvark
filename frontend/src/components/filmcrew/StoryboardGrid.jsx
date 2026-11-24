@@ -139,7 +139,7 @@ const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApp
       </Box>
       <Grid container spacing={2}>
         {shots.map((shot) => (
-          <Grid item xs={12} sm={6} md={4} key={shot.id}>
+          <Grid key={shot.id} size={{ xs: 12, sm: 6, md: 4 }}>
             <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ position: 'relative' }}>
                 <CardMedia
@@ -175,7 +175,7 @@ const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApp
                 </Box>
               </Box>
               <CardContent sx={{ flexGrow: 1 }}>
-                <Typography variant="caption" color="text.secondary" gutterBottom>
+                <Typography variant="caption" gutterBottom sx={{ color: "text.secondary" }}>
                   {t('filmCrew.storyboard.sceneShot', { scene: shot.scene_number, shot: shot.shot_number })}
                 </Typography>
                 <Typography variant="body2" sx={{ 
@@ -190,9 +190,11 @@ const StoryboardGrid = ({ currentStage, shots, onRegenerate, onApproveAll, isApp
                 {shot.curator_advice?.verdict && (
                   <Typography
                     variant="caption"
-                    display="block"
-                    color={shot.curator_advice.verdict === 'flag' ? 'warning.main' : 'success.main'}
-                    sx={{ mt: 1 }}
+                    sx={{
+                      color: shot.curator_advice.verdict === 'flag' ? 'warning.main' : 'success.main',
+                      display: "block",
+                      mt: 1,
+                    }}
                   >
                     {curatorLine(shot.curator_advice)}
                   </Typography>

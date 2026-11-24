@@ -186,7 +186,7 @@ const OutputCard = ({
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center" }}>
               <AccessTimeIcon fontSize="small" sx={{ mr: 0.5, color: "text.secondary" }} />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {formatTimestamp(output.export_timestamp)}
               </Typography>
             </Box>
@@ -202,22 +202,22 @@ const OutputCard = ({
 
           {/* Statistics Grid */}
           <Grid container spacing={1} sx={{ mb: 2 }}>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Box sx={{ textAlign: "center" }}>
                 <Typography variant="h6" sx={{ fontWeight: "bold", color: "success.main" }}>
                   {output.active_rows}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {t("layoutCards.output.generated")}
                 </Typography>
               </Box>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Box sx={{ textAlign: "center" }}>
                 <Typography variant="h6" sx={{ fontWeight: "bold", color: "warning.main" }}>
                   {output.replaced_rows}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {t("layoutCards.output.replaced")}
                 </Typography>
               </Box>
@@ -226,7 +226,7 @@ const OutputCard = ({
 
           {/* Success Rate */}
           <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", mb: 0.5 }}>
               {t("layoutCards.output.successRate")}
             </Typography>
             <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -257,10 +257,10 @@ const OutputCard = ({
 
           {/* File Info */}
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {formatFileSize(output.file_size)}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("layoutCards.output.rows", { count: output.total_rows })}
             </Typography>
           </Box>

@@ -53,9 +53,8 @@ const WebSearchOfferChip = ({ offer, onSearch }) => {
       {hintShown && (
         <Typography
           variant="caption"
-          color="text.secondary"
           data-testid="web-search-offer-hint"
-          sx={{ display: "block", mt: 0.5, fontSize: "0.7rem" }}
+          sx={{ color: "text.secondary", display: "block", mt: 0.5, fontSize: "0.7rem" }}
         >
           {enableHint()}
         </Typography>

@@ -157,6 +157,7 @@ const SwarmPage = () => {
   const [flightMode, setFlightMode] = useState(false);
   const [maxAgents, setMaxAgents] = useState(5);
   const [autoMerge, setAutoMerge] = useState(false);
+  const [dirtyTreeSeen, setDirtyTreeSeen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [launching, setLaunching] = useState(false);
 
@@ -253,7 +254,8 @@ const SwarmPage = () => {
   const handleTemplateSelect = (filename) => {
     setSelectedTemplate(filename);
     if (filename) {
-      setPlanPath(`plugins/swarm/templates/${filename}`);
+      const picked = templates.find((tmpl) => tmpl.filename === filename);
+      setPlanPath(picked?.plan_path || `plugins/swarm/templates/${filename}`);
     }
   };
 
@@ -271,6 +273,7 @@ const SwarmPage = () => {
         flightMode,
         maxAgents,
         autoMerge,
+        acknowledgeDirtyTree: dirtyTreeSeen,
       });
       if (res.success !== false) {
         const data = res.data || res;
@@ -278,12 +281,20 @@ const SwarmPage = () => {
         setLaunchOpen(false);
         setPlanPath("");
         setSelectedTemplate("");
+        setDirtyTreeSeen(false);
         await fetchStatus();
       } else {
         showMessage(res.message || t("swarm.messages.launchFailed"), "error");
       }
     } catch (err) {
-      showMessage(err.message || t("swarm.messages.launchFailed"), "error");
+      // A checkout with uncommitted changes: agents start from the last
+      // commit, so those changes are not in their copies. Say so in the
+      // dialog; the next press of Launch goes ahead.
+      if (!dirtyTreeSeen && /uncommitted changes/i.test(err.message || "")) {
+        setDirtyTreeSeen(true);
+      } else {
+        showMessage(err.message || t("swarm.messages.launchFailed"), "error");
+      }
     } finally {
       setLaunching(false);
     }
@@ -318,8 +329,11 @@ const SwarmPage = () => {
   const handleCleanup = async (swarmId) => {
     if (!swarmId) { showMessage(t("swarm.messages.noSwarmId"), "warning"); return; }
     try {
+      // Branches whose work was never merged are kept by the service and
+      // named in its reply.
       const res = await cleanupSwarm(swarmId, { deleteBranches: true });
-      showMessage(res.message || t("swarm.messages.cleanedUp"), "success");
+      const kept = (res.data || res).branches_kept || [];
+      showMessage(res.message || t("swarm.messages.cleanedUp"), kept.length ? "warning" : "success");
       await fetchStatus();
       await fetchHistory();
     } catch (err) {
@@ -398,7 +412,8 @@ const SwarmPage = () => {
       if (res.success !== false) {
         showMessage(t("swarm.messages.planSaved"), "success");
         await fetchTemplates();
-        setPlanPath(`plugins/swarm/templates/${res.filename || editorFilename}`);
+        const saved = res.data || res;
+        setPlanPath(saved.plan_path || `data/outputs/swarm_plans/${saved.filename || editorFilename}`);
         setEditorOpen(false);
       } else {
         showMessage(res.message || t("swarm.messages.saveFailed"), "error");
@@ -460,7 +475,7 @@ const SwarmPage = () => {
           label: t("swarm.menu.launch"),
           onClick: () => {
             handleTemplateSelect(p.tmpl.filename);
-            setLaunchOpen(true);
+            (setDirtyTreeSeen(false), setLaunchOpen(true));
           },
         },
       ];
@@ -525,7 +540,7 @@ const SwarmPage = () => {
       title={t("swarm.title")}
       variant="standard"
       actions={
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <Chip
             icon={isOnline ? <OnlineIcon /> : <OfflineIcon />}
             label={isOnline ? t("swarm.header.online") : t("swarm.header.offline")}
@@ -560,7 +575,7 @@ const SwarmPage = () => {
           <Button
             variant="contained"
             startIcon={<LaunchIcon />}
-            onClick={() => setLaunchOpen(true)}
+            onClick={() => (setDirtyTreeSeen(false), setLaunchOpen(true))}
             disabled={!serviceOnline}
           >
             {t("swarm.header.launchSwarm")}
@@ -621,14 +636,14 @@ const SwarmPage = () => {
           <Typography variant="h6" sx={{ mb: 1 }}>
             {t("swarm.empty.title")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
             {t("swarm.empty.description")}
             {!serviceOnline && ` ${t("swarm.empty.startPlugin")}`}
           </Typography>
           <Button
             variant="contained"
             startIcon={<LaunchIcon />}
-            onClick={() => setLaunchOpen(true)}
+            onClick={() => (setDirtyTreeSeen(false), setLaunchOpen(true))}
             disabled={!serviceOnline}
           >
             {t("swarm.empty.launchFirst")}
@@ -648,7 +663,7 @@ const SwarmPage = () => {
         <Box>
           <Grid container spacing={2}>
             {templates.map((tmpl) => (
-              <Grid item xs={12} sm={6} key={tmpl.filename}>
+              <Grid key={tmpl.filename} size={{ xs: 12, sm: 6 }}>
                 <Card
                   sx={{
                     cursor: "pointer",
@@ -662,18 +677,18 @@ const SwarmPage = () => {
                   }}
                   onClick={() => {
                     handleTemplateSelect(tmpl.filename);
-                    setLaunchOpen(true);
+                    (setDirtyTreeSeen(false), setLaunchOpen(true));
                   }}
                   onContextMenu={(e) => itemMenu.open(e, { kind: "template", tmpl })}
                 >
                   <CardContent>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
                       <TemplateIcon fontSize="small" color="primary" />
-                      <Typography variant="subtitle2" fontWeight={600}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                         {tmpl.title}
                       </Typography>
                     </Stack>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
                       {tmpl.description}
                     </Typography>
                     <Chip
@@ -688,7 +703,7 @@ const SwarmPage = () => {
           </Grid>
         </Box>
       ) : (
-        <Typography variant="body2" color="text.secondary">{t("swarm.sections.noTemplates")}</Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("swarm.sections.noTemplates")}</Typography>
       )}
               </Box>
             ),
@@ -714,14 +729,13 @@ const SwarmPage = () => {
               >
                 <Stack
                   direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
+                  sx={{ justifyContent: "space-between", alignItems: "center" }}
                 >
                   <Box>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {h.swarm_id}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t("swarm.taskCount", { count: h.task_count })}
                       {h.flight_mode ? ` | ${t("swarm.flightMode")}` : ""}
                       {h.total_cost_usd > 0
@@ -743,7 +757,7 @@ const SwarmPage = () => {
           </Stack>
         </Box>
       ) : (
-        <Typography variant="body2" color="text.secondary">{t("swarm.sections.noHistory")}</Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("swarm.sections.noHistory")}</Typography>
       )}
               </Box>
             ),
@@ -800,7 +814,9 @@ const SwarmPage = () => {
               }
               fullWidth
               size="small"
-              inputProps={{ min: 1, max: 20 }}
+              slotProps={{
+                htmlInput: { min: 1, max: 20 }
+              }}
             />
 
             <Stack direction="row" spacing={2}>
@@ -812,7 +828,7 @@ const SwarmPage = () => {
                   />
                 }
                 label={
-                  <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
                     <FlightIcon fontSize="small" />
                     <span>{t("swarm.flightMode")}</span>
                   </Stack>
@@ -832,6 +848,11 @@ const SwarmPage = () => {
             {flightMode && (
               <Alert severity="info" variant="outlined">
                 {t("swarm.launchDialog.flightModeInfo")}
+              </Alert>
+            )}
+            {dirtyTreeSeen && (
+              <Alert severity="warning" variant="outlined">
+                {t("swarm.launchDialog.dirtyTree")}
               </Alert>
             )}
           </Stack>
@@ -889,7 +910,7 @@ const SwarmPage = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ mb: 3 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("swarm.editor.aiHint")}
             </Typography>
             <Stack direction="row" spacing={1}>
@@ -937,7 +958,7 @@ const SwarmPage = () => {
           />
           
           <Box sx={{ mt: 1 }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               <Trans i18nKey="swarm.editor.formatHint" components={{ bold: <b /> }} />
             </Typography>
           </Box>
@@ -965,7 +986,7 @@ const SwarmPage = () => {
         fullWidth
       >
         <DialogTitle sx={{ pb: 0 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
             <Typography variant="h6">{t("swarm.taskView.title", { id: taskViewData.taskId })}</Typography>
             <IconButton onClick={() => setTaskViewOpen(false)}>
               <CloseIcon />
@@ -1012,7 +1033,7 @@ const SwarmPage = () => {
           {taskViewData.tab === 1 && (
             <Box>
               {isDiffLoading ? (
-                <Stack alignItems="center" sx={{ py: 4 }}>
+                <Stack sx={{ alignItems: "center", py: 4 }}>
                   <CircularProgress size={24} sx={{ mb: 1 }} />
                   <Typography variant="caption">{t("swarm.taskView.fetchingDiff")}</Typography>
                 </Stack>
@@ -1128,8 +1149,8 @@ const SwarmCard = ({
         onClick={onToggleExpand}
       >
         <Box sx={{ flex: 1 }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="subtitle2" fontWeight={600}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
               {swarm.swarm_id}
             </Typography>
             {swarm.flight_mode && (
@@ -1141,14 +1162,20 @@ const SwarmCard = ({
                 variant="outlined"
               />
             )}
+            {isRunning && swarm.waiting_on && (
+              <Chip label={t("swarm.card.waitingOn", { reason: swarm.waiting_on })}
+                    size="small" color="warning" variant="outlined" />
+            )}
             <Chip
               label={
                 swarm.status === "failed" ? t("swarm.swarmStatus.failed") :
+                swarm.status === "cancelled" ? t("swarm.taskStatus.cancelled") :
                 isRunning ? t("swarm.swarmStatus.running") : t("swarm.swarmStatus.completed")
               }
               size="small"
               color={
                 swarm.status === "failed" ? "error" :
+                swarm.status === "cancelled" ? "warning" :
                 isRunning ? "primary" : "default"
               }
               variant={isRunning ? "filled" : "outlined"}
@@ -1169,7 +1196,7 @@ const SwarmCard = ({
               value={progress}
               sx={{ flex: 1, height: 6, borderRadius: 3 }}
             />
-            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 80 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", minWidth: 80 }}>
               {t("swarm.card.progress", { done: doneCount, total: totalCount })}
             </Typography>
           </Box>
@@ -1209,7 +1236,10 @@ const SwarmCard = ({
         <Box sx={{ p: 2 }}>
           {/* Visual DAG: the graph keeps the browser's own right-click */}
           <Box sx={{ mb: 3 }} data-native-contextmenu>
-            <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1, display: "block" }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "text.secondary", fontWeight: 600, mb: 1, display: "block" }}
+            >
               {t("swarm.card.dependencyGraph")}
             </Typography>
             <SwarmGraph tasks={tasks} height={300} />
@@ -1253,7 +1283,7 @@ const SwarmCard = ({
           {/* Task grid */}
           <Grid container spacing={1.5}>
             {tasks.map((task) => (
-              <Grid item xs={12} sm={6} md={4} key={task.id}>
+              <Grid key={task.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <TaskCard
                   task={task}
                   swarmId={swarm.swarm_id}
@@ -1295,11 +1325,9 @@ const TaskCard = ({ task, swarmId, onViewTask, onItemContextMenu, _theme }) => {
       <CardContent sx={{ pb: 1, "&:last-child": { pb: 1 } }}>
         <Stack
           direction="row"
-          justifyContent="space-between"
-          alignItems="flex-start"
-          sx={{ mb: 0.5 }}
+          sx={{ justifyContent: "space-between", alignItems: "flex-start", mb: 0.5 }}
         >
-          <Typography variant="body2" fontWeight={600} sx={{ flex: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
             {task.title}
           </Typography>
           <Chip
@@ -1312,7 +1340,7 @@ const TaskCard = ({ task, swarmId, onViewTask, onItemContextMenu, _theme }) => {
         </Stack>
 
         {task.backend_name && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {task.backend_name} | {task.elapsed || "-"}
             {task.estimated_cost_usd > 0 &&
               ` | $${task.estimated_cost_usd.toFixed(2)}`}
@@ -1356,11 +1384,11 @@ const TaskCard = ({ task, swarmId, onViewTask, onItemContextMenu, _theme }) => {
 // ─── Helpers ─────────────────────────────────────────────────────────
 
 const StatChip = ({ icon, label }) => (
-  <Stack direction="row" spacing={0.5} alignItems="center">
+  <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
     {React.cloneElement(icon, {
       sx: { fontSize: 14, color: "text.secondary" },
     })}
-    <Typography variant="caption" color="text.secondary">
+    <Typography variant="caption" sx={{ color: "text.secondary" }}>
       {label}
     </Typography>
   </Stack>

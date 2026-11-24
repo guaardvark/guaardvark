@@ -122,7 +122,7 @@ const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = 
           {/* Tab 0: Pick from server backups */}
           {tab === 0 && (
             normalizedBackups.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>
+              <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", py: 3 }}>
                 {t("backups.restoreBackup.noServerBackups")}
               </Typography>
             ) : (
@@ -145,7 +145,7 @@ const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = 
                               </Typography>
                               <Chip label={cfg.label} size="small" color={cfg.color} variant="outlined" />
                               {b.size > 0 && (
-                                <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                                <Typography variant="caption" sx={{ color: "text.secondary", flexShrink: 0 }}>
                                   {formatBytes(b.size)}
                                 </Typography>
                               )}
@@ -174,7 +174,7 @@ const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = 
                 <input type="file" hidden accept=".zip" onChange={handleFile} />
               </Button>
               {fileInfo && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", mt: 1, display: "block" }}>
                   {t("backups.restoreBackup.size", { size: fileInfo.size })}
                 </Typography>
               )}

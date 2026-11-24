@@ -9,6 +9,8 @@ doesn't care which backend it's talking to — it just calls these methods.
 from __future__ import annotations
 
 import logging
+import os
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
@@ -16,6 +18,24 @@ from typing import Any
 from ..models import AgentStatus, SwarmTask
 
 logger = logging.getLogger("swarm.backend")
+
+# An agent CLI runs with its permission prompts off, in a worktree. It gets a
+# working shell environment and nothing that unlocks the rest of the install:
+# no database URL, no app keys, no service tokens, no SSH agent.
+_SECRET_NAME = re.compile(
+    r"(?:^|_)(?:KEY|KEYS|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIALS?|DSN)(?:_|$)|"
+    r"^(?:DATABASE_URL|REDIS_URL|CELERY_BROKER_URL|CELERY_RESULT_BACKEND|SSH_AUTH_SOCK|SSH_AGENT_PID|"
+    r"GPG_AGENT_INFO|PGPASSWORD|PGPASSFILE)$",
+    re.IGNORECASE,
+)
+
+
+def agent_env(keep: tuple[str, ...] = ()) -> dict[str, str]:
+    """The environment an agent CLI is started with: this process's, minus
+    anything that names a secret. ``keep`` lists the names a backend needs
+    for its own sign-in (its API key)."""
+    return {name: value for name, value in os.environ.items()
+            if name in keep or not _SECRET_NAME.search(name)}
 
 
 @dataclass

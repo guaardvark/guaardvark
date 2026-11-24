@@ -53,7 +53,7 @@ const YOUTUBE = account({ id: 2, provider: "youtube", handle: "My channel", publ
 
 const render = (page) => renderInto(<MemoryRouter>{page}</MemoryRouter>);
 
-const toggle = () => screen.findByRole("checkbox", { name: "Allow public uploads" });
+const toggle = () => screen.findByLabelText("Allow public uploads", { hidden: true });
 
 describe("ConnectionsPage: a provider's public opt-in", () => {
   beforeEach(() => {
@@ -80,7 +80,7 @@ describe("ConnectionsPage: a provider's public opt-in", () => {
     render(<ConnectionsPage />);
 
     expect(await toggle()).not.toBeChecked();
-    expect(screen.getAllByRole("checkbox", { name: "Allow public uploads" })).toHaveLength(1);
+    expect(screen.getAllByRole("switch", { name: "Allow public uploads" })).toHaveLength(1);
     expect(screen.getByText(/Every upload still waits for your approval\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Developer policies" })).toHaveAttribute("href", OPT_IN.sources[0].url);
   });
@@ -92,7 +92,7 @@ describe("ConnectionsPage: a provider's public opt-in", () => {
 
     await waitFor(() => expect(connectionsService.updateConnection).toHaveBeenCalledWith(2, { allow_public: true }));
     await waitFor(() =>
-      expect(screen.getByRole("checkbox", { name: "Allow public uploads" })).toBeChecked(),
+      expect(screen.getByLabelText("Allow public uploads", { hidden: true })).toBeChecked(),
     );
   });
 

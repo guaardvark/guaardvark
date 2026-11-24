@@ -106,9 +106,10 @@ class ErrorBoundaryCore extends React.Component {
 
             <Typography
               variant="body1"
-              paragraph
-              sx={{ color: fullPage ? PAGE_COLOURS.muted : "text.secondary" }}
-            >
+              sx={{
+                color: fullPage ? PAGE_COLOURS.muted : "text.secondary",
+                marginBottom: "16px"
+              }}>
               {stale
                 ? translate("layoutCommon.errorBoundary.updatedBody")
                 : translate("layoutCommon.errorBoundary.errorBody")}

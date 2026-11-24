@@ -244,7 +244,7 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
         )}
         {preview && !unwired && (
           <>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {preview.hf_repo}
               {preview.license ? ` · ${preview.license}` : ""}
               {preview.gated
@@ -255,7 +255,7 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
               {preview.truncated ? " · " + t("models.addModel.fileListTruncated") : ""}
             </Typography>
             {(preview.warnings || []).map((w) => (
-              <Typography key={w} variant="caption" color="warning.main">
+              <Typography key={w} variant="caption" sx={{ color: "warning.main" }}>
                 {w}
               </Typography>
             ))}
@@ -280,7 +280,7 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
               </Typography>
             )}
             <TextField size="small" label={t("models.addModel.name")} value={name} onChange={(e) => setName(e.target.value)} />
-            <Typography variant="overline" color="text.secondary">
+            <Typography variant="overline" sx={{ color: "text.secondary" }}>
               {singleFile ? t("models.addModel.filesPickOne") : t("models.addVideoModel.files")}
             </Typography>
             {files.length > 8 && (
@@ -293,7 +293,7 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
             )}
             <Box sx={{ maxHeight: 240, overflow: "auto", border: 1, borderColor: "divider", borderRadius: 1, px: 1 }}>
               {files.length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                <Typography variant="body2" sx={{ color: "text.secondary", py: 1 }}>
                   {t("models.addModel.noWeightFiles")}
                 </Typography>
               )}

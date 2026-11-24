@@ -257,7 +257,7 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
                       </RadioGroup>
                     </FormControl>
                   ) : (
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t('filmCrew.casting.inline')}
                     </Typography>
                   )}
@@ -272,7 +272,7 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
                     />
                   )}
                   {castingData[subj.id]?.action === 'as_described' && (
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {t('filmCrew.casting.asDescribedHint')}
                     </Typography>
                   )}
@@ -290,7 +290,10 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
                         variant={trainingJobs[subj.id]?.progress != null ? 'determinate' : 'indeterminate'}
                         value={trainingJobs[subj.id]?.progress || 0}
                       />
-                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "text.secondary", display: "block", mt: 0.5 }}
+                      >
                         {trainingJobs[subj.id]?.message || t('filmCrew.casting.trainingInProgress')}
                       </Typography>
                     </Box>

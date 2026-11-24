@@ -62,23 +62,23 @@ const PlanStatusPanel = ({
 
   return (
     <Stack spacing={compact ? 0.75 : 1} className="non-draggable">
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
         <Chip
           size="small"
           color={statusColor(planJob.status)}
           label={t("videoEditor.plan.chip", { status: statusLabel(planJob.status) })}
           sx={{ height: 22 }}
         />
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {planJob.stageLabel || t("videoEditor.plan.status.idle")}
         </Typography>
         {elapsed && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {elapsed}
           </Typography>
         )}
         {planJob.job?.id && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace" }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", fontFamily: "monospace" }}>
             {planJob.job.id.slice(0, 8)}
           </Typography>
         )}
@@ -90,7 +90,7 @@ const PlanStatusPanel = ({
             variant="determinate"
             value={planJob.status === "done" ? 100 : progressPercent}
           />
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {planJob.status === "done" ? "100" : progressPercent}%
           </Typography>
         </Box>

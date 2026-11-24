@@ -47,7 +47,7 @@ import {
   Add as AddIcon,
   Description as DocumentIcon,
   LightbulbOutlined as SuggestionIcon,
-  ErrorOutline as ErrorIcon,
+  ErrorOutlineOutlined as ErrorIcon,
   WarningAmber as WarningIcon,
   CheckCircle as SuccessIcon,
   ExpandMore as ExpandMoreIcon,
@@ -1319,8 +1319,8 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           {/* Context Status Bar */}
           <Box sx={{ p: 0.5, borderBottom: 1, borderColor: 'divider', bgcolor: 'action.hover' }}>
-            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-              <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <Badge badgeContent={realTimeAnalysis.errors.length} color="error" showZero={false}>
                   <ErrorIcon fontSize="small" color={realTimeAnalysis.errors.length > 0 ? "error" : "disabled"} />
                 </Badge>
@@ -1330,13 +1330,13 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                 <Badge badgeContent={realTimeAnalysis.suggestions.length} color="info" showZero={false}>
                   <SuggestionIcon fontSize="small" color={realTimeAnalysis.suggestions.length > 0 ? "info" : "disabled"} />
                 </Badge>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {codeContext.selectedText
                     ? t("codeAssistant.status.selected", { count: codeContext.selectedText.length })
                     : currentTab?.filePath || t("codeAssistant.status.noFile")}
                 </Typography>
               </Stack>
-              <Stack direction="row" spacing={0.5} alignItems="center">
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
                 <Tooltip title={t("codeAssistant.status.realTimeTooltip")} arrow>
                   <FormControlLabel
                     control={
@@ -1344,7 +1344,9 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                         size="small"
                         checked={realTimeAnalysis.enabled}
                         onChange={(e) => setRealTimeAnalysis(prev => ({ ...prev, enabled: e.target.checked }))}
-                        inputProps={{ 'aria-label': t('codeAssistant.status.toggleRealTime') }}
+                        slotProps={{
+                          input: { 'aria-label': t('codeAssistant.status.toggleRealTime') }
+                        }}
                       />
                     }
                     label=""
@@ -1367,16 +1369,27 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
           {/* Recommendation Panel */}
           {structuredRecommendations.length > 0 && (
             <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', maxHeight: '250px', overflow: 'auto' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', mb: 1, display: 'block' }}>
+              <Typography
+                variant="caption"
+                sx={{ color: "text.secondary", fontWeight: 'bold', mb: 1, display: 'block' }}
+              >
                 {t("codeAssistant.recommendations.title", { count: structuredRecommendations.length })}
               </Typography>
               <Stack spacing={1}>
                 {structuredRecommendations.slice(0, 5).map((rec, index) => (
                   <Card key={index} variant="outlined" sx={{ p: 0.5 }}>
                     <CardContent sx={{ p: '8px !important', '&:last-child': { pb: '8px' } }}>
-                      <Stack direction="row" spacing={1} alignItems="flex-start" justifyContent="space-between">
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ alignItems: "flex-start", justifyContent: "space-between" }}
+                      >
                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5, flexWrap: 'wrap' }}>
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            sx={{ alignItems: "center", mb: 0.5, flexWrap: 'wrap' }}
+                          >
                             <Chip
                               label={rec.type || t('codeAssistant.recommendations.defaultType')}
                               size="small"
@@ -1408,7 +1421,10 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                               </Tooltip>
                             )}
                             {rec.lineRange && (
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                              <Typography
+                                variant="caption"
+                                sx={{ color: "text.secondary", fontSize: '0.65rem' }}
+                              >
                                 {t("codeAssistant.recommendations.lines", { start: rec.lineRange.start, end: rec.lineRange.end })}
                               </Typography>
                             )}
@@ -1417,7 +1433,10 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             {rec.description || rec.rationale || t('codeAssistant.recommendations.noDescription')}
                           </Typography>
                           {rec.rationale && rec.rationale !== rec.description && (
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block', mt: 0.5 }}>
+                            <Typography
+                              variant="caption"
+                              sx={{ color: "text.secondary", fontSize: '0.65rem', display: 'block', mt: 0.5 }}
+                            >
                               {rec.rationale}
                             </Typography>
                           )}
@@ -1454,7 +1473,10 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                   </Card>
                 ))}
                 {structuredRecommendations.length > 5 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', textAlign: 'center', fontStyle: 'italic' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontSize: '0.65rem', textAlign: 'center', fontStyle: 'italic' }}
+                  >
                     {t("codeAssistant.recommendations.more", { count: structuredRecommendations.length - 5 })}
                   </Typography>
                 )}
@@ -1486,7 +1508,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                     <CloseIcon fontSize="small" />
                   </IconButton>
                 </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 1 }}>
                   {pendingCodeEdit.description}
                 </Typography>
                 <Stack direction="row" spacing={1}>
@@ -1538,7 +1560,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                 <Stack spacing={1}>
                   {/* File Context */}
                   <Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 'bold' }}>
                       {t("codeAssistant.context.currentFile")}:
                     </Typography>
                     <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
@@ -1549,7 +1571,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                   {/* Selection Context */}
                   {codeContext.selectedText && (
                     <Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                      <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 'bold' }}>
                         {t("codeAssistant.context.selectedCode")}:
                       </Typography>
                       <Box sx={{ bgcolor: 'action.hover', p: 0.5, borderRadius: 1, fontSize: '0.7rem', fontFamily: 'monospace', maxHeight: 100, overflow: 'auto' }}>
@@ -1561,7 +1583,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                   {/* Real-time Analysis Results */}
                   {realTimeAnalysis.enabled && realTimeAnalysis.lastUpdate && (
                     <Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                      <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 'bold' }}>
                         {t("codeAssistant.context.analysisResults")}:
                       </Typography>
                       <List dense sx={{ p: 0 }}>
@@ -1572,7 +1594,9 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             </ListItemIcon>
                             <ListItemText
                               primary={error.message || error}
-                              primaryTypographyProps={{ fontSize: '0.7rem' }}
+                              slotProps={{
+                                primary: { sx: { fontSize: '0.7rem' } }
+                              }}
                             />
                           </ListItem>
                         ))}
@@ -1583,7 +1607,9 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             </ListItemIcon>
                             <ListItemText
                               primary={warning.message || warning}
-                              primaryTypographyProps={{ fontSize: '0.7rem' }}
+                              slotProps={{
+                                primary: { sx: { fontSize: '0.7rem' } }
+                              }}
                             />
                           </ListItem>
                         ))}
@@ -1594,7 +1620,9 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             </ListItemIcon>
                             <ListItemText
                               primary={suggestion.message || suggestion}
-                              primaryTypographyProps={{ fontSize: '0.7rem' }}
+                              slotProps={{
+                                primary: { sx: { fontSize: '0.7rem' } }
+                              }}
                             />
                           </ListItem>
                         ))}
@@ -1605,7 +1633,9 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             </ListItemIcon>
                             <ListItemText
                               primary={t("codeAssistant.context.noIssues")}
-                              primaryTypographyProps={{ fontSize: '0.7rem', color: 'success.main' }}
+                              slotProps={{
+                                primary: { sx: { fontSize: '0.7rem', color: 'success.main' } }
+                              }}
                             />
                           </ListItem>
                         )}
@@ -1615,7 +1645,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
 
                   {/* Project Context */}
                   <Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 'bold' }}>
                       {t("codeAssistant.context.project")}:
                     </Typography>
                     <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
@@ -1626,7 +1656,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                     </Typography>
                     {relatedFiles.length > 0 && (
                       <Box sx={{ mt: 0.5 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: '0.7rem' }}>
                           {t("codeAssistant.context.relatedFiles")}:
                         </Typography>
                         {relatedFiles.slice(0, 3).map((rf, idx) => (
@@ -1763,16 +1793,18 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
           role="menu"
           aria-labelledby="grid-menu-button"
           aria-label={t("codeAssistant.menu.label")}
-          PaperProps={{
-            sx: {
-              mt: 1,
-              minWidth: 300,
-              maxWidth: 400,
-              '& .MuiMenuItem-root': {
-                px: 2,
-                py: 1,
+          slotProps={{
+            paper: {
+              sx: {
+                mt: 1,
+                minWidth: 300,
+                maxWidth: 400,
+                '& .MuiMenuItem-root': {
+                  px: 2,
+                  py: 1,
+                }
               }
-            }
+            },
           }}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
@@ -1785,7 +1817,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
               {Object.entries(AI_COMMANDS).map(([key, command]) => {
                 const IconComponent = command.icon;
                 return (
-                  <Grid item xs={6} key={key}>
+                  <Grid key={key} size={6}>
                     <MenuItem
                       onClick={() => handleGridMenuAction(key)}
                       disabled={isLoading || !currentTab?.content?.trim()}

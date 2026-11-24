@@ -94,7 +94,7 @@ const FileSystemTree = ({ currentPath, onNavigate, folderCounts = {} }) => {
             </ListItemIcon>
             <ListItemText
               primary={
-                <Typography variant="body2" fontWeight={600}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {t("files.tree.computer")}
                 </Typography>
               }

@@ -84,8 +84,8 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
               {formError}
             </Alert>
           )}
-          <Grid container spacing={2} sx={{ mt: 0 }}>
-            <Grid item xs={12}>
+          <Grid container spacing={2} sx={{ mt: 2 }}>
+            <Grid size={12}>
               <TextField
                 autoFocus
                 fullWidth
@@ -99,7 +99,7 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 required
                 fullWidth
@@ -109,25 +109,27 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
                 value={formData.input_path}
                 onChange={handleInputChange}
                 disabled={saving}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setDirectoryPickerOpen(true)}
-                        edge="end"
-                        disabled={saving}
-                        title={t("dialogs.parseJob.browse")}
-                      >
-                        <FolderOpenIcon />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
                 helperText={t("dialogs.parseJob.pathHelp")}
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setDirectoryPickerOpen(true)}
+                          edge="end"
+                          disabled={saving}
+                          title={t("dialogs.parseJob.browse")}
+                        >
+                          <FolderOpenIcon />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }
+                }}
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <FormControlLabel
                 control={
                   <Checkbox

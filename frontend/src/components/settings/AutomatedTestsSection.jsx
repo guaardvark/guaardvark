@@ -64,11 +64,7 @@ const AutomatedTestsSection = ({ isLoading }) => {
       </Box>
       {testSuiteResults && (
         <Box
-          mt={2}
-          p={2}
-          border={1}
-          borderColor="divider"
-          borderRadius={1}
+          sx={{ mt: 2, p: 2, border: 1, borderColor: "divider", borderRadius: 1 }}
         >
           <Typography variant="subtitle1" gutterBottom>
             {t("settingsSections.automatedTests.output")}

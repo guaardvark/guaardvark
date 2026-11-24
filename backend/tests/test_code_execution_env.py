@@ -87,13 +87,15 @@ def test_editor_code_runs_with_the_allow_listed_env_in_a_fresh_folder(code_execu
     monkeypatch.setenv("HOME", "/home/someone")
     seen = {}
 
-    def fake_run(command, **kwargs):
+    real_popen = subprocess.Popen
+
+    def watched_popen(command, **kwargs):
         seen["env"] = kwargs.get("env")
         seen["cwd"] = kwargs.get("cwd")
         seen["cwd_existed"] = bool(kwargs.get("cwd")) and Path(kwargs["cwd"]).is_dir()
-        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        return real_popen(command, **kwargs)
 
-    monkeypatch.setattr(code_execution_api.subprocess, "run", fake_run)
+    monkeypatch.setattr(code_execution_api.subprocess, "Popen", watched_popen)
 
     result = getattr(code_execution_api, runner)(["python3", "-c", "pass"])
 
@@ -109,13 +111,50 @@ def test_editor_code_runs_with_the_allow_listed_env_in_a_fresh_folder(code_execu
 def test_a_given_working_directory_is_used_as_is(code_execution_api, monkeypatch, tmp_path):
     seen = {}
 
-    def fake_run(command, **kwargs):
-        seen["cwd"] = kwargs.get("cwd")
-        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+    real_popen = subprocess.Popen
 
-    monkeypatch.setattr(code_execution_api.subprocess, "run", fake_run)
+    def watched_popen(command, **kwargs):
+        seen["cwd"] = kwargs.get("cwd")
+        return real_popen(command, **kwargs)
+
+    monkeypatch.setattr(code_execution_api.subprocess, "Popen", watched_popen)
 
     code_execution_api.execute_command(["true"], cwd=str(tmp_path))
 
     assert seen["cwd"] == str(tmp_path)
     assert tmp_path.exists()
+
+
+def test_a_timeout_stops_child_processes_and_keeps_the_output(code_execution_api, tmp_path):
+    marker = tmp_path / "child-alive"
+    child = f"import time, pathlib; time.sleep(3); pathlib.Path({str(marker)!r}).write_text('x')"
+    code = (f"import subprocess, sys, time; print('started', flush=True); "
+            f"subprocess.Popen([sys.executable, '-c', {child!r}]); time.sleep(30)")
+
+    result = code_execution_api.execute_command(["python3", "-c", code], timeout=1)
+
+    assert result["success"] is False and result.get("timedOut") is True
+    assert "started" in result["stdout"]
+    import time
+    time.sleep(3.5)
+    assert not marker.exists()  # the child was stopped with its parent
+
+
+def test_a_background_child_does_not_turn_a_finished_run_into_a_timeout(code_execution_api):
+    code = ("import subprocess, sys; "
+            "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(20)']); print('done')")
+
+    result = code_execution_api.execute_command(["python3", "-c", code], timeout=10)
+
+    assert result["success"] is True
+    assert result["stdout"].strip() == "done"
+
+
+def test_output_is_cut_at_the_limit(code_execution_api):
+    code = "import sys\nfor _ in range(4): sys.stdout.write('x' * 1048576)"
+
+    result = code_execution_api.execute_command(["python3", "-c", code], timeout=20)
+
+    assert result["success"] is True
+    assert len(result["stdout"]) < code_execution_api.MAX_OUTPUT_SIZE + 100
+    assert "output cut" in result["stdout"]

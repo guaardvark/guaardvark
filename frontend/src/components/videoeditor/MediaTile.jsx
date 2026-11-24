@@ -127,8 +127,7 @@ const MediaTile = ({ item, kind, variant = "grid", onClick, onDragStart, selecte
           {_metaLine(item) && (
             <Typography
               variant="caption"
-              color="text.secondary"
-              sx={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+              sx={{ color: "text.secondary", fontSize: "0.65rem", lineHeight: 1.2 }}
             >
               {_metaLine(item)}
             </Typography>

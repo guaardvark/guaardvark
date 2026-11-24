@@ -30,7 +30,7 @@ import { useUiTranslation } from "../../i18n";
  * Displays the results of an agent reasoning loop execution
  * Shows each step with thoughts, tool calls, and observations
  */
-const AgentResultDisplay = ({ result, isLoading = false }) => {
+const AgentResultDisplay = ({ result = null, isLoading = false }) => {
   const { t } = useUiTranslation();
   const [expandedStep, setExpandedStep] = useState(null);
 
@@ -62,7 +62,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
           ) : (
             <ErrorIcon color="error" />
           )}
-          <Typography variant="subtitle1" fontWeight="bold">
+          <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
             {t("chat.agentResult.title", { count: iterations })}
           </Typography>
         </Box>
@@ -71,7 +71,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
       {/* Steps Accordion */}
       {steps.length > 0 && (
         <Box sx={{ mb: 2 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", mb: 1, display: "block" }}>
             {t("chat.agentResult.reasoningSteps")}:
           </Typography>
           {steps.map((step, index) => (
@@ -99,12 +99,12 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
                   )}
                   <Typography
                     variant="body2"
-                    color="text.secondary"
                     sx={{
+                      color: "text.secondary",
                       flexGrow: 1,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      whiteSpace: "nowrap"
                     }}
                   >
                     {step.thoughts?.substring(0, 60) || t("chat.agentResult.processing")}
@@ -118,7 +118,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
                   <Box sx={{ mb: 2 }}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
                       <Psychology fontSize="small" color="primary" />
-                      <Typography variant="caption" fontWeight="bold">
+                      <Typography variant="caption" sx={{ fontWeight: "bold" }}>
                         {t("chat.agentResult.reasoning")}
                       </Typography>
                     </Box>
@@ -133,13 +133,13 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
                   <Box sx={{ mb: 2 }}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
                       <Build fontSize="small" color="secondary" />
-                      <Typography variant="caption" fontWeight="bold">
+                      <Typography variant="caption" sx={{ fontWeight: "bold" }}>
                         {t("chat.agentResult.toolCalls")}
                       </Typography>
                     </Box>
                     {step.tool_calls.map((tc, tcIndex) => (
                       <Paper key={tcIndex} sx={{ p: 1, mb: 1, ml: 2.5, bgcolor: "action.hover", backgroundImage: 'none' }}>
-                        <Typography variant="body2" fontWeight="medium">
+                        <Typography variant="body2" sx={{ fontWeight: "medium" }}>
                           {tc.tool_name || tc.tool || t("chat.agentResult.unknownTool")}
                         </Typography>
                         {tc.parameters && (
@@ -161,13 +161,13 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
                   <Box>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
                       <Visibility fontSize="small" color="info" />
-                      <Typography variant="caption" fontWeight="bold">
+                      <Typography variant="caption" sx={{ fontWeight: "bold" }}>
                         {t("chat.agentResult.observations")}
                       </Typography>
                     </Box>
                     {step.observations.map((obs, obsIndex) => (
                       <Paper key={obsIndex} sx={{ p: 1, mb: 1, ml: 2.5, bgcolor: "info.dark", backgroundImage: 'none', color: '#fff' }}>
-                        <Typography variant="body2" fontWeight="medium">
+                        <Typography variant="body2" sx={{ fontWeight: "medium" }}>
                           {obs.tool}: {obs.result?.success ? t("chat.agentResult.success") : t("chat.agentResult.failed")}
                         </Typography>
                         {obs.result?.output && (
@@ -248,11 +248,6 @@ AgentResultDisplay.propTypes = {
     success: PropTypes.bool,
   }),
   isLoading: PropTypes.bool,
-};
-
-AgentResultDisplay.defaultProps = {
-  result: null,
-  isLoading: false,
 };
 
 export default AgentResultDisplay;

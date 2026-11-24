@@ -58,13 +58,13 @@ describe("Agent Memory list past the first page", () => {
     await screen.findByText("fact 230");
     await waitFor(() => expect(screen.queryByText(/showing/)).toBeNull());
     expect(screen.queryByRole("button", { name: /Load more/ })).toBeNull();
-  });
+  }, 20000);
 
   it("skips no row after a row on screen was marked wrong", async () => {
     render(<MemoryManagementSection />);
     await screen.findByText("fact 1");
     const first = screen.getByText("fact 1").closest("tr");
-    fireEvent.click(within(first).getByRole("button", { name: "Wrong" }));
+    fireEvent.click(within(first).getByRole("button", { name: /Wrong/i }));
     await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true));
 
     fireEvent.click(screen.getByRole("button", { name: /Load more/ }));

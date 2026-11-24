@@ -43,7 +43,7 @@ const StageProgress = ({ currentStage, status, errorBlob }) => {
             );
           } else if (isGated) {
             labelProps.optional = (
-              <Typography variant="caption" color="warning.main" sx={{ fontWeight: 'bold' }}>
+              <Typography variant="caption" sx={{ color: "warning.main", fontWeight: 'bold' }}>
                 {t('filmCrew.stages.actionNeeded')}
               </Typography>
             );

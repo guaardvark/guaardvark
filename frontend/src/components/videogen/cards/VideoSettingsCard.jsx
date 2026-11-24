@@ -161,7 +161,7 @@ function VideoSettingsCard({
             onChange={(e) => setStoryboardShots(Math.max(1, Math.min(50, parseInt(e.target.value, 10) || 1)))}
             size="small"
             sx={{ width: 96 }}
-            inputProps={{ min: 1, max: 50 }}
+            slotProps={{ htmlInput: { min: 1, max: 50 } }}
           />
         )}
       </Line>
@@ -460,7 +460,7 @@ function VideoSettingsCard({
           size="small"
           label={t("videoGenerator.finish.fetaWeight")}
           type="number"
-          inputProps={{ step: 0.1, min: 0.1, max: 3.0 }}
+          slotProps={{ htmlInput: { step: 0.1, min: 0.1, max: 3.0 } }}
           value={fetaWeight}
           onChange={(e) => setFetaWeight(Number(e.target.value))}
           sx={{ width: 140 }}
@@ -553,7 +553,7 @@ function VideoSettingsCard({
             size="small"
             label={t("videoGenerator.finish.guidance")}
             type="number"
-            inputProps={{ step: 0.5, min: 1, max: 20 }}
+            slotProps={{ htmlInput: { step: 0.5, min: 1, max: 20 } }}
             value={advancedParams.guidance_scale}
             disabled={modelCaps?.cfg === false || isMinimaxModel(model, modelMeta[model])}
             onChange={(e) => setAdvancedParams({ ...advancedParams, guidance_scale: Number(e.target.value) })}
@@ -574,7 +574,7 @@ function VideoSettingsCard({
             label={t("videoGenerator.finish.seed")}
             placeholder={t("videoGenerator.finish.seedRandom")}
             value={advancedParams.seed ?? ""}
-            inputProps={{ inputMode: "numeric" }}
+            slotProps={{ htmlInput: { inputMode: "numeric" } }}
             onChange={(e) => {
               const digits = e.target.value.replace(/\D/g, "").slice(0, String(MAX_SEED).length);
               setAdvancedParams((prev) => ({ ...prev, seed: digits }));
@@ -585,7 +585,7 @@ function VideoSettingsCard({
             label={t("videoGenerator.finish.framesPerBatch")}
             type="number"
             size="small"
-            inputProps={{ min: 1, max: 8 }}
+            slotProps={{ htmlInput: { min: 1, max: 8 } }}
             value={advancedParams.frames_per_batch}
             onChange={(e) => {
               const v = Math.max(1, parseInt(e.target.value || "1", 10));

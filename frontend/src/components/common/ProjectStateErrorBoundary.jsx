@@ -25,7 +25,7 @@ const ProjectStateErrorFallback = ({ error, onRetry }) => {
           <li>{t('layoutCommon.projectState.causes.relationships')}</li>
           <li>{t('layoutCommon.projectState.causes.corruption')}</li>
         </Box>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t('layoutCommon.projectState.errorMessage', { message: error?.message || t('layoutCommon.projectState.unknownError') })}
         </Typography>
       </Alert>

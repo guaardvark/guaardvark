@@ -70,8 +70,7 @@ describe("Image Gen workers on a CUDA card", () => {
 
   it("shows one-at-a-time instead of a worker count", async () => {
     await renderPage();
-    expect(screen.getByText("One at a time")).toBeInTheDocument();
-    // The chip's own text; the Max Workers slider label in Advanced is not it.
+    expect(screen.getByText("One picture at a time on the graphics card.")).toBeInTheDocument();
     expect(screen.queryByText(/^Workers: \d/)).toBeNull();
   });
 
@@ -87,6 +86,6 @@ describe("Image Gen workers on a CPU box", () => {
   it("keeps the worker count", async () => {
     mockFetchWithDevice("cpu");
     await renderPage();
-    expect(screen.getByText("Workers: 2")).toBeInTheDocument();
+    expect(screen.getByText(/Max Workers: 2/)).toBeInTheDocument();
   });
 });

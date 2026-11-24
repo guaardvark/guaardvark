@@ -126,7 +126,7 @@ const ItemDetail = ({ entry, resolved, t }) => {
       <Typography variant="subtitle2" sx={{ wordBreak: "break-all" }}>
         {item.subject}
       </Typography>
-      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: "wrap" }}>
         {item.verdict !== "allow" && (
           <Chip
             size="small"
@@ -530,7 +530,7 @@ export default function InboundGuardReviewDialog({ open, onClose, onChanged }) {
   const columns = resolved ? 8 : 11;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth PaperProps={{ sx: { height: "90vh" } }}>
+    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth slotProps={{ paper: { sx: { height: "90vh" } } }}>
       <DialogTitle>{t("inboundGuard.title")}</DialogTitle>
       <DialogContent dividers sx={{ display: "flex", flexDirection: "column", gap: 1, minHeight: 0 }}>
         <Hint>
@@ -539,7 +539,7 @@ export default function InboundGuardReviewDialog({ open, onClose, onChanged }) {
             gitMode: data.git_mode,
           })}
         </Hint>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
           <ChoiceChips
             options={[
               { value: "open", label: t("inboundGuard.view.open") },
@@ -565,7 +565,7 @@ export default function InboundGuardReviewDialog({ open, onClose, onChanged }) {
             ))}
           </Tabs>
         )}
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
           {!resolved &&
             select(
               t("inboundGuard.filter.verdict"),
@@ -625,7 +625,7 @@ export default function InboundGuardReviewDialog({ open, onClose, onChanged }) {
           {!resolved && (
             <>
               <Box sx={{ flex: 1 }} />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("inboundGuard.selectedCount", { count: selectedEntries.length })}
               </Typography>
               <ActionButton
@@ -687,7 +687,7 @@ export default function InboundGuardReviewDialog({ open, onClose, onChanged }) {
                       checked={allChecked}
                       indeterminate={someChecked}
                       onChange={() => setSelected((s) => toggleAll(s, orderedKeys))}
-                      inputProps={{ "aria-label": t("inboundGuard.col.selectAll") }}
+                      slotProps={{ input: { "aria-label": t("inboundGuard.col.selectAll") } }}
                     />
                   </TableCell>
                 )}
@@ -727,12 +727,12 @@ export default function InboundGuardReviewDialog({ open, onClose, onChanged }) {
                           size="small"
                           checked={selected.has(entry.key)}
                           onChange={(e) => onCheck(e, entry.key)}
-                          inputProps={{ "aria-label": t("inboundGuard.col.selectOne", { subject: item.subject }) }}
+                          slotProps={{ input: { "aria-label": t("inboundGuard.col.selectOne", { subject: item.subject }) } }}
                         />
                       </TableCell>
                     )}
                     <TableCell sx={{ maxWidth: 340 }}>
-                      <Stack direction="row" spacing={0.75} alignItems="center">
+                      <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
                         <Typography variant="body2" noWrap title={item.subject}>
                           {item.subject}
                         </Typography>
@@ -816,7 +816,7 @@ export default function InboundGuardReviewDialog({ open, onClose, onChanged }) {
               {!loading && shown.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={columns}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {entries.length
                         ? t("inboundGuard.emptyFiltered")
                         : t(resolved ? "inboundGuard.emptyResolved" : "inboundGuard.emptyOpen")}
@@ -827,7 +827,7 @@ export default function InboundGuardReviewDialog({ open, onClose, onChanged }) {
             </TableBody>
           </Table>
         </TableContainer>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           {loading && <CircularProgress size={16} />}
           <Hint>{t(resolved ? "inboundGuard.loadedResolved" : "inboundGuard.loaded", { loaded: entries.length, total })}</Hint>
           {moreToLoad && (
@@ -841,7 +841,7 @@ export default function InboundGuardReviewDialog({ open, onClose, onChanged }) {
           {opened ? (
             <ItemDetail entry={opened} resolved={resolved} t={t} />
           ) : (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("inboundGuard.clickRow")}
             </Typography>
           )}

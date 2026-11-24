@@ -624,7 +624,7 @@ const DashboardPage = () => {
                   backgroundImage: "none",
                 }}
               >
-                <Typography color="warning.contrastText">{t("dashboard.missingCard", { id: cardId })}</Typography>
+                <Typography sx={{ color: "warning.contrastText" }}>{t("dashboard.missingCard", { id: cardId })}</Typography>
               </Paper>
             );
           }}

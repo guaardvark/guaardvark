@@ -22,27 +22,9 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     ignore:
-      # React 19 is refused at install time by @testing-library/react 14 and
-      # would also move MUI 5 and react-grid-layout with it. Take it as one
-      # deliberate upgrade, not a bot bump (PR #142 closed 2026-09-07).
-      - dependency-name: react
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react-dom
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@types/react"
-        update-types: ["version-update:semver-major"]
-      # MUI 5 is imported by ~270 frontend files; a major bump of one MUI
-      # package fails on the other's peer requirement, and the migration to a
-      # current MUI belongs to the same deliberate upgrade as React 19
-      # (PRs #191 and #193 closed 2026-09-18).
-      - dependency-name: "@mui/material"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@mui/icons-material"
-        update-types: ["version-update:semver-major"]
       # eslint 10 fails eslint-plugin-react 7.33's peer requirement
       # ("^3 || ... || ^8 || ^9.7"), so the lint stack has to move together —
-      # plugin bumps plus the flat-config migration. That belongs with the
-      # frontend platform upgrade in #198 (PR #210 closed 2026-09-19).
+      # plugin bumps plus the flat-config migration (PR #210 closed 2026-09-19).
       - dependency-name: eslint
         update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions

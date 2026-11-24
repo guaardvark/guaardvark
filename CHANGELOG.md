@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.7.0 — The night shift: queue work for tonight, pause a batch, edit what's waiting
+
+- **The night shift.** Any page with a render button can also schedule it: **Add to night shift** runs the job when
+  the machine has been left alone overnight, one at a time in the order you drag on the Jobs page, and **At a time**
+  runs it when you say. Video and image batches, upscales, songs, music videos, Cast and model training, Film Crew,
+  infographics and swarms can all be scheduled. In chat, `/schedule` takes the same requests ("/schedule tonight: a
+  5 second clip of ..."), and MCP clients get `schedule_job` and `scheduled_jobs`.
+- **Pause instead of cancel.** A running video batch pauses after the clip in progress and resumes later from where it
+  stopped.
+- **The Jobs page says what each job is.** Cards and scheduled rows show a picture of the job, its prompt, kind and
+  settings, and a waiting video or image job opens in a compact editor to change its prompt, size, length or time.
+- **New models.** PAN 2 in the Video Generator and MiniMax H3 stills in Image Gen, on ComfyUI 0.46.0. Cast LoRA
+  training has a stronger recipe, an Install button for the Turbo training adapter, step progress, and captions that
+  leave out a character's permanent features.
+- **Plugins and extensions.** `stop.sh` stops extension services too, and an extension's manifest can name the pages
+  that need its service, so a new extension needs no change to Guaardvark itself. Audio jobs wait for the GPU, and
+  infographics join the queue. [Mr. McBeak](https://github.com/guaardvark/mr-mcbeak), a hands-free voice front end
+  for Claude Code, Codex, Grok, Antigravity, Cursor and Guaardvark, plugs in this way.
+- **Safer by default.** Starting and stopping plugins and driving the agent take this machine or a key holder only;
+  backup restores keep symlinks inside the checkout; a document's raw file is served only from uploads or outputs. The
+  web UI runs on Material UI 9.
+
 ## 3.6.0 — Card workspaces on every page, AMD Radeon cards, your own ComfyUI, every Kokoro voice
 
 - **Every studio page is a card workspace.** Video Gen, Image Gen, Image Edit, Music Video, Film Crew, Cast Library,

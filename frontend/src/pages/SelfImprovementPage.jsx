@@ -70,7 +70,7 @@ const SelfImprovementPage = () => {
       }
     >
       <Stack spacing={2}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t("selfImprovement.page.intro")}
         </Typography>
 
@@ -95,7 +95,7 @@ const SelfImprovementPage = () => {
         {codeKeeps.length > 0 ? (
           <CodeKeepsTable keeps={codeKeeps} onDecide={handleCodeKeep} />
         ) : (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("selfImprovement.page.noCodeKeeps")}
           </Typography>
         )}

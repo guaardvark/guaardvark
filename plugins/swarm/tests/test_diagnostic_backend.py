@@ -114,12 +114,43 @@ def test_cline_failure_online_still_uses_cline(tmp_path, recorder):
     assert "claude" not in recorder.built[0]
 
 
-def test_claude_failure_online_uses_claude(tmp_path, recorder):
+def test_claude_failure_online_uses_claude(tmp_path, recorder, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     orch, _, _ = _crashed_task_orchestrator(tmp_path, _config(), "claude", flight_mode=False)
 
     orch._poll_running_agents()
 
     assert recorder.built == [["claude", "--print", "--bare", "--dangerously-skip-permissions"]]
+
+
+def test_claude_without_an_api_key_runs_the_signed_in_cli(monkeypatch):
+    """--bare signs in with ANTHROPIC_API_KEY only; without one the CLI's own
+    sign-in is used, with the user's settings, hooks and MCP servers left out."""
+    from service.agent_backends.claude_backend import ClaudeBackend
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    command = ClaudeBackend().command_prefix(
+        {"command": "claude", "args": ["--print", "--bare", "--dangerously-skip-permissions"]})
+
+    assert "--bare" not in command
+    assert command[:3] == ["claude", "--print", "--dangerously-skip-permissions"]
+    assert command[command.index("--setting-sources") + 1] == "project,local"
+    assert "--strict-mcp-config" in command
+
+
+def test_agents_do_not_inherit_secrets(monkeypatch):
+    from service.agent_backends.base_backend import agent_env
+
+    for name in ("DATABASE_URL", "SECRET_KEY", "GUAARDVARK_API_KEY", "DISCORD_BOT_TOKEN", "SSH_AUTH_SOCK",
+                 "ANTHROPIC_API_KEY"):
+        monkeypatch.setenv(name, "value")
+    monkeypatch.setenv("KEYBOARD_LAYOUT", "us")
+
+    env = agent_env(keep=("ANTHROPIC_API_KEY",))
+
+    assert env["ANTHROPIC_API_KEY"] == "value" and env["KEYBOARD_LAYOUT"] == "us" and "PATH" in env
+    for name in ("DATABASE_URL", "SECRET_KEY", "GUAARDVARK_API_KEY", "DISCORD_BOT_TOKEN", "SSH_AUTH_SOCK"):
+        assert name not in env
 
 
 def test_no_cloud_diagnosis_in_flight_mode(tmp_path, recorder):

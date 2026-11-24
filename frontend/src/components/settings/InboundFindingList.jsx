@@ -43,13 +43,13 @@ export const FindingList = ({ findings, max = 50, excerptLabel }) => {
     <Stack spacing={1}>
       {all.slice(0, max).map((f, i) => (
         <Box key={`${f.rule}-${f.path}-${f.line}-${i}`}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
             <Chip size="small" label={f.severity} color={SEVERITY_TONE[f.severity] || "default"} sx={{ height: 18 }} />
             <Typography variant="caption" sx={{ fontFamily: "monospace" }}>
               {f.rule} · {f.line ? `${f.path}:${f.line}` : f.path}
             </Typography>
           </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", ml: 0.5 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: "block", ml: 0.5 }}>
             {originLabel(f)}
           </Typography>
           <Typography variant="body2" sx={{ ml: 0.5 }}>
@@ -57,7 +57,7 @@ export const FindingList = ({ findings, max = 50, excerptLabel }) => {
           </Typography>
           {f.excerpt && (
             <Box sx={{ ml: 0.5 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("inboundGuard.finding.quoted", { label: quoted })}
               </Typography>
               <Typography
@@ -72,7 +72,7 @@ export const FindingList = ({ findings, max = 50, excerptLabel }) => {
         </Box>
       ))}
       {all.length > max && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("inboundGuard.finding.more", { count: all.length - max })}
         </Typography>
       )}

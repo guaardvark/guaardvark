@@ -363,7 +363,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
 
   return (
     <Box sx={{ mb: 1 }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.5 }}>
         <Typography variant="subtitle2">{t("musicVideo.plan.title")}</Typography>
         <Chip size="small" label={t("musicVideo.plan.cutCount", { count: rows.length })} />
         {detail.song_analysis?.tempo_bpm > 0 && (
@@ -378,16 +378,19 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
           />
         )}
         {sections.length > 0 && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("musicVideo.plan.sections", { sections: sections.join(" → ") })}
           </Typography>
         )}
         {totalDuration > 0 && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             ~{totalDuration.toFixed(1)}s
           </Typography>
         )}
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, fontSize: "0.65rem" }}>
+        <Typography
+          variant="caption"
+          sx={{ color: "text.secondary", display: "block", mt: 0.5, fontSize: "0.65rem" }}
+        >
           {t("musicVideo.plan.stretchHint")}
         </Typography>
         {detail.planning_mode && (
@@ -457,7 +460,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
         />
       )}
       {hasLocalEdits && (
-        <Typography variant="caption" color="info.main" sx={{ display: 'block', mb: 1 }}>
+        <Typography variant="caption" sx={{ color: "info.main", display: 'block', mb: 1 }}>
           {t("musicVideo.plan.unsavedHint")}
         </Typography>
       )}
@@ -521,7 +524,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                   style={{ width: 120, height: 68, objectFit: "cover", borderRadius: 4, border: "1px solid #444" }}
                   onError={(e) => { e.target.style.display = "none"; }}
                 />
-                <Typography variant="caption" display="block">#{r.index} {r.section}</Typography>
+                <Typography variant="caption" sx={{ display: "block" }}>#{r.index} {r.section}</Typography>
                 <Typography variant="caption" sx={{ fontSize: "0.55rem", opacity: 0.65, display: "block" }}>
                   {t("musicVideo.plan.advancesArc", { section: r.section, energy: r.energy.toFixed(1) })}
                 </Typography>
@@ -613,13 +616,13 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
               const timeLabel = `${row.start.toFixed(2)}s – ${row.end.toFixed(2)}s`;
               return (
                 <Box key={row.index} id={`mv-cut-${row.index}`} sx={{ pl: 0.5 }}>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.25 }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.25 }}>
                     <Chip size="small" label={`#${row.index}`} />
                     <Typography variant="caption" sx={{ fontFamily: "monospace" }}>
                       {timeLabel}
                     </Typography>
                     <Chip size="small" variant="outlined" label={row.section} />
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t("musicVideo.plan.energy", { energy: (row.energy || 0).toFixed(2) })}
                     </Typography>
                     <Box sx={{ flex: 1 }} />
@@ -643,10 +646,11 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                             if (raw !== "" && !Number.isInteger(next)) return;
                             if (next !== row.seed) onEditCut(row.index, { seed: next });
                           }}
-                          inputProps={{ min: 0, step: 1, style: { width: 82, padding: "2px 6px" } }}
-                          InputLabelProps={{ shrink: true }}
                           sx={{ "& .MuiInputBase-root": { fontSize: "0.75rem" } }}
-                        />
+                          slotProps={{
+                            htmlInput: { min: 0, step: 1, style: { width: 82, padding: "2px 6px" } },
+                            inputLabel: { shrink: true }
+                          }} />
                         <Tooltip title={row.locked
                           ? t("musicVideo.plan.lockedTooltip")
                           : t("musicVideo.plan.lockTooltip")}
@@ -689,7 +693,10 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                     {t("musicVideo.plan.advancesArcAbove", { section: row.section, energy: row.energy.toFixed(1) })}
                   </Typography>
                   {detail.director_diagnostics && displayed && (displayed.length < ((detail.style_prompt || '').length + 80)) && (
-                    <Typography variant="caption" color="warning.main" sx={{ fontSize: '0.6rem', display: 'block', mt: 0.25 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "warning.main", fontSize: '0.6rem', display: 'block', mt: 0.25 }}
+                    >
                       {t("musicVideo.plan.energyCuedOnly")}
                     </Typography>
                   )}
@@ -731,7 +738,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
       {/* Editing & regeneration controls — only when we can still change the plan */}
       {isEditable && (
         <Box sx={{ mt: 1.5 }}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
             <Button
               size="small"
               variant="outlined"
@@ -741,7 +748,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
               {t("musicVideo.plan.save")}
             </Button>
             <Tooltip title={t("musicVideo.plan.autosaveTooltip")}>
-              <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
                 <input
                   type="checkbox"
                   id="mv-autosave"
@@ -751,7 +758,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                 <label htmlFor="mv-autosave" style={{ fontSize: "0.75rem" }}>{t("musicVideo.plan.autosave")}</label>
               </Stack>
             </Tooltip>
-            <Typography variant="caption" color={saveState === "error" ? "error" : "text.secondary"} data-testid="mv-save-state">
+            <Typography variant="caption" sx={{ color: saveState === "error" ? "error.main" : "text.secondary" }} data-testid="mv-save-state">
               {saveState === "saving"
                 ? t("musicVideo.plan.saving")
                 : saveState === "error"
@@ -779,21 +786,21 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
               </Button>
             )}
             {comfyDisabled && onGenerateStoryboards && (
-              <Typography variant="caption" color="warning.main" sx={{ ml: 1 }}>
+              <Typography variant="caption" sx={{ color: "warning.main", ml: 1 }}>
                 {t("musicVideo.plan.comfyDisabled", { model: detail?.keyframe_model || 'flux-schnell' })}
               </Typography>
             )}
             {!comfyDisabled && comfyInfo && comfyInfo.status !== 'running' && onGenerateStoryboards && (
-              <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", ml: 1 }}>
                 {t("musicVideo.plan.comfyOnDemand", { model: detail?.keyframe_model || 'flux-schnell' })}
               </Typography>
             )}
           </Stack>
 
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
             {t("musicVideo.plan.regenAllHint")}
           </Typography>
-          <Stack direction="row" spacing={1} alignItems="flex-start">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
             <TextField
               size="small"
               fullWidth
@@ -838,14 +845,14 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
               {t("musicVideo.plan.regenerate")}
             </Button>
           </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5, display: "block" }}>
             {t("musicVideo.plan.tip")}
           </Typography>
         </Box>
       )}
 
       {!isEditable && rows.length > 0 && (
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5, display: "block" }}>
           {t("musicVideo.plan.locked")}
         </Typography>
       )}
@@ -910,7 +917,7 @@ function VersionsDialog({ open, video, onClose, onRestored }) {
         {dialogError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDialogError(null)}>{dialogError}</Alert>}
         {loading && <LinearProgress />}
         {!loading && loaded && rows.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("musicVideo.versions.none")}
           </Typography>
         )}
@@ -950,7 +957,7 @@ function VersionsDialog({ open, video, onClose, onRestored }) {
           ))}
         </List>
         {busyStage && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("musicVideo.versions.cancelFirst")}
           </Typography>
         )}
@@ -1633,11 +1640,11 @@ const MusicVideoPage = () => {
 
   return (
     <Box sx={{ p: 3, height: "100%", overflow: "auto" }}>
-      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 2 }}>
         <MusicVideoIcon fontSize="large" />
         <Box>
           <Typography variant="h5">{t("musicVideo.page.title")}</Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("musicVideo.page.subtitle")}
           </Typography>
         </Box>
@@ -1656,7 +1663,7 @@ const MusicVideoPage = () => {
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography variant="subtitle1" sx={{ mb: 1.5 }}>{t("musicVideo.create.title")}</Typography>
             {videoEditorDisabled && (
-              <Typography variant="caption" color="warning.main" sx={{ display: "block", mb: 1 }}>
+              <Typography variant="caption" sx={{ color: "warning.main", display: "block", mb: 1 }}>
                 {t("musicVideo.create.enableVideoEditor")}
               </Typography>
             )}
@@ -1721,8 +1728,10 @@ const MusicVideoPage = () => {
                   <TextField
                     type="number" size="small" fullWidth label={t("musicVideo.create.stretch")}
                     value={maxStretch} onChange={(e) => setMaxStretch(e.target.value)}
-                    inputProps={{ min: 1, max: 4, step: 0.5 }}
                     helperText={t("musicVideo.create.stretchHelp")}
+                    slotProps={{
+                      htmlInput: { min: 1, max: 4, step: 0.5 }
+                    }}
                   />
                   <TextField
                     select size="small" fullWidth label={t("musicVideo.create.interp")}
@@ -1736,9 +1745,11 @@ const MusicVideoPage = () => {
                   <TextField
                     type="number" size="small" fullWidth label={t("musicVideo.create.steps")}
                     value={i2vSteps} onChange={(e) => setI2vSteps(e.target.value)}
-                    inputProps={{ min: 8, max: 60, step: 1 }}
                     placeholder={t("musicVideo.create.stepsPlaceholder")}
                     helperText={t("musicVideo.create.stepsHelp")}
+                    slotProps={{
+                      htmlInput: { min: 8, max: 60, step: 1 }
+                    }}
                   />
 
                   {/* Director / storyboarding controls */}
@@ -1755,7 +1766,7 @@ const MusicVideoPage = () => {
                     <MenuItem value="visual">{t("musicVideo.create.planningVisual")}</MenuItem>
                   </TextField>
 
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ pl: 0.5 }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", pl: 0.5 }}>
                     <input
                       type="checkbox"
                       checked={directorEnabled}
@@ -1769,11 +1780,11 @@ const MusicVideoPage = () => {
 
                   {/* === Storyboard / Keyframe + I2V Pipeline (modeled after VideoGeneratorPage) === */}
                   <Divider sx={{ my: 1 }} />
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
                     {t("musicVideo.create.keyframeSection")}
                   </Typography>
 
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ pl: 0.5, mt: 0.5 }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", pl: 0.5, mt: 0.5 }}>
                     <input
                       type="checkbox"
                       checked={useLoraConsistency}
@@ -1796,7 +1807,7 @@ const MusicVideoPage = () => {
                       {t("musicVideo.create.useLora")}
                     </label>
                   </Stack>
-                  <Typography variant="caption" color="text.secondary" sx={{ pl: 2.5, display: "block" }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary", pl: 2.5, display: "block" }}>
                     {t("musicVideo.create.loraHint")}
                   </Typography>
 
@@ -1810,14 +1821,6 @@ const MusicVideoPage = () => {
                       onChange={(e) => {
                         const v = e.target.value;
                         setSelectedSubjectIds(typeof v === "string" ? v.split(",").map(Number) : v);
-                      }}
-                      SelectProps={{
-                        multiple: true,
-                        renderValue: (sel) =>
-                          castSubjects
-                            .filter((s) => sel.includes(s.id))
-                            .map((s) => s.name)
-                            .join(", ") || t("musicVideo.create.selectCast"),
                       }}
                       error={Boolean(castError)}
                       helperText={
@@ -1834,6 +1837,16 @@ const MusicVideoPage = () => {
                           : t("musicVideo.create.castHelp")
                       }
                       sx={{ mt: 1 }}
+                      slotProps={{
+                        select: {
+                          multiple: true,
+                          renderValue: (sel) =>
+                            castSubjects
+                              .filter((s) => sel.includes(s.id))
+                              .map((s) => s.name)
+                              .join(", ") || t("musicVideo.create.selectCast"),
+                        }
+                      }}
                     >
                       {castSubjects.map((s) => (
                         <MenuItem key={s.id} value={s.id}>
@@ -1859,7 +1872,7 @@ const MusicVideoPage = () => {
                         <Box>
                           <Typography variant="body2">{cfg.label}</Typography>
                           {cfg.description && (
-                            <Typography variant="caption" color="text.secondary">{cfg.description}</Typography>
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>{cfg.description}</Typography>
                           )}
                         </Box>
                       </MenuItem>
@@ -1898,7 +1911,7 @@ const MusicVideoPage = () => {
                 {busy ? <CircularProgress size={20} /> : (hasActiveGeneration ? t("musicVideo.create.addToQueue") : t("musicVideo.create.submit"))}
               </Button>
               {hasActiveGeneration && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5 }}>
                   {t("musicVideo.create.queueHint")}
                 </Typography>
               )}
@@ -1915,12 +1928,12 @@ const MusicVideoPage = () => {
             body: (
               <Box sx={cardBodySx}>
           <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+            <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
               <Typography variant="subtitle1">{t("musicVideo.list.title")}</Typography>
               {finishedCount > 0 && (
                 <Link
-                  component="button" type="button" variant="caption" underline="hover"
-                  color="text.secondary" onClick={handleClearFinished}
+                  component="button" type="button" variant="caption" underline="hover" onClick={handleClearFinished}
+                  sx={{ color: "text.secondary" }}
                 >
                   {t("musicVideo.list.clearFinished", { count: finishedCount })}
                 </Link>
@@ -1948,7 +1961,7 @@ const MusicVideoPage = () => {
               </Alert>
             )}
             {shownVideos.length === 0 && !listError && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {videos.length === 0 ? t("musicVideo.list.none") : t("musicVideo.list.noneInProject")}
               </Typography>
             )}
@@ -1966,7 +1979,11 @@ const MusicVideoPage = () => {
                     borderColor: v.id === selectedId ? "primary.main" : "divider",
                   }}
                 >
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ justifyContent: "space-between", alignItems: "center" }}
+                  >
                     <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>{v.name}</Typography>
                     <Chip
                       size="small" label={stageLabel(v)}
@@ -1983,7 +2000,7 @@ const MusicVideoPage = () => {
                     </Tooltip>
                   </Stack>
                   {(v.project_name || isRunning(v)) && (
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 0.5 }}>
                       {v.project_name && (
                         <Chip size="small" variant="outlined" label={v.project_name} sx={{ maxWidth: 140 }} />
                       )}
@@ -2009,13 +2026,18 @@ const MusicVideoPage = () => {
               <Box sx={cardBodySx}>
           {!detail ? (
             <Paper variant="outlined" sx={{ p: 3 }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t("musicVideo.detail.selectVideo")}
               </Typography>
             </Paper>
           ) : (
             <Paper variant="outlined" sx={{ p: 2.5 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }} flexWrap="wrap" useFlexGap spacing={1}>
+              <Stack
+                direction="row"
+                useFlexGap
+                spacing={1}
+                sx={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", mb: 1 }}
+              >
                 {renaming !== null ? (
                   <TextField
                     size="small" autoFocus value={renaming}
@@ -2028,10 +2050,12 @@ const MusicVideoPage = () => {
                         setRenaming(null);
                       }
                     }}
-                    inputProps={{ "aria-label": t("musicVideo.detail.nameAria") }}
+                    slotProps={{
+                      htmlInput: { "aria-label": t("musicVideo.detail.nameAria") }
+                    }}
                   />
                 ) : (
-                  <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", minWidth: 0 }}>
                     <Typography variant="h6" noWrap>{detail.name}</Typography>
                     <Tooltip title={t("musicVideo.detail.rename")}>
                       <IconButton size="small" aria-label={t("musicVideo.detail.rename")} onClick={() => setRenaming(detail.name)}>
@@ -2040,7 +2064,7 @@ const MusicVideoPage = () => {
                     </Tooltip>
                   </Stack>
                 )}
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
                   <Tooltip title={t("musicVideo.detail.duplicateTooltip")}>
                     <span>
                       <IconButton size="small" aria-label={t("musicVideo.detail.duplicate")} onClick={handleDuplicate} disabled={busy}>
@@ -2109,10 +2133,10 @@ const MusicVideoPage = () => {
                   )}
                 </Stack>
               </Stack>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
                 {detail.style_prompt}
               </Typography>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2 }}>
                 <TextField
                   select size="small" label={t("musicVideo.detail.project")} sx={{ minWidth: 220 }}
                   value={detail.project_id ? String(detail.project_id) : ""}
@@ -2318,7 +2342,7 @@ const MusicVideoPage = () => {
                   </Alert>
                   <Box>
                     <GpuGateBanner gpuBusy={gpuBusy} blockReason={blockReason} blockDetail={blockDetail} queueMode />
-                    <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                       <Button variant="contained" color="warning" onClick={handleApprove} disabled={busy || gpuSubmitBlocked}>
                         {busy ? <CircularProgress size={20} /> : t("musicVideo.detail.approve")}
                       </Button>
@@ -2358,7 +2382,10 @@ const MusicVideoPage = () => {
                         value={activeClipStep.progress || 0}
                         sx={{ height: 6, borderRadius: 1 }}
                       />
-                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "text.secondary", display: "block", mt: 0.5 }}
+                      >
                         {activeClipStep.message || t("musicVideo.detail.renderingClip")}
                       </Typography>
                     </Box>
@@ -2445,7 +2472,7 @@ const MusicVideoPage = () => {
               )}
 
               <Divider sx={{ my: 2 }} />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("musicVideo.detail.footer", { cuts: detail.cut_count, done: detail.clips_done, total: detail.clip_count })}
               </Typography>
             </Paper>

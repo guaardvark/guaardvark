@@ -157,7 +157,7 @@ const InterconnectorEnrolments = () => {
 
   return (
     <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
         <Typography variant="h6">
           {t("settingsInterconnector.enrolments.title")}
           {waiting ? ` ${t("settingsInterconnector.enrolments.waiting", { count: waiting })}` : ""}
@@ -166,7 +166,7 @@ const InterconnectorEnrolments = () => {
           <RefreshIcon />
         </IconButton>
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
         {t("settingsInterconnector.enrolments.intro")}
         {masterFingerprint ? ` ${t("settingsInterconnector.enrolments.masterKey", { fingerprint: masterFingerprint })}` : ""}
       </Typography>
@@ -201,7 +201,7 @@ const InterconnectorEnrolments = () => {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">{row.node_name || row.node_id}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {[row.hostname, row.host].filter(Boolean).join(" · ")}
                     </Typography>
                   </TableCell>
@@ -210,7 +210,7 @@ const InterconnectorEnrolments = () => {
                     {row.requested_at ? new Date(row.requested_at).toLocaleString(uiLocale()) : ""}
                   </TableCell>
                   <TableCell align="right">
-                    <Box display="flex" gap={1} justifyContent="flex-end" flexWrap="wrap">
+                    <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", flexWrap: "wrap" }}>
                       {row.status !== "approved" && (
                         <Button
                           size="small"

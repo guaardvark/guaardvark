@@ -98,7 +98,7 @@ function AutoBackupSettings({ settings, onSave }) {
   return (
     <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, p: 1.5, mb: 2 }}>
       <Typography variant="subtitle2">{t("backups.manageBackups.autoTitle")}</Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1 }}>
         {t("backups.manageBackups.autoHelp")}
       </Typography>
       <FormControlLabel
@@ -107,7 +107,9 @@ function AutoBackupSettings({ settings, onSave }) {
             size="small"
             checked={draft.backup_daily_enabled}
             onChange={(e) => setDraft({ ...draft, backup_daily_enabled: e.target.checked })}
-            inputProps={{ "aria-label": t("backups.manageBackups.dailySwitch") }}
+            slotProps={{
+              input: { "aria-label": t("backups.manageBackups.dailySwitch") }
+            }}
           />
         }
         label={t("backups.manageBackups.dailySwitch")}
@@ -118,16 +120,18 @@ function AutoBackupSettings({ settings, onSave }) {
             key={key}
             size="small"
             type="number"
-            inputProps={{ min: 0, step: 1, "aria-label": t(`backups.manageBackups.${labelKey}`) }}
             label={t(`backups.manageBackups.${labelKey}`)}
             helperText={t(`backups.manageBackups.${unitKey}`)}
             value={draft[key]}
             onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+            slotProps={{
+              htmlInput: { min: 0, step: 1, "aria-label": t(`backups.manageBackups.${labelKey}`) }
+            }}
           />
         ))}
       </Box>
       {disk && (
-        <Typography variant="caption" color={disk.ok ? "text.secondary" : "error"} sx={{ display: "block", mt: 1 }}>
+        <Typography variant="caption" sx={{ color: disk.ok ? "text.secondary" : "error.main", display: "block", mt: 1 }}>
           {t("backups.manageBackups.diskLine", { free: formatBytes(disk.free), needed: formatBytes(disk.needed) })}
           {!disk.ok && ` ${t("backups.manageBackups.diskLow")}`}
         </Typography>
@@ -139,7 +143,7 @@ function AutoBackupSettings({ settings, onSave }) {
       )}
       <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, mt: 1 }}>
         {state.saved && !dirty && (
-          <Typography variant="caption" color="success.main">{t("backups.manageBackups.saved")}</Typography>
+          <Typography variant="caption" sx={{ color: "success.main" }}>{t("backups.manageBackups.saved")}</Typography>
         )}
         <Button size="small" variant="outlined" onClick={save} disabled={!dirty || state.saving}>
           {t("backups.manageBackups.save")}
@@ -195,10 +199,10 @@ const ManageBackupsModal = ({
         <AutoBackupSettings settings={settings} onSave={onSaveSettings} />
         {normalizedBackups.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 4 }}>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" sx={{ color: "text.secondary" }}>
               {t("backups.manageBackups.empty")}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
               {t("backups.manageBackups.emptyHint")}
             </Typography>
           </Box>
@@ -281,7 +285,7 @@ const ManageBackupsModal = ({
                           />
                         )}
                         {backup.size > 0 && (
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: "text.secondary" }}>
                             {formatBytes(backup.size)}
                           </Typography>
                         )}

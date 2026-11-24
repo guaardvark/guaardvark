@@ -25,11 +25,11 @@ export default function EmptyState({ icon, title, description, action }) {
           {icon}
         </Box>
       )}
-      <Typography variant="body1" color="text.secondary" sx={{ mb: description ? 0.5 : 0 }}>
+      <Typography variant="body1" sx={{ color: "text.secondary", mb: description ? 0.5 : 0 }}>
         {title}
       </Typography>
       {description && (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {description}
         </Typography>
       )}

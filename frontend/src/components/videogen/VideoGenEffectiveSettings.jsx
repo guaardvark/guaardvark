@@ -36,8 +36,7 @@ export default function VideoGenEffectiveSettings({
     <Box sx={{ mb: 2 }}>
       <Typography
         variant="caption"
-        color="text.secondary"
-        sx={{ mb: 1, display: "block", fontWeight: 500 }}
+        sx={{ color: "text.secondary", mb: 1, display: "block", fontWeight: 500 }}
       >
         {t("video.effective.title")}
       </Typography>

@@ -62,10 +62,14 @@ const BinPanel = ({
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 1, py: 0.75, borderBottom: 1, borderColor: "divider" }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ alignItems: "center", px: 1, py: 0.75, borderBottom: 1, borderColor: "divider" }}
+      >
         <VideoIcon fontSize="small" />
         <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>{t("videoEditor.bin.title")}</Typography>
-        <Typography variant="caption" color="text.secondary">{t("videoEditor.bin.clipCount", { count: binClips.length })}</Typography>
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("videoEditor.bin.clipCount", { count: binClips.length })}</Typography>
       </Stack>
 
       <Box
@@ -90,7 +94,7 @@ const BinPanel = ({
         )}
         {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
         {binClips.length === 0 ? (
-          <Stack alignItems="center" justifyContent="center" sx={{ height: "100%", color: "text.secondary" }}>
+          <Stack sx={{ alignItems: "center", justifyContent: "center", height: "100%", color: "text.secondary" }}>
             <OpenFolderIcon sx={{ fontSize: 40, opacity: 0.4 }} />
             <Typography variant="caption">{t("videoEditor.bin.empty")}</Typography>
           </Stack>

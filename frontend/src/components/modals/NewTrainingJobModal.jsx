@@ -319,8 +319,8 @@ const NewTrainingJobModal = ({
             {t("dialogs.newTrainingJob.loadingOptions")}
           </Alert>
         )}
-        <Grid container spacing={2} sx={{ mt: 0 }}>
-          <Grid item xs={12}>
+        <Grid container spacing={2} sx={{ mt: 2 }}>
+          <Grid size={12}>
             <TextField
               autoFocus
               required
@@ -336,7 +336,7 @@ const NewTrainingJobModal = ({
           </Grid>
 
           {visionDeclared && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <FormControl component="fieldset">
                 <Typography variant="caption" color="textSecondary">{t("dialogs.newTrainingJob.taskType")}</Typography>
                 <RadioGroup
@@ -352,7 +352,7 @@ const NewTrainingJobModal = ({
             </Grid>
           )}
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <FormControl fullWidth margin="dense" required>
               <InputLabel id="base-model-label">{t("dialogs.newTrainingJob.baseModel")}</InputLabel>
               <Select
@@ -386,7 +386,7 @@ const NewTrainingJobModal = ({
               </Alert>
             )}
             {notDownloaded.length > 0 && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
                 {t("dialogs.newTrainingJob.notDownloaded", { models: notDownloaded.map((m) => m.name).join(", "), count: notDownloaded.length })}{" "}
                 <Button size="small" onClick={() => setLibrariesOpen(true)} sx={{ p: 0, minWidth: 0, verticalAlign: "baseline" }}>
                   {t("dialogs.newTrainingJob.downloadBaseModels")}
@@ -395,7 +395,7 @@ const NewTrainingJobModal = ({
             )}
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               margin="dense"
@@ -408,7 +408,7 @@ const NewTrainingJobModal = ({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <FormControl fullWidth margin="dense" required>
               <InputLabel id="dataset-label">{t("dialogs.newTrainingJob.dataset")}</InputLabel>
               <Select
@@ -429,7 +429,7 @@ const NewTrainingJobModal = ({
           </Grid>
 
           {formData.task_type === "vision" && (
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
                <FormControl fullWidth margin="dense" required>
                 <InputLabel>{t("dialogs.newTrainingJob.imageFolder")}</InputLabel>
                 <Select
@@ -449,7 +449,7 @@ const NewTrainingJobModal = ({
             </Grid>
           )}
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <FormControl fullWidth margin="dense">
               <InputLabel>{t("dialogs.newTrainingJob.deviceProfile")}</InputLabel>
               <Select
@@ -467,7 +467,7 @@ const NewTrainingJobModal = ({
               </Select>
             </FormControl>
             {selectedProfile && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5, display: "block" }}>
                 {t("dialogs.newTrainingJob.profileSummary", {
                   type: selectedProfile.device_type?.toUpperCase(),
                   batch: selectedProfile.max_batch_size,
@@ -478,14 +478,14 @@ const NewTrainingJobModal = ({
             )}
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Divider sx={{ my: 1 }} />
             <Typography variant="subtitle2" gutterBottom>
               {t("dialogs.newTrainingJob.trainingConfiguration")}
             </Typography>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               type="number"
@@ -495,14 +495,15 @@ const NewTrainingJobModal = ({
               value={formData.config.steps}
               onChange={handleInputChange}
               disabled={isSaving}
-              inputProps={{ min: 1 }}
               placeholder={t("dialogs.newTrainingJob.stepsAuto")}
-              InputLabelProps={{ shrink: true }}
               helperText={t("dialogs.newTrainingJob.stepsHelp")}
-            />
+              slotProps={{
+                htmlInput: { min: 1 },
+                inputLabel: { shrink: true }
+              }} />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               type="number"
@@ -512,12 +513,14 @@ const NewTrainingJobModal = ({
               value={formData.config.lr}
               onChange={handleInputChange}
               disabled={isSaving}
-              inputProps={{ min: 0, step: 0.0001 }}
               helperText={t("dialogs.newTrainingJob.learningRateHelp")}
+              slotProps={{
+                htmlInput: { min: 0, step: 0.0001 }
+              }}
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               type="number"
@@ -527,12 +530,14 @@ const NewTrainingJobModal = ({
               value={formData.config.batch_size}
               onChange={handleInputChange}
               disabled={isSaving}
-              inputProps={{ min: 1, max: selectedModel?.max_batch_size }}
               helperText={selectedModel ? t("dialogs.newTrainingJob.max", { max: selectedModel.max_batch_size }) : selectedProfile && t("dialogs.newTrainingJob.max", { max: selectedProfile.max_batch_size })}
+              slotProps={{
+                htmlInput: { min: 1, max: selectedModel?.max_batch_size }
+              }}
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               type="number"
@@ -542,12 +547,14 @@ const NewTrainingJobModal = ({
               value={formData.config.rank}
               onChange={handleInputChange}
               disabled={isSaving}
-              inputProps={{ min: 1 }}
               helperText={t("dialogs.newTrainingJob.loraRankHelp")}
+              slotProps={{
+                htmlInput: { min: 1 }
+              }}
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               type="number"
@@ -557,12 +564,14 @@ const NewTrainingJobModal = ({
               value={formData.config.seq_length}
               onChange={handleInputChange}
               disabled={isSaving}
-              inputProps={{ min: 128, max: selectedModel?.max_seq_length }}
               helperText={selectedModel ? t("dialogs.newTrainingJob.max", { max: selectedModel.max_seq_length }) : selectedProfile && t("dialogs.newTrainingJob.max", { max: selectedProfile.max_seq_length })}
+              slotProps={{
+                htmlInput: { min: 128, max: selectedModel?.max_seq_length }
+              }}
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <FormControlLabel
               control={
                 <Checkbox

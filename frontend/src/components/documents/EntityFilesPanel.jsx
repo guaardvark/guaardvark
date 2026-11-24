@@ -92,7 +92,7 @@ const EntityFilesPanel = ({ kind, id, onOpenFile, onClose }) => {
           {t("documents.entityFiles.title", { context: name ? `${kind}Named` : kind, name: name || word })}
         </Typography>
         {!loading && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {docs.length}
           </Typography>
         )}
@@ -114,7 +114,7 @@ const EntityFilesPanel = ({ kind, id, onOpenFile, onClose }) => {
           </Typography>
         )}
         {!loading && !error && docs.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", p: 1.5 }}>
             {t("documents.entityFiles.empty", { context: kind, kind: word })}
           </Typography>
         )}
@@ -125,9 +125,10 @@ const EntityFilesPanel = ({ kind, id, onOpenFile, onClose }) => {
                 <ListItemText
                   primary={doc.filename}
                   secondary={doc.folder?.path || t("documents.entityFiles.filesRoot")}
-                  primaryTypographyProps={{ noWrap: true }}
-                  secondaryTypographyProps={{ noWrap: true }}
-                />
+                  slotProps={{
+                    primary: { noWrap: true },
+                    secondary: { noWrap: true }
+                  }} />
               </ListItemButton>
             ))}
           </List>

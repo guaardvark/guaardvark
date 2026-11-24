@@ -15,7 +15,7 @@ const LanguageSetting = () => {
           <Select
             id="ui-language"
             value={language}
-            inputProps={{ "aria-label": t("settings.language.label") }}
+            aria-label={t("settings.language.label")}
             onChange={(event) => setLanguage(event.target.value)}
             data-testid="language-setting"
           >

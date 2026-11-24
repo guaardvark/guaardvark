@@ -31,8 +31,8 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SendIcon from "@mui/icons-material/Send";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import CheckCircleOutlineIcon from "../components/common/CheckCircleOutlineIcon";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
@@ -40,7 +40,7 @@ import StopCircleIcon from "@mui/icons-material/StopCircle";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import AddCommentIcon from "@mui/icons-material/AddComment";
 import AddIcon from "@mui/icons-material/Add";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
@@ -787,7 +787,7 @@ const OutreachPage = () => {
             </Button>
           )}
           {lastTaskId != null && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               <Trans
                 i18nKey="outreach.header.lastPass"
                 values={{ id: lastTaskId }}
@@ -810,7 +810,10 @@ const OutreachPage = () => {
           </Alert>
         )}
         {status && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1, fontSize: "0.7rem" }}>
+          <Typography
+            variant="caption"
+            sx={{ color: "text.secondary", display: "block", mt: 1, fontSize: "0.7rem" }}
+          >
             {t("outreach.header.howItWorks")}
           </Typography>
         )}
@@ -835,7 +838,7 @@ const OutreachPage = () => {
             layout: { x: 0, y: 0, w: 45, h: 16 },
             body: (
               <Box sx={{ p: 1.5 }}>
-            <Stack direction="row" alignItems="center" sx={{ mb: 1 }}>
+            <Stack direction="row" sx={{ alignItems: "center", mb: 1 }}>
               <Box sx={{ flex: 1 }} />
               {profile && (
                 <Button
@@ -856,8 +859,7 @@ const OutreachPage = () => {
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>{profile.name}</Typography>
                 <Typography
                   variant="caption"
-                  color="text.secondary"
-                  sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+                  sx={{ color: "text.secondary", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}
                 >
                   {profile.pitch}
                 </Typography>
@@ -893,13 +895,13 @@ const OutreachPage = () => {
                   />
                 </Stack>
                 {!profile.site_url && (
-                  <Typography variant="caption" color="warning.main">
+                  <Typography variant="caption" sx={{ color: "warning.main" }}>
                     {t("outreach.profile.noSiteUrl")}
                   </Typography>
                 )}
               </Stack>
             ) : (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t("outreach.profile.empty")}
               </Typography>
             )}
@@ -912,7 +914,7 @@ const OutreachPage = () => {
             layout: { x: 0, y: 16, w: 45, h: 40 },
             body: (
               <Box sx={{ p: 1.5 }}>
-            <Stack direction="row" alignItems="center" sx={{ mb: 1 }}>
+            <Stack direction="row" sx={{ alignItems: "center", mb: 1 }}>
               <Box sx={{ flex: 1 }} />
               <Tooltip title={t("outreach.queue.newTooltip")}>
                 <Button
@@ -1005,9 +1007,14 @@ const OutreachPage = () => {
               onChange={(e) => setPassTopics(e.target.value)}
               helperText={t("outreach.queue.passTopicsHelp")}
               sx={{ mb: 1, "& .MuiFormHelperText-root": { fontSize: "0.65rem", mx: 0 } }}
-              inputProps={{ "aria-label": t("outreach.queue.passTopicsLabel") }}
+              slotProps={{
+                htmlInput: { "aria-label": t("outreach.queue.passTopicsLabel") }
+              }}
             />
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1, fontSize: "0.65rem" }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "text.secondary", display: "block", mb: 1, fontSize: "0.65rem" }}
+            >
               {t("outreach.queue.youtubePassNote")}
             </Typography>
             {approved.length > 0 && (
@@ -1015,7 +1022,10 @@ const OutreachPage = () => {
                 <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }}>
                   {t("outreach.queue.approvedWaiting", { count: approved.length })}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, fontSize: "0.65rem" }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", display: "block", mb: 0.5, fontSize: "0.65rem" }}
+                >
                   <Trans
                     i18nKey="outreach.queue.approvedNote"
                     components={{ approvalsLink: <Link component={RouterLink} to="/approvals" underline="hover" /> }}
@@ -1026,10 +1036,14 @@ const OutreachPage = () => {
                     <ListItemButton key={r.id} sx={{ py: 0.25, borderRadius: 1 }} disabled>
                       <ListItemText
                         primary={
-                          <Stack direction="row" spacing={0.75} alignItems="center">
+                          <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
                             <Chip size="small" label={`#${r.id}`} sx={{ height: 16, fontSize: "0.6rem" }} />
                             <Chip size="small" label={r.platform} sx={{ height: 16, fontSize: "0.6rem" }} />
-                            <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 140 }}>
+                            <Typography
+                              variant="caption"
+                              noWrap
+                              sx={{ color: "text.secondary", maxWidth: 140 }}
+                            >
                               {r.target_url || r.target_thread_id || "—"}
                             </Typography>
                           </Stack>
@@ -1039,7 +1053,9 @@ const OutreachPage = () => {
                             ? new Date(r.created_at).toLocaleString(uiLocale())
                             : undefined
                         }
-                        secondaryTypographyProps={{ variant: "caption", fontSize: "0.6rem" }}
+                        slotProps={{
+                          secondary: { variant: "caption", sx: { fontSize: "0.6rem" } }
+                        }}
                       />
                     </ListItemButton>
                   ))}
@@ -1055,8 +1071,7 @@ const OutreachPage = () => {
                   <Typography
                     key={ex}
                     variant="caption"
-                    color="text.secondary"
-                    sx={{ fontFamily: "monospace", fontSize: "0.65rem" }}
+                    sx={{ color: "text.secondary", fontFamily: "monospace", fontSize: "0.65rem" }}
                   >
                     {ex}
                   </Typography>
@@ -1066,7 +1081,7 @@ const OutreachPage = () => {
             {loadingQueue ? (
               <CircularProgress size={20} />
             ) : queue.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t("outreach.queue.empty")}
               </Typography>
             ) : (
@@ -1080,7 +1095,7 @@ const OutreachPage = () => {
                   >
                     <ListItemText
                       primary={
-                        <Stack direction="row" alignItems="center" spacing={1}>
+                        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                           <Chip size="small" label={row.platform} sx={{ height: 18, fontSize: "0.65rem" }} />
                           {row.grade_score != null && (
                             <Chip
@@ -1121,7 +1136,7 @@ const OutreachPage = () => {
               <Box sx={{ p: 1.5 }}>
             {selected ? (
               <Stack spacing={1}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {t("outreach.source.drafted", { date: new Date(selected.created_at).toLocaleString(uiLocale()) })}
                 </Typography>
                 {selected.target_url && (
@@ -1130,7 +1145,7 @@ const OutreachPage = () => {
                   </Link>
                 )}
                 {selected.target_thread_id && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {t("outreach.source.threadId", { id: selected.target_thread_id })}
                   </Typography>
                 )}
@@ -1140,7 +1155,7 @@ const OutreachPage = () => {
                 )}
               </Stack>
             ) : (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t("outreach.source.empty")}
               </Typography>
             )}
@@ -1182,7 +1197,7 @@ const OutreachPage = () => {
                 {Object.keys(snippets.feature_blurbs || {}).length > 0 && (
                   <>
                     <Divider sx={{ my: 1 }} />
-                    <Typography variant="caption" color="text.secondary">{t("outreach.snippets.featureBlurbs")}</Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("outreach.snippets.featureBlurbs")}</Typography>
                     {Object.entries(snippets.feature_blurbs).map(([k, v]) => (
                       <Tooltip key={k} title={v} placement="left">
                         <Button size="small" sx={{ justifyContent: "flex-start", textTransform: "none" }} onClick={() => insertSnippet(v)}>
@@ -1194,11 +1209,11 @@ const OutreachPage = () => {
                 )}
               </Stack>
             ) : snippets ? (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t("outreach.snippets.fillProfile")}
               </Typography>
             ) : (
-              <Typography variant="body2" color="text.secondary">{t("outreach.snippets.unavailable")}</Typography>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>{t("outreach.snippets.unavailable")}</Typography>
             )}
               </Box>
             ),
@@ -1250,14 +1265,14 @@ const OutreachPage = () => {
               sx={{ "& .MuiInputBase-input": { fontFamily: '"Inter","Roboto",sans-serif', fontSize: "0.95rem" } }}
             />
             <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("outreach.drafting.words", { count: wordCount })}
               </Typography>
-              <Typography variant="caption" color={lengthOk === false ? "warning.main" : "text.secondary"}>
+              <Typography variant="caption" sx={{ color: lengthOk === false ? "warning.main" : "text.secondary" }}>
                 {t("outreach.drafting.chars", { count: charCount })}
                 {limit.max > 0 ? ` / ${limit.max}` : ""}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("outreach.drafting.linkCount", { count: urls.length })}
               </Typography>
             </Stack>
@@ -1290,7 +1305,7 @@ const OutreachPage = () => {
             {citationMeta && (
               <Stack spacing={0.5}>
                 <Typography variant="body2"><strong>{citationMeta.title || t("outreach.citation.noTitle")}</strong></Typography>
-                <Typography variant="caption" color="text.secondary">{citationMeta.hostname}</Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>{citationMeta.hostname}</Typography>
                 {citationMeta.description && (
                   <Typography variant="caption" sx={{ fontStyle: "italic" }}>{citationMeta.description}</Typography>
                 )}
@@ -1309,11 +1324,11 @@ const OutreachPage = () => {
             body: (
               <Box sx={{ p: 1.5 }}>
             <Stack spacing={0.75}>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 {formatGate(draftPresent)}
                 <Typography variant="body2">{t("outreach.preflight.draftPresent")}</Typography>
               </Stack>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 {formatGate(lengthOk)}
                 <Typography variant="body2">
                   {t("outreach.preflight.lengthOk")}{" "}
@@ -1322,14 +1337,14 @@ const OutreachPage = () => {
                     : t("outreach.preflight.noCap")}
                 </Typography>
               </Stack>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 {formatGate(linkOk)}
                 <Typography variant="body2">
                   {t("outreach.preflight.linksOk")}{" "}
                   {urls.length === 0 ? t("outreach.preflight.none") : `(${urls.length})`}
                 </Typography>
               </Stack>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 {formatGate(gradeOk)}
                 <Typography variant="body2">
                   {t("outreach.preflight.gradeOk")}{" "}
@@ -1360,7 +1375,7 @@ const OutreachPage = () => {
                 {t("outreach.action.approve")}
               </Button>
               {preflightBlocksApprove && selected && (
-                <Typography variant="caption" color="warning.main">
+                <Typography variant="caption" sx={{ color: "warning.main" }}>
                   {t("outreach.action.fixWarnings")}
                 </Typography>
               )}
@@ -1382,7 +1397,7 @@ const OutreachPage = () => {
               >
                 {t("outreach.action.reject")}
               </Button>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", mt: 1 }}>
                 {t("outreach.action.note")}
               </Typography>
             </Stack>
@@ -1391,7 +1406,7 @@ const OutreachPage = () => {
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.selected.title")}</Typography>
               <Stack spacing={0.5}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   <Trans
                     i18nKey="outreach.selected.idStatus"
                     values={{ id: selected.id }}
@@ -1407,7 +1422,7 @@ const OutreachPage = () => {
                   />
                 </Typography>
                 {selected.task_id && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {t("outreach.selected.taskId", { id: selected.task_id })}
                   </Typography>
                 )}
@@ -1443,7 +1458,7 @@ const OutreachPage = () => {
             layout: { x: 0, y: 126, w: 175, h: 40 },
             body: (
               <Box sx={{ p: 1.5 }}>
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1.5 }}>
           <Box sx={{ flex: 1 }} />
           {[...HISTORY_STATUSES, "all"].map((f) => (
             <Chip
@@ -1472,7 +1487,7 @@ const OutreachPage = () => {
             : history.filter((r) => r.status === historyFilter);
           if (filtered.length === 0) {
             return (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t("outreach.history.empty")}
               </Typography>
             );
@@ -1501,9 +1516,9 @@ const OutreachPage = () => {
                                    : "divider",
                       }}
                     >
-                      <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                      <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
                         <Tooltip title={ts ? ts.toString() : ""}>
-                          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 130 }}>
+                          <Typography variant="caption" sx={{ color: "text.secondary", minWidth: 130 }}>
                             {ts ? ts.toLocaleString(uiLocale()) : "—"}
                           </Typography>
                         </Tooltip>
@@ -1524,31 +1539,34 @@ const OutreachPage = () => {
                             {row.target_url} <OpenInNewIcon fontSize="inherit" />
                           </Link>
                         ) : (
-                          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                          <Typography variant="caption" sx={{ color: "text.secondary", flex: 1 }}>
                             {t("outreach.history.noTarget")}
                           </Typography>
                         )}
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
                           #{row.id}
                         </Typography>
                       </Stack>
                       {text && (
                         <Typography
                           variant="caption"
-                          color="text.secondary"
                           sx={{
+                            color: "text.secondary",
                             mt: 0.5,
                             display: "-webkit-box",
                             WebkitLineClamp: 2,
                             WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
+                            overflow: "hidden"
                           }}
                         >
                           {text}
                         </Typography>
                       )}
                       {row.abort_reason && (
-                        <Typography variant="caption" color="error.main" sx={{ display: "block", mt: 0.25 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{ color: "error.main", display: "block", mt: 0.25 }}
+                        >
                           {row.abort_reason}
                         </Typography>
                       )}
@@ -1574,7 +1592,7 @@ const OutreachPage = () => {
       >
         <DialogTitle sx={{ pb: 1 }}>
           {t("outreach.newDraft.title")}
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
             {t("outreach.newDraft.subtitle")}
           </Typography>
         </DialogTitle>
@@ -1608,7 +1626,7 @@ const OutreachPage = () => {
                   <MenuItem value="share">{t("outreach.newDraft.actionShare")}</MenuItem>
                 </Select>
               </FormControl>
-              <Stack direction="row" spacing={0.5} alignItems="flex-start">
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: "flex-start" }}>
                 <TextField
                   size="small"
                   label={t("outreach.newDraft.targetUrl")}
@@ -1652,7 +1670,7 @@ const OutreachPage = () => {
                 </Alert>
               )}
               <Divider sx={{ my: 0.5 }} />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("outreach.newDraft.toneNote", { tone })}
               </Typography>
               {ndGrade != null && (
@@ -1664,7 +1682,7 @@ const OutreachPage = () => {
                 />
               )}
               {ndSeededId && (
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {t("outreach.newDraft.seeded", { id: ndSeededId })}
                 </Typography>
               )}
@@ -1697,7 +1715,7 @@ const OutreachPage = () => {
                   </span>
                 </Tooltip>
                 <Box sx={{ flex: 1 }} />
-                <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", alignSelf: "center" }}>
                   {t("outreach.newDraft.chars", { count: ndBody.length })}
                 </Typography>
               </Stack>
@@ -1738,7 +1756,7 @@ const OutreachPage = () => {
       >
         <DialogTitle sx={{ pb: 1 }}>
           {t("outreach.profileDialog.title")}
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
             {t("outreach.profileDialog.subtitle")}
           </Typography>
         </DialogTitle>
@@ -1757,7 +1775,9 @@ const OutreachPage = () => {
                 value={profileForm.name}
                 onChange={(e) => setProfileField("name", e.target.value)}
                 fullWidth
-                inputProps={{ maxLength: 80 }}
+                slotProps={{
+                  htmlInput: { maxLength: 80 }
+                }}
               />
               <TextField
                 size="small"
@@ -1766,7 +1786,9 @@ const OutreachPage = () => {
                 value={profileForm.account_handle}
                 onChange={(e) => setProfileField("account_handle", e.target.value)}
                 fullWidth
-                inputProps={{ maxLength: 80 }}
+                slotProps={{
+                  htmlInput: { maxLength: 80 }
+                }}
               />
             </Stack>
             <TextField
@@ -1779,7 +1801,9 @@ const OutreachPage = () => {
               minRows={2}
               maxRows={6}
               fullWidth
-              inputProps={{ maxLength: 2000 }}
+              slotProps={{
+                htmlInput: { maxLength: 2000 }
+              }}
             />
             <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
               <TextField
@@ -1803,7 +1827,7 @@ const OutreachPage = () => {
             </Stack>
 
             <Divider />
-            <Stack direction="row" alignItems="center">
+            <Stack direction="row" sx={{ alignItems: "center" }}>
               <Typography variant="subtitle2" sx={{ flex: 1 }}>{t("outreach.profileDialog.videos")}</Typography>
               <Button
                 size="small"
@@ -1816,19 +1840,21 @@ const OutreachPage = () => {
               </Button>
             </Stack>
             {profileForm.videos.length === 0 && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("outreach.profileDialog.videosEmpty")}
               </Typography>
             )}
             {profileForm.videos.map((v, i) => (
-              <Stack key={`video-${i}`} direction="row" spacing={1} alignItems="flex-start">
+              <Stack key={`video-${i}`} direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
                 <TextField
                   size="small"
                   label={t("outreach.profileDialog.label")}
                   value={v.label}
                   onChange={(e) => setProfileRow("videos", i, "label", e.target.value)}
                   sx={{ width: { xs: "40%", md: 220 } }}
-                  inputProps={{ maxLength: 80 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 80 }
+                  }}
                 />
                 <TextField
                   size="small"
@@ -1847,7 +1873,7 @@ const OutreachPage = () => {
             ))}
 
             <Divider />
-            <Stack direction="row" alignItems="center">
+            <Stack direction="row" sx={{ alignItems: "center" }}>
               <Typography variant="subtitle2" sx={{ flex: 1 }}>{t("outreach.profileDialog.features")}</Typography>
               <Button
                 size="small"
@@ -1859,11 +1885,11 @@ const OutreachPage = () => {
                 {t("outreach.profileDialog.addFeature")}
               </Button>
             </Stack>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("outreach.profileDialog.featuresNote")}
             </Typography>
             {profileForm.features.map((f, i) => (
-              <Stack key={`feature-${i}`} direction="row" spacing={1} alignItems="flex-start">
+              <Stack key={`feature-${i}`} direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
                 <TextField
                   size="small"
                   label={t("outreach.profileDialog.key")}
@@ -1871,7 +1897,9 @@ const OutreachPage = () => {
                   value={f.key}
                   onChange={(e) => setProfileRow("features", i, "key", e.target.value)}
                   sx={{ width: { xs: "30%", md: 160 } }}
-                  inputProps={{ maxLength: 40 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 40 }
+                  }}
                 />
                 <TextField
                   size="small"
@@ -1879,7 +1907,9 @@ const OutreachPage = () => {
                   value={f.blurb}
                   onChange={(e) => setProfileRow("features", i, "blurb", e.target.value)}
                   fullWidth
-                  inputProps={{ maxLength: 300 }}
+                  slotProps={{
+                    htmlInput: { maxLength: 300 }
+                  }}
                 />
                 <TextField
                   size="small"

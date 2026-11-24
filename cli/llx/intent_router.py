@@ -21,6 +21,17 @@ from llx.command_catalog import (
 
 _AUDIO_EXT = (".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac")
 _SCRIPT_EXT = (".txt", ".md", ".fountain", ".fdx")
+# "create an image upload endpoint" is a coding request, not a render: the word
+# after image/video (one other word allowed between) names a piece of software.
+# The chat engine applies the same rule to typed chat (_MEDIA_AS_SOFTWARE_PATTERN).
+_NOT_SOFTWARE = (
+    r"(?!(?:(?!(?:of|with|for|in|on|at|a|an|the|that|where|showing|about|from)\b)[a-z0-9-]+[\s-]+)?"
+    r"(?:endpoints?|routes?|apis?|components?|services?|uploads?|uploaders?|carousels?|sliders?|viewers?|"
+    r"players?|queues?|pipelines?|handlers?|modules?|class(?:es)?|functions?|fields?|columns?|tables?|"
+    r"forms?|widgets?|tags?|elements?|loaders?|caches?|parsers?|schemas?|databases?|librar(?:y|ies)|"
+    r"plugins?|features?|scripts?|pages?|galler(?:y|ies)|pickers?|previews?|thumbnails?|converters?|"
+    r"optimi[sz]ers?|compress(?:or|ion)|processing|editors?|downloaders?|scrapers?|classifiers?)\b)"
+)
 
 
 def _first_word(text: str) -> str:
@@ -170,7 +181,8 @@ _NL_INTENT_RULES: list[tuple[re.Pattern[str], str, list[str] | None]] = [
     # Image / video generation (must precede generic COMMAND_TREE "generate" fallback)
     (
         re.compile(
-            r"^(?:generate|create|make|draw)\s+(?:an?\s+)?(?:image|picture|photo)\s+(?:of\s+)?(.+)$",
+            r"^(?:generate|create|make|draw)\s+(?:an?\s+)?(?:image|picture|photo)\s+"
+            + _NOT_SOFTWARE + r"(?:of\s+)?(.+)$",
             re.I,
         ),
         "imagine",
@@ -199,7 +211,7 @@ _NL_INTENT_RULES: list[tuple[re.Pattern[str], str, list[str] | None]] = [
         None,
     ),
     (
-        re.compile(r"^(?:generate|create|make)\s+(?:an?\s+)?video\s+(?:of\s+)?(.+)$", re.I),
+        re.compile(r"^(?:generate|create|make)\s+(?:an?\s+)?video\s+" + _NOT_SOFTWARE + r"(?:of\s+)?(.+)$", re.I),
         "video",
         None,
     ),

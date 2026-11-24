@@ -94,7 +94,7 @@ const WaveformPlayer = ({ src, title, duration, onDownload, color }) => {
         style={{ display: "none" }}
       />
       
-      <Stack direction="row" spacing={2} alignItems="center">
+      <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
         <IconButton
           onClick={togglePlay}
           size="large"
@@ -109,7 +109,7 @@ const WaveformPlayer = ({ src, title, duration, onDownload, color }) => {
         </IconButton>
 
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Typography variant="subtitle1" fontWeight="bold" noWrap>
+          <Typography variant="subtitle1" noWrap sx={{ fontWeight: "bold" }}>
             {title || t("audio.player.generatedAudio")}
           </Typography>
           
@@ -136,8 +136,8 @@ const WaveformPlayer = ({ src, title, duration, onDownload, color }) => {
           />
         </Box>
 
-        <Stack spacing={0} alignItems="center" sx={{ minWidth: 60 }}>
-          <Typography variant="caption" fontWeight="bold">
+        <Stack spacing={0} sx={{ alignItems: "center", minWidth: 60 }}>
+          <Typography variant="caption" sx={{ fontWeight: "bold" }}>
             {duration ? `${duration.toFixed(1)}s` : "--"}
           </Typography>
           <Tooltip title={t("audio.player.download")}>

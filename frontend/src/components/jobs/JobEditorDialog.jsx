@@ -229,12 +229,12 @@ const JobEditorDialog = ({
             )}
             <Box sx={{ minWidth: 0 }}>
             {task.error_message && (
-              <Typography variant="caption" color="error.main" sx={{ display: "block" }} data-testid={`${testId}-failure`}>
+              <Typography variant="caption" sx={{ color: "error.main", display: "block" }} data-testid={`${testId}-failure`}>
                 {task.error_message}
               </Typography>
             )}
             {task.result && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
                 {task.result}
               </Typography>
             )}

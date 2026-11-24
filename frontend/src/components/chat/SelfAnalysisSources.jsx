@@ -48,7 +48,7 @@ const SelfAnalysisSources = ({ analysis, sessionId }) => {
 
   return (
     <Box data-testid="self-analysis-sources" sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5, alignItems: "center" }}>
-      <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", mr: 0.5 }}>
         {t("chat.selfAnalysis.checked")}
       </Typography>
       {valid.map((ref) => (

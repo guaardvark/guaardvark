@@ -304,9 +304,11 @@ export default function LessonSummaryModal({
               size="small"
               placeholder={t('dialogs.lessonSummary.paramName')}
               sx={{ width: 140 }}
-              InputProps={{
-                startAdornment: <Typography variant="caption" sx={{ color: 'text.secondary', mr: 0.25 }}>{'{'}</Typography>,
-                endAdornment: <Typography variant="caption" sx={{ color: 'text.secondary', ml: 0.25 }}>{'}'}</Typography>,
+              slotProps={{
+                input: {
+                  startAdornment: <Typography variant="caption" sx={{ color: 'text.secondary', mr: 0.25 }}>{'{'}</Typography>,
+                  endAdornment: <Typography variant="caption" sx={{ color: 'text.secondary', ml: 0.25 }}>{'}'}</Typography>,
+                }
               }}
             />
             <TextField

@@ -145,7 +145,7 @@ const MediaDetailsModal = ({ open, target, onClose, onPrev, onNext, hasPrev = fa
 
   const renderPreview = () => {
     if (!previewUrl) {
-      return <Typography variant="body2" color="text.secondary">{t('images.details.noPreview')}</Typography>;
+      return <Typography variant="body2" sx={{ color: "text.secondary" }}>{t('images.details.noPreview')}</Typography>;
     }
     if (media === 'video') {
       return (
@@ -212,8 +212,8 @@ const MediaDetailsModal = ({ open, target, onClose, onPrev, onNext, hasPrev = fa
               <Stack spacing={1.5}>
                 {recipe.prompt && (
                   <Box>
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
-                      <Typography variant="overline" color="text.secondary">{t('images.details.prompt')}</Typography>
+                    <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
+                      <Typography variant="overline" sx={{ color: "text.secondary" }}>{t('images.details.prompt')}</Typography>
                       <Tooltip title={t('images.details.copy')}>
                         <IconButton size="small" onClick={() => copyText(recipe.prompt)} aria-label={t('images.details.copyPrompt')}>
                           <CopyIcon fontSize="inherit" />
@@ -227,7 +227,7 @@ const MediaDetailsModal = ({ open, target, onClose, onPrev, onNext, hasPrev = fa
                 )}
                 {recipe.rewritten_prompt && recipe.rewritten_prompt !== recipe.prompt && (
                   <Box>
-                    <Typography variant="overline" color="text.secondary">{t('images.details.sentPrompt')}</Typography>
+                    <Typography variant="overline" sx={{ color: "text.secondary" }}>{t('images.details.sentPrompt')}</Typography>
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto', p: 1, borderRadius: 1, bgcolor: 'action.hover' }}>
                       {recipe.rewritten_prompt}
                     </Typography>
@@ -235,7 +235,7 @@ const MediaDetailsModal = ({ open, target, onClose, onPrev, onNext, hasPrev = fa
                 )}
                 {recipe.lyrics && (
                   <Box>
-                    <Typography variant="overline" color="text.secondary">{t('images.details.lyrics')}</Typography>
+                    <Typography variant="overline" sx={{ color: "text.secondary" }}>{t('images.details.lyrics')}</Typography>
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', maxHeight: 160, overflowY: 'auto', p: 1, borderRadius: 1, bgcolor: 'action.hover' }}>
                       {recipe.lyrics}
                     </Typography>
@@ -245,7 +245,7 @@ const MediaDetailsModal = ({ open, target, onClose, onPrev, onNext, hasPrev = fa
                   <Box component="dl" sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.5, m: 0 }}>
                     {recipe.rows.map((row) => (
                       <React.Fragment key={row.key}>
-                        <Typography component="dt" variant="body2" color="text.secondary">
+                        <Typography component="dt" variant="body2" sx={{ color: "text.secondary" }}>
                           {t(`images.details.rows.${row.key}`)}
                         </Typography>
                         <Typography component="dd" variant="body2" sx={{ m: 0, wordBreak: 'break-word', display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -260,7 +260,7 @@ const MediaDetailsModal = ({ open, target, onClose, onPrev, onNext, hasPrev = fa
                     ))}
                   </Box>
                 ) : (
-                  <Typography variant="body2" color="text.secondary">{t('images.details.noSettings')}</Typography>
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>{t('images.details.noSettings')}</Typography>
                 )}
               </Stack>
             )}
@@ -292,7 +292,7 @@ const MediaDetailsModal = ({ open, target, onClose, onPrev, onNext, hasPrev = fa
         )}
         <Box sx={{ flex: 1 }} />
         {reasonText && !regen.available && (
-          <Typography variant="caption" color="text.secondary">{reasonText}</Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>{reasonText}</Typography>
         )}
         <Button startIcon={<AdjustIcon />} onClick={handleAdjust} disabled={!recipe?.adjust}>
           {t('images.batchCard.adjustRetry')}

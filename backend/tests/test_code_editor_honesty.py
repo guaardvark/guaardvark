@@ -12,7 +12,8 @@ import shutil
 import pytest
 from flask import Flask
 
-from backend.services.code_syntax_check import check_syntax, parse_node_check_error
+from backend.services import code_syntax_check
+from backend.services.code_syntax_check import check_file_syntax, check_syntax, parse_node_check_error
 
 
 # --- the syntax checker itself -----------------------------------------------
@@ -44,6 +45,7 @@ def test_unknown_language_is_unsupported_not_clean():
 
 
 def test_javascript_without_node_is_unsupported(monkeypatch):
+    monkeypatch.setattr(code_syntax_check, "esbuild_path", lambda: None)
     monkeypatch.setattr(shutil, "which", lambda name: None)
     result = check_syntax("let x = ;", "javascript")
     assert result["supported"] is False
@@ -51,7 +53,8 @@ def test_javascript_without_node_is_unsupported(monkeypatch):
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
-def test_javascript_syntax_error_through_node():
+def test_javascript_syntax_error_through_node(monkeypatch):
+    monkeypatch.setattr(code_syntax_check, "esbuild_path", lambda: None)
     result = check_syntax("let x = ;\n", "javascript")
     assert result["supported"] is True
     assert result["tool"] == "node --check"
@@ -65,6 +68,21 @@ def test_parse_node_check_error_reads_line_and_caret():
     assert issue["line"] == 3
     assert issue["column"] == 9
     assert issue["message"].startswith("SyntaxError")
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+def test_a_broken_es_module_is_not_passed_as_valid(monkeypatch):
+    # `node --check` on a .js file reads it as CommonJS and exits 0 for this.
+    monkeypatch.setattr(code_syntax_check, "esbuild_path", lambda: None)
+    result = check_file_syntax("module.js", 'import os from "os";\nconst a = = 1;\n')
+    assert result["supported"] is True
+    assert result["errors"]
+
+
+def test_a_file_type_nothing_can_parse_is_not_checked(monkeypatch):
+    monkeypatch.setattr(code_syntax_check, "esbuild_path", lambda: None)
+    assert check_file_syntax("Page.jsx", "const a = <div/>;")["supported"] is False
+    assert check_file_syntax("notes.md", "# hi")["supported"] is False
 
 
 # --- the routes ------------------------------------------------------------------

@@ -117,8 +117,7 @@ const AudioPlayerModal = ({ open, onClose, file }) => {
         {prompt && (
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ mb: 2, fontStyle: "italic" }}
+            sx={{ color: "text.secondary", mb: 2, fontStyle: "italic" }}
           >
             “{prompt}”
           </Typography>

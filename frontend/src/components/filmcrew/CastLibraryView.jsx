@@ -43,7 +43,7 @@ export const SubjectThumb = ({ subject }) => {
   return (
     <Box sx={{ position: 'relative', width: '100%', height: 160, bgcolor: 'action.hover',
                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-      <Typography variant="h4" color="text.disabled">{initials}</Typography>
+      <Typography variant="h4" sx={{ color: "text.disabled" }}>{initials}</Typography>
       {!failed && (
         <Box component="img" src={`${API_BASE}/cast-library/subjects/${subject.id}/preview`}
              onError={() => setFailed(true)} alt={subject.name}
@@ -198,7 +198,7 @@ const CastLibraryView = ({ onOpenSubject, asCards = false, intro } = {}) => {
               <Chip label={trainingStatusLabel(s.training_status)} size="small" color={s.training_status === 'trained' ? 'success' : (s.training_status === 'training' ? 'warning' : 'default')} />
             </Box>
             {s.trigger_word && (
-              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontFamily: 'monospace' }} color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mt: 0.5, fontFamily: 'monospace' }}>
                 {s.trigger_word}
               </Typography>
             )}
@@ -226,7 +226,7 @@ const CastLibraryView = ({ onOpenSubject, asCards = false, intro } = {}) => {
     return (
       <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, textAlign: 'center' }}>
         {subjects.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {intro ? `${intro} ` : ''}{t('filmCrew.castLibrary.empty')}
           </Typography>
         )}
@@ -269,7 +269,7 @@ const CastLibraryView = ({ onOpenSubject, asCards = false, intro } = {}) => {
       ) : loadError ? (
         loadErrorAlert
       ) : subjects.length === 0 ? (
-        <Typography color="text.secondary" sx={{ textAlign: 'center', p: 5 }}>
+        <Typography sx={{ color: "text.secondary", textAlign: 'center', p: 5 }}>
           {t('filmCrew.castLibrary.empty')}
         </Typography>
       ) : (
@@ -341,7 +341,7 @@ const CastLibraryView = ({ onOpenSubject, asCards = false, intro } = {}) => {
               onChange={e => setForm({...form, description: e.target.value})}
             />
             <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 0.5 }}>
                 {t('filmCrew.castLibrary.referenceImages')}
               </Typography>
               <DragDropImageUpload

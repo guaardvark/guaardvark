@@ -160,7 +160,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
         <ListItemText
           primary={
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Typography variant="body1" fontWeight={500}>
+              <Typography variant="body1" sx={{ fontWeight: 500 }}>
                 {model.name}
               </Typography>
               {model.size_mb > 0 && (
@@ -192,7 +192,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
                 value={downloadStatus.progress}
                 sx={{ mt: 0.5 }}
               />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {(downloadStatus.downloaded_mb || 0).toFixed(0)} /{" "}
                 {(downloadStatus.total_mb || 0).toFixed(0)} MB
               </Typography>
@@ -231,13 +231,13 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
       <DialogTitle>{t("models.voiceModels.title")}</DialogTitle>
       <DialogContent dividers>
         {error && (
-          <Box mb={2}>
+          <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
           </Box>
         )}
 
         {loading ? (
-          <Box display="flex" justifyContent="center" p={3}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
             <CircularProgress />
           </Box>
         ) : (
@@ -245,8 +245,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
             {/* Whisper STT section */}
             <Typography
               variant="subtitle2"
-              color="text.secondary"
-              sx={{ mt: 1, mb: 0.5, px: 1 }}
+              sx={{ color: "text.secondary", mt: 1, mb: 0.5, px: 1 }}
             >
               {t("models.voiceModels.whisperSection")}
             </Typography>
@@ -259,8 +258,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
             {/* Piper TTS section */}
             <Typography
               variant="subtitle2"
-              color="text.secondary"
-              sx={{ mb: 0.5, px: 1 }}
+              sx={{ color: "text.secondary", mb: 0.5, px: 1 }}
             >
               {t("models.voiceModels.piperSection")}
             </Typography>

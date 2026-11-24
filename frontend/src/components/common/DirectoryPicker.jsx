@@ -348,12 +348,12 @@ const DirectoryPicker = ({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle sx={{ pb: 1 }}>
-        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-          <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <FolderOpenIcon color="primary" />
             <Typography variant="h6">{title}</Typography>
           </Stack>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Tooltip title={t("common.refresh")}>
               <span>
                 <IconButton size="small" onClick={() => reload()} disabled={loading || !currentPath}>
@@ -373,10 +373,10 @@ const DirectoryPicker = ({
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Collapse in={showRecentPaths && recentPaths.length > 0}>
             <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, mb: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", mb: 1, display: 'block' }}>
                 {t("layoutCommon.directoryPicker.recentPaths")}
               </Typography>
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+              <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap" }}>
                 {recentPaths.map((path, index) => (
                   <Chip
                     key={index}
@@ -436,44 +436,48 @@ const DirectoryPicker = ({
             fullWidth
             size="small"
             helperText={!typedPathOpen ? t("layoutCommon.directoryPicker.openPathFirst") : " "}
-            InputProps={{
-              startAdornment: parentPath && (
-                <InputAdornment position="start">
-                  <IconButton size="small" aria-label={t("layoutCommon.directoryPicker.parentFolder")} onClick={() => handleNavigate(parentPath)}>
-                    <ArrowBackIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <Button size="small" onClick={handleGoToPath} disabled={typedPathOpen}>
-                    {t("layoutCommon.directoryPicker.go")}
-                  </Button>
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: parentPath && (
+                  <InputAdornment position="start">
+                    <IconButton size="small" aria-label={t("layoutCommon.directoryPicker.parentFolder")} onClick={() => handleNavigate(parentPath)}>
+                      <ArrowBackIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button size="small" onClick={handleGoToPath} disabled={typedPathOpen}>
+                      {t("layoutCommon.directoryPicker.go")}
+                    </Button>
+                  </InputAdornment>
+                ),
+              }
             }}
           />
 
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
             <TextField
               placeholder={t("layoutCommon.directoryPicker.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               size="small"
               sx={{ flex: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: searchQuery && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setSearchQuery("")}>
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: searchQuery && (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setSearchQuery("")}>
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }
               }}
             />
             {!pickFiles && (
@@ -494,8 +498,8 @@ const DirectoryPicker = ({
           </Stack>
 
           {roots.length > 0 && (
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap alignItems="center">
-              <Typography variant="caption" color="text.secondary">
+            <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("layoutCommon.directoryPicker.browse")}:
               </Typography>
               {roots.map((root) => (
@@ -507,7 +511,7 @@ const DirectoryPicker = ({
                   onClick={() => handleNavigate(root)}
                 />
               ))}
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("layoutCommon.directoryPicker.hiddenFolders")}
               </Typography>
             </Stack>
@@ -518,7 +522,7 @@ const DirectoryPicker = ({
           {loading ? (
             <Box sx={{ p: 3, textAlign: "center" }}>
               <CircularProgress size={28} />
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
                 {t("common.loading")}
               </Typography>
             </Box>
@@ -560,9 +564,10 @@ const DirectoryPicker = ({
                   <ListItemText
                     primary={dir.name}
                     secondary={dir.item_count >= 0 ? t("layoutCommon.directoryPicker.itemCount", { count: dir.item_count }) : null}
-                    primaryTypographyProps={{ variant: 'body2' }}
-                    secondaryTypographyProps={{ variant: 'caption' }}
-                  />
+                    slotProps={{
+                      primary: { variant: 'body2' },
+                      secondary: { variant: 'caption' }
+                    }} />
                 </ListItemButton>
               ))}
 
@@ -586,9 +591,10 @@ const DirectoryPicker = ({
                         <ListItemText
                           primary={file.name}
                           secondary={formatFileSize(file.size)}
-                          primaryTypographyProps={{ variant: 'body2' }}
-                          secondaryTypographyProps={{ variant: 'caption' }}
-                        />
+                          slotProps={{
+                            primary: { variant: 'body2' },
+                            secondary: { variant: 'caption' }
+                          }} />
                       </ListItemButton>
                     );
                   })}
@@ -598,7 +604,7 @@ const DirectoryPicker = ({
           )}
 
           {!loading && !error && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {countSummary}
             </Typography>
           )}

@@ -15,7 +15,7 @@ import {
   Stack,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import MemoryIcon from "@mui/icons-material/Memory";
 import { io } from "socket.io-client";
 import { SOCKET_URL } from "../../api/apiClient";
@@ -187,10 +187,10 @@ const GpuStatusCard = React.forwardRef(
           {vram && (
             <Box sx={{ mb: 1.5 }}>
               <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   VRAM
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {usedGb} / {totalGb} GB ({usedPct}%)
                 </Typography>
               </Box>
@@ -250,7 +250,7 @@ const GpuStatusCard = React.forwardRef(
 
           {/* Quality Tier */}
           <Box sx={{ mb: 1.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", mb: 0.5, display: "block" }}>
               {t("dashboard.gpu.qualityTier")}
             </Typography>
             <ToggleButtonGroup
@@ -314,7 +314,7 @@ const GpuStatusCard = React.forwardRef(
                       size="small"
                       sx={{ height: 18, fontSize: "0.65rem", bgcolor: "transparent" }}
                     />
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.6rem" }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.6rem" }}>
                       {stateLabels()[m.state] || m.state}
                     </Typography>
                     {m.state === "loaded" && (
@@ -332,7 +332,7 @@ const GpuStatusCard = React.forwardRef(
                 </Box>
               ))}
             {models.filter((m) => m.state !== "unloaded").length === 0 && (
-              <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center", py: 1 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", textAlign: "center", py: 1 }}>
                 {t("dashboard.gpu.noModels")}
               </Typography>
             )}

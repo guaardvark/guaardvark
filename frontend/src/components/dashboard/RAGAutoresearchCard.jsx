@@ -127,7 +127,7 @@ const RAGAutoresearchCard = React.forwardRef(
       <Box sx={{ height: '100%' }}>
       {!status ? (
         <Box sx={{ p: 1, textAlign: 'center' }}>
-          <Typography variant="caption" color="text.secondary">{t('dashboard.autoresearch.unavailable')}</Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>{t('dashboard.autoresearch.unavailable')}</Typography>
         </Box>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -140,7 +140,7 @@ const RAGAutoresearchCard = React.forwardRef(
                 color={status.running ? 'success' : 'default'}
                 sx={{ height: 20, fontSize: '0.7rem' }}
               />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('dashboard.autoresearch.phase', { phase: status.phase })}
                 {status.current_parameter ? ` · ${status.current_parameter}` : ""}
               </Typography>
@@ -172,7 +172,7 @@ const RAGAutoresearchCard = React.forwardRef(
                   : ''
               }
             >
-              <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", whiteSpace: 'nowrap' }}>
                 {experimentsSummary(status)}
               </Typography>
             </Tooltip>
@@ -181,7 +181,7 @@ const RAGAutoresearchCard = React.forwardRef(
           {/* Latest run, whatever its status */}
           {lastRun && (
             <Box sx={{ mb: 1 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('dashboard.autoresearch.latestRun')}:{' '}
                 <Link
                   component="button"
@@ -240,7 +240,7 @@ const RAGAutoresearchCard = React.forwardRef(
 
           {history.length === 0 && !status.running && (
             <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('dashboard.autoresearch.noExperiments')}
               </Typography>
             </Box>

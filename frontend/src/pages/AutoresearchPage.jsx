@@ -535,7 +535,7 @@ const AutoresearchPage = () => {
         >
           <NightIcon color="primary" />
           <Box sx={{ flex: 1, minWidth: 200 }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("autoresearch.run.intro")}
             </Typography>
           </Box>
@@ -562,8 +562,10 @@ const AutoresearchPage = () => {
             size="small"
             value={budgetHours}
             onChange={(e) => setBudgetHours(e.target.value)}
-            inputProps={{ min: 1, max: 12, step: 1 }}
             sx={{ width: 130 }}
+            slotProps={{
+              htmlInput: { min: 1, max: 12, step: 1 }
+            }}
           />
           <Button
             variant="contained"
@@ -596,7 +598,7 @@ const AutoresearchPage = () => {
             mt: 2,
           }}
         >
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("autoresearch.evalPairs.summary", { pairs: evalPairsText(status) })}
           </Typography>
           <Button
@@ -662,7 +664,7 @@ const AutoresearchPage = () => {
               sx={{ borderRadius: 1 }}
             />
             {typeof status?.active_run?.budget_remaining_s === "number" && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t("autoresearch.run.minutesRemaining", { minutes: Math.ceil(status.active_run.budget_remaining_s / 60) })}
               </Typography>
             )}
@@ -679,8 +681,7 @@ const AutoresearchPage = () => {
               <Box sx={{ p: 1.5 }}>
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", mb: 2 }}
+          sx={{ color: "text.secondary", display: "block", mb: 2 }}
         >
           {t("autoresearch.settings.intro")}
         </Typography>
@@ -708,7 +709,6 @@ const AutoresearchPage = () => {
             <Switch
               size="small"
               id={AUTO_START_ID}
-              inputProps={{ "aria-label": t("autoresearch.settings.autoStart") }}
               checked={settings.rag_autoresearch_auto_enabled === "true"}
               disabled={resettingConfig}
               onChange={(e) =>
@@ -718,6 +718,9 @@ const AutoresearchPage = () => {
                   t("autoresearch.settings.autoStartName"),
                 )
               }
+              slotProps={{
+                input: { "aria-label": t("autoresearch.settings.autoStart") }
+              }}
             />
             {savedKeys.rag_autoresearch_auto_enabled && (
               <Box
@@ -754,16 +757,18 @@ const AutoresearchPage = () => {
                   }
                 }}
                 helperText={savedKeys[f.key] ? t("autoresearch.settings.saved") : warning || " "}
-                FormHelperTextProps={{
-                  sx: {
-                    color: savedKeys[f.key]
-                      ? "success.main"
-                      : warning
-                        ? "warning.main"
-                        : "inherit",
-                  },
-                }}
                 sx={{ width: warning ? 320 : f.width }}
+                slotProps={{
+                  formHelperText: {
+                    sx: {
+                      color: savedKeys[f.key]
+                        ? "success.main"
+                        : warning
+                          ? "warning.main"
+                          : "inherit",
+                    },
+                  }
+                }}
               />
             );
           })}
@@ -781,7 +786,7 @@ const AutoresearchPage = () => {
             flexWrap: "wrap",
           }}
         >
-          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+          <Typography variant="caption" sx={{ color: "text.secondary", flex: 1 }}>
             {t("autoresearch.settings.resetNote")}
           </Typography>
           <Button
@@ -821,7 +826,7 @@ const AutoresearchPage = () => {
             body: (
               <Box sx={{ p: 1.5 }}>
         {runs.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("autoresearch.runs.empty")}
           </Typography>
         ) : (
@@ -948,7 +953,7 @@ const AutoresearchPage = () => {
                 </ReactMarkdown>
               </Box>
             ) : (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {t("autoresearch.runs.noReport")}
               </Typography>
             )}
@@ -981,7 +986,7 @@ const AutoresearchPage = () => {
           </Button>
         </Box>
         {promotions.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("autoresearch.promotions.empty")}
           </Typography>
         ) : (
@@ -1071,7 +1076,7 @@ const AutoresearchPage = () => {
             body: (
               <Box sx={{ p: 1.5 }}>
         {metrics.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {t("autoresearch.experiments.empty")}
           </Typography>
         ) : (

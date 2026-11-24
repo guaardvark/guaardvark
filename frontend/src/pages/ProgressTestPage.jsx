@@ -126,8 +126,8 @@ const ProgressTestPage = () => {
       <Typography variant="h4" component="h1" gutterBottom>
         Progress Tracking Debug
       </Typography>
-      
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+
+      <Typography variant="body1" sx={{ color: "text.secondary", mb: 3 }}>
         Test progress tracking for all system processes. Check the ProgressFooterBar at the bottom of the screen.
       </Typography>
 
@@ -179,7 +179,7 @@ const ProgressTestPage = () => {
       {/* Test Buttons */}
       <Grid container spacing={2}>
         {testProcesses.map((test) => (
-          <Grid item xs={12} sm={6} md={4} key={test.id}>
+          <Grid key={test.id} size={{ xs: 12, sm: 6, md: 4 }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -217,7 +217,7 @@ const ProgressTestPage = () => {
                       </Alert>
                     )}
                     {results[test.id].process_id && (
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Process ID: {results[test.id].process_id}
                       </Typography>
                     )}
@@ -235,20 +235,28 @@ const ProgressTestPage = () => {
           <Typography variant="h6" gutterBottom>
             How to Test
           </Typography>
-          <Typography variant="body2" paragraph>
+          <Typography variant="body2" sx={{
+            marginBottom: "16px"
+          }}>
             1. Click any "Start Test" button above
           </Typography>
-          <Typography variant="body2" paragraph>
+          <Typography variant="body2" sx={{
+            marginBottom: "16px"
+          }}>
             2. Watch the ProgressFooterBar at the bottom of the screen
           </Typography>
-          <Typography variant="body2" paragraph>
+          <Typography variant="body2" sx={{
+            marginBottom: "16px"
+          }}>
             3. The progress should show the process type, percentage, and status message
           </Typography>
-          <Typography variant="body2" paragraph>
+          <Typography variant="body2" sx={{
+            marginBottom: "16px"
+          }}>
             4. You can run multiple tests simultaneously to see how the system handles concurrent processes
           </Typography>
           <Divider sx={{ my: 2 }} />
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             <strong>Expected Behavior:</strong> All process types (ImageGen, FileGen, CSV, Indexing, Analysis, Upload) 
             should appear in the ProgressFooterBar with appropriate colors and messages.
           </Typography>

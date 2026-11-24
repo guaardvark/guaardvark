@@ -78,11 +78,13 @@ const TextInputDialog = ({
       onClose={onClose}
       maxWidth="xs"
       fullWidth
-      TransitionProps={{
-        onEntered: () => {
-          inputRef.current?.focus();
-          inputRef.current?.select();
-        },
+      slotProps={{
+        transition: {
+          onEntered: () => {
+            inputRef.current?.focus();
+            inputRef.current?.select();
+          },
+        }
       }}
     >
       <DialogTitle sx={{ fontSize: "0.9rem" }}>{title}</DialogTitle>
@@ -104,8 +106,10 @@ const TextInputDialog = ({
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={(e) => e.target.select()}
-          inputProps={{ "aria-label": label || title }}
           sx={{ mt: 1 }}
+          slotProps={{
+            htmlInput: { "aria-label": label || title }
+          }}
         />
       </DialogContent>
       <DialogActions>

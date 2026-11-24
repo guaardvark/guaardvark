@@ -11,7 +11,7 @@ import {
   DialogActions,
   Button,
   List,
-  ListItem,
+  ListItemButton,
   ListItemIcon,
   Checkbox,
   ListItemText,
@@ -312,12 +312,14 @@ const LinkingModal = ({
               value={searchTerm}
               onChange={handleSearchChange}
               sx={{ mb: 1, flexShrink: 0 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }
               }}
             />
 
@@ -357,24 +359,24 @@ const LinkingModal = ({
               ) : (
                 <List dense>
                   {availableItems.map((item) => (
-                    <ListItem
+                    <ListItemButton
                       key={item.id}
                       onClick={() => handleToggleChecked(item.id)}
                       // MODIFIED: Removed secondaryAction prop to delete right-hand checkbox
                       sx={{
                         cursor: "pointer",
                         "&:hover": { backgroundColor: "action.hover" },
-                      }}
-                      button
-                    >
+                      }}>
                       <ListItemIcon sx={{ minWidth: "auto", mr: 1.5 }}>
                         <Checkbox
                           edge="start"
                           checked={checkedItemIds.has(item.id)}
                           tabIndex={-1}
                           disableRipple
-                          inputProps={{
-                            "aria-labelledby": `checkbox-list-label-${item.id}`,
+                          slotProps={{
+                            input: {
+                              "aria-labelledby": `checkbox-list-label-${item.id}`,
+                            }
                           }}
                         />
                       </ListItemIcon>
@@ -393,13 +395,11 @@ const LinkingModal = ({
                           item.email ||
                           t("dialogs.linking.idFallback", { id: item.id })
                         }
-                        primaryTypographyProps={{ noWrap: true }}
-                        secondaryTypographyProps={{
-                          noWrap: true,
-                          fontSize: "0.75rem",
-                        }}
-                      />
-                    </ListItem>
+                        slotProps={{
+                          primary: { noWrap: true },
+                          secondary: { noWrap: true, sx: { fontSize: "0.75rem" } },
+                        }} />
+                    </ListItemButton>
                   ))}
                 </List>
               )}

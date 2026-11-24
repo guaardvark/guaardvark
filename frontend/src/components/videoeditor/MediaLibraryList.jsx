@@ -17,7 +17,7 @@ const MediaLibraryList = ({ grouping, kind, onItemClick, onItemDragStart, onFold
 
   if (folders.length === 0 && ungrouped.length === 0) {
     return (
-      <Typography variant="caption" color="text.secondary" sx={{ p: 1, display: "block" }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", p: 1, display: "block" }}>
         {t("videoEditor.media.empty")}
       </Typography>
     );

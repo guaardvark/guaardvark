@@ -21,7 +21,11 @@ pytestmark = pytest.mark.skipif(not os.path.isdir("/proc/self"), reason="needs /
 
 def _manager(root: Path) -> PluginManager:
     pm = object.__new__(PluginManager)
-    pm.registry = SimpleNamespace(plugins_dir=root / "plugins")
+    pm.registry = SimpleNamespace(
+        plugins_dir=root / "plugins",
+        get_all_plugins=lambda: [],
+        get_plugin_dir=lambda _plugin_id: None,
+    )
     return pm
 
 

@@ -87,7 +87,7 @@ function ImagePromptCard({
           <MenuItem value="auto">
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.auto')}</Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('imagesBatch.contentType.autoHelp')}
               </Typography>
             </Box>
@@ -95,7 +95,7 @@ function ImagePromptCard({
           <MenuItem value="person_portrait">
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.portrait')}</Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('imagesBatch.contentType.portraitHelp')}
               </Typography>
             </Box>
@@ -103,7 +103,7 @@ function ImagePromptCard({
           <MenuItem value="person_full_body">
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.fullBody')}</Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('imagesBatch.contentType.fullBodyHelp')}
               </Typography>
             </Box>
@@ -111,7 +111,7 @@ function ImagePromptCard({
           <MenuItem value="person_working">
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.working')}</Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('imagesBatch.contentType.workingHelp')}
               </Typography>
             </Box>
@@ -119,7 +119,7 @@ function ImagePromptCard({
           <MenuItem value="product_photo">
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.product')}</Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('imagesBatch.contentType.productHelp')}
               </Typography>
             </Box>
@@ -127,7 +127,7 @@ function ImagePromptCard({
           <MenuItem value="landscape">
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.landscape')}</Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('imagesBatch.contentType.landscapeHelp')}
               </Typography>
             </Box>
@@ -135,7 +135,7 @@ function ImagePromptCard({
           <MenuItem value="infographic_preset">
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.infographic')}</Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('imagesBatch.contentType.infographicHelp')}
               </Typography>
             </Box>
@@ -143,7 +143,7 @@ function ImagePromptCard({
           <MenuItem value="general">
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.general')}</Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {t('imagesBatch.contentType.generalHelp')}
               </Typography>
             </Box>
@@ -216,7 +216,7 @@ function ImagePromptCard({
         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
           {t('imagesBatch.cast.title')}
         </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 1 }}>
           {t('imagesBatch.cast.help')}
         </Typography>
         <CharacterPicker
@@ -233,7 +233,7 @@ function ImagePromptCard({
         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
           {t('imagesBatch.input.single')}
         </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 1 }}>
           {t('imagesBatch.single.help')}
         </Typography>
         <DeferredPromptField
@@ -255,7 +255,7 @@ function ImagePromptCard({
           }}
         />
         <PromptTokenCounter prompts={finalPrompts} model={params.model} sx={{ mt: -1.5, mb: 1 }} />
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: 'block' }}>
           {t('imagesBatch.single.note')}
         </Typography>
       </Box>
@@ -287,7 +287,7 @@ function ImagePromptCard({
         />
         <PromptTokenCounter prompts={finalPrompts} model={params.model} sx={{ mt: -1.5, mb: 1 }} />
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t('imagesBatch.bulk.ready', { count: uniquePromptCount })}
           </Typography>
           <Button
@@ -314,7 +314,7 @@ function ImagePromptCard({
             {t('imagesBatch.bulk.loadExamples')}
           </Button>
         </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: 'block' }}>
           {t('imagesBatch.bulk.tip')}
         </Typography>
       </Box>
@@ -342,7 +342,7 @@ function ImagePromptCard({
           }}
         />
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {inputMode === 'single' ? t('imagesBatch.look.single') : t('imagesBatch.look.bulk', { count: uniquePromptCount })}
           </Typography>
           <Button
@@ -446,7 +446,7 @@ function ImagePromptCard({
         <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 500 }}>
           {t('imagesBatch.blueprint.title')}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
           {t('imagesBatch.blueprint.help')}
         </Typography>
         <input
@@ -478,7 +478,7 @@ function ImagePromptCard({
           </Alert>
         )}
 
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t('imagesBatch.blueprint.format')}
         </Typography>
       </Box>

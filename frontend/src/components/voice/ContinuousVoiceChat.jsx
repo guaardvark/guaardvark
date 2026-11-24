@@ -1428,7 +1428,7 @@ const ContinuousVoiceChat = React.forwardRef(({
         </Box>
 
         {!isListening && keyboardShortcutEnabled && (
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", ml: 'auto' }}>
             <Trans i18nKey="voice.continuous.spacebarHint" components={{ bold: <strong /> }} />
           </Typography>
         )}
@@ -1445,7 +1445,7 @@ const ContinuousVoiceChat = React.forwardRef(({
       {wakeWordEnabled && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <HearingIcon fontSize="small" color="action" />
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {isListening
               ? listeningMode === 'passive'
                 ? t('voice.continuous.sayWakePhrase', { systemName })
@@ -1467,11 +1467,11 @@ const ContinuousVoiceChat = React.forwardRef(({
           }}
         >
           <MicOffIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body1" sx={{ color: "text.secondary" }}>
             {t('voice.continuous.idleHint')}
           </Typography>
           {wakeWordEnabled && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
               {t('voice.continuous.wakeModeHint')}
             </Typography>
           )}

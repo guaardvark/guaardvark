@@ -92,7 +92,7 @@ const CodeDiffViewer = ({
         borderColor: 'divider',
         borderRadius: '4px 4px 0 0'
       }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 'bold' }}>
           {title}
         </Typography>
       </Box>
@@ -125,7 +125,7 @@ const CodeDiffViewer = ({
         borderColor: 'divider',
         borderRadius: '4px 4px 0 0'
       }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 'bold' }}>
           {t("codeEditor.diff.comparison")}{displayFilePath ? ` - ${displayFilePath}` : ''}
         </Typography>
       </Box>

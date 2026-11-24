@@ -827,8 +827,8 @@ A plugin is a sidecar process: a port, a health check, start and stop, a VRAM bu
 - **Socket.IO** — real-time bidirectional communication for streaming and progress
 
 ### Frontend Stack
-- **React 18** with Vite build system
-- **Material-UI v5** — component library with custom dark themes
+- **React 19** with Vite build system
+- **Material UI v9** — component library with custom dark themes
 - **Zustand** — lightweight state management
 - **Monaco Editor** — code editing
 - **Socket.IO client** — real-time updates

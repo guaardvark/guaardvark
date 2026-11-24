@@ -34,12 +34,14 @@ const PdfViewerModal = ({ open, onClose, file }) => {
       onClose={onClose}
       maxWidth="lg"
       fullWidth
-      PaperProps={{
-        sx: {
-          height: "90vh",
-          display: "flex",
-          flexDirection: "column",
-        },
+      slotProps={{
+        paper: {
+          sx: {
+            height: "90vh",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }
       }}
     >
       <DialogTitle
@@ -84,7 +86,7 @@ const PdfViewerModal = ({ open, onClose, file }) => {
           />
         ) : (
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-            <Typography color="text.secondary">{t("documents.pdfViewer.noFile")}</Typography>
+            <Typography sx={{ color: "text.secondary" }}>{t("documents.pdfViewer.noFile")}</Typography>
           </Box>
         )}
       </DialogContent>

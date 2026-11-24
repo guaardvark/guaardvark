@@ -1,6 +1,6 @@
 # Guaardvark
 
-**版本 3.6.0** · [guaardvark.com](https://guaardvark.com)
+**版本 3.7.0** · [guaardvark.com](https://guaardvark.com)
 
 > 本译文基于较早的 README，更新会滞后；最新、最完整的说明请见英文 [README.md](README.md)。
 
@@ -91,7 +91,7 @@ cp .env.example .env       # 使用您的配置进行编辑
 
 **后端：** Flask 3.0 · SQLAlchemy + PostgreSQL（pgvector）· Celery + Redis · LlamaIndex + Ollama · PyTorch · Diffusers · Whisper.cpp · Chatterbox / Kokoro / Piper TTS
 
-**前端：** React 18 · Vite · Material-UI v5 · Zustand · Monaco Editor · Socket.io
+**前端：** React 19 · Vite · Material UI v9 · Zustand · Monaco Editor · Socket.io
 
 **CLI：** Typer · Rich · httpx · python-socketio
 

@@ -108,7 +108,7 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
         {title}
       </Typography>
       {hint && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
           {hint}
         </Typography>
       )}
@@ -136,14 +136,14 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
         </Alert>
       )}
       {state.notice && !state.error && (
-        <Typography variant="caption" color="warning.main" sx={{ display: "block", mb: 1 }}>
+        <Typography variant="caption" sx={{ color: "warning.main", display: "block", mb: 1 }}>
           {state.notice.message}
         </Typography>
       )}
 
       {state.lastTranscript && (
         <Box sx={{ mb: 1.5 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("voice.session.lastHeard", {
               outcome: OUTCOME_LABELS[state.lastTranscript.outcome] || state.lastTranscript.outcome,
             })}
@@ -177,7 +177,7 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
 
       <Divider sx={{ mb: 1.5 }} />
 
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
         {t("voice.listening.micButton")}
       </Typography>
       <ToggleButtonGroup
@@ -194,7 +194,7 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+      <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
         {ACTIVATION_MODE_HELP[mode]}
       </Typography>
 
@@ -237,7 +237,9 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
               : undefined
           }
           sx={{ mt: 1 }}
-          SelectProps={{ MenuProps: { sx: { zIndex: 1600 } } }}
+          slotProps={{
+            select: { MenuProps: { sx: { zIndex: 1600 } } }
+          }}
         >
           {installedVoices.map((v) => (
             <MenuItem key={v.id} value={v.id}>
@@ -247,7 +249,7 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
         </TextField>
       )}
       {settings.ttsEnabled && installedVoices.length === 0 && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
           <Trans
             i18nKey="voice.session.noVoiceInstalled"
             components={{
@@ -263,7 +265,7 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
       )}
 
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1.5 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {t("voice.session.shortcutHint")}
         </Typography>
       </Box>

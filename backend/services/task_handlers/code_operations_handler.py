@@ -4,6 +4,7 @@
 
 import logging
 import os
+from pathlib import Path
 import shutil
 from datetime import datetime
 from typing import Dict, Any, Optional, Callable, List
@@ -157,6 +158,48 @@ class CodeOperationsHandler(BaseTaskHandler):
                 started_at=started_at,
                 completed_at=datetime.now()
             )
+
+    def _save_generated(self, output_path: str, reply: str, subject: str):
+        """Write the code a model reply carries to ``output_path``.
+
+        Returns (saved path or None, why it was not saved or None). The file
+        gets the code, not the chat around it. Inside this install a new file
+        may be created; an existing or protected one is never overwritten by
+        a task.
+        """
+        from backend.services import inbound_guard_service as inbound_guard
+        from backend.services.guarded_code_service import default_repo_root, protected_file_reason
+        from backend.tools.code_tools import _extract_code
+        from backend.utils.path_safety import is_sensitive
+
+        code = _extract_code(reply, output_path)
+        if not code.strip():
+            return None, "the model returned no code"
+        target = Path(output_path).expanduser().resolve()
+        if is_sensitive(str(target)):
+            return None, "credential and key files are not written by tasks"
+        try:
+            relative = str(target.relative_to(default_repo_root()))
+        except ValueError:
+            relative = None
+        if relative is not None:
+            if protected_file_reason(relative):
+                return None, f"{relative} is a protected file"
+            if target.exists():
+                return None, (f"{relative} already exists in this install; a task does not overwrite it. "
+                              "Choose a new file name, or ask for the change in chat.")
+        try:
+            inbound_guard.guard_file_write(str(target), code, source="code_task", subject=subject)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(code if code.endswith("\n") else code + "\n", encoding="utf-8")
+        except Exception as e:
+            logger.warning(f"Could not save to {output_path}: {e}")
+            return None, str(e)
+        return str(target), None
+
+    # A whole-file rewrite is only asked of a file the prompt can carry whole;
+    # 8000 characters was the cut this handler already applied to its prompt.
+    WHOLE_FILE_EDIT_CHARS = 8000
 
     def _get_chat_function(self):
         """Get the internal chat function for code operations"""
@@ -327,19 +370,22 @@ Return the code properly formatted for {language}."""
             generated_code = response.get("message", "") if response else ""
 
             # Optionally save to file
+            if not generated_code.strip():
+                return TaskResult(
+                    status=TaskResultStatus.FAILED,
+                    message="The model returned no code",
+                    started_at=started_at,
+                    completed_at=datetime.now()
+                )
+
             output_files = []
-            if output_path and generated_code:
-                try:
-                    progress_callback(80, f"Saving to {output_path}...", None)
-                    from backend.services import inbound_guard_service as inbound_guard
-                    inbound_guard.guard_file_write(output_path, generated_code, source="code_task",
-                                                   subject=f"generated code -> {output_path}")
-                    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-                    with open(output_path, 'w', encoding='utf-8') as f:
-                        f.write(generated_code)
-                    output_files.append(output_path)
-                except Exception as e:
-                    logger.warning(f"Could not save to {output_path}: {e}")
+            save_error = None
+            if output_path:
+                progress_callback(80, f"Saving to {output_path}...", None)
+                saved, save_error = self._save_generated(
+                    output_path, generated_code, f"generated code -> {output_path}")
+                if saved:
+                    output_files.append(saved)
 
             progress_callback(100, "Code generation complete", None)
 
@@ -347,13 +393,15 @@ Return the code properly formatted for {language}."""
             duration = (completed_at - started_at).total_seconds()
 
             return TaskResult(
-                status=TaskResultStatus.SUCCESS,
-                message="Code generated successfully",
+                status=TaskResultStatus.PARTIAL if save_error else TaskResultStatus.SUCCESS,
+                message=(f"Code generated, but not saved to {output_path}: {save_error}"
+                         if save_error else "Code generated successfully"),
                 output_files=output_files,
                 output_data={
                     "generated_code": generated_code,
                     "language": language,
-                    "description": instructions
+                    "description": instructions,
+                    "save_error": save_error,
                 },
                 started_at=started_at,
                 completed_at=completed_at,
@@ -482,96 +530,110 @@ Please provide the complete modified code with requested changes applied."""
         progress_callback: Callable,
         started_at: datetime
     ) -> TaskResult:
-        """Edit actual files using llama_code_tools"""
-        try:
-            from backend.tools.llama_code_tools import read_code, edit_code, verify_change
+        """Propose an edit to each file and stage it for review.
 
-            edited_files = []
+        Nothing is written here: each proposal becomes a pending fix that a
+        person approves and applies (Self-improvement → Fixes), where it gets
+        a restore point and its checks. The model returns the whole file, so
+        only files that fit in the prompt whole are taken.
+        """
+        try:
+            from backend.services.guarded_code_service import (
+                GuardedCodeError, stage_pending_fix,
+            )
+            from backend.tools.code_tools import _extract_code
+            from backend.tools.llama_code_tools import _read_source_file
+
+            staged_files = []
             failed_files = []
-            backup_files = []
+            chat_func = self._get_chat_function()
 
             for i, filepath in enumerate(target_files):
                 progress = int(10 + (i / len(target_files)) * 80)
                 progress_callback(progress, f"Processing {filepath}...", None)
 
                 try:
-                    # Read current content
-                    current_content = read_code(filepath)
-                    if current_content.startswith("ERROR"):
-                        failed_files.append({"file": filepath, "error": current_content})
+                    if not chat_func:
+                        failed_files.append({"file": filepath, "error": "The chat model is not available"})
+                        continue
+                    current_content = _read_source_file(filepath, allow_external=False)["content"]
+                    if len(current_content) > self.WHOLE_FILE_EDIT_CHARS:
+                        failed_files.append({"file": filepath, "error": (
+                            f"The file is {len(current_content)} characters; this task rewrites whole files "
+                            f"up to {self.WHOLE_FILE_EDIT_CHARS}. Ask for the change in chat, which edits "
+                            "the lines it names.")})
                         continue
 
-                    # Create backup if requested
-                    if create_backup:
-                        backup_path = filepath + ".backup"
-                        backup_files.append(backup_path)
-
-                    # Get LLM to generate edit
-                    chat_func = self._get_chat_function()
-                    if chat_func:
-                        session_id = f"file-edit-{task.id}-{i}-{datetime.now().timestamp()}"
-                        prompt = f"""Edit this {language} code according to the instructions:
+                    session_id = f"file-edit-{task.id}-{i}-{datetime.now().timestamp()}"
+                    prompt = f"""Edit this {language} code according to the instructions:
 
 Instructions: {instructions}
 
 File: {filepath}
 
 Current code:
-{current_content[:8000]}
+{current_content}
 
 Provide the COMPLETE edited file content."""
 
-                        response = chat_func(
-                            session_id=session_id,
-                            user_message=prompt,
-                            project_id=None,
-                            use_rag=True,
-                            bypass_rules=bypass_rules
-                        )
+                    response = chat_func(
+                        session_id=session_id,
+                        user_message=prompt,
+                        project_id=None,
+                        use_rag=True,
+                        bypass_rules=bypass_rules
+                    )
 
-                        edited_code = response.get("message", "") if response else ""
-                        if edited_code:
-                            edited_files.append({
-                                "file": filepath,
-                                "edited": True,
-                                "backup": backup_path if create_backup else None
-                            })
-                        else:
-                            failed_files.append({"file": filepath, "error": "No edit generated"})
-                    else:
-                        failed_files.append({"file": filepath, "error": "LLM not available"})
+                    edited_code = _extract_code((response or {}).get("message", ""), filepath)
+                    if not edited_code.strip():
+                        failed_files.append({"file": filepath, "error": "The model returned no code"})
+                        continue
+                    if not edited_code.endswith("\n") and current_content.endswith("\n"):
+                        edited_code += "\n"
+                    if edited_code == current_content:
+                        failed_files.append({"file": filepath, "error": "The model returned the file unchanged"})
+                        continue
+                    fix_id = stage_pending_fix(
+                        filepath, current_content, edited_code,
+                        f"Task {task.id}: {instructions}"[:500],
+                    )
+                    staged_files.append({"file": filepath, "edited": False, "staged": True,
+                                         "pending_fix_id": fix_id})
 
+                except GuardedCodeError as e:
+                    failed_files.append({"file": filepath, "error": str(e)})
                 except Exception as e:
                     failed_files.append({"file": filepath, "error": str(e)})
 
             completed_at = datetime.now()
             duration = (completed_at - started_at).total_seconds()
 
-            progress_callback(100, f"Edited {len(edited_files)} files", None)
+            progress_callback(100, f"Proposed changes to {len(staged_files)} file(s)", None)
 
             status = TaskResultStatus.SUCCESS
             if failed_files:
-                status = TaskResultStatus.PARTIAL if edited_files else TaskResultStatus.FAILED
+                status = TaskResultStatus.PARTIAL if staged_files else TaskResultStatus.FAILED
 
             return TaskResult(
                 status=status,
-                message=f"Edited {len(edited_files)}/{len(target_files)} files",
+                message=(f"Proposed changes to {len(staged_files)}/{len(target_files)} file(s). Nothing is changed "
+                         "until they are approved and applied under Self-improvement → Fixes."),
                 output_data={
-                    "edited_files": edited_files,
+                    "staged_files": staged_files,
+                    "edited_files": [],
                     "failed_files": failed_files,
-                    "backup_files": backup_files
                 },
-                items_processed=len(edited_files),
+                items_processed=len(staged_files),
                 items_total=len(target_files),
                 started_at=started_at,
                 completed_at=completed_at,
                 duration_seconds=duration
             )
 
-        except ImportError:
+        except ImportError as e:
             return TaskResult(
                 status=TaskResultStatus.FAILED,
-                message="llama_code_tools not available",
+                message=f"The code tools are not available: {e}",
                 started_at=started_at,
                 completed_at=datetime.now()
             )
@@ -819,18 +881,13 @@ Please provide:
 
             # Save tests to file if path provided
             output_files = []
+            save_error = None
             if output_path and test_code:
-                try:
-                    progress_callback(80, f"Saving tests to {output_path}...", None)
-                    from backend.services import inbound_guard_service as inbound_guard
-                    inbound_guard.guard_file_write(output_path, test_code, source="code_task",
-                                                   subject=f"generated tests -> {output_path}")
-                    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-                    with open(output_path, 'w', encoding='utf-8') as f:
-                        f.write(test_code)
-                    output_files.append(output_path)
-                except Exception as e:
-                    logger.warning(f"Could not save tests: {e}")
+                progress_callback(80, f"Saving tests to {output_path}...", None)
+                saved, save_error = self._save_generated(
+                    output_path, test_code, f"generated tests -> {output_path}")
+                if saved:
+                    output_files.append(saved)
 
             progress_callback(100, "Test generation complete", None)
 
@@ -838,10 +895,12 @@ Please provide:
             duration = (completed_at - started_at).total_seconds()
 
             return TaskResult(
-                status=TaskResultStatus.SUCCESS,
-                message=f"Generated {framework} tests",
+                status=TaskResultStatus.PARTIAL if save_error else TaskResultStatus.SUCCESS,
+                message=(f"Generated {framework} tests, but not saved to {output_path}: {save_error}"
+                         if save_error else f"Generated {framework} tests"),
                 output_files=output_files,
                 output_data={
+                    "save_error": save_error,
                     "test_code": test_code,
                     "framework": framework,
                     "language": language

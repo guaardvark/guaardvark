@@ -418,7 +418,7 @@ const InfographicGenerator = () => {
     const running = currentBatch && POLLABLE_STATUSES.has(currentBatch.status);
     return (
       <Stack spacing={1.5}>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
           <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 0 }} noWrap title={currentBatch?.display_name || currentBatchId}>
             {currentBatch?.display_name || currentBatchId}
           </Typography>
@@ -548,7 +548,9 @@ const InfographicGenerator = () => {
                 onChange={(e) => setTitle(e.target.value)}
                 size="small"
                 fullWidth
-                inputProps={{ maxLength: 90 }}
+                slotProps={{
+                  htmlInput: { maxLength: 90 }
+                }}
               />
               <TextField
                 label={t('images.infographic.sceneLabel')}
@@ -578,7 +580,9 @@ const InfographicGenerator = () => {
                 onChange={(e) => setFooter(e.target.value)}
                 size="small"
                 fullWidth
-                inputProps={{ maxLength: 140 }}
+                slotProps={{
+                  htmlInput: { maxLength: 140 }
+                }}
               />
               <TextField
                 label={t('images.infographic.hashtagsLabel')}
@@ -645,15 +649,17 @@ const InfographicGenerator = () => {
             </TextField>
           </Stack>
 
-          <Stack direction="row" spacing={2} alignItems="flex-start">
+          <Stack direction="row" spacing={2} sx={{ alignItems: "flex-start" }}>
             <TextField
               label={t('images.infographic.quantity')}
               type="number"
               value={quantity}
               onChange={(e) => setQuantity(clampQuantity(e.target.value))}
-              inputProps={{ min: 1, max: 100 }}
               size="small"
               sx={{ width: 120 }}
+              slotProps={{
+                htmlInput: { min: 1, max: 100 }
+              }}
             />
             <Box sx={{ flex: 1 }}>
               <TextField
@@ -661,11 +667,13 @@ const InfographicGenerator = () => {
                 label={t('imagesBatch.seed.label')}
                 placeholder={t('imagesBatch.seed.placeholder')}
                 value={seedText}
-                inputProps={{ inputMode: 'numeric' }}
                 onChange={(e) => setSeedText(e.target.value.replace(/\D/g, '').slice(0, String(IMAGE_MAX_SEED).length))}
                 sx={{ width: 180 }}
+                slotProps={{
+                  htmlInput: { inputMode: 'numeric' }
+                }}
               />
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mt: 0.5 }}>
                 {typedSeed != null
                   ? t('imagesBatch.seed.fixed', { seed: typedSeed })
                   : seedText.trim()
@@ -704,7 +712,7 @@ const InfographicGenerator = () => {
             body: (
               <Box sx={cardBodySx}>
                 {queue.length === 0 && (
-                  <Typography variant="body2" color="text.secondary">{t('layout.board.queueEmpty')}</Typography>
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>{t('layout.board.queueEmpty')}</Typography>
                 )}
                 <BatchQueuePanel queue={queue} onCancel={handleCancel} onClearCompleted={clearCompleted} />
               </Box>
@@ -723,11 +731,11 @@ const InfographicGenerator = () => {
             body: (
               <Box sx={cardBodySx}>
                 {history.length === 0 && (
-                  <Typography variant="body2" color="text.secondary">{t('images.infographic.noRecent')}</Typography>
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>{t('images.infographic.noRecent')}</Typography>
                 )}
           <Grid container spacing={2}>
             {history.map((batch) => (
-              <Grid item xs={6} sm={4} md={3} lg={2} key={batch.batch_id}>
+              <Grid key={batch.batch_id} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
                 <BatchHistoryCard
                   batch={batch}
                   dateStr={formatDate(batch.start_time)}

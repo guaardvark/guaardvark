@@ -15,7 +15,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import StickyNote2OutlinedIcon from "@mui/icons-material/StickyNote2Outlined";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { useUiTranslation, translate, uiLocale } from "../../i18n";
@@ -133,7 +133,7 @@ const ClosedNotesDrawer = ({ open, onClose, closedNotes, onReopen, onDeleteReque
             {note.closedAt && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, pl: 3, mt: 0.5 }}>
                 <AccessTimeIcon sx={{ fontSize: 11, color: "text.secondary" }} />
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.7rem" }}>
                   {formatRelative(note.closedAt)}
                 </Typography>
               </Box>
@@ -192,18 +192,20 @@ const ClosedNotesDrawer = ({ open, onClose, closedNotes, onReopen, onDeleteReque
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           fullWidth
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: 18, color: "text.disabled" }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 18, color: "text.disabled" }} />
+                </InputAdornment>
+              ),
+            }
           }}
         />
       </Box>
       <List sx={{ flex: 1, overflow: "auto", pt: 0 }}>
         {filtered.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, pt: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", px: 2.5, pt: 2 }}>
             {entries.length === 0 ? t("notes.closed.empty") : t("notes.closed.noMatches")}
           </Typography>
         ) : (

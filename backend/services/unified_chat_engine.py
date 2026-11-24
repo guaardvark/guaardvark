@@ -27,6 +27,7 @@ from backend.services.agent_tools import (
     tool_needs_approval_card as _tool_needs_approval_card,
 )
 from backend.utils.text_cut import cut_on_whitespace
+from backend.utils.tool_markup import brackets_to_xml, strip_tool_markup
 from backend.utils.request_phrases import (
     HOW_TO_QUESTION_RE, VIDEO_SOFTWARE_PATTERN, asks_for_rewrite, asks_for_writing,
     declines_media, normalise_message, whole_message_pattern,
@@ -726,9 +727,32 @@ _IMAGE_GEN_NEGATIVE_PATTERNS = (
 _HOW_TO_QUESTION_RE = HOW_TO_QUESTION_RE
 # Image requests only: a how-to question or front-end work ("how do I animate a
 # CSS button", "make an image responsive") is a question for the chat model.
+# "Create an image upload endpoint", "make a video queue service": the picture
+# word names a piece of software, and a match on these gates starts a render
+# with no model in the loop. The word after it (one other word allowed between,
+# not a preposition: "an image of a gallery" is a picture) decides.
+_MEDIA_SOFTWARE_NOUNS = (
+    "endpoints?|routes?|apis?|components?|services?|uploads?|uploaders?|carousels?|sliders?|viewers?|"
+    "players?|queues?|pipelines?|handlers?|modules?|class(?:es)?|functions?|fields?|columns?|tables?|"
+    "forms?|widgets?|tags?|elements?|loaders?|caches?|parsers?|schemas?|databases?|librar(?:y|ies)|"
+    "plugins?|features?|scripts?|pages?|galler(?:y|ies)|pickers?|previews?|thumbnails?|converters?|"
+    "optimi[sz]ers?|compress(?:or|ion)|processing|editors?|downloaders?|scrapers?|classifiers?"
+)
+_MEDIA_AS_SOFTWARE_PATTERN = (
+    r"\b(?:image|picture|photo|video|gif)s?[\s-]+"
+    r"(?:(?!(?:of|with|for|in|on|at|a|an|the|that|where|showing|about|from)\b)[a-z0-9-]+[\s-]+)?"
+    rf"(?:{_MEDIA_SOFTWARE_NOUNS})\b"
+)
+# Says where in a codebase the work goes: a source path, or a part of an app.
+_CODE_LOCATION_PATTERN = (
+    r"(?:\b[\w./-]+\.(?:py|jsx?|tsx?|css|html|json|ya?ml|sh)\b|\b(?:backend|frontend|src)/|"
+    r"\b(?:endpoint|codebase|repo(?:sitory)?|pull request|unit tests?)\b)"
+)
 _IMAGE_REQUEST_NEGATIVE_PATTERNS = _IMAGE_GEN_NEGATIVE_PATTERNS + (
     _HOW_TO_QUESTION_RE.pattern,
     r"\b(?:css|html|javascript|jsx?|tsx|react|svg|keyframes?|hover|tailwind|stylesheet)\b",
+    _MEDIA_AS_SOFTWARE_PATTERN,
+    _CODE_LOCATION_PATTERN,
 )
 
 # Edit verbs for a picture already on screen ("add a scarf", "make it bigger").
@@ -3595,17 +3619,8 @@ class UnifiedChatEngine:
                 # because we sanitize the system prompt. Convert back to XML for the parser.
                 parse_input = llm_response
                 if "[tool_call]" in llm_response or "[tool]" in llm_response:
-                    parse_input = (llm_response
-                        .replace("[tool_call]", "<tool_call>")
-                        .replace("[/tool_call]", "</tool_call>")
-                        .replace("[tool]", "<tool>")
-                        .replace("[/tool]", "</tool>"))
-                    # Convert [param_name]value[/param_name] back to XML. Models also
-                    # mix the two forms ("[name>value</name>"); left alone, that
-                    # parameter was dropped and the call ran with none.
-                    parse_input = re.sub(r'\[/(\w+)[\]>]', r'</\1>', parse_input)
-                    parse_input = re.sub(r'\[(\w+)[\]>]', r'<\1>', parse_input)
-                    parse_input = re.sub(r'<(/?\w+)\]', r'<\1>', parse_input)
+                    # Tags only: code in a parameter's value keeps its brackets.
+                    parse_input = brackets_to_xml(llm_response)
                 parsed = parse_tool_calls_xml(parse_input)
 
             # 6d. No tool calls -> final answer
@@ -3686,7 +3701,7 @@ class UnifiedChatEngine:
                         final_text = f"{final_text.rstrip()}\n\n{_CLAIMED_SEARCH_NOTE}"
                         emit_fn("chat:token", {"content": f"\n\n{_CLAIMED_SEARCH_NOTE}", "session_id": session_id})
                 logger.info(f"[UNIFIED_ENGINE] iter={iteration} NO tool calls, returning final answer")
-                final_text = re.sub(r'\u003c/?(?:tool_call|tool|observation)[^\u003e]*\u003e', '', final_text).strip()
+                final_text = strip_tool_markup(final_text, params=False).strip()
 
                 log_decision("unified_chat", "FINAL_ANSWER", {
                     "iteration": iteration, "session_id": session_id,
@@ -4446,17 +4461,9 @@ class UnifiedChatEngine:
         #    Strip any residual XML tool-call artifacts so they don't pollute
         #    conversation history and confuse future LLM context windows.
         if accumulated_response.strip() and persist:
-            clean_response = re.sub(
-                r'</?(?:tool_call|tool|observation|result|reasoning|query|url|'
-                r'param_name|parameter|value|full_page|selector|format|max_results|'
-                r'analysis_type|include_metadata)[^>]*>',
-                '', accumulated_response
-            ).strip()
-            # The bracket form thinking models are prompted with, so a leaked
-            # [tool_call] never re-enters the model's context as history.
-            clean_response = re.sub(
-                r'\[/?(?:tool_call|tool|observation)[^\]]*\]', '', clean_response
-            ).strip()
+            # Leaked call tags in either form never re-enter the model's context
+            # as history; code in the reply is saved as it was written.
+            clean_response = strip_tool_markup(accumulated_response).strip()
             # Collapse runs of whitespace left by tag removal
             clean_response = re.sub(r'\n{3,}', '\n\n', clean_response)
             extra_data = {"steps": steps, "iterations": iteration} if steps else {}

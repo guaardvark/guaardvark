@@ -209,7 +209,7 @@ refactor(api): extract indexing logic into dedicated service
 ### JavaScript/React
 
 - Functional components with hooks
-- Material-UI v5 for all UI elements
+- Material UI v9 for all UI elements
 - Zustand for global state, React Context for layout/status
 - Axios or fetch for REST, Socket.IO for streamed replies
 

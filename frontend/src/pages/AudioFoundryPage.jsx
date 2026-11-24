@@ -1170,8 +1170,10 @@ const AudioFoundryPage = () => {
           type="number"
           value={values.bpm ?? ""}
           onChange={(e) => update({ bpm: e.target.value === "" ? null : Number(e.target.value) })}
-          inputProps={{ min: 30, max: 300 }}
           sx={{ width: 100 }}
+          slotProps={{
+            htmlInput: { min: 30, max: 300 }
+          }}
         />
         <TextField
           label={t("audio.music.key")}
@@ -1187,12 +1189,13 @@ const AudioFoundryPage = () => {
           select
           label={t("audio.music.meter")}
           size="small"
-          InputLabelProps={{ shrink: true }}
           value={values.timesignature || ""}
           onChange={(e) => update({ timesignature: e.target.value })}
           sx={{ flex: 1 }}
-          SelectProps={{ native: true }}
-        >
+          slotProps={{
+            select: { native: true },
+            inputLabel: { shrink: true }
+          }}>
           <option value="">{t("audio.languages.auto")}</option>
           {METERS.map((m) => (
             <option key={m.value} value={m.value}>{m.label}</option>
@@ -1202,12 +1205,13 @@ const AudioFoundryPage = () => {
           select
           label={t("audio.music.language")}
           size="small"
-          InputLabelProps={{ shrink: true }}
           value={values.vocal_language && values.vocal_language !== "unknown" ? values.vocal_language : ""}
           onChange={(e) => update({ vocal_language: e.target.value })}
           sx={{ flex: 1 }}
-          SelectProps={{ native: true }}
-        >
+          slotProps={{
+            select: { native: true },
+            inputLabel: { shrink: true }
+          }}>
           {vocalLanguages().map(([code, label]) => (
             <option key={code || "auto"} value={code}>{label}</option>
           ))}
@@ -1340,7 +1344,7 @@ const AudioFoundryPage = () => {
               <Box sx={{ p: 4, minHeight: 450 }}>
                 {activeTab === 0 && (
                   <Stack spacing={3}>
-                    <Typography variant="h6" fontWeight="bold">{t("audio.voice.title")}</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: "bold" }}>{t("audio.voice.title")}</Typography>
                     <TextField
                       multiline
                       rows={8}
@@ -1373,7 +1377,7 @@ const AudioFoundryPage = () => {
                         <Select
                           value={voiceId}
                           onChange={(e) => setVoiceId(e.target.value)}
-                          MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+                          MenuProps={{ slotProps: { paper: { sx: { maxHeight: 360 } } } }}
                           sx={{ borderRadius: 2 }}
                         >
                           <MenuItem value={DEFAULT_VOICE}>
@@ -1387,7 +1391,7 @@ const AudioFoundryPage = () => {
                               <MenuItem key={v.id} value={v.id}>
                                 {v.label} <Typography component="span" variant="caption" sx={{ ml: 1, opacity: 0.6 }}>{v.id}</Typography>
                                 {group.language_installed === false && (
-                                  <Typography component="span" variant="caption" color="warning.main" sx={{ ml: "auto", pl: 2 }}>
+                                  <Typography component="span" variant="caption" sx={{ color: "warning.main", ml: "auto", pl: 2 }}>
                                     {t("audio.voice.installLanguageFirst", { language: group.language })}
                                   </Typography>
                                 )}
@@ -1407,9 +1411,9 @@ const AudioFoundryPage = () => {
 
                         {referenceClip ? (
                           <Card variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-                            <Stack direction="row" spacing={1} alignItems="center">
+                            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                               <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                                <Typography variant="body2" fontWeight="bold" noWrap>
+                                <Typography variant="body2" noWrap sx={{ fontWeight: "bold" }}>
                                   {referenceClip.display_name || referenceClip.filename}
                                 </Typography>
                                 <audio
@@ -1458,7 +1462,7 @@ const AudioFoundryPage = () => {
                               onChange={(e) => {
                                 handlePickClip(voiceClipLibrary.find((x) => x.filename === e.target.value));
                               }}
-                              MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
+                              MenuProps={{ slotProps: { paper: { sx: { maxHeight: 300 } } } }}
                               sx={{ borderRadius: 2 }}
                             >
                               {voiceClipLibrary.map((c) => (
@@ -1497,7 +1501,7 @@ const AudioFoundryPage = () => {
 
                 {activeTab === 1 && (
                   <Stack spacing={2.5}>
-                    <Typography variant="h6" fontWeight="bold">{t("audio.music.title")}</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: "bold" }}>{t("audio.music.title")}</Typography>
 
                     <TextField
                       select
@@ -1511,7 +1515,9 @@ const AudioFoundryPage = () => {
                         clearPolish();
                       }}
                       fullWidth
-                      SelectProps={{ native: true }}
+                      slotProps={{
+                        select: { native: true }
+                      }}
                     >
                       <option value="ace-step">ACE-Step v1 (Audio Foundry)</option>
                       <option value="ace-step-1.5" disabled={ace15Ready === false}>
@@ -1600,7 +1606,10 @@ const AudioFoundryPage = () => {
                                   label={<Typography variant="caption">{t("audio.music.polishWithAi")}</Typography>}
                                   sx={{ m: 0 }}
                                 />
-                                <Typography variant="caption" display="block" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  sx={{ display: "block", color: "text.secondary" }}
+                                >
                                   {isAce15 ? t("audio.music.polishHelpAce15") : t("audio.music.polishHelpTags")}
                                 </Typography>
                               </Box>
@@ -1618,7 +1627,10 @@ const AudioFoundryPage = () => {
                                   label={<Typography variant="caption">{t("audio.music.plannerRewrite")}</Typography>}
                                   sx={{ m: 0 }}
                                 />
-                                <Typography variant="caption" display="block" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  sx={{ display: "block", color: "text.secondary" }}
+                                >
                                   {t("audio.music.plannerRewriteHelp")}
                                 </Typography>
                               </Box>
@@ -1635,7 +1647,7 @@ const AudioFoundryPage = () => {
                               sx={{ m: 0 }}
                             />
                             <Box>
-                              <Typography variant="caption" fontWeight="bold">{t("audio.music.duration", { seconds: duration })}</Typography>
+                              <Typography variant="caption" sx={{ fontWeight: "bold" }}>{t("audio.music.duration", { seconds: duration })}</Typography>
                               <Slider
                                 value={duration}
                                 min={10}
@@ -1651,7 +1663,7 @@ const AudioFoundryPage = () => {
                             </Box>
                             {direct && (
                               <>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                                   {t("audio.music.directFieldsHint")}
                                 </Typography>
                                 {ace15Fields(directFields, updateDirect)}
@@ -1661,8 +1673,10 @@ const AudioFoundryPage = () => {
                                   value={directFields.seed}
                                   onChange={(e) => updateDirect({ seed: e.target.value.replace(/\D/g, "") })}
                                   helperText={t("audio.music.seedHelp")}
-                                  inputProps={{ inputMode: "numeric" }}
                                   fullWidth
+                                  slotProps={{
+                                    htmlInput: { inputMode: "numeric" }
+                                  }}
                                 />
                                 {!instrumental && (
                                   <Box>
@@ -1677,7 +1691,10 @@ const AudioFoundryPage = () => {
                                       label={<Typography variant="caption">{t("audio.music.audioSketch")}</Typography>}
                                       sx={{ m: 0 }}
                                     />
-                                    <Typography variant="caption" display="block" color="text.secondary">
+                                    <Typography
+                                      variant="caption"
+                                      sx={{ display: "block", color: "text.secondary" }}
+                                    >
                                       {t("audio.music.audioSketchHelp")}
                                     </Typography>
                                   </Box>
@@ -1689,7 +1706,10 @@ const AudioFoundryPage = () => {
                                 {/* Genre row — pick the anchor that keeps ACE-Step v1 from drifting to country.
                                     On 1.5 these are hints; the description is what the planner reads. */}
                                 <Box>
-                                  <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.genre")}</Typography>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ fontWeight: "bold", color: "text.secondary" }}
+                                  >{t("audio.music.genre")}</Typography>
                                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
                                     {MUSIC_GENRES.map((g) => (
                                       <Chip
@@ -1707,7 +1727,10 @@ const AudioFoundryPage = () => {
 
                                 {/* Mood row */}
                                 <Box>
-                                  <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.mood")}</Typography>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ fontWeight: "bold", color: "text.secondary" }}
+                                  >{t("audio.music.mood")}</Typography>
                                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
                                     {MUSIC_MOODS.map((m) => (
                                       <Chip
@@ -1725,7 +1748,10 @@ const AudioFoundryPage = () => {
 
                                 {/* Instrument row */}
                                 <Box>
-                                  <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.instruments")}</Typography>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ fontWeight: "bold", color: "text.secondary" }}
+                                  >{t("audio.music.instruments")}</Typography>
                                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
                                     {MUSIC_INSTRUMENTS.map((i) => (
                                       <Chip
@@ -1751,7 +1777,7 @@ const AudioFoundryPage = () => {
                       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}>
                         <Stack spacing={1}>
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <Typography variant="caption" fontWeight="bold" color="primary">
+                            <Typography variant="caption" color="primary" sx={{ fontWeight: "bold" }}>
                               {t("audio.music.polishedSettings")}
                             </Typography>
                             <Button size="small" onClick={clearPolish} sx={{ minWidth: 0, textTransform: "none" }}>
@@ -1759,12 +1785,16 @@ const AudioFoundryPage = () => {
                             </Button>
                           </Box>
                           <Typography variant="body2" data-testid="polish-summary">{polishSummary()}</Typography>
-                          <Typography variant="caption" color="text.secondary">{t("audio.music.polishedKeepsWords")}</Typography>
+                          <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("audio.music.polishedKeepsWords")}</Typography>
                           {polished.tagChanges.length > 0 && (
                             <Box>
-                              <Typography variant="caption" color="text.secondary">{t("audio.music.polishedTags")}</Typography>
+                              <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("audio.music.polishedTags")}</Typography>
                               {polished.tagChanges.map(([from, to], i) => (
-                                <Typography key={i} variant="caption" display="block" sx={{ fontFamily: "monospace", opacity: 0.85 }}>
+                                <Typography
+                                  key={i}
+                                  variant="caption"
+                                  sx={{ display: "block", fontFamily: "monospace", opacity: 0.85 }}
+                                >
                                   {from} → {to}
                                 </Typography>
                               ))}
@@ -1785,7 +1815,7 @@ const AudioFoundryPage = () => {
                       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}>
                         <Stack spacing={1.25}>
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <Typography variant="caption" fontWeight="bold" color="primary">
+                            <Typography variant="caption" color="primary" sx={{ fontWeight: "bold" }}>
                               {musicPreview.fallback ? t("audio.music.polishedFallback") : t("audio.music.polished")}
                             </Typography>
                             <Button
@@ -1802,12 +1832,12 @@ const AudioFoundryPage = () => {
                             </Alert>
                           )}
                           <Box>
-                            <Typography variant="caption" color="text.secondary">{t("audio.music.style")}</Typography>
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("audio.music.style")}</Typography>
                             <Typography variant="body2">{musicPreview.style_prompt}</Typography>
                           </Box>
                           {musicPreview.negative_prompt && (
                             <Box>
-                              <Typography variant="caption" color="text.secondary">{t("audio.music.avoid")}</Typography>
+                              <Typography variant="caption" sx={{ color: "text.secondary" }}>{t("audio.music.avoid")}</Typography>
                               <Typography variant="body2" sx={{ opacity: 0.75 }}>
                                 {musicPreview.negative_prompt}
                               </Typography>
@@ -1821,7 +1851,7 @@ const AudioFoundryPage = () => {
                       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}>
                         <Stack spacing={1.25}>
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <Typography variant="caption" fontWeight="bold" color="primary">
+                            <Typography variant="caption" color="primary" sx={{ fontWeight: "bold" }}>
                               {t("audio.music.arrangement")}
                             </Typography>
                             <Button
@@ -1832,11 +1862,11 @@ const AudioFoundryPage = () => {
                               {t("audio.music.discard")}
                             </Button>
                           </Box>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: "text.secondary" }}>
                             {t("audio.music.arrangementHint")}
                           </Typography>
                           {lockSummary(arrangement.locks) && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {t("audio.music.keptFromDescription", { summary: lockSummary(arrangement.locks) })}
                             </Typography>
                           )}
@@ -1872,7 +1902,7 @@ const AudioFoundryPage = () => {
                             vocalLanguage={arrangement.vocal_language}
                           />
                           {arrangement.genres && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {t("audio.music.genres", { genres: arrangement.genres })}
                             </Typography>
                           )}
@@ -1941,7 +1971,7 @@ const AudioFoundryPage = () => {
                 )}
                 {activeTab === 2 && (
                   <Stack spacing={3}>
-                    <Typography variant="h6" fontWeight="bold">{t("audio.fx.title")}</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: "bold" }}>{t("audio.fx.title")}</Typography>
                     {fxUnavailableReason && (
                       <Alert severity="info" sx={{ borderRadius: 2 }}>
                         {fxUnavailableReason}
@@ -1956,7 +1986,7 @@ const AudioFoundryPage = () => {
                       sx={{ "& .MuiFilledInput-root": { borderRadius: 2 } }}
                     />
                     <Box>
-                      <Typography variant="caption" fontWeight="bold">{t("audio.fx.duration", { seconds: fxDuration })}</Typography>
+                      <Typography variant="caption" sx={{ fontWeight: "bold" }}>{t("audio.fx.duration", { seconds: fxDuration })}</Typography>
                       <Slider
                         value={fxDuration}
                         min={1}
@@ -2007,7 +2037,7 @@ const AudioFoundryPage = () => {
               display: "flex",
               flexDirection: "column"
             }}>
-              <Typography variant="h6" fontWeight="bold" gutterBottom color="text.secondary">{t("audio.monitor.title")}</Typography>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: "bold", color: "text.secondary" }}>{t("audio.monitor.title")}</Typography>
               
               {!result && !loading && (
                 <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: 0.3 }}>
@@ -2025,8 +2055,8 @@ const AudioFoundryPage = () => {
                     variant={progress && progress.total > 0 ? "determinate" : "indeterminate"}
                     value={progress && progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : undefined}
                   />
-                  <Typography variant="h5" fontWeight="bold">{t("audio.monitor.synthesizing")}</Typography>
-                  <Typography color="text.secondary">
+                  <Typography variant="h5" sx={{ fontWeight: "bold" }}>{t("audio.monitor.synthesizing")}</Typography>
+                  <Typography sx={{ color: "text.secondary" }}>
                     {progress && progress.total > 0
                       ? t("audio.monitor.chunk", {
                         current: progress.current,
@@ -2063,20 +2093,20 @@ const AudioFoundryPage = () => {
 
                   <Card variant="outlined" sx={{ borderRadius: 3, backgroundColor: "rgba(0,0,0,0.2)" }}>
                     <CardContent>
-                      <Typography variant="overline" color="text.secondary" fontWeight="bold">{t("audio.monitor.specs")}</Typography>
-                      <Grid container spacing={2} sx={{ mt: 1 }}>
-                        <Grid item xs={6}>
-                          <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.backend")}</Typography>
-                          <Typography variant="body2" fontWeight="bold">{result.meta?.backend}</Typography>
+                      <Typography variant="overline" sx={{ color: "text.secondary", fontWeight: "bold" }}>{t("audio.monitor.specs")}</Typography>
+                      <Grid container spacing={2} sx={{ mt: 3 }}>
+                        <Grid size={6}>
+                          <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>{t("audio.monitor.backend")}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: "bold" }}>{result.meta?.backend}</Typography>
                         </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.fidelity")}</Typography>
-                          <Typography variant="body2" fontWeight="bold">{result.sample_rate} Hz</Typography>
+                        <Grid size={6}>
+                          <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>{t("audio.monitor.fidelity")}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: "bold" }}>{result.sample_rate} Hz</Typography>
                         </Grid>
                         {result.meta?.seed != null && result.meta.seed !== "" && (
-                          <Grid item xs={6}>
-                            <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.seed")}</Typography>
-                            <Typography variant="body2" fontWeight="bold">{String(result.meta.seed)}</Typography>
+                          <Grid size={6}>
+                            <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>{t("audio.monitor.seed")}</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: "bold" }}>{String(result.meta.seed)}</Typography>
                             {direct && result.meta.direct && (
                               <Button
                                 size="small"
@@ -2088,19 +2118,22 @@ const AudioFoundryPage = () => {
                             )}
                           </Grid>
                         )}
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                           {/* The file's name only: the server path carries the account name, and
                               the file is reached through the Audio library, not the path. */}
-                          <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.file")}</Typography>
+                          <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>{t("audio.monitor.file")}</Typography>
                           <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.7rem", opacity: 0.7 }}>
                             {fileNameOf(result.path) || "—"}
                           </Typography>
                         </Grid>
                         {result.meta?.arrangement && (
-                          <Grid item xs={12}>
-                            <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.captionSent")}</Typography>
+                          <Grid size={12}>
+                            <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>{t("audio.monitor.captionSent")}</Typography>
                             {result.meta.direct && (
-                              <Typography variant="caption" display="block" color="text.secondary">
+                              <Typography
+                                variant="caption"
+                                sx={{ display: "block", color: "text.secondary" }}
+                              >
                                 {result.meta.audio_sketch ? t("audio.monitor.sentSketch") : t("audio.monitor.sentDirect")}
                               </Typography>
                             )}
@@ -2123,7 +2156,10 @@ const AudioFoundryPage = () => {
                             </Stack>
                             {result.meta.arrangement.lyrics && (
                               <Box sx={{ mt: 1, maxHeight: 160, overflow: "auto" }}>
-                                <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.lyricsSent")}</Typography>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ display: "block", color: "text.secondary" }}
+                                >{t("audio.monitor.lyricsSent")}</Typography>
                                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", opacity: 0.9 }}>
                                   {result.meta.arrangement.lyrics}
                                 </Typography>

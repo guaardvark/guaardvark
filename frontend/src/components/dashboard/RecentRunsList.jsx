@@ -56,7 +56,9 @@ const RecentRunsList = ({ rows, loading, error, emptyText, onOpen, viewAll }) =>
                   </Box>
                 }
                 secondary={[formatDate(row.date), row.detail].filter(Boolean).join(" • ")}
-                secondaryTypographyProps={{ noWrap: true, sx: { fontSize: "0.65rem" } }}
+                slotProps={{
+                  secondary: { noWrap: true, sx: { fontSize: "0.65rem" } }
+                }}
               />
             </ListItemButton>
           );

@@ -60,7 +60,9 @@ STALE_RUN_REASON = "Interrupted: the worker running this scan stopped before it 
 
 def _test_env(**extra) -> Dict[str, str]:
     env = dict(os.environ)
-    env.update(DATABASE_URL=_UNREACHABLE_DATABASE_URL, GUAARDVARK_MODE="test", **extra)
+    # COLUMNS: pytest cuts its failure summary to the terminal width, and with
+    # no terminal that is 80 columns, which drops the error message.
+    env.update(DATABASE_URL=_UNREACHABLE_DATABASE_URL, GUAARDVARK_MODE="test", COLUMNS="240", **extra)
     # A temp dir inside the checkout is dropped so pytest's tmp_path lands in the
     # system one. start.sh points TMPDIR at data/piptmp while it installs
     # dependencies, and the processes it starts keep it; a test sandbox under
@@ -308,28 +310,42 @@ class SelfImprovementService:
         raw = f"{file}:{line}:{error_type}"
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
+    _NO_DETAIL = "Test failed (see output for details)"
+
     def _parse_test_failures(self, pytest_output: str) -> List[Dict[str, str]]:
-        failures = []
-        # Pattern with error message: FAILED path::test - error
-        pattern = r"FAILED\s+(\S+?)::(\S+)\s*-\s*(.*)"
-        for match in re.finditer(pattern, pytest_output):
+        """Each failed test once, with the error pytest reported for it.
+
+        The summary line carries the message when it fits the terminal width;
+        when it does not, the error is read from the test's traceback section,
+        so a fix attempt always starts from the real error.
+        """
+        found: Dict[tuple, Dict[str, str]] = {}
+        for match in re.finditer(r"^FAILED\s+(\S+?)::(\S+)(?:\s+-\s+(.*))?$", pytest_output, re.MULTILINE):
             file_path, test_name, error = match.groups()
-            failures.append({
-                "file": file_path.strip(),
-                "test_name": test_name.strip(),
-                "error": error.strip(),
-            })
-        # Fallback: FAILED path::test (no dash-separated error)
-        if not failures:
-            pattern2 = r"FAILED\s+(\S+?)::(\S+)"
-            for match in re.finditer(pattern2, pytest_output):
-                file_path, test_name = match.groups()
-                failures.append({
-                    "file": file_path.strip(),
-                    "test_name": test_name.strip(),
-                    "error": "Test failed (see output for details)",
-                })
-        return failures
+            key = (file_path.strip(), test_name.strip())
+            error = (error or "").strip()
+            if key not in found or (error and found[key]["error"] == self._NO_DETAIL):
+                found[key] = {"file": key[0], "test_name": key[1], "error": error or self._NO_DETAIL}
+        for failure in found.values():
+            if failure["error"] == self._NO_DETAIL or failure["error"].endswith("..."):
+                detail = self._traceback_error(pytest_output, failure["test_name"])
+                if detail:
+                    failure["error"] = detail
+        return list(found.values())
+
+    @staticmethod
+    def _traceback_error(pytest_output: str, test_name: str) -> str:
+        """The `E` lines of one test's traceback section (--tb=short/long),
+        or "" when the output has none (--tb=no)."""
+        # Class::method node ids head their section "Class.method"; parametrised
+        # ids keep their brackets.
+        title = re.escape(test_name.replace("::", "."))
+        section = re.search(rf"^_+ {title} _+$(.*?)(?=^_+ .* _+$|^=+ .* =+$|\Z)",
+                            pytest_output, re.MULTILINE | re.DOTALL)
+        if not section:
+            return ""
+        lines = [ln[1:].strip() for ln in section.group(1).splitlines() if ln.startswith("E ")]
+        return "\n".join(lines[:8])[:1200]
 
     def _confirm_failures(self, failures: List[Dict[str, str]], root: str):
         """(failures that fail again, failures that passed when re-run).
@@ -792,11 +808,22 @@ class SelfImprovementService:
         if len(self._error_tracker[fp]) >= SELF_HEALING_ERROR_THRESHOLD:
             logger.info(f"Error threshold reached for {file}:{line} ({error_type}), triggering self-healing")
             self._error_tracker[fp] = []
-            threading.Thread(
-                target=self.heal,
-                args=(file, line, error_type, traceback_str),
-                daemon=True,
-            ).start()
+            try:
+                from flask import current_app
+                app = current_app._get_current_object()
+            except RuntimeError:
+                app = None
+
+            def _heal_in_app():
+                # The thread starts without the request's app context, and
+                # every check heal() makes reads the database.
+                if app is None:
+                    self.heal(file, line, error_type, traceback_str)
+                    return
+                with app.app_context():
+                    self.heal(file, line, error_type, traceback_str)
+
+            threading.Thread(target=_heal_in_app, daemon=True).start()
 
     def heal(self, file: str, line: int, error_type: str, traceback_str: str):
         """Reactive fix for repeated errors."""

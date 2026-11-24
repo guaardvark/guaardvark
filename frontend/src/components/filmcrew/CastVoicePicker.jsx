@@ -89,13 +89,15 @@ const CastVoicePicker = ({ value, onChange, disabled = false }) => {
         error={status.state === "invalid"}
         onChange={(e) => onChange(e.target.value)}
         helperText={helperText}
-        InputLabelProps={{ shrink: true }}
-        SelectProps={{
-          displayEmpty: true,
-          renderValue,
-          MenuProps: { PaperProps: { sx: { maxHeight: 420 } } },
-        }}
-      >
+        slotProps={{
+          select: {
+            displayEmpty: true,
+            renderValue,
+            MenuProps: { slotProps: { paper: { sx: { maxHeight: 420 } } } },
+          },
+
+          inputLabel: { shrink: true }
+        }}>
         <MenuItem value="">
           {defaultVoiceLabel()}
           <Caption>{t("filmCrew.voicePicker.foundryChooses")}</Caption>

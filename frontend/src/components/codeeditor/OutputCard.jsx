@@ -151,7 +151,7 @@ const OutputCard = React.forwardRef(
                   )}
                 </Box>
               }
-              sx={{ '& .MuiTab-iconWrapper': { mr: 0.5 } }}
+              sx={{ "& .MuiTab-icon": { mr: 0.5 } }}
             />
           </Tabs>
 
@@ -167,7 +167,10 @@ const OutputCard = React.forwardRef(
                     minHeight: '80px',
                     p: 1
                   }}>
-                    <Typography variant="body2" color="success.main" sx={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "success.main", fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 0.5 }}
+                    >
                       <SuccessIcon fontSize="small" />
                       {t("codeEditor.output.noProblems")}
                     </Typography>

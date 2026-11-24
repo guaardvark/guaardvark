@@ -2247,6 +2247,37 @@ _RELEASE_STAND_INS = frozenset({
 })
 
 
+def _restore_symlinks(symlinks: dict, project_root: Path, summary: dict) -> None:
+    """Recreate the symlinks a backup manifest records (link name -> target,
+    both relative to the checkout)."""
+    for link_name, link_target in symlinks.items():
+        # Both ends stay inside the checkout, the same limit restore_backup
+        # keeps for the archive's files. The target is resolved from the
+        # link's own folder, which is where the link will resolve it.
+        try:
+            if os.path.isabs(link_target):
+                raise PathEscapesRoot(link_target)
+            link_path = contained(project_root, link_name)
+            if link_path == Path(os.path.abspath(project_root)):
+                raise PathEscapesRoot(link_name)
+            target_path = contained(project_root, link_path.parent / link_target)
+        except (PathEscapesRoot, TypeError):
+            logger.warning("Skipping suspicious restore symlink: %s -> %s", link_name, link_target)
+            continue
+        if target_path.exists():
+            try:
+                if link_path.exists() or link_path.is_symlink():
+                    link_path.unlink()
+                os.symlink(link_target, link_path)
+                logger.info("Recreated symlink: %s -> %s", link_name, link_target)
+                summary.setdefault("symlinks_restored", 0)
+                summary["symlinks_restored"] += 1
+            except Exception as e:
+                logger.warning("Failed to create symlink %s -> %s: %s", link_name, link_target, e)
+        else:
+            logger.warning("Symlink target not found: %s -> %s", link_name, link_target)
+
+
 def restore_backup(zip_file: str) -> Dict[str, int]:
     """Restore a backup from ``zip_file``.
 
@@ -2324,22 +2355,7 @@ def restore_backup(zip_file: str) -> Dict[str, int]:
                     except Exception as e:
                         logger.warning("Failed to restore file %s: %s", member, e)
             # Recreate symlinks recorded in the manifest
-            symlinks = data.get("symlinks", {})
-            for link_name, link_target in symlinks.items():
-                link_path = project_root / link_name
-                target_path = project_root / link_target
-                if target_path.exists():
-                    try:
-                        if link_path.exists() or link_path.is_symlink():
-                            link_path.unlink()
-                        os.symlink(link_target, link_path)
-                        logger.info("Recreated symlink: %s -> %s", link_name, link_target)
-                        summary.setdefault("symlinks_restored", 0)
-                        summary["symlinks_restored"] += 1
-                    except Exception as e:
-                        logger.warning("Failed to create symlink %s -> %s: %s", link_name, link_target, e)
-                else:
-                    logger.warning("Symlink target not found: %s -> %s", link_name, link_target)
+            _restore_symlinks(data.get("symlinks", {}), project_root, summary)
 
             # Restore PostgreSQL dump if present
             if data.get("pg_dump_included"):

@@ -115,6 +115,8 @@ class CleanupRequest(BaseModel):
     swarm_id: Optional[str] = None
     repo_path: Optional[str] = None
     delete_branches: bool = False
+    # Also delete branches whose commits were never merged (their only copy).
+    discard_unmerged: bool = False
     all: bool = False
 
 
@@ -573,93 +575,127 @@ def cleanup_swarm(req: CleanupRequest):
     if not mgr:
         raise HTTPException(404, f"Swarm not found: {req.swarm_id}")
 
-    count = mgr.cleanup_all(delete_branches=req.delete_branches)
+    count = mgr.cleanup_all(delete_branches=req.delete_branches, discard_unmerged=req.discard_unmerged)
 
     with _lock:
         _active_orchestrators.pop(req.swarm_id, None)
 
+    message = f"Cleaned up {count} worktrees for {req.swarm_id}"
+    if mgr.kept_branches:
+        message += (f". Kept {len(mgr.kept_branches)} branch(es) with work that was never merged: "
+                    f"{', '.join(mgr.kept_branches)}")
     return {
         "success": True,
-        "message": f"Cleaned up {count} worktrees for {req.swarm_id}",
+        "message": message,
         "worktrees_removed": count,
+        "branches_kept": mgr.kept_branches,
     }
 
 
 # --- Templates ---
 
+_SHIPPED_PLANS = "plugins/swarm/templates"
+# Plans a person writes are their data, kept out of the checkout: a saved plan
+# under the tracked templates folder made the tree dirty, and a self-code
+# swarm refuses to start on a dirty tree.
+_SAVED_PLANS = "data/outputs/swarm_plans"
+
+
+def _plan_dirs() -> list[tuple[Path, str, bool]]:
+    """(folder, its path relative to the install root, saved by a person),
+    saved plans first so a saved copy of a shipped template wins."""
+    shipped = Path(__file__).parent.parent / "templates"
+    root = Path(os.environ.get("GUAARDVARK_ROOT") or shipped.parents[2])
+    return [(root / _SAVED_PLANS, _SAVED_PLANS, True), (shipped, _SHIPPED_PLANS, False)]
+
+
 @app.get("/swarm/templates")
 def list_templates():
-    """List available swarm plan templates."""
-    template_dir = Path(__file__).parent.parent / "templates"
-    if not template_dir.exists():
-        return {"success": True, "templates": []}
-
+    """List the plan templates: the shipped ones and the ones saved here."""
     templates = []
-    for f in sorted(template_dir.glob("*.md")):
-        lines = f.read_text().split("\n")
-        title = lines[0].lstrip("# ").strip() if lines else f.stem
-        desc = ""
-        for line in lines[1:]:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                desc = line
-                break
+    seen = set()
+    for folder, relative, saved in _plan_dirs():
+        if not folder.exists():
+            continue
+        for f in sorted(folder.glob("*.md")):
+            if f.name in seen or (saved and f.name.startswith("plan_")):
+                # plan_<timestamp>.md files are one-off launches, not templates.
+                continue
+            seen.add(f.name)
+            lines = f.read_text().split("\n")
+            title = lines[0].lstrip("# ").strip() if lines else f.stem
+            desc = ""
+            for line in lines[1:]:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    desc = line
+                    break
 
-        # count tasks by counting ## headings
-        task_count = sum(1 for line in lines if line.startswith("## ") and not line.startswith("### "))
+            templates.append({
+                "filename": f.name,
+                "path": str(f),
+                # What the launch takes as plan_path.
+                "plan_path": f"{relative}/{f.name}",
+                "saved": saved,
+                "title": title,
+                "description": desc,
+                "task_count": _task_count(f),
+            })
 
-        templates.append({
-            "filename": f.name,
-            "path": str(f),
-            "title": title,
-            "description": desc,
-            "task_count": task_count,
-        })
-
+    templates.sort(key=lambda t: t["filename"])
     return {"success": True, "templates": templates, "count": len(templates)}
+
+
+def _task_count(plan_file: Path) -> int:
+    """How many tasks the launch would run: the parser's count, so a heading
+    that is not a task is not counted as one."""
+    try:
+        return len(parse_plan(str(plan_file)))
+    except Exception:  # noqa: BLE001 - a plan that does not parse has no tasks to run
+        return 0
 
 
 @app.get("/swarm/templates/{filename}")
 def get_template(filename: str):
     """Get the raw content of a template."""
-    template_dir = Path(__file__).parent.parent / "templates"
-    try:
-        template_path = _contained(template_dir, filename)
-    except ValueError:
-        raise HTTPException(404, f"Template not found: {filename}")
-
-    if not template_path.exists() or not template_path.suffix == ".md":
-        raise HTTPException(404, f"Template not found: {filename}")
-
-    return {
-        "success": True,
-        "filename": filename,
-        "content": template_path.read_text(),
-    }
+    for folder, relative, _saved in _plan_dirs():
+        try:
+            template_path = _contained(folder, filename)
+        except ValueError:
+            continue
+        if template_path.exists() and template_path.suffix == ".md":
+            return {
+                "success": True,
+                "filename": filename,
+                "plan_path": f"{relative}/{filename}",
+                "content": template_path.read_text(),
+            }
+    raise HTTPException(404, f"Template not found: {filename}")
 
 
 @app.post("/swarm/templates/save")
 def save_template(req: SavePlanRequest):
-    """Save a new or existing plan template."""
-    template_dir = Path(__file__).parent.parent / "templates"
-    template_dir.mkdir(parents=True, exist_ok=True)
-    
+    """Save a plan a person wrote, beside the shipped templates in the list."""
+    folder, relative, _saved = _plan_dirs()[0]
+    folder.mkdir(parents=True, exist_ok=True)
+
     filename = req.filename
     if not filename.endswith(".md"):
         filename += ".md"
-        
+
     # sanitize filename
     import re
     filename = re.sub(r"[^a-zA-Z0-9._-]", "_", filename)
-    
+
     try:
-        template_path = _contained(template_dir, filename)
+        template_path = _contained(folder, filename)
     except ValueError:
         raise HTTPException(400, f"invalid template filename: {filename}")
-    
+
     try:
         template_path.write_text(req.content)
-        return {"success": True, "message": f"Template saved: {filename}", "filename": filename}
+        return {"success": True, "message": f"Plan saved: {filename}", "filename": filename,
+                "plan_path": f"{relative}/{filename}"}
     except Exception as e:
         raise HTTPException(500, f"Failed to save template: {e}")
 

@@ -164,22 +164,21 @@ const TaskCard = ({ task, onEdit, onStartJob, onStopJob }) => {
           <Typography variant="body2" noWrap title={title} sx={{ fontWeight: 600 }}>
             {title}
           </Typography>
-          <Typography variant="caption" color="text.secondary" noWrap title={settings}>
+          <Typography variant="caption" noWrap title={settings} sx={{ color: "text.secondary" }}>
             {settings}
           </Typography>
           {text && (
             <Typography
               variant="caption"
-              color="text.secondary"
               title={text}
-              sx={{ overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.35 }}
+              sx={{ color: "text.secondary", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.35 }}
             >
               {text}
             </Typography>
           )}
           <Box sx={{ mt: "auto", pt: 0.5, display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
             {!isWaiting && <StatusPill label={pillLabel} tone={statusTone(cleanStatus)} />}
-            <Typography variant="caption" color={standing.color || "text.secondary"} noWrap title={standing.text} sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="caption" noWrap title={standing.text} sx={{ color: standing.color || "text.secondary", flex: 1, minWidth: 0 }}>
               {isRunning && progress > 0 ? `${progress}% · ` : ""}{standing.text}
             </Typography>
             <Box sx={{ display: "flex", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>

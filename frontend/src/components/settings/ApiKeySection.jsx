@@ -132,7 +132,7 @@ function NewKeyDialog({ apiKey, onClose }) {
     <Dialog open={Boolean(apiKey)} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ fontSize: "1rem" }}>{t("settingsAccess.apiKey.newKey.title")}</DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t("settingsAccess.apiKey.newKey.body")}
         </Typography>
         <Line nowrap>
@@ -142,7 +142,9 @@ function NewKeyDialog({ apiKey, onClose }) {
             value={apiKey || ""}
             inputRef={inputRef}
             onFocus={(e) => e.target.select()}
-            InputProps={{ readOnly: true, sx: { fontFamily: "monospace", fontSize: "0.85rem" } }}
+            slotProps={{
+              input: { readOnly: true, sx: { fontFamily: "monospace", fontSize: "0.85rem" } }
+            }}
           />
           <ActionButton onClick={copy}>{t("settingsAccess.apiKey.newKey.copy")}</ActionButton>
         </Line>
@@ -345,23 +347,25 @@ export default function ApiKeySection() {
                 save();
               }
             }}
-            inputProps={{ spellCheck: false, "aria-label": t("settingsAccess.apiKey.keyLabel") }}
-            InputProps={{
-              sx: { fontFamily: showKey ? "monospace" : undefined },
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    aria-label={showKey ? t("settingsAccess.apiKey.hideKey") : t("settingsAccess.apiKey.showKey")}
-                    onClick={() => setShowKey((v) => !v)}
-                    edge="end"
-                  >
-                    {showKey ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
+            slotProps={{
+              input: {
+                sx: { fontFamily: showKey ? "monospace" : undefined },
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      aria-label={showKey ? t("settingsAccess.apiKey.hideKey") : t("settingsAccess.apiKey.showKey")}
+                      onClick={() => setShowKey((v) => !v)}
+                      edge="end"
+                    >
+                      {showKey ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+
+              htmlInput: { spellCheck: false, "aria-label": t("settingsAccess.apiKey.keyLabel") }
+            }} />
           {typed && (
             <ActionButton
               kind="primary"

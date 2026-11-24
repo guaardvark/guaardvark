@@ -320,9 +320,9 @@ const RuleActionModal = ({
         )}
         <Grid container spacing={3}>
           {/* Basic Information */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={8}>
+              <Grid size={{ xs: 12, sm: 8 }}>
                 <TextField
                   label={t("dialogs.ruleAction.name")}
                   name="name"
@@ -340,14 +340,12 @@ const RuleActionModal = ({
                 />
               </Grid>
               <Grid
-                item
-                xs={12}
-                sm={4}
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
+                size={{ xs: 12, sm: 4 }}
               >
                 <FormControlLabel
                   control={
@@ -364,11 +362,11 @@ const RuleActionModal = ({
           </Grid>
 
           {/* Type Display & Command */}
-          <Grid item xs={12}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6}>
+          <Grid size={12}>
+            <Grid container spacing={2} sx={{ alignItems: "center" }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
                     {t("dialogs.ruleAction.type")}:
                   </Typography>
                   <Typography
@@ -384,14 +382,14 @@ const RuleActionModal = ({
                   >
                     {typeInfo.label}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     {typeInfo.description}
                     {!isNewRule &&
                       " " + t("dialogs.ruleAction.keptOnSave", { level: effective.level, type: effective.type || t("dialogs.ruleAction.noType") })}
                   </Typography>
                 </Box>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label={t("dialogs.ruleAction.command")}
                   name="command_label"
@@ -417,7 +415,7 @@ const RuleActionModal = ({
           </Grid>
 
           {/* Content */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               label={contentField.label}
               name="rule_text"
@@ -433,7 +431,7 @@ const RuleActionModal = ({
           </Grid>
 
           {/* Description & Models */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               label={t("dialogs.ruleAction.description")}
               name="description"
@@ -447,7 +445,7 @@ const RuleActionModal = ({
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Autocomplete
               multiple
               options={modelOptions}
@@ -460,9 +458,9 @@ const RuleActionModal = ({
                 option === ALL_MODELS_VALUE ? t("dialogs.ruleAction.allModels") : option
               }
               isOptionEqualToValue={(option, value) => option === value}
-              renderTags={(value, getTagProps) =>
+              renderValue={(value, getItemProps) =>
                 value.map((option, index) => {
-                  const { key, ...otherTagProps } = getTagProps({ index });
+                  const { key, ...otherTagProps } = getItemProps({ index });
                   return (
                     <Chip
                       key={key || option}
@@ -481,16 +479,20 @@ const RuleActionModal = ({
                   label={t("dialogs.ruleAction.targetModels")}
                   placeholder={t("dialogs.ruleAction.targetPlaceholder")}
                   helperText={t("dialogs.ruleAction.targetHelp")}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <React.Fragment>
-                        {isLoadingModels && (
-                          <CircularProgress color="inherit" size={20} />
-                        )}
-                        {params.InputProps.endAdornment}
-                      </React.Fragment>
-                    ),
+                  slotProps={{
+                    ...params.slotProps,
+
+                    input: {
+                      ...params.slotProps.input,
+                      endAdornment: (
+                        <React.Fragment>
+                          {isLoadingModels && (
+                            <CircularProgress color="inherit" size={20} />
+                          )}
+                          {params.slotProps.input.endAdornment}
+                        </React.Fragment>
+                      ),
+                    }
                   }}
                 />
               )}

@@ -91,14 +91,14 @@ const FirstRunProfileDialog = () => {
                 <CardActionArea onClick={() => setChoice(c.name)} disabled={saving}>
                   <CardContent>
                     <Typography variant="subtitle1">{c.title}</Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
                       {c.blurb}
                     </Typography>
                   </CardContent>
                 </CardActionArea>
               </Card>
             ))}
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("dialogs.firstRunProfile.changeLater")}
             </Typography>
             {error && (

@@ -97,7 +97,7 @@ const CharacterPicker = ({
   if (subjects.length === 0) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t('filmCrew.characterPicker.empty')}
         </Typography>
       </Box>
@@ -168,10 +168,9 @@ const CharacterPicker = ({
             <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               <Typography 
                 variant="caption" 
-                fontWeight="bold" 
-                noWrap 
-                sx={{ display: 'block' }}
-                title={s.name}
+                noWrap
+                title={s.name} 
+                sx={{ fontWeight: "bold", display: 'block' }}
               >
                 {s.name}
               </Typography>

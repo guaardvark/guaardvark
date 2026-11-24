@@ -221,12 +221,14 @@ const ThemeSelectorModal = ({ open, onClose }) => {
       onClose={handleCancel}
       fullWidth
       maxWidth="md"
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
-          maxHeight: "90vh",
-          bgcolor: "background.paper",
-        },
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 2,
+            maxHeight: "90vh",
+            bgcolor: "background.paper",
+          },
+        }
       }}
     >
       <DialogTitle sx={{ pb: 1, bgcolor: "background.paper" }}>
@@ -241,7 +243,7 @@ const ThemeSelectorModal = ({ open, onClose }) => {
       <DialogContent dividers sx={{ p: 3, bgcolor: "background.default" }}>
         <Grid container spacing={2}>
           {Object.entries(themes).map(([key, themeData]) => (
-            <Grid item xs={12} sm={6} key={key}>
+            <Grid key={key} size={{ xs: 12, sm: 6 }}>
               <ThemePreview
                 themeKey={key}
                 themeData={themeData}

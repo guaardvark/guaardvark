@@ -69,13 +69,13 @@ export const PluginInstallSection = ({ plugin, showMessage }) => {
 
   return (
     <Box data-testid="plugin-install" sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mb: 1 }}>
-      <Typography variant="body2" color={status.state === 'failed' ? 'error' : 'text.secondary'}>
+      <Typography variant="body2" sx={{ color: status.state === 'failed' ? 'error.main' : 'text.secondary' }}>
         {status.state === 'failed'
           ? t('plugins.install.failedHint', { code: status.exit_code })
           : t('plugins.install.notInstalled')}
       </Typography>
       {status.downloads && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           {t('plugins.install.downloads', { what: status.downloads })}
         </Typography>
       )}
@@ -123,7 +123,7 @@ export const EmbeddingPathSection = ({ plugin }) => {
   if (!active || !path) return null;
   return (
     <Box data-testid="embedding-path" sx={{ mb: 1 }}>
-      <Typography variant="body2" color={path.in_use ? 'success.main' : 'warning.main'}>
+      <Typography variant="body2" sx={{ color: path.in_use ? 'success.main' : 'warning.main' }}>
         {path.in_use
           ? t('plugins.embeddingPath.inUse', { model: path.served_model, dim: path.dimension })
           : t('plugins.embeddingPath.notUsed', { reason: path.reason })}

@@ -825,7 +825,7 @@ const TaskActionModal = ({
             <StatusPill label={realTimeStatus || t("dialogs.taskAction.unknown")} tone={statusTone} />
           )}
           {isEditMode && isRunning && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("dialogs.taskAction.progress", { progress: Math.round(realTimeProgress) })}
             </Typography>
           )}
@@ -899,14 +899,18 @@ const TaskActionModal = ({
                   label={t("dialogs.taskAction.project")}
                   margin="dense"
                   helperText={t("dialogs.taskAction.projectCreates")}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {isLoadingProjects ? <CircularProgress size={20} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
+                  slotProps={{
+                    ...params.slotProps,
+
+                    input: {
+                      ...params.slotProps.input,
+                      endAdornment: (
+                        <>
+                          {isLoadingProjects ? <CircularProgress size={20} /> : null}
+                          {params.slotProps.input.endAdornment}
+                        </>
+                      ),
+                    }
                   }}
                 />
               )}
@@ -924,14 +928,18 @@ const TaskActionModal = ({
                   label={t("dialogs.taskAction.promptRule")}
                   margin="dense"
                   helperText={t("dialogs.taskAction.promptRuleHelp")}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {isLoadingRules ? <CircularProgress size={20} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
+                  slotProps={{
+                    ...params.slotProps,
+
+                    input: {
+                      ...params.slotProps.input,
+                      endAdornment: (
+                        <>
+                          {isLoadingRules ? <CircularProgress size={20} /> : null}
+                          {params.slotProps.input.endAdornment}
+                        </>
+                      ),
+                    }
                   }}
                 />
               )}
@@ -939,7 +947,7 @@ const TaskActionModal = ({
                 <Box component="li" {...props}>
                   <Box>
                     <Typography variant="body2">{option.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {option.description || `${(option.rule_text || "").substring(0, 100)}...`}
                     </Typography>
                   </Box>
@@ -963,14 +971,18 @@ const TaskActionModal = ({
                     label={t("dialogs.taskAction.selectWebsite")}
                     margin="dense"
                     helperText={t("dialogs.taskAction.selectWebsiteHelp")}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {isLoadingWebsites ? <CircularProgress size={20} /> : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <>
+                            {isLoadingWebsites ? <CircularProgress size={20} /> : null}
+                            {params.slotProps.input.endAdornment}
+                          </>
+                        ),
+                      }
                     }}
                   />
                 )}
@@ -978,7 +990,7 @@ const TaskActionModal = ({
                   <Box component="li" {...props}>
                     <Box>
                       <Typography variant="body2">{option.url}</Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {t("dialogs.taskAction.websiteOption", { client: option.client?.name || t("dialogs.taskAction.unknown"), project: option.project?.name || t("dialogs.taskAction.unknown") })}
                       </Typography>
                     </Box>
@@ -1023,7 +1035,9 @@ const TaskActionModal = ({
                   value={formData.page_count}
                   onChange={handleInputChange}
                   disabled={anyActionInProgress}
-                  inputProps={{ min: 1, max: 1000 }}
+                  slotProps={{
+                    htmlInput: { min: 1, max: 1000 }
+                  }}
                 />
                 <TextField
                   fullWidth
@@ -1055,7 +1069,7 @@ const TaskActionModal = ({
             {modelField}
             {isEditMode && fileInfo?.can_download && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {t("dialogs.taskAction.fileDetails", { size: fileInfo.file_size_mb, type: fileInfo.file_type, status: fileInfo.task_status })}
                 </Typography>
                 <ActionButton startIcon={<DownloadIcon />} onClick={handleDownloadFile} disabled={anyActionInProgress}>
@@ -1129,8 +1143,10 @@ const TaskActionModal = ({
                     value={targetWordCount}
                     onChange={(e) => setTargetWordCount(parseInt(e.target.value, 10) || 1000)}
                     disabled={anyActionInProgress}
-                    inputProps={{ min: 100, max: 5000 }}
                     helperText={t("dialogs.taskAction.wordCountHelp")}
+                    slotProps={{
+                      htmlInput: { min: 100, max: 5000 }
+                    }}
                   />
                   <TextField
                     fullWidth
@@ -1152,8 +1168,10 @@ const TaskActionModal = ({
                     value={concurrentWorkers}
                     onChange={(e) => setConcurrentWorkers(parseInt(e.target.value, 10) || 3)}
                     disabled={anyActionInProgress}
-                    inputProps={{ min: 1, max: 10 }}
                     helperText={t("dialogs.taskAction.workersHelp")}
+                    slotProps={{
+                      htmlInput: { min: 1, max: 10 }
+                    }}
                   />
                   <TextField
                     fullWidth
@@ -1163,8 +1181,10 @@ const TaskActionModal = ({
                     value={batchSize}
                     onChange={(e) => setBatchSize(parseInt(e.target.value, 10) || 10)}
                     disabled={anyActionInProgress}
-                    inputProps={{ min: 1, max: 50 }}
                     helperText={t("dialogs.taskAction.batchSizeHelp")}
+                    slotProps={{
+                      htmlInput: { min: 1, max: 50 }
+                    }}
                   />
                 </Cluster>
               )}
@@ -1214,7 +1234,7 @@ const TaskActionModal = ({
       <DialogActions sx={{ justifyContent: "space-between", px: 3, pb: 2, pt: 2 }}>
         <Box>
           {isCreatingJob && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("dialogs.taskAction.creatingAndStarting")}
             </Typography>
           )}

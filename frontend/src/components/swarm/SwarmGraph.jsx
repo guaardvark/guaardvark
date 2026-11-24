@@ -59,10 +59,13 @@ const TaskNode = ({ data }) => {
         backfaceVisibility: "hidden",
       }}
     >
-      <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 0.5, color: "text.secondary" }}>
+      <Typography
+        variant="caption"
+        sx={{ fontWeight: 600, display: "block", mb: 0.5, color: "text.secondary" }}
+      >
         {data.id}
       </Typography>
-      <Typography variant="body2" fontWeight={600} sx={{ mb: 1, lineHeight: 1.2 }}>
+      <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, lineHeight: 1.2 }}>
         {data.title}
       </Typography>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -78,7 +81,7 @@ const TaskNode = ({ data }) => {
           }} 
         />
         {data.elapsed && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {data.elapsed}
           </Typography>
         )}

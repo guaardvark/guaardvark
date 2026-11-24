@@ -83,10 +83,10 @@ const RAGDebugSection = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="flex-end" alignItems="center" mb={1.5}>
-        <Stack direction="row" spacing={1} alignItems="center">
+      <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", mb: 1.5 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           {lastUpdated && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {t("settingsSections.ragDebug.updated", { time: lastUpdated.toLocaleTimeString(uiLocale()) })}
             </Typography>
           )}
@@ -113,7 +113,7 @@ const RAGDebugSection = () => {
       )}
 
       {loading && !systemHealth && (
-        <Box display="flex" justifyContent="center" py={4}>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress />
         </Box>
       )}
@@ -121,26 +121,30 @@ const RAGDebugSection = () => {
       {systemHealth && (
         <Grid container spacing={2}>
           {/* System Health Overview */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
-              <Typography variant="subtitle1" gutterBottom display="flex" alignItems="center" gap={1}>
+              <Typography
+                variant="subtitle1"
+                gutterBottom
+                sx={{ display: "flex", alignItems: "center", gap: 1 }}
+              >
                 <HealthAndSafetyIcon fontSize="small" />
                 {t("settingsSections.ragDebug.systemHealth")}
               </Typography>
 
-              <Box display="flex" alignItems="center" gap={2} mb={2}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
                 <Chip
                   label={`${getHealthPercentage(systemHealth.health_score)}%`}
                   color={getHealthColor(systemHealth.health_level)}
                   variant="filled"
                   size="small"
                 />
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {systemHealth.health_level?.toUpperCase()}
                 </Typography>
               </Box>
 
-              <Typography variant="body2" color="text.secondary" mb={1}>
+              <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
                 {t("settingsSections.ragDebug.uptime", { uptime: formatUptime(systemHealth.uptime) })}
               </Typography>
 
@@ -155,30 +159,34 @@ const RAGDebugSection = () => {
           </Grid>
 
           {/* Index Statistics */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
-              <Typography variant="subtitle1" gutterBottom display="flex" alignItems="center" gap={1}>
+              <Typography
+                variant="subtitle1"
+                gutterBottom
+                sx={{ display: "flex", alignItems: "center", gap: 1 }}
+              >
                 <StorageIcon fontSize="small" />
                 {t("settingsSections.ragDebug.indexStatistics")}
               </Typography>
 
               <Stack spacing={1}>
-                <Box display="flex" justifyContent="space-between">
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Typography variant="body2">{t("settingsSections.ragDebug.cachedIndexes")}</Typography>
-                  <Typography variant="body2" fontWeight="bold">
+                  <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                     {systemHealth.index_stats?.total_cached || 0}
                   </Typography>
                 </Box>
 
-                <Box display="flex" justifyContent="space-between">
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Typography variant="body2">{t("settingsSections.ragDebug.memoryUsage")}</Typography>
-                  <Typography variant="body2" fontWeight="bold">
+                  <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                     {formatBytes(systemHealth.index_stats?.total_memory_usage || 0)}
                   </Typography>
                 </Box>
 
                 <Box>
-                  <Typography variant="body2" mb={0.5}>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
                     {t("settingsSections.ragDebug.cacheHitRate", {
                       rate: Math.round((systemHealth.index_stats?.access_stats?.cache_hits || 0) /
                       Math.max(1, (systemHealth.index_stats?.access_stats?.total_loads || 1)) * 100),
@@ -197,34 +205,40 @@ const RAGDebugSection = () => {
           </Grid>
 
           {/* Performance Metrics */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
-              <Typography variant="subtitle1" gutterBottom display="flex" alignItems="center" gap={1}>
+              <Typography
+                variant="subtitle1"
+                gutterBottom
+                sx={{ display: "flex", alignItems: "center", gap: 1 }}
+              >
                 <SpeedIcon fontSize="small" />
                 {t("settingsSections.ragDebug.performance")}
               </Typography>
 
               <Stack spacing={1}>
-                <Box display="flex" justifyContent="space-between">
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Typography variant="body2">{t("settingsSections.ragDebug.totalQueries")}</Typography>
-                  <Typography variant="body2" fontWeight="bold">
+                  <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                     {systemHealth.system_metrics?.total_queries || 0}
                   </Typography>
                 </Box>
 
-                <Box display="flex" justifyContent="space-between">
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Typography variant="body2">{t("settingsSections.ragDebug.avgResponse")}</Typography>
-                  <Typography variant="body2" fontWeight="bold">
+                  <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                     {t("settingsSections.ragDebug.milliseconds", { time: (systemHealth.system_metrics?.avg_retrieval_time || 0).toFixed(2) })}
                   </Typography>
                 </Box>
 
-                <Box display="flex" justifyContent="space-between">
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Typography variant="body2">{t("settingsSections.ragDebug.errorRate")}</Typography>
                   <Typography
                     variant="body2"
-                    fontWeight="bold"
-                    color={systemHealth.system_metrics?.error_rate > 0.05 ? "error.main" : "text.primary"}
+                    sx={{
+                      color: systemHealth.system_metrics?.error_rate > 0.05 ? "error.main" : "text.primary",
+                      fontWeight: "bold",
+                    }}
                   >
                     {((systemHealth.system_metrics?.error_rate || 0) * 100).toFixed(1)}%
                   </Typography>
@@ -234,7 +248,7 @@ const RAGDebugSection = () => {
           </Grid>
 
           {performanceMetrics && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Cluster
                 label={t("settingsSections.ragDebug.retrievalWindow")}
                 note={performanceMetrics.time_period || t("settingsSections.ragDebug.last24Hours")}
@@ -276,13 +290,13 @@ const RAGDebugSection = () => {
           )}
 
           {(
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Paper variant="outlined" sx={{ p: 2 }}>
                 <Typography variant="subtitle1" gutterBottom>
                   {t("settingsSections.ragDebug.debugActions")}
                 </Typography>
 
-                <Stack direction="row" spacing={2} flexWrap="wrap">
+                <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
                   <Button
                     variant="outlined"
                     size="small"

@@ -717,7 +717,7 @@ const ProjectDetailPage = () => {
       }
       headerContent={
         <Box sx={{ px: 2, pb: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("projects.detail.header", {
               client: project?.client?.name || t("projects.detail.notAvailable"),
               id: project?.id,
@@ -907,15 +907,16 @@ const ProjectDetailPage = () => {
                       <TaskIcon color="action" fontSize="small" />
                     </ListItemIcon>
                     <ListItemText
-                      primaryTypographyProps={{ variant: "body2" }}
-                      secondaryTypographyProps={{ variant: "caption" }}
                       primary={task.name || t("projects.detail.taskFallback", { id: task.id })}
                       secondary={t("projects.detail.taskDetails", {
                         status: task.status || t("projects.detail.notAvailable"),
                         type: task.type || t("projects.detail.notAvailable"),
                         created: new Date(task.created_at).toLocaleDateString(uiLocale()),
                       })}
-                    />
+                      slotProps={{
+                        primary: { variant: "body2" },
+                        secondary: { variant: "caption" }
+                      }} />
                   </ListItem>
                 ))}
               </List>
@@ -1023,8 +1024,6 @@ const ProjectDetailPage = () => {
                       />
                     </ListItemIcon>
                     <ListItemText
-                      primaryTypographyProps={{ variant: "body2" }}
-                      secondaryTypographyProps={{ variant: "caption" }}
                       primary={doc.filename}
                       secondary={
                         <Trans
@@ -1048,7 +1047,10 @@ const ProjectDetailPage = () => {
                           }}
                         />
                       }
-                    />
+                      slotProps={{
+                        primary: { variant: "body2" },
+                        secondary: { variant: "caption" }
+                      }} />
                   </ListItem>
                 ))}
               </List>
@@ -1127,8 +1129,6 @@ const ProjectDetailPage = () => {
                       <WebsiteIcon color="action" fontSize="small" />
                     </ListItemIcon>
                     <ListItemText
-                      primaryTypographyProps={{ variant: "body2" }}
-                      secondaryTypographyProps={{ variant: "caption" }}
                       primary={
                         <Link
                           href={site.url}
@@ -1143,7 +1143,10 @@ const ProjectDetailPage = () => {
                         status: site.status || t("projects.detail.notAvailable"),
                         added: new Date(site.created_at).toLocaleDateString(uiLocale()),
                       })}
-                    />
+                      slotProps={{
+                        primary: { variant: "body2" },
+                        secondary: { variant: "caption" }
+                      }} />
                   </ListItem>
                 ))}
               </List>
@@ -1256,15 +1259,16 @@ const ProjectDetailPage = () => {
                       )}
                     </ListItemIcon>
                     <ListItemText
-                      primaryTypographyProps={{ variant: "body2" }}
-                      secondaryTypographyProps={{ variant: "caption" }}
                       primary={rule.name || t("projects.detail.ruleFallback", { id: rule.id })}
                       secondary={t("projects.detail.ruleDetails", {
                         type: rule.type || "RULE",
                         level: rule.level || t("projects.detail.notAvailable"),
                         active: rule.is_active ? t("projects.detail.yes") : t("projects.detail.no"),
                       })}
-                    />
+                      slotProps={{
+                        primary: { variant: "body2" },
+                        secondary: { variant: "caption" }
+                      }} />
                   </ListItem>
                 ))}
               </List>

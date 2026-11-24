@@ -139,8 +139,7 @@ const ImageJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
             label={job.kind === "batch" ? t("jobs.jobEditor.prompts") : t("jobs.jobEditor.prompt")}
             value={fields.prompts}
             onChange={(e) => set({ prompts: e.target.value })}
-            InputProps={{ readOnly: readOnly || !promptsEditable(job) }}
-            inputProps={{ "data-testid": "image-job-prompt" }}
+            slotProps={{ input: { readOnly: readOnly || !promptsEditable(job) }, htmlInput: { "data-testid": "image-job-prompt" } }}
             sx={fieldSx}
           />
 
@@ -154,8 +153,7 @@ const ImageJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
               onChange={(e) => set({ model: e.target.value, steps: null })}
               disabled={readOnly || modelLocked}
               helperText={modelLocked ? t("jobs.imageJob.modelLocked") : undefined}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ "data-testid": "image-job-model" }}
+              slotProps={{ htmlInput: { "data-testid": "image-job-model" }, inputLabel: { shrink: true } }}
               sx={{ ...fieldSx, gridColumn: { xs: "1 / -1", sm: "auto" } }}
             >
               <MenuItem value="auto">
@@ -173,8 +171,7 @@ const ImageJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
               value={fields.style}
               onChange={(e) => set({ style: e.target.value })}
               disabled={readOnly}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ "data-testid": "image-job-style" }}
+              slotProps={{ htmlInput: { "data-testid": "image-job-style" }, inputLabel: { shrink: true } }}
               sx={fieldSx}
             >
               {[...job.styles, ...(job.styles.includes(fields.style) ? [] : [fields.style])].map((style) => (
@@ -196,8 +193,10 @@ const ImageJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
               }}
               disabled={readOnly}
               helperText={stepRange ? t("jobs.imageJob.stepsRange", { min: stepRange[0], max: stepRange[1] }) : undefined}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ min: stepRange?.[0] || 1, max: stepRange?.[1] || 100, step: 1, "data-testid": "image-job-steps" }}
+              slotProps={{
+                htmlInput: { min: stepRange?.[0] || 1, max: stepRange?.[1] || 100, step: 1, "data-testid": "image-job-steps" },
+                inputLabel: { shrink: true },
+              }}
               sx={fieldSx}
             />
             {job.has.seed && (
@@ -209,8 +208,10 @@ const ImageJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
                 placeholder={t("jobs.jobEditor.randomSeed")}
                 onChange={(e) => set({ seed: numberOrNull(e.target.value) })}
                 disabled={readOnly}
-                InputLabelProps={{ shrink: true }}
-                inputProps={{ min: 0, step: 1, "data-testid": "image-job-seed" }}
+                slotProps={{
+                  htmlInput: { min: 0, step: 1, "data-testid": "image-job-seed" },
+                  inputLabel: { shrink: true },
+                }}
                 sx={fieldSx}
               />
             )}
@@ -221,8 +222,7 @@ const ImageJobModal = ({ open, task, onClose, onSaved, onRemove }) => {
                 value={fields.negative}
                 onChange={(e) => set({ negative: e.target.value })}
                 disabled={readOnly}
-                InputLabelProps={{ shrink: true }}
-                inputProps={{ "data-testid": "image-job-negative" }}
+                slotProps={{ htmlInput: { "data-testid": "image-job-negative" }, inputLabel: { shrink: true } }}
                 sx={{ ...fieldSx, gridColumn: { xs: "1 / -1", sm: "span 2" } }}
               />
             )}

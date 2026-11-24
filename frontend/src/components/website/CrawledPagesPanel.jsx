@@ -94,7 +94,7 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
 
   return (
     <Box>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
         <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
           {t("websites.crawledPages.title")}{" "}
           {total ? `(${total})` : ""}
@@ -136,8 +136,7 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
                   <TableCell colSpan={4}>
                     <Typography
                       variant="body2"
-                      color="text.secondary"
-                      sx={{ py: 2, textAlign: "center", fontStyle: "italic" }}
+                      sx={{ color: "text.secondary", py: 2, textAlign: "center", fontStyle: "italic" }}
                     >
                       {loading
                         ? t("websites.crawledPages.loading")
@@ -182,7 +181,7 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
           <>
             <DialogTitle sx={{ pb: 0 }}>
               {selected.title || t("websites.crawledPages.pageFallback")}
-              <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-all" }}>
+              <Typography variant="body2" sx={{ color: "text.secondary", wordBreak: "break-all" }}>
                 <a href={selected.url} target="_blank" rel="noreferrer">
                   {selected.url}
                 </a>
@@ -200,7 +199,7 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
               ) : (
                 <>
                   {selected.meta_description && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
                       {selected.meta_description}
                     </Typography>
                   )}

@@ -57,7 +57,8 @@ def _restore_from(store: Path, reason: str) -> list:
             record = json.loads(manifest.read_text())
         except (OSError, ValueError):
             continue
-        if record.get("status") != "applied":
+        # "checking": the backend stopped while it was still checking the edit.
+        if record.get("status") not in ("applied", "checking"):
             continue
         if record.get("root") and Path(record["root"]).resolve() != ROOT.resolve():
             continue  # a change to another install sharing this backup folder

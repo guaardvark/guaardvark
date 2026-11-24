@@ -333,15 +333,14 @@ const ToolsPage = () => {
 
           <Typography
             variant="body2"
-            color="text.secondary"
-            sx={{ mb: 2, minHeight: 40 }}
+            sx={{ color: "text.secondary", mb: 2, minHeight: 40 }}
           >
             {tool.description}
           </Typography>
 
           <Divider sx={{ my: 1 }} />
 
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("tools.parameters")}:
           </Typography>
 
@@ -456,7 +455,7 @@ const ToolsPage = () => {
                   <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <Build fontSize="small" color="action" />
-                      <Typography variant="body2" fontWeight="medium">
+                      <Typography variant="body2" sx={{ fontWeight: "medium" }}>
                         {tool.name}
                       </Typography>
                     </Box>
@@ -471,12 +470,12 @@ const ToolsPage = () => {
                   <TableCell>
                     <Typography
                       variant="body2"
-                      color="text.secondary"
                       sx={{
+                        color: "text.secondary",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
-                        maxWidth: 400,
+                        maxWidth: 400
                       }}
                     >
                       {tool.description}
@@ -516,7 +515,7 @@ const ToolsPage = () => {
                           />
                         )}
                         {totalParams === 0 && (
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
                             {t("tools.table.noParams")}
                           </Typography>
                         )}
@@ -550,7 +549,7 @@ const ToolsPage = () => {
             {sortedFilteredTools.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">
+                  <Typography sx={{ color: "text.secondary" }}>
                     {t("tools.noMatch", { query: searchQuery })}
                   </Typography>
                 </TableCell>
@@ -603,12 +602,14 @@ const ToolsPage = () => {
               placeholder={t("tools.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search />
+                    </InputAdornment>
+                  ),
+                }
               }}
             />
             <ToggleButtonGroup
@@ -639,16 +640,14 @@ const ToolsPage = () => {
           ) : viewMode === "card" ? (
             <Grid container spacing={3}>
               {sortedFilteredTools.map((tool) => (
-                <Grid item xs={12} sm={6} md={4} key={tool.name}>
+                <Grid key={tool.name} size={{ xs: 12, sm: 6, md: 4 }}>
                   {renderToolCard(tool)}
                 </Grid>
               ))}
               {sortedFilteredTools.length === 0 && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography
-                    color="text.secondary"
-                    textAlign="center"
-                    sx={{ py: 4 }}
+                    sx={{ color: "text.secondary", textAlign: "center", py: 4 }}
                   >
                     {t("tools.noMatch", { query: searchQuery })}
                   </Typography>
@@ -715,7 +714,7 @@ const ToolsPage = () => {
               <Box sx={{ p: 1.5 }}>
         <Grid container spacing={3}>
           {Object.entries(categories).map(([category, toolList]) => (
-            <Grid item xs={12} md={6} key={category}>
+            <Grid key={category} size={{ xs: 12, md: 6 }}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
@@ -786,7 +785,7 @@ const ToolsPage = () => {
         <DialogContent>
           {selectedTool && (
             <>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
                 {selectedTool.description}
               </Typography>
 

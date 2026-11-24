@@ -505,8 +505,7 @@ const RulesPage = () => {
         levelFilter === "LEARNED" ? (
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", px: 2, pb: 1 }}
+            sx={{ color: "text.secondary", display: "block", px: 2, pb: 1 }}
           >
             {t("rules.page.learnedNote")}
           </Typography>
@@ -652,9 +651,8 @@ const RulesPage = () => {
                       </Box>
                       <Typography
                         variant="caption"
-                        display="block"
-                        color="text.secondary"
                         noWrap
+                        sx={{ display: "block", color: "text.secondary" }}
                       >
                         {rule.description || t("rules.page.noDescription")}
                       </Typography>
@@ -864,13 +862,13 @@ const RulesPage = () => {
         {rules.length > 0 && !isLoading && (
           <Typography
             variant="caption"
-            display="block"
             sx={{
+              display: "block",
               textAlign: "right",
               p: 1,
               color: "text.secondary",
               borderTop: 1,
-              borderColor: "divider",
+              borderColor: "divider"
             }}
           >
             {t("rules.page.total", { total: total ?? rules.length })}

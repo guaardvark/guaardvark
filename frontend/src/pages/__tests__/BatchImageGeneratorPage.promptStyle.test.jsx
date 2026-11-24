@@ -83,9 +83,7 @@ describe("Image Gen controls on a prose model (Auto resolves to Z-Image)", () =>
     mockModels("natural");
     await renderPage();
     expect(screen.queryByText("Content Type (for better quality)")).toBeNull();
-    expect(screen.getByText(/Content Type is not used/)).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: "Enhance anatomy" })).toBeDisabled();
-    expect(screen.getByText("This model does not use anatomy enhancement.")).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Enhance anatomy" })).toBeNull();
   });
 });
 

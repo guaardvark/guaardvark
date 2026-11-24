@@ -108,7 +108,7 @@ const RebuildIndexDialog = ({ open, profiles = [], onClose, onOpenPurge, onDone 
         {t("settingsSections.rebuildIndex.title")}
       </DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {t("settingsSections.rebuildIndex.intro")}
         </Typography>
         <RadioGroup value={scope} onChange={(e) => setScope(e.target.value)}>
@@ -142,7 +142,7 @@ const RebuildIndexDialog = ({ open, profiles = [], onClose, onOpenPurge, onDone 
           />
         </RadioGroup>
         {scope === "profile" && chosen && !chosen.projection?.exists && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {t("settingsSections.rebuildIndex.nothingBuilt")}
           </Typography>
         )}
