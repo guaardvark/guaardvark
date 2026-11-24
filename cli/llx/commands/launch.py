@@ -154,6 +154,22 @@ def _launch_summary(cfg: dict) -> dict:
             "ollama_base_url": cfg.get("ollama_base_url"), "config_file": str(_config_path())}
 
 
+def _wait_for_health(server_url: str, tries: int, interval: float, timeout: float) -> bool:
+    """Poll /api/health until it answers 200. Every other outcome, an error
+    status included, waits ``interval`` before the next try."""
+    import httpx
+
+    for attempt in range(tries):
+        try:
+            if httpx.get(f"{server_url}/api/health", timeout=timeout).status_code == 200:
+                return True
+        except Exception:
+            pass
+        if attempt < tries - 1:
+            time.sleep(interval)
+    return False
+
+
 def _start_lite_mode(console, port: int):
     """Start the embedded lite server in a background thread."""
     from llx.lite_server import create_lite_app
@@ -171,24 +187,17 @@ def _start_lite_mode(console, port: int):
     thread = threading.Thread(target=run_server, daemon=True)
     thread.start()
 
-    # Wait for server to be ready
-    import httpx
     server_url = f"http://127.0.0.1:{port}"
-    for _ in range(20):
-        try:
-            resp = httpx.get(f"{server_url}/api/health", timeout=1)
-            if resp.status_code == 200:
-                console.print(f"[llx.success]Lite server ready[/llx.success] [llx.dim]port {port}[/llx.dim]")
-                cfg = load_launch_config()
-                cfg["server_url"] = server_url
-                cfg["mode"] = "lite"
-                save_launch_config(cfg)
-                llx_cfg = load_config()
-                llx_cfg["server"] = server_url
-                save_config(llx_cfg)
-                return
-        except Exception:
-            time.sleep(0.25)
+    if _wait_for_health(server_url, tries=20, interval=0.25, timeout=1):
+        console.print(f"[llx.success]Lite server ready[/llx.success] [llx.dim]port {port}[/llx.dim]")
+        cfg = load_launch_config()
+        cfg["server_url"] = server_url
+        cfg["mode"] = "lite"
+        save_launch_config(cfg)
+        llx_cfg = load_config()
+        llx_cfg["server"] = server_url
+        save_config(llx_cfg)
+        return
 
     console.print("[llx.warning]Lite server may not be ready yet[/llx.warning]")
 
@@ -225,23 +234,13 @@ def _start_full_stack(console, cfg: dict, quiet: bool = False) -> dict:
         stderr=subprocess.DEVNULL,
     )
 
-    # Wait for the backend to come up
-    import httpx
     from llx.backend_bootstrap import resolve_flask_port
     server_url = cfg.get("server_url", f"http://localhost:{resolve_flask_port(root)}")
-    ready = False
-    for _ in range(60):
-        try:
-            resp = httpx.get(f"{server_url}/api/health", timeout=2)
-            if resp.status_code == 200:
-                ready = True
-                if not quiet:
-                    console.print(f"[llx.success]Full stack ready[/llx.success]")
-                break
-        except Exception:
-            time.sleep(1)
-    else:
-        if not quiet:
+    ready = _wait_for_health(server_url, tries=60, interval=1, timeout=2)
+    if not quiet:
+        if ready:
+            console.print(f"[llx.success]Full stack ready[/llx.success]")
+        else:
             console.print("[llx.warning]Backend may still be starting...[/llx.warning]")
 
     cfg["guaardvark_root"] = str(root)
