@@ -7,6 +7,9 @@ PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 PID_FILE="$PROJECT_ROOT/pids/video_editor.pid"
 
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$PROJECT_ROOT/scripts/lib/proc_owner.sh"
+
 # The port start.sh launches the service on.
 SERVICE_PORT=8207
 
@@ -34,6 +37,19 @@ PID=$(cat "$PID_FILE")
 
 if [ -z "$PID" ] || ! pid_is_service "$PID" "--port $SERVICE_PORT"; then
     echo "Video Editor is not running (stale PID: $PID)"
+    rm -f "$PID_FILE"
+    exit 0
+fi
+
+# The command line alone does not say whose process this is: a reused PID, or
+# another install's service (a git worktree inside this one included), passes it.
+if ! proc_in_install "$PID" "$PROJECT_ROOT"; then
+    owner=$(proc_install_root "$PID")
+    if [ -n "$owner" ]; then
+        echo "Video Editor PID $PID belongs to the Guaardvark install at $owner, not this one; leaving it running."
+    else
+        echo "PID $PID is not this install's Video Editor (the pid file is stale); leaving it running."
+    fi
     rm -f "$PID_FILE"
     exit 0
 fi

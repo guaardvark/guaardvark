@@ -6,6 +6,9 @@ PROJECT_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 
 PID_FILE="$PROJECT_ROOT/pids/swarm.pid"
 
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$PROJECT_ROOT/scripts/lib/proc_owner.sh"
+
 # The port start.sh launches the service on.
 SERVICE_PORT=8210
 
@@ -34,6 +37,19 @@ PID=$(cat "$PID_FILE")
 
 if ! pid_is_service "$PID" "--port $SERVICE_PORT"; then
     echo "Swarm service not running (stale PID file)"
+    rm -f "$PID_FILE"
+    exit 0
+fi
+
+# The command line alone does not say whose process this is: a reused PID, or
+# another install's service (a git worktree inside this one included), passes it.
+if ! proc_in_install "$PID" "$PROJECT_ROOT"; then
+    owner=$(proc_install_root "$PID")
+    if [ -n "$owner" ]; then
+        echo "Swarm service PID $PID belongs to the Guaardvark install at $owner, not this one; leaving it running."
+    else
+        echo "PID $PID is not this install's Swarm service (the pid file is stale); leaving it running."
+    fi
     rm -f "$PID_FILE"
     exit 0
 fi

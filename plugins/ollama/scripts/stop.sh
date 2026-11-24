@@ -11,7 +11,20 @@ PIDS_DIR="$PROJECT_ROOT/pids"
 PID_FILE="$PIDS_DIR/ollama.pid"
 CURRENT_USER=$(whoami)
 
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$PROJECT_ROOT/scripts/lib/proc_owner.sh"
+
 stopped=0
+
+# The Guaardvark install PID runs from, when that is an install other than this one
+# (a git worktree inside this one included). Empty for this install's process and for
+# one no install claims, such as an `ollama serve` started by hand in a terminal.
+other_install_of() {
+    local root
+    proc_in_install "$1" "$PROJECT_ROOT" && return 0
+    root=$(proc_install_root "$1")
+    printf '%s' "$root"
+}
 
 # Step 1: Try sudo systemctl stop ollama (fast path if sudoers rule exists)
 if command -v systemctl >/dev/null 2>&1; then
@@ -24,7 +37,16 @@ fi
 # Step 2: Kill by PID file
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE" 2>/dev/null)
-    if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+    # The number may since belong to another process, or the file to another install's
+    # Ollama: only this install's is signalled.
+    if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null && ! proc_in_install "$PID" "$PROJECT_ROOT"; then
+        owner=$(proc_install_root "$PID")
+        if [ -n "$owner" ]; then
+            echo "Ollama PID $PID belongs to the Guaardvark install at $owner, not this one; leaving it running."
+        else
+            echo "PID $PID is not this install's Ollama (the pid file is stale); leaving it running."
+        fi
+    elif [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
         echo "Stopping ollama via PID file (PID: $PID)..."
         kill -TERM "$PID" 2>/dev/null || true
         sleep 2
@@ -37,10 +59,16 @@ if [ -f "$PID_FILE" ]; then
     rm -f "$PID_FILE"
 fi
 
-# Step 3: pkill any 'ollama serve' owned by current user (not systemd's ollama user)
+# Step 3: pkill any 'ollama serve' owned by current user (not systemd's ollama user),
+# except one another install started.
 ollama_pids=$(pgrep -u "$CURRENT_USER" -f "ollama serve" 2>/dev/null || true)
 if [ -n "$ollama_pids" ]; then
     for pid in $ollama_pids; do
+        owner=$(other_install_of "$pid")
+        if [ -n "$owner" ]; then
+            echo "ollama serve (PID: $pid) belongs to the Guaardvark install at $owner; leaving it running."
+            continue
+        fi
         echo "Killing user-owned ollama serve (PID: $pid)..."
         kill -TERM "$pid" 2>/dev/null || true
         sleep 1
@@ -57,7 +85,10 @@ if command -v lsof >/dev/null 2>&1; then
     if [ -n "$remaining_pids" ]; then
         for pid in $remaining_pids; do
             proc_owner=$(ps -o user= -p "$pid" 2>/dev/null | tr -d ' ')
-            if [ "$proc_owner" = "$CURRENT_USER" ]; then
+            owner=$(other_install_of "$pid")
+            if [ -n "$owner" ]; then
+                echo "Port 11434 is held by the Guaardvark install at $owner (PID: $pid); leaving it running."
+            elif [ "$proc_owner" = "$CURRENT_USER" ]; then
                 echo "Force-killing remaining process on port 11434 (PID: $pid)..."
                 kill -KILL "$pid" 2>/dev/null || true
                 stopped=1
