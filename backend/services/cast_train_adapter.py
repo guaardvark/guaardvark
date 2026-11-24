@@ -34,11 +34,13 @@ def adapter_path(base_model_id: str | None) -> Optional[str]:
     spec = declared(base_model_id)
     if not spec:
         return None
+    from backend.utils.model_file_integrity import file_complete
     explicit = os.environ.get(spec.get("env") or "", "").strip()
     if explicit:
-        return explicit if os.path.isfile(explicit) else None
+        return explicit if file_complete(explicit) else None
     from backend.services.local_weights import cached_path
-    return cached_path(spec["hf_repo"], spec["filename"])
+    cached = cached_path(spec["hf_repo"], spec["filename"])
+    return cached if cached and file_complete(cached) else None
 
 
 def status(base_model_id: str | None) -> dict[str, Any]:

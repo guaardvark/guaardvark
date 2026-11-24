@@ -24,6 +24,7 @@ from flask import Flask
 from backend.models import TrainingDataset, TrainingJob, db
 from backend.services import training_base_models as tbm
 from backend.services import training_libraries as tl
+from backend.tests.fixtures.model_files import safetensors_bytes, write_model_file
 
 SMALL, DEFAULT = "Qwen/Qwen2.5-0.5B-Instruct", "Qwen/Qwen2.5-1.5B-Instruct"
 GEMMA = "google/gemma-4-E4B-it"
@@ -52,7 +53,7 @@ def _snapshot(root, name="abc123", files=("config.json", "tokenizer_config.json"
     folder = root / "snapshots" / name
     folder.mkdir(parents=True, exist_ok=True)
     for f in files:
-        (folder / f).write_text("{}")
+        write_model_file(folder / f)
     return folder
 
 
@@ -134,7 +135,9 @@ def test_a_snapshot_without_its_weights_is_not_downloaded(machine, hub):
         {"weight_map": {"x": "a.safetensors", "y": "b.safetensors"}}))
     hub.cached[DEFAULT] = sharded
     assert tbm.local_snapshot(tbm.get(DEFAULT)) is None
-    (sharded / "b.safetensors").write_text("")
+    (sharded / "b.safetensors").write_bytes(safetensors_bytes(8)[:-4])
+    assert tbm.local_snapshot(tbm.get(DEFAULT)) is None
+    write_model_file(sharded / "b.safetensors")
     assert tbm.local_snapshot(tbm.get(DEFAULT)) == str(sharded)
 
 

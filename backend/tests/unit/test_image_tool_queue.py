@@ -316,3 +316,28 @@ def test_http_queue_uses_server_sampling(monkeypatch):
     assert result.success
     assert "Steps: 10 (planned)" in result.output
     assert "Raised sampling to 10 steps." in result.output
+
+
+def test_mcp_refusal_keeps_its_failure_kind(monkeypatch):
+    """Over MCP the prompt goes to POST /generate/prompts; its 409 for a missing
+    model names the kind in the error envelope, and the tool result keeps it."""
+    from backend.tools import image_tools
+    from backend.utils.backend_http import BackendError
+
+    message = "No image model is downloaded yet. Open Settings → Image Models and download one."
+    body = {"success": False, "status_code": 409, "error": {
+        "code": "MODEL_NOT_INSTALLED", "message": message,
+        "context": {"failure": {"kind": "model_not_installed", "message": message}},
+    }}
+
+    def refuse(method, path, payload=None, timeout=None):
+        raise BackendError("http", message, status=409, body=body)
+
+    monkeypatch.setattr(image_tools, "_http_json", refuse)
+    monkeypatch.setattr(image_tools, "_resolve_cast_from_prompt", lambda prompt: [])
+    tool = ImageGeneratorTool()
+    tool.set_context({"transport": "mcp"})
+    result = tool.execute(prompt="a brass key", wait_for_result=False)
+    assert not result.success
+    assert message in result.error
+    assert result.metadata.get("error_kind") == "model_not_installed"

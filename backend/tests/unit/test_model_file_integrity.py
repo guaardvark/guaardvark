@@ -8,7 +8,9 @@ import zipfile
 import pytest
 
 from backend.services import video_model_registry as vmr
-from backend.tests.fixtures.model_files import gguf_bytes, safetensors_bytes
+from backend.tests.fixtures.model_files import (
+    gguf_bytes, onnx_bytes, safetensors_bytes, whisper_ggml_bytes,
+)
 from backend.utils import model_file_integrity as mfi
 
 
@@ -102,10 +104,41 @@ def test_zip_checkpoint_needs_its_end_record(tmp_path):
     assert mfi.file_problem(path).startswith("truncated")
 
 
-@pytest.mark.parametrize("name", ["legacy.pth", "model.onnx", "weights.bin", "old.ckpt"])
+@pytest.mark.parametrize("name", ["legacy.pth", "weights.bin", "old.ckpt"])
 def test_formats_without_a_length_pass_when_non_empty(tmp_path, name):
     path = tmp_path / name
     path.write_bytes(b"\x80\x02 some bytes")
+    assert mfi.file_problem(path) is None
+    assert mfi.check_kind(path) is None
+
+
+def test_onnx_whole_truncated_and_corrupt(tmp_path):
+    path = tmp_path / "model.onnx"
+    whole = onnx_bytes(graph_bytes=64)
+    path.write_bytes(whole)
+    assert mfi.file_problem(path) is None
+    assert mfi.check_kind(path) == "onnx"
+    path.write_bytes(whole[:-20])
+    assert mfi.file_problem(path).startswith("truncated")
+    path.write_bytes(b"\x80\x02 some bytes")
+    assert mfi.file_problem(path).startswith("corrupt")
+
+
+def test_whisper_ggml_whole_and_truncated(tmp_path):
+    path = tmp_path / "ggml-tiny.bin"
+    whole = whisper_ggml_bytes()
+    path.write_bytes(whole)
+    assert mfi.check_kind(path) == "ggml"
+    assert mfi.file_problem(path) is None
+    path.write_bytes(whole[:-8])
+    assert mfi.file_problem(path).startswith("truncated")
+    path.write_bytes(whole[:40])
+    assert mfi.file_problem(path).startswith("truncated")
+
+
+def test_a_ggml_file_of_another_layout_is_left_unjudged(tmp_path):
+    path = tmp_path / "other.bin"
+    path.write_bytes(b"lmgg" + b"\xff" * 64)
     assert mfi.file_problem(path) is None
 
 

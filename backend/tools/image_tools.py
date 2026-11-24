@@ -805,9 +805,33 @@ def _failed(what: str, exc: BaseException) -> ToolResult:
     tool caught it: ``metadata.error_kind``, which a tool job keeps and
     get_generation_status turns into a label and a next step."""
     from backend.services.job_operation_gate import classify_render_exception
+    refusal = _backend_refusal(exc)
+    if refusal:
+        return ToolResult(success=False, error=f"{what}: {record_text(refusal)}",
+                          metadata={"error_kind": refusal["kind"], "failure": refusal})
     kind = classify_render_exception(exc)
     meta = {} if kind is RenderErrorKind.UNKNOWN else {"error_kind": kind.value}
     return ToolResult(success=False, error=f"{what}: {exc}", metadata=meta)
+
+
+def _backend_refusal(exc: BaseException) -> Optional[dict]:
+    """The failure record a backend refusal carries in its error envelope
+    (``error.context.failure``, as POST /generate/prompts sends with its 409),
+    or None when the refusal names no known kind."""
+    if not isinstance(exc, BackendError) or not isinstance(exc.body, dict):
+        return None
+    error = exc.body.get("error")
+    context = error.get("context") if isinstance(error, dict) else None
+    failure = context.get("failure") if isinstance(context, dict) else None
+    if not isinstance(failure, dict) or not failure.get("kind"):
+        return None
+    try:
+        RenderErrorKind(failure["kind"])
+    except ValueError:
+        return None
+    if not failure.get("label"):
+        failure = describe_failure(failure["kind"], failure.get("message") or str(exc))
+    return failure
 
 
 class GenerationStatusTool(BaseTool):
@@ -1975,6 +1999,10 @@ class VideoGeneratorTool(BaseTool):
                 style: Optional[str] = None, reference_clips=None, **kwargs) -> ToolResult:
         import time as _time
 
+        # The wait counts model preflight and queueing too, so the answer beats the
+        # caller's read timeout (MAX_WAIT_S + 60) even after a ComfyUI cold start.
+        started = _time.monotonic()
+
         prompt = (prompt or "").strip()
         if not prompt:
             return ToolResult(success=False, error="Empty video prompt")
@@ -2101,7 +2129,7 @@ class VideoGeneratorTool(BaseTool):
                     },
                 )
 
-            deadline = _time.monotonic() + self.MAX_WAIT_S
+            deadline = started + self.MAX_WAIT_S
             while _time.monotonic() < deadline:
                 _time.sleep(self.POLL_INTERVAL_S)
                 status = generator.get_batch_status(batch_id)

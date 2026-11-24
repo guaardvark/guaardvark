@@ -444,3 +444,23 @@ def test_negative_pearls_become_avoid_steps_and_retracted_ones_are_ignored(app):
     texts = [s["text"] for s in out["steps"]]
     assert texts == ["click Subscribe", "Avoid: that was an advert, not the video"]
     assert out["steps"][1].get("kind") == "avoid"
+
+
+def test_distiller_skips_a_saved_model_ollama_does_not_have(app):
+    """An install can carry a saved chat model it never pulled; the distiller
+    asks the model chat would use instead of sending Ollama the stale name."""
+    with app.app_context():
+        db.session.add(ToolFeedback(session_id="s", lesson_id="L-stale", tool_name="t",
+                                    task="click Search", positive=True))
+        db.session.commit()
+
+    with patch("backend.utils.llm_service.get_saved_active_model_name", return_value="qwen3.5:4b"), \
+            patch("backend.services.ollama_chat_model.installed_chat_tags", return_value={"gemma4:12b"}), \
+            patch("requests.post") as mock_post:
+        mock_post.return_value = MagicMock(
+            json=lambda: {"response": '{"title":"Search","steps":[{"order":1,"text":"click Search"}]}'},
+            raise_for_status=lambda: None,
+        )
+        _distill_lesson_pearls(app, "L-stale", "s")
+
+    assert mock_post.call_args.kwargs["json"]["model"] == "gemma4:12b"

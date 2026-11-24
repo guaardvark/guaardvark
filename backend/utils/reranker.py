@@ -81,7 +81,11 @@ def _local_snapshot(name: str) -> Optional[str]:
         return None
     folder = os.fspath(path)
     has_config = os.path.isfile(os.path.join(folder, "config.json"))
-    has_weights = any(f.endswith(".safetensors") for f in os.listdir(folder))
+    from backend.utils.model_file_integrity import file_complete
+    has_weights = any(
+        f.endswith(".safetensors") and file_complete(os.path.join(folder, f))
+        for f in os.listdir(folder)
+    )
     return folder if has_config and has_weights else None
 
 

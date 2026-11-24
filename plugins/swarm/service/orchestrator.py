@@ -648,10 +648,14 @@ class SwarmOrchestrator:
             dep.branch_name for dep in (self._find_task(d) for d in (task.dependencies or []))
             if dep is not None and dep.branch_name and dep.status in (SwarmStatus.DONE, SwarmStatus.MERGED)
         ]
-        wt_info = self.worktree_mgr.create(task.id, start_points=dependency_branches)
-        if self.worktree_mgr.dependency_problems:
+        if dependency_branches:
+            wt_info = self.worktree_mgr.create(task.id, start_points=dependency_branches)
+        else:
+            wt_info = self.worktree_mgr.create(task.id)
+        left_out = getattr(self.worktree_mgr, "dependency_problems", None)
+        if left_out:
             task.tags["dependency_note"] = (
-                "Started without the work of " + ", ".join(self.worktree_mgr.dependency_problems)
+                "Started without the work of " + ", ".join(left_out)
                 + ": it did not merge cleanly with the other dependencies.")
         task.branch_name = wt_info.branch_name
         task.worktree_path = wt_info.worktree_path

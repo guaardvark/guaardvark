@@ -125,7 +125,7 @@ class TestFasterWhisperLoadsLocalOnly(unittest.TestCase):
 class TestGgmlCheckOnly(unittest.TestCase):
 
     def test_missing_ggml_is_reported_not_downloaded(self):
-        with patch("os.path.exists", return_value=False), \
+        with patch.object(voice_api, "file_problem", return_value=voice_api.MISSING), \
              patch.object(voice_api, "_download_ggml_model_direct") as download, \
              patch("urllib.request.urlopen") as urlopen:
             ok, path, error = voice_api.ensure_whisper_model_downloaded(
@@ -212,6 +212,7 @@ class TestMissingParts(unittest.TestCase):
     def test_faster_whisper_weights_not_needed_without_the_package(self):
         config = voice_api.WHISPER_MODELS["tiny.en"]
         with patch("os.path.exists", return_value=True), \
+             patch.object(voice_api, "file_complete", return_value=True), \
              patch.object(fw, "FASTER_WHISPER_AVAILABLE", False):
             missing = voice_api._whisper_missing_parts("/backend", "tiny.en", config)
         self.assertEqual(missing, [])

@@ -831,8 +831,8 @@ def _induce_candidate_recipe(app, session_id: str, feedback_task: str, strong_po
                 history_lines.append(" ".join(bits))
 
             try:
-                from backend.utils.llm_service import get_saved_active_model_name
-                active_model = get_saved_active_model_name() or "gemma4:e4b"
+                from backend.services.ollama_chat_model import active_chat_model
+                active_model = active_chat_model(app)
             except Exception:
                 active_model = "gemma4:e4b"
 

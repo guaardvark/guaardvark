@@ -392,7 +392,8 @@ class SearchCodeTool(BaseTool):
         "normal result; an invalid pattern, or an absolute, ~ or '..' glob, is an error. A pattern that "
         "backtracks badly (nested repeats such as '(\\w+\\s*)+') is stopped with an error once one line "
         "takes over 1 s or the whole search over 20 s. Use it for exact names and patterns; "
-        "search_codebase asks by meaning when the zvec_grep plugin is connected; read_code opens a hit "
+        "search_codebase asks by meaning when a code search index has been built (System Map page); "
+        "read_code opens a hit "
         "that is UTF-8 text."
         + IN_PROJECT_FOLDER
     )
@@ -1292,6 +1293,9 @@ class ReadASTNodeTool(BaseTool):
 
         if not filepath.endswith(".py"):
             return ToolResult(success=False, error="read_ast_node currently only supports Python (.py) files.")
+        from backend.utils.path_safety import is_sensitive
+        if is_sensitive(filepath):
+            return ToolResult(success=False, error="Credential and key files are not read by the code tools")
 
         try:
             if Path(filepath).is_absolute():

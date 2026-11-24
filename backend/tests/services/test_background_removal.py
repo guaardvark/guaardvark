@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 
 from backend.services import background_removal as bg
+from backend.tests.fixtures.model_files import onnx_bytes, write_model_file
 
 
 class _FakeInput:
@@ -65,7 +66,16 @@ def test_refuses_without_weights(monkeypatch):
 def test_installed_model_prefers_birefnet(monkeypatch, tmp_path):
     monkeypatch.setattr(bg, "model_path", lambda mid: tmp_path / bg.MODELS[mid]["file"])
     assert bg.installed_model() is None
-    (tmp_path / "u2net.onnx").write_bytes(b"x")
+    write_model_file(tmp_path / "u2net.onnx")
     assert bg.installed_model() == "bgremove-u2net"
-    (tmp_path / "BiRefNet-general-epoch_244.onnx").write_bytes(b"x")
+    write_model_file(tmp_path / "BiRefNet-general-epoch_244.onnx")
     assert bg.installed_model() == "bgremove-birefnet"
+
+
+def test_a_cut_off_model_file_is_not_installed(monkeypatch, tmp_path):
+    monkeypatch.setattr(bg, "model_path", lambda mid: tmp_path / bg.MODELS[mid]["file"])
+    whole = onnx_bytes(graph_bytes=64)
+    (tmp_path / "u2net.onnx").write_bytes(whole[:-20])
+    assert bg.installed_model() is None
+    (tmp_path / "u2net.onnx").write_bytes(whole)
+    assert bg.installed_model() == "bgremove-u2net"

@@ -11,6 +11,7 @@ from pathlib import Path
 from backend.services import comfyui_launch_flags as flags
 from backend.services import video_model_registry as vmr
 from backend.services.comfyui_video_generator import ComfyUIVideoGenerator
+from backend.tests.fixtures.model_files import write_model_file
 
 REPO = Path(__file__).resolve().parents[3]
 START_SH = REPO / "plugins" / "comfyui" / "scripts" / "start.sh"
@@ -99,11 +100,11 @@ def test_missing_files_reconcile_link_and_report_vae(tmp_path, monkeypatch):
     models = tmp_path / "models"
     (models / "checkpoints").mkdir(parents=True)
     canonical = models / "checkpoints" / "CogVideoX_1_5_5b_I2V_bf16.safetensors"
-    canonical.write_bytes(b"weights")
+    write_model_file(canonical)
     monkeypatch.setattr(gen_mod, "COMFYUI_DIR", str(tmp_path))
     missing = _gen()._cogvideox_i2v_missing_files("cogvideox-5b-i2v")
     linked = models / "diffusion_models" / "CogVideoX_1_5_5b_I2V_bf16.safetensors"
-    assert linked.exists() and linked.read_bytes() == b"weights"
+    assert linked.exists() and linked.read_bytes() == canonical.read_bytes()
     assert missing == ["vae/cogvideox_vae_bf16.safetensors"]
 
 

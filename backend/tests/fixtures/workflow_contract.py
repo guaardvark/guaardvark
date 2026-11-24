@@ -482,13 +482,23 @@ def loader_files(workflow: dict) -> dict:
 # ── ComfyUI at the HTTP seam ─────────────────────────────────────────────────
 
 class _Response:
-    def __init__(self, status: int, payload=None):
+    def __init__(self, status: int, payload=None, content: bytes = b""):
         self.status_code = status
         self._payload = payload if payload is not None else {}
         self.text = json.dumps(self._payload)
+        self.content = content
 
     def json(self):
         return self._payload
+
+    def iter_content(self, chunk_size=1):
+        yield self.content
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
 
     def raise_for_status(self):
         if self.status_code >= 400:
@@ -499,7 +509,7 @@ class _Response:
 
 class FakeComfyUI:
     """What generate_video talks to: /, /object_info, /system_stats,
-    /upload/image, /prompt, /history, /queue. /prompt records the graph; the
+    /upload/image, /prompt, /history, /queue, /view. /prompt records the graph; the
     history entry then reports an execution error, which ends the wait loop at
     once so no render is ever waited on."""
 
@@ -544,6 +554,11 @@ class FakeComfyUI:
         if path.startswith("queue"):
             running = [[0, f"contract-{len(self.prompts)}"]] if self.running and self.prompts else []
             return _Response(200, {"queue_running": running, "queue_pending": []})
+        if path.startswith("view"):
+            name = (kwargs.get("params") or {}).get("filename", "")
+            if name not in self.files:
+                return _Response(404, {})
+            return _Response(200, content=self.files[name])
         return _Response(404, {})
 
     def post(self, url, json=None, files=None, data=None, **kwargs):
@@ -589,17 +604,6 @@ class FakeComfyUI:
                                         for name in files]}},
         }
 
-    def urlretrieve(self, url, destination):
-        """urllib.request.urlretrieve, which _download_file uses for /view."""
-        self._connect()
-        from urllib.parse import parse_qs
-
-        name = parse_qs(urlsplit(url).query).get("filename", [""])[0]
-        if name not in self.files:
-            raise OSError(f"HTTP Error 404: {name} not found")
-        Path(destination).write_bytes(self.files[name])
-        return str(destination), None
-
 
 def install_fake_comfyui(monkeypatch, tmp_path, *, total_vram_mb: int = 16376, info: Optional[dict] = None):
     """Patch the seams generate_video reads at call time and return
@@ -628,7 +632,6 @@ def install_fake_comfyui(monkeypatch, tmp_path, *, total_vram_mb: int = 16376, i
             return None
 
     monkeypatch.setattr(cvg, "requests", _Requests)
-    monkeypatch.setattr(cvg.urllib.request, "urlretrieve", fake.urlretrieve)
     monkeypatch.setattr(cvg, "COMFYUI_DIR", "", raising=False)
     monkeypatch.setattr(
         gpu_resource_coordinator, "get_available_vram",

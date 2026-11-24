@@ -41,7 +41,8 @@ def cached_hub_file(repo_id: str, filename: str) -> Optional[str]:
 
 
 def require_hub_files(repo_id: str, files: list[str], purpose: str) -> dict[str, str]:
-    """Local paths of ``files``, keyed by name. Raise WeightsNotInstalled if any is missing."""
+    """Local paths of ``files``, keyed by name. Raise WeightsNotInstalled if any is
+    missing or cut short."""
     try:
         import huggingface_hub  # noqa: F401
     except Exception as e:  # pragma: no cover
@@ -49,14 +50,22 @@ def require_hub_files(repo_id: str, files: list[str], purpose: str) -> dict[str,
             f"{purpose}: cannot probe the Hugging Face cache ({e}). {INSTALL_HINT}"
         ) from e
 
+    from backends.model_file_integrity import file_incomplete
+
     found: dict[str, str] = {}
     missing: list[str] = []
     for name in files:
         hit = cached_hub_file(repo_id, name)
         if hit is None:
             missing.append(name)
-        else:
-            found[name] = hit
+            continue
+        reason = file_incomplete(hit)
+        if reason:
+            raise WeightsNotInstalled(
+                f"{purpose}: {name} of '{repo_id}' is incomplete on this machine "
+                f"({reason}). {INSTALL_HINT}"
+            )
+        found[name] = hit
     if missing:
         raise WeightsNotInstalled(
             f"{purpose}: weights for '{repo_id}' are not on this machine "

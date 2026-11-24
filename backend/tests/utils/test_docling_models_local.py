@@ -9,6 +9,7 @@ import socket
 import pytest
 
 from backend.utils import docling_loader as dl
+from backend.tests.fixtures.model_files import write_model_file
 
 
 @pytest.fixture(autouse=True)
@@ -63,8 +64,7 @@ def _put_models(cache):
         (repo / "refs" / model["revision"]).write_text(commit)
         for name in model["files"]:
             f = repo / "snapshots" / commit / name
-            f.parent.mkdir(parents=True, exist_ok=True)
-            f.write_bytes(b"x")
+            write_model_file(f)
 
 
 def _pdf(tmp_path):

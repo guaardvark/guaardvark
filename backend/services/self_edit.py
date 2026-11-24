@@ -343,8 +343,15 @@ def _list_pending(record: Dict[str, Any]) -> None:
 
 def _unlist_pending(edit_id: str) -> None:
     ids = _pending_ids()
-    if edit_id in ids:
-        _write_json(pending_path(), {"edits": [e for e in ids if e != edit_id]})
+    if edit_id not in ids:
+        return
+    left = [e for e in ids if e != edit_id]
+    if left:
+        _write_json(pending_path(), {"edits": left})
+    else:
+        # No list at all when nothing waits: the start guard and the tests
+        # read "no file" as "nothing to undo".
+        pending_path().unlink(missing_ok=True)
 
 
 def _mark_pending(record: Dict[str, Any]) -> None:

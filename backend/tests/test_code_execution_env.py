@@ -55,6 +55,10 @@ KEPT = {
 
 
 def test_execution_env_is_an_allow_list(code_execution_api, monkeypatch):
+    # Start from nothing: a module another test imported may have set an
+    # allow-listed variable of its own (CUDA_LAUNCH_BLOCKING).
+    for name in list(os.environ):
+        monkeypatch.delenv(name)
     for name, value in {**DROPPED, **KEPT}.items():
         monkeypatch.setenv(name, value)
     monkeypatch.delenv("PYTHONPATH", raising=False)

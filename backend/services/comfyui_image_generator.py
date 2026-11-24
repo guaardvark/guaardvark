@@ -1048,6 +1048,8 @@ class ComfyUIImageGenerator:
             except requests.exceptions.RequestException as e:
                 logger.warning("ComfyUI history poll error: %s", e)
             time.sleep(2)
+        # The caller gives up and releases the GPU; the prompt must not keep rendering.
+        self._cancel(prompt_id)
         return None
 
     def _cancel(self, prompt_id: str) -> None:
@@ -1074,9 +1076,9 @@ class ComfyUIImageGenerator:
                 params = {"filename": filename, "type": item.get("type", "output")}
                 if item.get("subfolder"):
                     params["subfolder"] = item["subfolder"]
-                url = f"{self.comfy_url}/view?{urllib.parse.urlencode(params)}"
                 Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-                urllib.request.urlretrieve(url, output_path)
+                from backend.services.comfyui_video_generator import download_comfyui_view
+                download_comfyui_view(f"{self.comfy_url}/view", params, output_path)
                 return output_path
         return None
 
@@ -2046,8 +2048,14 @@ class ComfyUIImageGenerator:
             if not found:
                 for d in search_dirs:
                     if (d / pth.name).exists():
+                        pth = d / pth.name
                         found = True
                         break
+            if found:
+                from backend.utils.model_file_integrity import file_incomplete
+                cut = file_incomplete(pth)
+                if cut:
+                    logger.warning("LoRA preflight: %s is incomplete (%s); the render will fail to load it", pth, cut)
             if not found:
                 logger.warning("LoRA preflight: %s not found in training/loras or Comfy loras search; proceeding without it (cast identity may be lost)", p)
 

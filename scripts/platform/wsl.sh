@@ -52,13 +52,12 @@ wsl_lan_reachable() {
     [ "$(wslinfo --networking-mode 2>/dev/null | tr -d '\r')" = "mirrored" ]
 }
 
-# Printed under the ready card in place of a LAN address no other device can
-# reach. wsl_network_note ADDRESS PORT
+# Printed under the ready card in place of the NAT address, which only this PC
+# can open. wsl_network_note PORT
 wsl_network_note() {
-    local addr="$1" port="$2"
-    echo "  WSL: on this PC, open the studio at the localhost address above. Other devices"
-    echo "  cannot reach this Linux system's own address${addr:+ ($addr)}; it is internal to Windows."
-    echo "  To open the studio from another device, forward port ${port} from Windows or"
+    local port="$1"
+    echo "  WSL: open the studio on this PC at the localhost address above. To open it from"
+    echo "  another device on your network, forward port ${port} from Windows or"
     echo "  switch WSL to mirrored networking: https://learn.microsoft.com/windows/wsl/networking"
 }
 

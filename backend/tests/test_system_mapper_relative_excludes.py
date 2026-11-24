@@ -74,3 +74,20 @@ def test_map_root_inside_a_skipped_folder_is_refused(monkeypatch, tmp_path):
     with pytest.raises(ValueError, match="'data'"):
         wt._safe_root("data/uploads/repo")
     assert wt._safe_root("backend/api") == (tmp_path.resolve() / "backend" / "api")
+
+
+def test_map_root_in_a_git_ignored_folder_is_refused_whether_or_not_it_exists(monkeypatch, tmp_path):
+    import subprocess
+
+    from backend.tools import workstation_tools as wt
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / ".gitignore").write_text("private/\n")
+    (tmp_path / "private" / "here").mkdir(parents=True)
+    monkeypatch.setattr(wt, "_repo_root", lambda: tmp_path.resolve())
+    for arg in ("private/here", "private/missing"):
+        with pytest.raises(ValueError, match="git-ignored"):
+            wt._safe_root(arg)
+    with pytest.raises(ValueError) as missing:
+        wt._safe_root("nowhere")
+    assert str(tmp_path) not in str(missing.value)
