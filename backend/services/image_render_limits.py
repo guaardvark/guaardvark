@@ -100,6 +100,52 @@ def family_values(field: str) -> dict:
     return {fam: spec[field] for fam, spec in IMAGE_FAMILY_SPECS.items() if field in spec}
 
 
+
+# ── VRAM ─────────────────────────────────────────────────────────────────────
+
+def _is_known(model: Optional[str]) -> bool:
+    """True when ``model`` names a row rather than falling through to SD 1.5's."""
+    key = (model or "").strip().lower()
+    return bool(key) and (model_key(key) is not None or family_of(key) != "sd" or key == "sd")
+
+
+def still_vram_mb(
+    model: Optional[str],
+    *,
+    default: int,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    total_vram_mb: Optional[float] = None,
+) -> int:
+    """VRAM one still on ``model`` takes on this card, from its registry row.
+
+    The row's ``vram_mb`` is the price at 1 MP; a family that declares
+    ``vram_slope_mb_per_mp`` adds that per megapixel above it. A family that
+    declares a smaller-card mode (``offload_below_vram_gb`` with
+    ``vram_mb_offload``) is priced for that mode on a card under the threshold,
+    probed when ``total_vram_mb`` is not given. ``default`` is returned for a
+    model with no row.
+    """
+    if not _is_known(model):
+        return int(default)
+    lim = limits_for(model)
+    price = int(lim.get("vram_mb") or 0)
+    if price <= 0:
+        return int(default)
+    below_gb = lim.get("offload_below_vram_gb")
+    if below_gb and lim.get("vram_mb_offload"):
+        if total_vram_mb is None:
+            from backend.services.video_model_registry import _probe_total_vram_mb
+            total_vram_mb = _probe_total_vram_mb()
+        if total_vram_mb and float(total_vram_mb) < float(below_gb) * 1024:
+            price = int(lim["vram_mb_offload"])
+    slope = lim.get("vram_slope_mb_per_mp")
+    if slope and width and height:
+        extra_mp = max(0.0, (int(width) * int(height)) / 1_048_576.0 - 1.0)
+        price += round(extra_mp * int(slope))
+    return price
+
+
 # ── Canvas ───────────────────────────────────────────────────────────────────
 
 def resolve_canvas(width: int, height: int, model: Optional[str]) -> Tuple[int, int, List[str]]:

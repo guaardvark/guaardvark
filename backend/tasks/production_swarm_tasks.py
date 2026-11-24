@@ -588,6 +588,36 @@ def _still_canvas(production) -> dict:
 # gate's cooldown between jobs is shorter.
 _REGEN_RETRY_S = 15
 
+# Most a storyboard session books, whatever its keyframe model's price.
+_STORYBOARD_VRAM_CEILING_MB = 11000
+
+
+def _shot_keyframe_model(shot, image_generator=None) -> str | None:
+    """The model a shot's storyboard still renders on: its cast LoRAs' base,
+    else Z-Image Turbo. None when that cannot be told (an injected generator,
+    LoRAs whose base cannot be read)."""
+    lora_paths, _prompt = _shot_loras_and_prompt(shot)
+    if not lora_paths:
+        return None if image_generator is not None else "zimage-turbo"
+    try:
+        from backend.services.media_model_registry import resolve_inference_for_loras
+        route = resolve_inference_for_loras(list(lora_paths))
+    except Exception:  # noqa: BLE001 — an unread base is booked at the ceiling
+        return None
+    return route.get("offline_model_key") or route.get("comfy_model_tag")
+
+
+def _storyboard_vram_mb(models, canvas: dict | None = None) -> int:
+    """VRAM a storyboard session books on this card: the registry price of its
+    heaviest keyframe model (None for one without a price), at most the ceiling."""
+    from backend.services.image_render_limits import still_vram_mb
+    ceiling = _STORYBOARD_VRAM_CEILING_MB
+    prices = [
+        still_vram_mb(m, default=ceiling, **(canvas or {}))
+        for m in set(models)
+    ]
+    return min(max(prices, default=ceiling), ceiling)
+
 
 def _storyboard_path(prod_id: int, scene_number: int, shot_number: int) -> str:
     from backend.config import STORAGE_DIR
@@ -609,12 +639,16 @@ def run_storyboard_artist(prod_id: int, image_generator=None):
         from backend.services.job_types import JobKind
         from backend.services.gpu_resource_policy import gpu_session
         from backend.services.character_still_pipeline import render_character_still
+        vram_mb = _storyboard_vram_mb(
+            [_shot_keyframe_model(shot, image_generator) for shot in shots],
+            _still_canvas(ctx.production),
+        )
         with gpu_session(
             JobKind.VIDEO_RENDER,
             f"storyboard_{prod_id}",
             evict_ollama=True,
             free_comfyui=True,
-            vram_estimate_mb=11000,
+            vram_estimate_mb=vram_mb,
             require_fit=True,
             cross_process=True,
         ):
@@ -908,12 +942,16 @@ def regen_storyboard_shot(shot_id: int, prompt_override: str | None = None, imag
     from backend.services.job_types import JobKind
     from backend.services.gpu_resource_policy import gpu_session
     from backend.services.character_still_pipeline import render_character_still
+    vram_mb = _storyboard_vram_mb(
+        [None if image_generator is not None else _shot_keyframe_model(shot)],
+        _still_canvas(db.session.get(Production, shot.production_id)),
+    )
     with gpu_session(
         JobKind.VIDEO_RENDER,
         f"storyboard_{shot.production_id}",
         evict_ollama=True,
         free_comfyui=True,
-        vram_estimate_mb=11000,
+        vram_estimate_mb=vram_mb,
         require_fit=True,
         cross_process=True,
     ):
