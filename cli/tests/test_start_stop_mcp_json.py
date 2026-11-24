@@ -406,3 +406,22 @@ def test_launch_full_json_names_a_bad_guaardvark_root(tmp_path, monkeypatch):
     error = _envelope(result)["error"]
     assert error["code"] == "INSTALL_NOT_FOUND"
     assert "not a folder" in error["message"]
+
+
+def test_launch_full_refuses_when_another_install_holds_the_port(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".guaardvark").mkdir(parents=True)
+    (home / ".guaardvark" / "config.json").write_text(json.dumps({"onboarded": True}))
+    root = tmp_path / "install"
+    root.mkdir()
+    (root / "start.sh").write_text("#!/bin/sh\nexit 0\n")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("GUAARDVARK_ROOT", str(root))
+    monkeypatch.setattr("llx.port_owner.other_install_holders",
+                        lambda root, ports: [{"port": 5000, "pid": 4242, "install": "/srv/other"}])
+    monkeypatch.setattr("llx.commands.launch.subprocess.Popen", lambda *a, **k: pytest.fail("spawned start.sh"))
+    result = runner.invoke(app, ["launch", "--full", "--yes", "--json"])
+    assert result.exit_code == 1
+    error = _envelope(result)["error"]
+    assert error["code"] == "PORT_HELD_BY_OTHER_INSTALL"
+    assert "/srv/other" in error["message"] and "4242" in error["message"]
