@@ -219,6 +219,33 @@ def _start_lite_mode(console, port: int):
     console.print("[llx.warning]Lite server may not be ready yet[/llx.warning]")
 
 
+def _refuse_if_other_install(console, root) -> None:
+    """Exit before start.sh when another Guaardvark install holds this one's ports.
+
+    start.sh refuses too, but launch runs it in the background with its output
+    discarded and would then take the other install's backend for this one.
+    """
+    from llx import output
+    from llx.port_owner import other_install_holders, start_ports
+
+    held = other_install_holders(root, start_ports(root))
+    if not held:
+        return
+    first = held[0]
+    message = (f"Port {first['port']} is held by another Guaardvark install at "
+               f"{first['install']} (PID {first['pid']}); not starting this one over it.")
+    hint = (f"Stop that install with {first['install']}/stop.sh, or give this one other "
+            f"ports (FLASK_PORT and VITE_PORT in {root}/.env).")
+    if output.is_json_mode():
+        output.print_json({"status": "error", "data": {"root": str(root), "held": held},
+                           "error": {"code": "PORT_HELD_BY_OTHER_INSTALL",
+                                     "message": message, "hint": hint}})
+    else:
+        console.print(f"[llx.error]{message}[/llx.error]")
+        console.print(f"[llx.dim]{hint}[/llx.dim]")
+    raise typer.Exit(1)
+
+
 def _start_full_stack(console, cfg: dict, quiet: bool = False) -> dict:
     """Start the full Guaardvark stack via start.sh. ``quiet`` reports failures
     as JSON and returns {root, server_url, ready} without printing."""
@@ -241,6 +268,8 @@ def _start_full_stack(console, cfg: dict, quiet: bool = False) -> dict:
             _json_error("START_SCRIPT_NOT_FOUND", f"start.sh not found at {root}")
         console.print(f"[llx.error]start.sh not found at {root}[/llx.error]")
         raise typer.Exit(1)
+
+    _refuse_if_other_install(console, root)
 
     if not quiet:
         console.print(f"[llx.dim]Starting full stack from {root}...[/llx.dim]")

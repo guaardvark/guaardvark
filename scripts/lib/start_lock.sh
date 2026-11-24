@@ -3,6 +3,9 @@
 # Sourced by start.sh and stop.sh. Requires SCRIPT_DIR (install root).
 # Does not start or stop the app stack.
 
+# shellcheck source=scripts/lib/proc_owner.sh
+command -v proc_install_root >/dev/null 2>&1 || . "$(dirname "${BASH_SOURCE[0]}")/proc_owner.sh"
+
 start_lock_pidfile() {
     printf '%s\n' "${START_PID_FILE:-$SCRIPT_DIR/.start_cache/start.sh.pid}"
 }
@@ -45,14 +48,10 @@ start_lock_is_our_script() {
             return 1
             ;;
     esac
+    # An unreadable cwd is trusted, as the command already named start.sh.
     cwd=$(start_lock_cwd "$pid")
-    if [ -n "$cwd" ]; then
-        case "$cwd" in
-            "$SCRIPT_DIR"|"$SCRIPT_DIR"/*) ;;
-            *) return 1 ;;
-        esac
-    fi
-    return 0
+    [ -z "$cwd" ] && return 0
+    proc_in_install "$pid" "$SCRIPT_DIR"
 }
 
 # True if the process is actually running (not job-control stopped / zombie).

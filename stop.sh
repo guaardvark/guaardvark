@@ -6,6 +6,8 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PIDS_DIR="$SCRIPT_DIR/pids"
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$SCRIPT_DIR/scripts/lib/proc_owner.sh"
 # shellcheck source=scripts/lib/start_lock.sh
 . "$SCRIPT_DIR/scripts/lib/start_lock.sh"
 # shellcheck source=scripts/lib/ollama_lifecycle.sh
@@ -59,7 +61,9 @@ kill_and_cleanup() {
         local pid=$(cat "$pid_file")
         vader_info "Stopping $service_name (PID: $pid)..."
         
-        if kill -0 "$pid" 2>/dev/null; then
+        if kill -0 "$pid" 2>/dev/null && ! _ours "$pid"; then
+            _not_ours_note "$service_name" "$pid"
+        elif kill -0 "$pid" 2>/dev/null; then
             kill -TERM "$pid" 2>/dev/null
             sleep 2
             
@@ -89,14 +93,22 @@ kill_and_cleanup() {
 # fd. Returns the absolute cwd or empty. The frontend/backend/celery confinement checks below
 # funnel through here — without the lsof fallback the cwd check returned empty on macOS, so our
 # own stale processes (e.g. the zombie vite on :4173 in issue #41) were never reaped.
-_proc_cwd() {
-    local pid="$1" cwd=""
-    if [ -e "/proc/$pid/cwd" ]; then
-        cwd=$(readlink -f "/proc/$pid/cwd" 2>/dev/null)
-    elif command -v lsof >/dev/null 2>&1; then
-        cwd=$(lsof -a -d cwd -p "$pid" -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)
+_proc_cwd() { proc_cwd "$1"; }
+
+# True when PID runs from this checkout and not from another install, a worktree
+# nested inside this one included (scripts/lib/proc_owner.sh). "cwd" judges by the
+# working directory alone, for sweeps that match on a command-line pattern.
+_ours() { proc_in_install "$1" "$SCRIPT_DIR" "${2:-}"; }
+
+# A pid file whose number now belongs to another install or an unrelated process.
+_not_ours_note() {
+    local root
+    root=$(proc_install_root "$2")
+    if [ -n "$root" ]; then
+        vader_warn "$1: PID $2 belongs to the Guaardvark install at $root, not this one; leaving it running and dropping this install's stale pid file."
+    else
+        vader_warn "$1: PID $2 is not a process of this install; leaving it running and dropping the stale pid file."
     fi
-    printf '%s' "$cwd"
 }
 
 # ── Helper: is a plugin enabled? data/plugin_state.json (user choice) wins over
@@ -154,7 +166,12 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
     [ -n "$_flask_port_env" ] && FLASK_PORT="$_flask_port_env"
 fi
 
-if command -v curl >/dev/null 2>&1; then
+# Only when this install's backend holds the port: another install's renders are not ours to cancel.
+_backend_is_ours=0
+for _pid in $(port_listener_pids "$FLASK_PORT"); do
+    _ours "$_pid" && _backend_is_ours=1
+done
+if [ "$_backend_is_ours" = 1 ] && command -v curl >/dev/null 2>&1; then
     cancel_resp=$(curl -sf --max-time 5 -X POST "http://localhost:${FLASK_PORT}/api/batch-video/cancel-all" 2>/dev/null)
     if [ -n "$cancel_resp" ] && command -v python3 >/dev/null 2>&1; then
         cancelled_count=$(python3 -c "import json,sys; d=json.loads(sys.stdin.read()); r=d.get('data',d); print(r.get('count', 0))" <<< "$cancel_resp" 2>/dev/null)
@@ -192,7 +209,9 @@ else
     # 2. Kill via PID file (in case the stop script didn't handle it)
     if [ -f "$PIDS_DIR/comfyui.pid" ]; then
         comfyui_pid=$(cat "$PIDS_DIR/comfyui.pid" 2>/dev/null)
-        if [ -n "$comfyui_pid" ] && kill -0 "$comfyui_pid" 2>/dev/null; then
+        if [ -n "$comfyui_pid" ] && kill -0 "$comfyui_pid" 2>/dev/null && ! _ours "$comfyui_pid"; then
+            _not_ours_note "ComfyUI" "$comfyui_pid"
+        elif [ -n "$comfyui_pid" ] && kill -0 "$comfyui_pid" 2>/dev/null; then
             vader_info "Stopping ComfyUI (PID: $comfyui_pid)..."
             kill -TERM "$comfyui_pid" 2>/dev/null
             sleep 2
@@ -225,10 +244,9 @@ fi  # end comfyui_enabled/running check
 if [ "$COMFYUI_EXTERNAL" != 1 ] && command -v lsof >/dev/null 2>&1; then
     port_pids=$(lsof -i TCP:"$COMFYUI_PORT" -sTCP:LISTEN -t 2>/dev/null)
     if [ -n "$port_pids" ]; then
-        install_root=$(cd "$SCRIPT_DIR" && pwd -P)
         for pid in $port_pids; do
             proc_cwd=$(_proc_cwd "$pid")
-            if [ -z "$proc_cwd" ] || { [ "$proc_cwd" != "$install_root" ] && [[ "$proc_cwd" != "$install_root"/* ]]; }; then
+            if ! _ours "$pid" cwd; then
                 vader_info "Port $COMFYUI_PORT is held by a process outside this install (PID: $pid${proc_cwd:+, $proc_cwd}); leaving it running."
                 continue
             fi
@@ -246,7 +264,7 @@ fi
 vader_step 2 "Ollama"
 OLLAMA_STOP_MODE=$(ollama_stop_mode "$STOP_ALL" "$KEEP_OLLAMA")
 vader_info "Ollama: $OLLAMA_STOP_MODE"
-stop_ollama "$OLLAMA_STOP_MODE" "$PIDS_DIR/ollama.pid"
+stop_ollama "$OLLAMA_STOP_MODE" "$PIDS_DIR/ollama.pid" "$SCRIPT_DIR"
 if [ "$OLLAMA_STOP_MODE" = "keep" ]; then
     vader_quiet "left running"
 elif [ "$ollama_killed" -gt 0 ]; then
@@ -261,7 +279,9 @@ vader_step 3 "Studio"
 # whose PID we recorded in pids/redis.pid when start_redis.sh launched a sidecar.
 if [ -f "$PIDS_DIR/redis.pid" ]; then
     redis_pid=$(cat "$PIDS_DIR/redis.pid" 2>/dev/null)
-    if [ -n "$redis_pid" ] && kill -0 "$redis_pid" 2>/dev/null; then
+    if [ -n "$redis_pid" ] && kill -0 "$redis_pid" 2>/dev/null && ! _ours "$redis_pid"; then
+        _not_ours_note "Redis sidecar" "$redis_pid"
+    elif [ -n "$redis_pid" ] && kill -0 "$redis_pid" 2>/dev/null; then
         # Extra safety: only stop if the process looks like redis-server and is
         # not the distro service bound solely as the system unit (we check cmdline).
         redis_cmd=$(ps -p "$redis_pid" -o args= 2>/dev/null || true)
@@ -304,8 +324,7 @@ vader_info "Cleaning up any remaining processes from this environment..."
 flask_pids=$(pgrep -f "(python.*backend[./]app|flask run)" 2>/dev/null)
 if [ -n "$flask_pids" ]; then
     for pid in $flask_pids; do
-        proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
+        if _ours "$pid" cwd; then
             vader_info "Force killing Flask/SocketIO process (PID: $pid) from this environment..."
             kill -TERM "$pid" 2>/dev/null
             sleep 2
@@ -324,8 +343,7 @@ celery_pids=$(pgrep -f "celery.*(worker|beat)" 2>/dev/null)
 if [ -n "$celery_pids" ]; then
     env_celery_pids=()
     for pid in $celery_pids; do
-        proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
+        if _ours "$pid" cwd; then
             env_celery_pids+=("$pid")
         fi
     done
@@ -364,8 +382,7 @@ for port in $VITE_PORT 4173 5173 5174 5175 5176 5177; do
         port_pids=$(lsof -i TCP:"$port" -sTCP:LISTEN -t 2>/dev/null)
         if [ -n "$port_pids" ]; then
             for pid in $port_pids; do
-                proc_cwd=$(_proc_cwd "$pid")
-                if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
+                if _ours "$pid" cwd; then
                     vader_info "Force killing node/vite process on port $port (PID: $pid) from this environment..."
                     kill -TERM "$pid" 2>/dev/null
                     sleep 1
@@ -381,8 +398,7 @@ done
 vite_pids=$(pgrep -f "node.*vite" 2>/dev/null)
 if [ -n "$vite_pids" ]; then
     for pid in $vite_pids; do
-        proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
+        if _ours "$pid" cwd; then
             vader_info "Force killing Vite process (PID: $pid) from this environment..."
             kill -TERM "$pid" 2>/dev/null
             sleep 1
@@ -394,8 +410,18 @@ if [ -n "$vite_pids" ]; then
 fi
 
 # ── Stop agent virtual display (Xvfb + VNC + window manager) ──
+# The display number and VNC port are one per machine; stop them only when no other
+# install's Xvfb holds that display.
 AGENT_DISPLAY_SCRIPT="$SCRIPT_DIR/scripts/start_agent_display.sh"
-if [ -x "$AGENT_DISPLAY_SCRIPT" ]; then
+agent_display_owner=""
+for pid in $(pgrep -f "Xvfb :${GUAARDVARK_AGENT_DISPLAY:-99}( |$)" 2>/dev/null); do
+    _ours "$pid" && continue
+    agent_display_owner=$(proc_install_root "$pid")
+    [ -n "$agent_display_owner" ] && break
+done
+if [ -n "$agent_display_owner" ]; then
+    vader_info "Agent virtual display :${GUAARDVARK_AGENT_DISPLAY:-99} belongs to the install at $agent_display_owner; leaving it running."
+elif [ -x "$AGENT_DISPLAY_SCRIPT" ]; then
     vader_info "Stopping agent virtual display..."
     bash "$AGENT_DISPLAY_SCRIPT" stop 2>&1 | while read line; do vader_info "  $line"; done
     # PIPESTATUS[0] is the stop script's real exit code (the `while` is last in the pipe).
@@ -458,7 +484,7 @@ rm -f "$PIDS_DIR/ollama.pid"
 for pid_file in "$PIDS_DIR"/*.pid; do
     [ -f "$pid_file" ] || continue
     pid=$(tr -dc '0-9' < "$pid_file" 2>/dev/null)
-    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && _ours "$pid"; then
         vader_warn "$(basename "$pid_file" .pid) is still running (pid $pid); keeping its pid file."
     else
         rm -f "$pid_file"
