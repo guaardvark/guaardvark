@@ -51,8 +51,10 @@ def parse_plan(plan_path: str | Path) -> list[SwarmTask]:
     """
     Parse a markdown plan file into SwarmTask objects.
 
-    Each ## heading becomes a task. The parser auto-detects whether
-    each task block is structured (has field markers) or freeform.
+    Each ## heading becomes a task; in a plan that marks its tasks with
+    "## Task: ...", only those do, and the rest of the plan is given to every
+    task as notes. The parser auto-detects whether each task block is
+    structured (has field markers) or freeform.
     """
     plan_path = Path(plan_path)
     if not plan_path.exists():
@@ -63,6 +65,14 @@ def parse_plan(plan_path: str | Path) -> list[SwarmTask]:
 
     if not blocks:
         raise ValueError(f"No task blocks found in {plan_path} — need at least one ## heading")
+
+    # A plan that marks its tasks ("## Task: ...") has other sections too:
+    # ground rules above the first heading, a "## How to measure". Those are
+    # notes for every agent, not agents of their own.
+    notes = ""
+    if any(_is_marked_task(heading) for heading, _ in blocks):
+        notes = _plan_notes(content, [(h, b) for h, b in blocks if not _is_marked_task(h)])
+        blocks = [(h, b) for h, b in blocks if _is_marked_task(h)]
 
     tasks = []
     for heading, body in blocks:
@@ -83,6 +93,14 @@ def parse_plan(plan_path: str | Path) -> list[SwarmTask]:
 
     # resolve freeform dependency references to actual task IDs
     _resolve_dependencies(tasks)
+
+    # Added after the fields and dependencies are read, so a line in the notes
+    # is never taken for one task's files or dependencies.
+    if notes:
+        for task in tasks:
+            task.description = (
+                f"{task.description}\n\n---\nNotes from the plan that apply to every task:\n\n{notes}"
+            ).strip()
 
     logger.info(f"Parsed {len(tasks)} tasks from {plan_path}")
     for t in tasks:
@@ -153,6 +171,24 @@ def auto_serialize_conflicts(
 # ---------------------------------------------------------------------------
 # Internal parsing machinery
 # ---------------------------------------------------------------------------
+
+def _is_marked_task(heading: str) -> bool:
+    return _TAG_RE.sub("", heading).strip().lower().startswith("task:")
+
+
+def _plan_notes(content: str, sections: list[tuple[str, str]]) -> str:
+    """The parts of a plan that are not tasks: the text above the first
+    heading (without the plan's own title line) and the unmarked sections."""
+    preamble_lines = []
+    for line in content.split("\n"):
+        if line.startswith("## ") or line.startswith("### "):
+            break
+        if not line.startswith("# "):
+            preamble_lines.append(line)
+    parts = ["\n".join(preamble_lines).strip()]
+    parts += [f"{heading}\n{body}".strip() for heading, body in sections]
+    return "\n\n".join(part for part in parts if part)
+
 
 def _split_into_blocks(content: str) -> list[tuple[str, str]]:
     """Split markdown into (heading, body) pairs on ## or ### boundaries.
@@ -322,6 +358,14 @@ def _resolve_dependencies(tasks: list[SwarmTask]) -> None:
                 if dep_lower in title_lower or title_lower in dep_lower:
                     match = tid
                     break
+
+            if match is None:
+                # "T2", "task 2", "#2": the plan's second task. Plans a model
+                # writes number their tasks this way.
+                numbered = re.fullmatch(r"(?:t|task|step|#)?[\s-]*(\d{1,3})", dep_lower.strip())
+                if numbered and 1 <= int(numbered.group(1)) <= len(tasks):
+                    target = tasks[int(numbered.group(1)) - 1].id
+                    match = target if target != task.id else None
 
             if match:
                 resolved.append(match)

@@ -9,6 +9,7 @@ the internal token these proxies add.
 
 import logging
 import os
+import re
 import subprocess
 from pathlib import Path
 from urllib.parse import quote
@@ -161,6 +162,88 @@ def _plan_from_prompt(prompt: str) -> str:
     title = " ".join(prompt.split())
     title = title if len(title) <= 60 else title[:57].rstrip() + "..."
     return f"# Swarm Plan: {title}\n\n## Task: {title}\n- depends_on: none\n\n{prompt.strip()}\n"
+
+
+_PLAN_DRAFT_PROMPT = """Write a plan for a team of coding agents. Each task is done by one agent \
+working alone in its own copy of the repository, so every task must stand on its own.
+
+The request: {goal}
+
+Use exactly this format, and nothing before or after it:
+
+# Swarm Plan: <a short title>
+
+## Task: <task title>
+- files: <the files or folders this task touches, comma separated>
+- depends_on: <the exact title of an earlier task this one needs, or none>
+- backend: any
+
+<What the agent should do, in plain sentences: what to build or change, how to check it, and \
+that it should commit its work with git when done.>
+
+Write between one and five tasks. Split the work only where two agents could work at the same \
+time without editing the same files; otherwise write one task."""
+
+
+def _plan_text(reply: str) -> str:
+    """The plan a model reply carries, without the chat or the code fence
+    around it: the fenced block that holds task headings when there is one,
+    else the text from the first heading on."""
+    text = (reply or "").strip()
+    for fenced in re.finditer(r"```[a-zA-Z]*\n(.*?)\n```", text, re.DOTALL):
+        if re.search(r"^## ", fenced.group(1), re.MULTILINE):
+            text = fenced.group(1).strip()
+            break
+    start = re.search(r"^#{1,2} ", text, re.MULTILINE)
+    return text[start.start():].strip() if start else ""
+
+
+@swarm_bp.route("/draft-plan", methods=["POST"])
+def draft_plan():
+    """Draft a plan for a goal with the chat model, for the plan editor.
+
+    The model is asked directly: sent through chat, "generate a plan file"
+    was taken for a file request and the editor received the "file generated"
+    notice as the plan. Nothing is saved or launched; the reply is checked
+    with the swarm's own parser so the editor never gets a plan with no tasks.
+    """
+    goal = str((flask_request.get_json(silent=True) or {}).get("goal") or "").strip()
+    if not goal:
+        return error_response("A goal is required", 400, "NO_GOAL")
+    from backend.utils.llm_service import is_llm_failure_reply, run_llm_chat_prompt
+
+    try:
+        reply = run_llm_chat_prompt(_PLAN_DRAFT_PROMPT.format(goal=goal))
+    except Exception as e:  # noqa: BLE001 - the model call is the whole job here
+        logger.warning(f"Plan draft failed: {e}")
+        return error_response(f"The chat model could not be reached ({e})", 502, "MODEL_UNAVAILABLE")
+    if is_llm_failure_reply(reply):
+        return error_response("The chat model gave no answer; check that a chat model is loaded and try again",
+                              502, "MODEL_UNAVAILABLE")
+    markdown = _plan_text(reply)
+    if not re.search(r"^## ", markdown, re.MULTILINE):
+        return error_response("The model did not return a plan. Try again, or write the plan by hand.",
+                              502, "NO_PLAN_IN_REPLY")
+
+    # Counted by the service that will run it, when it is up.
+    task_count, titles = None, []
+    plan_rel = _write_plan(markdown)
+    try:
+        data, status = _proxy_post("/swarm/launch", {
+            "plan_path": plan_rel, "dry_run": True, "acknowledge_dirty_tree": True}, timeout=20)
+        if status < 400 and isinstance(data, dict) and data.get("dry_run"):
+            task_count = data.get("task_count")
+            titles = [t.get("title") for t in data.get("tasks") or []]
+    finally:
+        try:
+            (Path(default_repo_root()) / plan_rel).unlink()
+        except OSError:
+            pass
+    if task_count == 0:
+        return error_response("The model's reply held no tasks. Try again, or write the plan by hand.",
+                              502, "NO_PLAN_IN_REPLY")
+    return success_response(data={"markdown": markdown + "\n", "task_count": task_count, "tasks": titles},
+                            message="Plan drafted")
 
 
 @swarm_bp.route("/health", methods=["GET"])
