@@ -100,13 +100,27 @@ def jobs_watch(
     interval: float = typer.Option(1.5, "--interval", "-i", help="Seconds between checks"),
     timeout: float = typer.Option(0, "--timeout", help="Give up after this many seconds (0 = wait until it ends)"),
     server: str = typer.Option(None, "--server", "-s"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="No progress bar; print the final job state as JSON"),
 ):
     """Live-watch job progress until it finishes."""
     server = server or get_global_server()
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
     try:
         client = get_client(server)
         info = read_job(client, job_id)
         started = time.monotonic()
+
+        if json_out:
+            while info["status"] not in TERMINAL and not (timeout and time.monotonic() - started > timeout):
+                time.sleep(max(0.2, interval))
+                info = read_job(client, job_id)
+            if info["status"] in ("failed", "cancelled"):
+                output.print_json({"status": "error", "data": info, "error": {
+                    "code": "JOB_" + info["status"].upper(), "message": str(info.get("error") or info["status"])}})
+                raise typer.Exit(1)
+            output.print_json({"status": "success", "data": info})
+            return
 
         with Progress(
             TextColumn("[llx.brand]{task.description}"),

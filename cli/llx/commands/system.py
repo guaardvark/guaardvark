@@ -70,7 +70,7 @@ def start(
     raise typer.Exit(result.returncode)
 
 
-def _doctor_cli_check() -> None:
+def _doctor_cli_check(json_out: bool = False) -> None:
     """Validate CLI-side config and backend reachability."""
     from pathlib import Path
 
@@ -129,14 +129,23 @@ def _doctor_cli_check() -> None:
     except Exception:
         pass
 
+    failed = [label for label, ok, _ in checks
+              if label not in ("lite/full note", "launch mode", "terminal", "tmux") and not ok]
+    if json_out:
+        data = {"checks": [{"name": label, "ok": ok, "detail": detail} for label, ok, detail in checks],
+                "failed": failed}
+        if failed:
+            output.print_json({"status": "error", "data": data, "error": {
+                "code": "CHECKS_FAILED", "message": f"Failed: {', '.join(failed)}"}})
+            raise typer.Exit(1)
+        output.print_json({"status": "success", "data": data})
+        return
+
     console.print("[llx.brand]CLI Doctor[/llx.brand]\n")
-    failed = []
     for label, ok, detail in checks:
         icon = ICON_ONLINE if ok else ICON_OFFLINE
         style = "llx.status.online" if ok else "llx.status.offline"
         console.print(f"  [{style}]{icon}[/{style}] [llx.kv.key]{label}:[/llx.kv.key] {detail}")
-        if label not in ("lite/full note", "launch mode", "terminal", "tmux") and not ok:
-            failed.append(label)
 
     if failed:
         hints = {"backend health": "guaardvark start --backend-only",
@@ -169,10 +178,13 @@ def doctor(
     path: str | None = typer.Option(None, "--path", "-p", help="Project path (default: GUAARDVARK_ROOT or cwd)"),
     repair: bool = typer.Option(False, "--repair", "-r", help="Run repair instead of check"),
     cli_check: bool = typer.Option(False, "--cli", help="Validate CLI config, ports, and mode (no system-manager)"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Run environment health check (or repair) via system-manager."""
+    json_out = json_out or get_global_json()
+    output.set_json_mode(json_out)
     if cli_check:
-        _doctor_cli_check()
+        _doctor_cli_check(json_out)
         raise typer.Exit(0)
 
     target = path or os.environ.get("GUAARDVARK_ROOT") or os.getcwd()
@@ -182,6 +194,16 @@ def doctor(
         output.print_error(f"System manager not found at {manager_script}")
         raise typer.Exit(1)
     cmd = [manager_script, "repair" if repair else "check", target]
+    if json_out:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        data = {"command": "repair" if repair else "check", "returncode": result.returncode,
+                "output": _ANSI_ESCAPE.sub("", result.stdout), "errors": _ANSI_ESCAPE.sub("", result.stderr)}
+        if result.returncode:
+            output.print_json({"status": "error", "data": data, "error": {
+                "code": "CHECK_FAILED", "message": f"system-manager exited {result.returncode}"}})
+        else:
+            output.print_json({"status": "success", "data": data})
+        raise typer.Exit(result.returncode)
     if sys.stdout.isatty() and not os.environ.get("NO_COLOR"):
         result = subprocess.run(cmd)
     else:
