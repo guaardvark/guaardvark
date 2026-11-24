@@ -61,10 +61,10 @@ class IndexOllamaEmbedding(OllamaEmbedding):
         except Exception as e:
             logger.warning(f"GPU Embedding plugin failed, the index embeds through Ollama: {e}")
         if vectors is None:
-            gate.texts_via_fallback += len(texts)
+            gate.count(len(texts), via_plugin=False)
             router._note_path("ollama", len(texts))
             return None
-        gate.texts_via_plugin += len(texts)
+        gate.count(len(texts), via_plugin=True)
         router._note_path("gpu_embedding_plugin", len(texts))
         return vectors
 
@@ -77,9 +77,9 @@ class IndexOllamaEmbedding(OllamaEmbedding):
         return vectors if vectors is not None else super()._get_text_embeddings(texts)
 
     async def _aget_text_embedding(self, text: str) -> List[float]:
-        vectors = await asyncio.to_thread(self._via_plugin, [text])
+        vectors = await asyncio.to_thread(self._via_plugin, [text]) if _plugin_switched_on() else None
         return vectors[0] if vectors is not None else await super()._aget_text_embedding(text)
 
     async def _aget_text_embeddings(self, texts: List[str]) -> List[List[float]]:
-        vectors = await asyncio.to_thread(self._via_plugin, texts)
+        vectors = await asyncio.to_thread(self._via_plugin, texts) if _plugin_switched_on() else None
         return vectors if vectors is not None else await super()._aget_text_embeddings(texts)

@@ -26,6 +26,18 @@ _STATE_FILE = _REPO_ROOT / "data" / "plugin_state.json"
 
 RECHECK_S = 30.0
 ENABLED_TTL_S = 5.0
+# After a check or call that cost time (timeout, error, probe mismatch) the plugin is
+# skipped for BACKOFF_BASE_S, doubling per consecutive failure up to BACKOFF_MAX_S, so a
+# slow plugin cannot hold indexing in timeouts. Cheap refusals (not listening, other
+# model) recheck every RECHECK_S.
+BACKOFF_BASE_S = 30.0
+BACKOFF_MAX_S = 600.0
+# Request timeouts. One probe text, or one batch, takes well under a second on a 16 GB
+# consumer GPU with the model loaded (measurement in embedding_router.py); a call slower
+# than this falls back to the indexer's own path.
+MODELS_TIMEOUT_S = 2.0
+PROBE_TIMEOUT_S = 5.0
+CALL_TIMEOUT_S = 10.0
 PROBE_TEXT = "Index path check: a red fox crosses a frozen river at dawn."
 # Same model, same input, same Ollama: anything below this is another model,
 # another prefix or another normalisation.
@@ -69,7 +81,7 @@ def _limits() -> Dict[str, int]:
         "batch_size": int(os.environ.get("PLUGIN_GPU_EMBEDDING_BATCH_SIZE") or cfg.get("batch_size", 32)),
         "max_text_length": int(os.environ.get("PLUGIN_GPU_EMBEDDING_MAX_TEXT_LENGTH")
                                or cfg.get("max_text_length", 8192)),
-        "timeout": int(cfg.get("timeout", 30)),
+        "timeout": min(float(cfg.get("timeout", 30)), CALL_TIMEOUT_S),
     }
 
 
@@ -119,6 +131,8 @@ class PluginEmbeddingGate:
         self._served_model: Optional[str] = None
         self._dim: Optional[int] = None
         self._last_logged: Optional[tuple] = None
+        self._failures = 0
+        self._retry_at = -1.0
         self.texts_via_plugin = 0
         self.texts_via_fallback = 0
 
@@ -143,6 +157,23 @@ class PluginEmbeddingGate:
                 logger.warning("Embedding path: indexer's own Ollama path; GPU Embedding plugin not used: %s",
                                reason)
 
+    def _back_off(self, reason: str) -> None:
+        """Close the gate after a costly failure and skip the plugin for a growing while."""
+        self._failures += 1
+        wait = min(BACKOFF_BASE_S * 2 ** (self._failures - 1), BACKOFF_MAX_S)
+        now = time.monotonic()
+        self._verified = None
+        self._checked_at = now
+        self._retry_at = now + wait
+        self._set(False, f"{reason}; retrying in {int(wait)} s")
+
+    def count(self, n: int, via_plugin: bool) -> None:
+        with self._lock:
+            if via_plugin:
+                self.texts_via_plugin += n
+            else:
+                self.texts_via_fallback += n
+
     def usable(self, model_name: str, reference: Callable[[List[str]], List[List[float]]],
                formatter: Callable[[str], str]) -> bool:
         """True when the plugin may embed for ``model_name`` right now.
@@ -152,18 +183,25 @@ class PluginEmbeddingGate:
         """
         if not self.enabled():
             return False
-        now = time.monotonic()
         with self._lock:
+            now = time.monotonic()
+            if now < self._retry_at:
+                return False
             if now - self._checked_at < RECHECK_S and self._checked_model == model_name:
                 return self._usable
-            self._checked_at, self._checked_model = now, model_name
+            self._checked_model = model_name
+            import requests
             try:
-                import requests
-                r = requests.get(f"{_service_url()}/models", timeout=2)
+                r = requests.get(f"{_service_url()}/models", timeout=MODELS_TIMEOUT_S)
                 info = r.json() if r.ok else {}
+            except requests.exceptions.Timeout:
+                self._back_off(f"plugin did not answer /models within {MODELS_TIMEOUT_S:g} s")
+                return False
             except Exception:
+                self._checked_at = time.monotonic()
                 self._set(False, f"plugin not answering at {_service_url()}")
                 return False
+            self._checked_at = time.monotonic()
             served = info.get("current_model")
             self._served_model = served
             if not info.get("loaded") or not served:
@@ -177,29 +215,31 @@ class PluginEmbeddingGate:
             if self._verified != key:
                 try:
                     mine = reference([PROBE_TEXT])[0]
-                    theirs = self._post([formatter(PROBE_TEXT)], served)[0]
+                    theirs = self._post([formatter(PROBE_TEXT)], served, PROBE_TIMEOUT_S)[0]
                 except Exception as e:
-                    self._set(False, f"probe failed: {e}")
+                    self._back_off(f"probe failed: {e}")
                     return False
                 diff = compare_vectors(theirs, mine)
                 if diff:
-                    self._set(False, f"plugin vectors differ from the indexer's ({diff})")
+                    self._back_off(f"plugin vectors differ from the indexer's ({diff})")
                     return False
                 self._verified, self._dim = key, len(mine)
+                self._checked_at = time.monotonic()
+            self._failures = 0
             self._set(True, f"{served}, {self._dim}-d, probe matched")
             return True
 
-    def _post(self, formatted: List[str], served: str) -> List[List[float]]:
+    def _post(self, formatted: List[str], served: str, timeout: Optional[float] = None) -> List[List[float]]:
         import requests
-        limits = _limits()
+        timeout = timeout or _limits()["timeout"]
         if len(formatted) == 1:
             r = requests.post(f"{_service_url()}/embed", json={"text": formatted[0]},
-                              timeout=limits["timeout"])
+                              timeout=timeout)
             body = r.json()
             vectors = [body.get("embedding")] if r.ok else None
         else:
             r = requests.post(f"{_service_url()}/embed_batch", json={"texts": formatted},
-                              timeout=limits["timeout"])
+                              timeout=timeout)
             body = r.json()
             vectors = body.get("embeddings") if r.ok else None
         if not vectors:
@@ -235,9 +275,7 @@ class PluginEmbeddingGate:
 
     def fail(self, reason: str) -> None:
         with self._lock:
-            self._verified = None
-            self._checked_at = time.monotonic()
-            self._set(False, f"last call failed: {reason}")
+            self._back_off(f"last call failed: {reason}")
 
     def status(self) -> dict:
         with self._lock:

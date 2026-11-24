@@ -170,3 +170,75 @@ async def test_async_batch_takes_the_same_route(world):
     out = await client.aget_text_embedding_batch(["a river", "a lake"])
     assert out == [_vec(client._format_text(t)) for t in ["a river", "a lake"]]
     assert calls["plugin"][1:] == [client._format_text(t) for t in ["a river", "a lake"]]
+
+
+@pytest.fixture
+def slow_plugin(world, monkeypatch):
+    """A fake clock and a plugin whose embed calls time out after the timeout given."""
+    calls, plugin, switch = world
+    clock = {"t": 1000.0, "stalled": 0.0, "timeouts": []}
+    monkeypatch.setattr(gp.time, "monotonic", lambda: clock["t"])
+    monkeypatch.setattr(ie.time, "monotonic", lambda: clock["t"])
+    fast_post = requests.post
+
+    def post(url, json=None, timeout=None, **k):
+        if plugin.get("slow"):
+            clock["t"] += timeout
+            clock["stalled"] += timeout
+            clock["timeouts"].append(timeout)
+            raise requests.Timeout("read timed out")
+        return fast_post(url, json=json, timeout=timeout, **k)
+    monkeypatch.setattr(requests, "post", post)
+
+    def ollama_embed(self, texts):
+        calls["ollama"].extend(texts)
+        clock["t"] += 0.5
+        return [_vec(t) for t in texts]
+    monkeypatch.setattr(OllamaEmbedding, "get_general_text_embeddings", ollama_embed)
+    return calls, plugin, clock
+
+
+def test_slow_plugin_backs_off_instead_of_stalling_indexing(slow_plugin):
+    calls, plugin, clock = slow_plugin
+    client = _client()
+    client.get_text_embedding_batch([f"warm {i}" for i in range(10)])
+    plugin["slow"] = True
+    start, batches = clock["t"], 0
+    while clock["t"] - start < 300:
+        texts = [f"p{batches}-{i}" for i in range(10)]
+        assert client.get_text_embedding_batch(texts) == [_vec(client._format_text(t)) for t in texts]
+        batches += 1
+    elapsed = clock["t"] - start
+    # Backoff 30, 60, 120 s: three abandoned calls in 300 s, at most 10 s each.
+    assert max(clock["timeouts"]) <= gp.CALL_TIMEOUT_S
+    assert len(clock["timeouts"]) <= 4
+    assert clock["stalled"] / elapsed < 0.15
+    assert "retrying in" in er.get_embedding_router().plugin_gate().status()["reason"]
+
+
+def test_failed_probe_is_not_retried_at_once(slow_plugin):
+    calls, plugin, clock = slow_plugin
+    plugin["slow"] = True
+    client = _client()
+    client.get_text_embedding_batch(["a"])
+    assert clock["timeouts"] == [gp.PROBE_TIMEOUT_S]
+    client.get_text_embedding_batch(["b"])
+    client.get_text_embedding_batch(["c"])
+    assert len(clock["timeouts"]) == 1  # skipped while backing off
+    clock["t"] += gp.BACKOFF_BASE_S
+    client.get_text_embedding_batch(["d"])
+    assert len(clock["timeouts"]) == 2
+    assert "retrying in 60 s" in er.get_embedding_router().plugin_gate().status()["reason"]
+
+
+def test_recovers_after_the_backoff_and_resets_it(slow_plugin):
+    calls, plugin, clock = slow_plugin
+    plugin["slow"] = True
+    client = _client()
+    client.get_text_embedding_batch(["a"])
+    plugin["slow"] = False
+    clock["t"] += gp.BACKOFF_BASE_S
+    client.get_text_embedding_batch(["b"])
+    gate = er.get_embedding_router().plugin_gate()
+    assert gate.status()["in_use"] is True and gate._failures == 0
+    assert calls["plugin"][-1] == client._format_text("b")
