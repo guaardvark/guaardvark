@@ -31,7 +31,6 @@ import * as apiService from "../../api";
 import { getRules } from "../../api/ruleService";
 import { getWebsites } from "../../api/websiteService";
 import { formatUiError } from "../../utils/uiError";
-import { generateStructuredCSV } from "../../api/bulkGenerationService";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
 import { translate, uiLocale, useUiTranslation } from "../../i18n";
 import { AtTimeDialog } from "../jobs/ScheduleButton";
@@ -622,11 +621,7 @@ const TaskActionModal = ({
       if (startsHere && createdTask) {
         setIsCreatingJob(true);
         try {
-          if (isFileGeneration) {
-            await startFileGenerationJob(createdTask);
-          } else if (isCodeGeneration) {
-            await startCodeGenerationJob(createdTask);
-          }
+          await startCreatedJob(createdTask);
         } catch (jobError) {
           console.error("Failed to start job:", jobError);
           // No scheduler takes a queued task, so mark it failed instead of leaving it waiting.
@@ -653,10 +648,10 @@ const TaskActionModal = ({
     }
   };
 
-  // Start code generation job
-  const startCodeGenerationJob = async (task) => {
+  // Every start goes through the job's start route, so a CSV job reaches the
+  // structured writer with its saved items however it is started.
+  const startCreatedJob = async (task) => {
     try {
-      // Use the task scheduler to start the task directly
       const response = await fetch(`/api/tasks/${task.id}/start`, {
         method: 'POST',
         headers: {
@@ -666,73 +661,14 @@ const TaskActionModal = ({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || t("dialogs.taskAction.errors.startCodeGeneration"));
+        throw new Error(error.error || t("dialogs.taskAction.errors.startTaskFallback"));
       }
 
-      const result = await response.json();
-      console.log("Code generation task started:", result);
-      return result;
+      return await response.json();
     } catch (error) {
-      console.error("Error starting code generation task:", error);
+      console.error("Error starting job:", error);
       throw error;
     }
-  };
-
-  // Start file generation job using generateStructuredCSV
-  const startFileGenerationJob = async (task) => {
-    // BUG FIX #10: Validate page_count and other required fields
-    if (!task || !task.id) {
-      throw new Error(t("dialogs.taskAction.errors.invalidTask"));
-    }
-
-    const pageCount = task.page_count && typeof task.page_count === 'number' && task.page_count > 0
-      ? task.page_count
-      : 50; // Default to 50 if invalid
-
-    const clientName = task.client_name || 'Unknown Client';
-    const taskName = task.name || 'Unnamed Task';
-
-    // Parse workflow_config to get batch items if available
-    let workflowConfig = {};
-    try {
-      if (task.workflow_config && typeof task.workflow_config === 'string') {
-        workflowConfig = JSON.parse(task.workflow_config);
-      } else if (task.workflow_config && typeof task.workflow_config === 'object') {
-        workflowConfig = task.workflow_config;
-      }
-    } catch (parseError) {
-      console.error('Failed to parse workflow_config:', parseError);
-    }
-
-    // Use items from workflow_config if available, otherwise generate generic topics
-    let topics = [];
-    if (workflowConfig.items && Array.isArray(workflowConfig.items) && workflowConfig.items.length > 0) {
-      topics = workflowConfig.items;
-    } else {
-      topics = Array.from({ length: pageCount }, (_, i) => `${clientName} content topic ${i + 1}`);
-    }
-
-    // Enhanced job payload with all advanced parameters
-    const jobPayload = {
-      output_filename: task.output_filename,
-      topics: topics,
-      num_items: pageCount,
-      client: clientName,
-      project: taskName,
-      website: task.target_website || workflowConfig.target_website || "",
-      client_notes: workflowConfig.client_notes || "",
-      competitor_url: workflowConfig.competitor_url || "",
-      concurrent_workers: task.concurrent_workers || workflowConfig.concurrent_workers || 3,
-      target_word_count: task.target_word_count || workflowConfig.target_word_count || 1000,
-      batch_size: task.batch_size || workflowConfig.batch_size || 10,
-      prompt_rule_id: task.prompt_rule_id || null,
-      model_name: task.model_name || null,
-      existing_task_id: task.id, // Link to the database task
-    };
-
-    const result = await generateStructuredCSV(jobPayload);
-    console.log("TaskActionModal: Job started successfully with generateStructuredCSV:", result);
-    return result;
   };
 
   const handleDownloadFile = async () => {

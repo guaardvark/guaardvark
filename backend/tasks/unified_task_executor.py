@@ -552,13 +552,19 @@ def execute_unified_task(self, task_id: int):
             output = ext_handler(task, update_progress)
             handler_used = task_type
 
-        # Check for CSV generation handler
-        if task_type in ['file_generation', 'csv_generation'] and task.get('workflow_config'):
-            try:
-                output = _execute_csv_generation(task, update_progress)
-                handler_used = 'csv_generation'
-            except Exception as e:
-                logger.warning(f"CSV handler failed, falling back to generic: {e}")
+        # A CSV file job goes to the structured CSV writer, which runs in the
+        # backend and finishes the row itself (backend/services/csv_job.py).
+        from backend.services import csv_job
+        if output is None and csv_job.is_csv_job(task_type, task.get('workflow_config')):
+            update_progress(10, f"Starting {task['name']}")
+            started = csv_job.start(task)
+            if not started.get("error"):
+                if progress_system and process_id:
+                    progress_system.complete_process(process_id, f"Started: {task['name']}")
+                logger.info(f"Task {task_id} handed to the CSV writer: {started.get('job_id')}")
+                return {'task_id': task_id, 'status': 'handed_off', 'csv_job': started.get('job_id')}
+            output = {"error": f"Could not start the CSV writer: {started['error']}"}
+            handler_used = 'csv_generation'
 
         # Social outreach tasks — discover + draft + (maybe) post on a platform.
         if output is None and task_type and task_type.startswith('social_outreach_'):
