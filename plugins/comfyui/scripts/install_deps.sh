@@ -294,7 +294,7 @@ install_comfyui_python_deps() {
                     node_name=$(basename "$(dirname "$req")")
                     echo "  - $node_name"
                     "$VENV_PYTHON" -m pip install -r "$req" --quiet 2>&1 | tail -2
-                    if [ $? -ne 0 ]; then
+                    if [ "${PIPESTATUS[0]}" -ne 0 ]; then
                         echo "    WARNING: pip install failed for $node_name (node may be disabled at runtime)."
                     fi
                 done

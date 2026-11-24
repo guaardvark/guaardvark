@@ -204,3 +204,16 @@ def test_first_run_not_asked_when_env_names_a_profile_or_an_extension_ships_one(
     ext.mkdir(parents=True)
     (ext / "profile.json").write_text("{}")
     assert P.profile_chosen(storage_dir=storage, root=tmp_path) is True
+
+
+def test_set_env_value_writes_through_a_symlinked_env(tmp_path):
+    state = tmp_path / "state"
+    state.mkdir()
+    root = tmp_path / "app"
+    root.mkdir()
+    (root / ".env").symlink_to(state / ".env")  # dangling, as the Docker entrypoint leaves it
+    P.set_env_value("GUAARDVARK_A", "1", root=root)
+    P.set_env_value("GUAARDVARK_B", "2", root=root)
+    assert (root / ".env").is_symlink()
+    assert (state / ".env").read_text() == "GUAARDVARK_A=1\nGUAARDVARK_B=2\n"
+    assert not list(root.glob(".env.tmp*"))

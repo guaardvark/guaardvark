@@ -284,13 +284,16 @@ export const uploadFile = async (
           resolve(data);
         } else {
           const errorText = xhr.responseText || `HTTP ${xhr.status}`;
-          let errorData;
+          let message = errorText;
           try {
-            errorData = JSON.parse(errorText);
-            throw new Error(errorData.error || errorData.message || errorText);
+            const errorData = JSON.parse(errorText);
+            const detail = errorData.error || errorData.message;
+            if (typeof detail === "string" && detail) message = detail;
+            else if (typeof detail?.message === "string") message = detail.message;
           } catch (parseError) {
-            throw new Error(errorText);
+            // Not JSON: show the body as sent.
           }
+          throw new Error(message);
         }
       } catch (err) {
         console.error("documentService: Error uploading file:", err.message);

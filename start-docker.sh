@@ -103,7 +103,7 @@ if [ "$GPU_PROFILE" -eq 1 ]; then
         NVIDIA_SMI=/usr/lib/wsl/lib/nvidia-smi
     fi
     if [ -z "${GUAARDVARK_TORCH_CHANNEL:-}" ] && [ -n "$NVIDIA_SMI" ]; then
-        GPU_INFO="$("$NVIDIA_SMI" --query-gpu=compute_cap,driver_version --format=csv,noheader 2>/dev/null | head -n 1)"
+        GPU_INFO="$("$NVIDIA_SMI" --query-gpu=compute_cap,driver_version --format=csv,noheader 2>/dev/null | head -n 1 || true)"
         COMPUTE_MAJOR="$(echo "$GPU_INFO" | cut -d, -f1 | cut -d. -f1 | tr -dc '0-9')"
         COMPUTE_MINOR="$(echo "$GPU_INFO" | cut -d, -f1 | cut -d. -f2 | tr -dc '0-9')"
         DRIVER_MAJOR="$(echo "$GPU_INFO" | cut -d, -f2 | cut -d. -f1 | tr -dc '0-9')"

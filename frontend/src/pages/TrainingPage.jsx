@@ -357,18 +357,22 @@ const TrainingPage = () => {
     }
   }, [showMessage]);
 
-  const fetchJobs = useCallback(async () => {
-    setJobsLoading(true);
+  // `quiet` is the background refresh: no spinner in place of the cards, and a
+  // failed poll keeps the list on screen instead of emptying it with a toast.
+  const fetchJobs = useCallback(async ({ quiet = false } = {}) => {
+    if (!quiet) setJobsLoading(true);
     try {
       const data = await getTrainingJobs();
       if (data?.error) throw new Error(data.error.message || data.error);
       setJobs(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching training jobs:", err);
-      showMessage(err.message || t("training.errors.fetchJobs"), "error");
-      setJobs([]);
+      if (!quiet) {
+        showMessage(err.message || t("training.errors.fetchJobs"), "error");
+        setJobs([]);
+      }
     } finally {
-      setJobsLoading(false);
+      if (!quiet) setJobsLoading(false);
     }
   }, [showMessage]);
 
@@ -462,7 +466,7 @@ const TrainingPage = () => {
   // The Jobs card is always on the page, so its list is kept fresh.
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchJobs();
+      fetchJobs({ quiet: true });
     }, 5000);
     return () => clearInterval(interval);
   }, [fetchJobs]);

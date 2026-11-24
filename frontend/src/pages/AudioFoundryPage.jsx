@@ -699,9 +699,11 @@ const AudioFoundryPage = () => {
   const beginPolling = (id) => {
     stopPolling();
     setProgress({ current: 0, total: 0, status: "queued" });
+    let failures = 0;
     pollRef.current = setInterval(async () => {
       try {
         const { data } = await axios.get(`${API_BASE}/audio-foundry/jobs/${id}`);
+        failures = 0;
         setProgress({
           current: data.progress?.current ?? 0,
           total: data.progress?.total ?? 0,
@@ -721,8 +723,10 @@ const AudioFoundryPage = () => {
         }
       } catch (err) {
         // Job lost (plugin restarted) → stop and tell the user. Transient
-        // network blips just retry on the next tick.
-        if (err.response?.status === 404) {
+        // network blips just retry on the next tick; a service that stays
+        // unreachable for a minute is not coming back with this job.
+        failures += 1;
+        if (err.response?.status === 404 || failures >= 20) {
           stopPolling();
           setError(t("audio.page.jobLost"));
           setProgress(null); setJobId(null); setLoading(false);

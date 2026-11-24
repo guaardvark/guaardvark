@@ -18,6 +18,7 @@ import {
   Description as DocIcon,
   Download as DownloadIcon,
 } from "@mui/icons-material";
+import DOMPurify from "dompurify";
 import { useUiTranslation } from "../../i18n";
 
 const API_BASE = '/api/files';
@@ -41,7 +42,9 @@ const DocxViewerModal = ({ open, onClose, file }) => {
         if (!resp.ok) throw Object.assign(new Error(), { status: resp.status });
         const buf = await resp.arrayBuffer();
         const result = await mammoth.convertToHtml({ arrayBuffer: buf });
-        if (!cancelled) setHtml(result.value);
+        // mammoth escapes text but copies link targets as written, so a
+        // document's javascript: link would run in this page when clicked.
+        if (!cancelled) setHtml(DOMPurify.sanitize(result.value));
       } catch (e) {
         if (!cancelled) setError({ status: e.status, message: e.message });
       }

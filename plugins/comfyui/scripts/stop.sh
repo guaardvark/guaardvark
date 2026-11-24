@@ -7,7 +7,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 PID_FILE="$PROJECT_ROOT/pids/comfyui.pid"
-PORT=8188
+# The port start.sh used: plugin.local.json (untracked per-install override) or
+# plugin.json; 8188 fallback.
+PORT=$(python3 -c '
+import json, sys
+for name in ("plugin.local.json", "plugin.json"):
+    try:
+        print(int(json.load(open(sys.argv[1] + "/" + name))["port"])); break
+    except Exception:
+        continue
+else:
+    print(8188)
+' "$PLUGIN_ROOT" 2>/dev/null || echo 8188)
 CURRENT_USER=$(whoami)
 
 # Working directory of a pid, or empty when it can't be read.
@@ -20,8 +31,8 @@ proc_cwd() {
     return 0
 }
 
-# Free port 8188 of a listener from this install still bound to it.
-# A crashed ComfyUI (or an orphaned child) can keep 8188 held with no usable
+# Free the ComfyUI port of a listener from this install still bound to it.
+# A crashed ComfyUI (or an orphaned child) can keep the port held with no usable
 # PID file; the next start then dies with "OSError: [Errno 98] address already
 # in use", which trips the circuit breaker and spams the boot log on every
 # restart. Mirrors Ollama stop.sh Step 4. Only a current-user process whose
@@ -50,6 +61,22 @@ free_port_8188() {
     done
 }
 
+# True when PID $1 is alive and its command line contains $2. A PID file
+# outlives a reboot or a crash, and by then the number can belong to another
+# process: one this script must neither report as the service nor signal.
+pid_is_service() {
+    kill -0 "$1" 2>/dev/null || return 1
+    local args=""
+    if [ -r "/proc/$1/cmdline" ]; then
+        args=$(tr '\0' ' ' < "/proc/$1/cmdline" 2>/dev/null) || args=""
+    else
+        args=$(ps -o args= -p "$1" 2>/dev/null) || args=""
+    fi
+    [ -n "$args" ] || return 0  # command line unreadable: trust the PID file
+    case "$args" in *"$2"*) return 0 ;; esac
+    return 1
+}
+
 if [ ! -f "$PID_FILE" ]; then
     # No PID file — ComfyUI may simply not be started, OR a prior crash left an
     # orphan holding the port. Sweep the port either way, then exit cleanly.
@@ -59,7 +86,7 @@ fi
 
 PID=$(cat "$PID_FILE")
 
-if [ -z "$PID" ] || ! kill -0 "$PID" 2>/dev/null; then
+if [ -z "$PID" ] || ! pid_is_service "$PID" "main.py"; then
     echo "ComfyUI is not running (PID: $PID)"
     rm -f "$PID_FILE"
     free_port_8188
@@ -85,5 +112,5 @@ if kill -0 "$PID" 2>/dev/null; then
     rm -f "$PID_FILE"
 fi
 
-# Final guard: make sure nothing current-user is still holding 8188.
+# Final guard: make sure nothing current-user is still holding the port.
 free_port_8188

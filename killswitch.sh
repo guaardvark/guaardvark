@@ -13,7 +13,8 @@ echo "Timestamp: $(date -Iseconds)"
 # 1. Set codebase_locked=true in database
 echo "[1/5] Locking codebase in database..."
 if [ -f "$GUAARDVARK_ROOT/.env" ]; then
-    source "$GUAARDVARK_ROOT/.env"
+    # A value python-dotenv accepts (an unquoted space) must not end the kill switch.
+    source "$GUAARDVARK_ROOT/.env" 2>/dev/null || true
 fi
 # A Docker install keeps only its database password in .env, not DATABASE_URL.
 DB_URL="${DATABASE_URL:-postgresql://guaardvark:${GUAARDVARK_POSTGRES_PASSWORD:-guaardvark}@localhost:5432/guaardvark}"

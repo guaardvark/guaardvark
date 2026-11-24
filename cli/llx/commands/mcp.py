@@ -26,13 +26,14 @@ def _find_checkout() -> Path | None:
             return candidate
         return None
 
+    # Another project's start.sh is not a checkout, in the current folder or above it.
     candidate = Path(_find_project_root(os.getcwd()))
-    if (candidate / "start.sh").is_file():
+    if (candidate / "start.sh").is_file() and (candidate / "backend" / "mcp" / "__main__.py").is_file():
         return candidate
 
     curr = Path.cwd().resolve()
     for p in [curr, *curr.parents]:
-        if (p / "start.sh").is_file():
+        if (p / "start.sh").is_file() and (p / "backend" / "mcp" / "__main__.py").is_file():
             return p
     return _installed_checkout()
 
@@ -52,12 +53,19 @@ def _installed_checkout() -> Path | None:
             return Path(recorded).resolve()
     except (OSError, ValueError):
         pass
+    # stop.sh removes runtime.json; `python -m backend.mcp install` leaves this.
+    try:
+        saved = (Path.home() / ".config" / "guaardvark" / "root").read_text(encoding="utf-8").strip()
+        if saved and (Path(saved) / "backend" / "mcp" / "__main__.py").is_file():
+            return Path(saved).resolve()
+    except OSError:
+        pass
     return None
 
 
 _CHECKOUT_NOT_FOUND_MSG = (
     "Guaardvark checkout not found (looked for start.sh via GUAARDVARK_ROOT, the current folder, "
-    "this CLI's own checkout and ~/.guaardvark/runtime.json); "
+    "this CLI's own checkout, ~/.guaardvark/runtime.json and ~/.config/guaardvark/root); "
     "a checkout is required (git clone https://github.com/guaardvark/guaardvark + ./start.sh).\n"
 )
 

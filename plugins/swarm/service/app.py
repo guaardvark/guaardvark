@@ -571,6 +571,14 @@ def cleanup_swarm(req: CleanupRequest):
     if not req.swarm_id:
         raise HTTPException(400, "Specify swarm_id or use all=true")
 
+    # cleanup_all removes the swarm's folder: it must be one below the base.
+    try:
+        swarm_dir = _contained(repo_path / worktree_base, req.swarm_id)
+    except ValueError:
+        raise HTTPException(400, "invalid swarm_id")
+    if swarm_dir.parent != Path(os.path.abspath(repo_path / worktree_base)):
+        raise HTTPException(400, "invalid swarm_id")
+
     mgr = WorktreeManager.load_existing(repo_path, req.swarm_id, worktree_base)
     if not mgr:
         raise HTTPException(404, f"Swarm not found: {req.swarm_id}")

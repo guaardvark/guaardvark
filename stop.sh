@@ -149,7 +149,8 @@ _plugin_running() {
 # ── Cancel in-flight VideoGen batches (backend may still be up) ──
 FLASK_PORT=${FLASK_PORT:-5000}
 if [ -f "$SCRIPT_DIR/.env" ]; then
-    _flask_port_env=$(grep -oP '^FLASK_PORT=\K.*' "$SCRIPT_DIR/.env" 2>/dev/null)
+    # No grep -P here: macOS grep does not have it.
+    _flask_port_env=$(grep -E '^FLASK_PORT=' "$SCRIPT_DIR/.env" 2>/dev/null | tail -n 1 | cut -d= -f2-)
     [ -n "$_flask_port_env" ] && FLASK_PORT="$_flask_port_env"
 fi
 
@@ -304,7 +305,7 @@ flask_pids=$(pgrep -f "(python.*backend[./]app|flask run)" 2>/dev/null)
 if [ -n "$flask_pids" ]; then
     for pid in $flask_pids; do
         proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
             vader_info "Force killing Flask/SocketIO process (PID: $pid) from this environment..."
             kill -TERM "$pid" 2>/dev/null
             sleep 2
@@ -324,7 +325,7 @@ if [ -n "$celery_pids" ]; then
     env_celery_pids=()
     for pid in $celery_pids; do
         proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
             env_celery_pids+=("$pid")
         fi
     done
@@ -364,7 +365,7 @@ for port in $VITE_PORT 4173 5173 5174 5175 5176 5177; do
         if [ -n "$port_pids" ]; then
             for pid in $port_pids; do
                 proc_cwd=$(_proc_cwd "$pid")
-                if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+                if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
                     vader_info "Force killing node/vite process on port $port (PID: $pid) from this environment..."
                     kill -TERM "$pid" 2>/dev/null
                     sleep 1
@@ -381,7 +382,7 @@ vite_pids=$(pgrep -f "node.*vite" 2>/dev/null)
 if [ -n "$vite_pids" ]; then
     for pid in $vite_pids; do
         proc_cwd=$(_proc_cwd "$pid")
-        if [ -n "$proc_cwd" ] && [[ "$proc_cwd" == "$SCRIPT_DIR"* ]]; then
+        if [ -n "$proc_cwd" ] && { [ "$proc_cwd" = "$SCRIPT_DIR" ] || [[ "$proc_cwd" == "$SCRIPT_DIR"/* ]]; }; then
             vader_info "Force killing Vite process (PID: $pid) from this environment..."
             kill -TERM "$pid" 2>/dev/null
             sleep 1
@@ -398,10 +399,11 @@ if [ -x "$AGENT_DISPLAY_SCRIPT" ]; then
     vader_info "Stopping agent virtual display..."
     bash "$AGENT_DISPLAY_SCRIPT" stop 2>&1 | while read line; do vader_info "  $line"; done
     # PIPESTATUS[0] is the stop script's real exit code (the `while` is last in the pipe).
-    if [ "${PIPESTATUS[0]}" -eq 0 ]; then
+    _agent_stop_rc=${PIPESTATUS[0]}
+    if [ "$_agent_stop_rc" -eq 0 ]; then
         vader_success "Agent virtual display stopped."
     else
-        vader_warn "Agent virtual display stop reported errors (exit ${PIPESTATUS[0]}). Check above."
+        vader_warn "Agent virtual display stop reported errors (exit $_agent_stop_rc). Check above."
     fi
 fi
 

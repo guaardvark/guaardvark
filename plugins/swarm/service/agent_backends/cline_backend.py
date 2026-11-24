@@ -152,6 +152,13 @@ class ClineBackend(BaseBackend):
         wt = Path(worktree_path)
         log_file = wt / LOG_FILE
 
+        # A retry reuses the worktree; the previous attempt's status file would
+        # be read as this attempt's result on the next poll.
+        try:
+            (wt / DONE_MARKER).unlink()
+        except FileNotFoundError:
+            pass
+
         model = config.get("model", "ollama/gemma4:e4b")
 
         prompt = self._build_prompt(task)

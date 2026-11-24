@@ -526,21 +526,12 @@ const SettingsPage = () => {
             voice: defaultVoice,
           }));
         }
-      } else {
-        // If no voices are available, reset to empty string to avoid MUI warnings
-        setVoiceSettings((prev) => ({
-          ...prev,
-          voice: "",
-        }));
       }
+      // An empty or failed voice list keeps the saved voice: the setting is
+      // written to the browser on every change, and chat narration reads it.
     } catch (error) {
       console.error("Failed to load voice configuration:", error);
       setVoiceError(t("settings.voice.loadFailed"));
-      // Reset voice to empty string on error to avoid MUI warnings
-      setVoiceSettings((prev) => ({
-        ...prev,
-        voice: "",
-      }));
     } finally {
       setIsVoiceLoading(false);
     }
@@ -2121,7 +2112,9 @@ const SettingsPage = () => {
     try {
       const fd = new FormData();
       fd.append("system_name", trimmedName);
-      await updateBranding(fd);
+      // updateBranding reports a failure as { error }, it does not throw.
+      const saved = await updateBranding(fd);
+      if (saved?.error) throw new Error(saved.error);
       const refreshed = await fetchBranding();
       const latestName =
         refreshed?.system_name ?? trimmedName ?? persistedSystemName ?? "";
@@ -2730,7 +2723,8 @@ const SettingsPage = () => {
                 fd.append("logo", file);
                 if (brandingName.trim())
                   fd.append("system_name", brandingName.trim());
-                await updateBranding(fd);
+                const saved = await updateBranding(fd);
+                if (saved?.error) throw new Error(saved.error);
                 setBrandingFile(null);
                 e.target.value = "";
                 const refreshed = await fetchBranding();

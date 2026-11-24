@@ -71,7 +71,7 @@ setup(
         "Cursor",
         "Codex",
     ],
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests", "tests.*"]),
     install_requires=[
         # 0.12 is the first typer that installs rich and shellingham without an extra.
         "typer>=0.12.0",

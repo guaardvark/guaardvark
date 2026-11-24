@@ -132,3 +132,30 @@ def test_serve_without_root_exits_nonzero_with_message(tmp_path, monkeypatch):
     assert "checkout is required" in msg
     assert "git clone https://github.com/guaardvark/guaardvark" in msg
     assert "./start.sh" in msg
+
+
+def test_find_checkout_skips_a_foreign_start_sh(tmp_path, monkeypatch):
+    from llx.commands import mcp as mcp_cmd
+
+    foreign = tmp_path / "other_project"
+    foreign.mkdir()
+    (foreign / "start.sh").touch()
+    monkeypatch.delenv("GUAARDVARK_ROOT", raising=False)
+    monkeypatch.chdir(foreign)
+    found = mcp_cmd._find_checkout()
+    assert found != foreign.resolve()
+    assert found is None or (found / "backend" / "mcp" / "__main__.py").is_file()
+
+
+def test_installed_checkout_reads_the_saved_root_pointer(tmp_path, monkeypatch):
+    from llx.commands import mcp as mcp_cmd
+
+    checkout = tmp_path / "checkout"
+    (checkout / "backend" / "mcp").mkdir(parents=True)
+    (checkout / "backend" / "mcp" / "__main__.py").touch()
+    home = tmp_path / "home"
+    (home / ".config" / "guaardvark").mkdir(parents=True)
+    (home / ".config" / "guaardvark" / "root").write_text(f"{checkout}\n")
+    monkeypatch.setattr(mcp_cmd, "__file__", str(tmp_path / "a" / "b" / "c" / "mcp.py"))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    assert mcp_cmd._installed_checkout() == checkout.resolve()

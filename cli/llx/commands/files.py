@@ -124,7 +124,8 @@ def files_download(
         client = get_client(server)
         info = client.get(f"/api/files/document/{doc_id}")
         doc_data = info.get("data", info)
-        filename = doc_data.get("filename", f"document_{doc_id}")
+        # The name comes from the server; keep it inside the destination.
+        filename = Path(str(doc_data.get("filename") or "")).name or f"document_{doc_id}"
         dest_file = dest / filename
         client.download(f"/api/files/document/{doc_id}/download", dest_file)
         output.print_success(f"Downloaded: {dest_file}")

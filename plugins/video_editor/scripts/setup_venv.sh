@@ -56,8 +56,11 @@ log "Building venv at $venv"
 rm -rf "$venv"
 "$PY" -m venv "$venv" || { log "venv create failed"; exit 1; }
 "$venv/bin/pip" install --upgrade pip >/dev/null 2>&1
+# Stop here when a requirements file does not install: the check below only
+# imports torch, so a venv without uvicorn would pass it on every later start.
 for req in "$PLUGIN_DIR"/requirements*.txt; do
-    [ -f "$req" ] && "$venv/bin/pip" install -r "$req"
+    [ -f "$req" ] || continue
+    "$venv/bin/pip" install -r "$req" || { log "requirements install failed ($(basename "$req"))"; exit 1; }
 done
 TARGET_VENV="$venv" GUAARDVARK_TORCH_CHANNEL="$TORCH_CHANNEL" bash "$INSTALL_PYTORCH" --venv "$venv" \
     || log "install_pytorch returned non-zero (continuing to verify)"

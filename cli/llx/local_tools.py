@@ -74,12 +74,12 @@ def _resolve_path(target: str | Path, cwd: Path | None = None) -> Path:
 
 def _blocked_reason(path: Path) -> str | None:
     """Return human reason if path is unsafe to read/write, else None."""
-    try:
-        for root in BLOCKED_EXTERNAL_ROOTS:
+    for root in BLOCKED_EXTERNAL_ROOTS:
+        try:
             path.relative_to(root)
-            return f"blocked: inside system location '{root}'"
-    except ValueError:
-        pass
+        except ValueError:
+            continue
+        return f"blocked: inside system location '{root}'"
 
     parts = set(path.parts)
     for seg in BLOCKED_PATH_SEGMENTS:

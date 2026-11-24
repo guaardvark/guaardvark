@@ -70,6 +70,11 @@ def save_config(config: dict):
     ensure_config_dir()
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
+    # The file can hold the API key.
+    try:
+        os.chmod(CONFIG_FILE, 0o600)
+    except OSError:
+        pass
 
 
 RUNTIME_FILE = Path.home() / ".guaardvark" / "runtime.json"

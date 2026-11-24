@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { getClipRecipe, getDocumentRecipe, regenerateMedia } from '../../api/mediaRecipeService';
 import { useUiTranslation } from '../../i18n';
+import copyText from '../../utils/copyText';
 
 const saveFile = (url, name) => {
   const a = document.createElement('a');
@@ -50,13 +51,6 @@ const saveFile = (url, name) => {
   document.body.removeChild(a);
 };
 
-const copyText = (text) => {
-  try {
-    navigator.clipboard?.writeText(String(text));
-  } catch (e) {
-    // Clipboard refused (insecure origin): the text is still selectable.
-  }
-};
 
 const MediaDetailsModal = ({ open, target, onClose, onPrev, onNext, hasPrev = false, hasNext = false, onFullSize }) => {
   const { t } = useUiTranslation();

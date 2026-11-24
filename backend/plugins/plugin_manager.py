@@ -477,8 +477,13 @@ class PluginManager:
         """Initialize plugin status and restore previously running plugins."""
         self._seed_enabled_from_prefs()
 
-        # First pass: detect what's already running and kill orphans
-        self._probe_plugin_status(kill_orphans=True)
+        # First pass: detect what's already running and kill orphans. Only the
+        # backend does the killing: a Celery worker builds its manager later,
+        # and a service the backend started for a job without saving it as
+        # enabled (ComfyUI for a render, the upscaler) looks like an orphan
+        # to it.
+        in_worker = os.environ.get("CELERY_WORKER_MODE", "false").lower() == "true"
+        self._probe_plugin_status(kill_orphans=not in_worker)
 
         # Second pass: start plugins that were running last time.
         # Always dedup the persisted list (defensive; prior races or old bugs could
@@ -831,8 +836,10 @@ class PluginManager:
             pass
 
         try:
+            # Listeners only: a bare ":port" also lists every process holding a
+            # connection to it, such as a Celery worker with a kept-alive socket.
             result = subprocess.run(
-                ['lsof', '-ti', f':{port}'],
+                ['lsof', '-t', f'-iTCP:{port}', '-sTCP:LISTEN'],
                 capture_output=True, text=True, timeout=5
             )
             pids = [p for p in result.stdout.strip().split('\n') if p.strip().isdigit()]

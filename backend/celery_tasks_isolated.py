@@ -168,8 +168,15 @@ def enhanced_code_aware_indexing(file_path, document, document_id, update_progre
         if file_kinds.never_read_as_text(file_path):
             return _index_without_text(file_path, document, document_id, update_progress)
 
-        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
-            content = f.read()
+        # PDF and Office files are parsed from the file by the vector indexer.
+        # Their bytes are not text: decoded as UTF-8 they are mojibake, which
+        # must not be stored as the document's content or shown to a model.
+        parsed_format = os.path.splitext(file_path)[1].lower() in file_kinds.PARSED_DOCUMENT_EXTENSIONS
+        if parsed_format:
+            content = ""
+        else:
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
 
         # Postgres text columns reject NUL (0x00) bytes ("A string literal cannot
         # contain NUL characters"), which silently failed the whole index for files
@@ -221,7 +228,8 @@ def enhanced_code_aware_indexing(file_path, document, document_id, update_progre
                     SET content = :content, is_code_file = :is_code_file, index_status = :index_status, indexed_at = :indexed_at,
                         file_metadata = :file_metadata, error_message = NULL
                     WHERE id = :document_id
-                """), {"content": content, "is_code_file": False, "index_status": 'INDEXING',
+                """), {"content": None if parsed_format else content,
+                       "is_code_file": False, "index_status": 'INDEXING',
                        "indexed_at": None,
                        "file_metadata": json.dumps(metadata), "document_id": document_id})
                 logger.info(f"Enhanced text file indexing completed for document {document_id}: {metadata['line_count']} lines")
@@ -249,7 +257,7 @@ def enhanced_code_aware_indexing(file_path, document, document_id, update_progre
                 # is not going to index better next time. The pipeline returns a plain
                 # boolean, so the emptiness check happens here against the content
                 # already read above.
-                if not (content or "").strip():
+                if not parsed_format and not (content or "").strip():
                     vector_outcome = "empty"
                     logger.info(f"Document {document_id} stored but had no content — nothing to vector-index")
                 elif (added := add_file_to_index_by_id(file_path, document_id)) == STORED_ON_DEMAND:

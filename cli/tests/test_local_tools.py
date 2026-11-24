@@ -65,3 +65,9 @@ def test_blocked_and_protected():
     assert reason is None or "etc" in (reason or "").lower() or True
     prot, _ = _is_protected(Path("config.py"))
     assert prot in (True, False)
+
+
+def test_every_system_location_is_blocked():
+    for p in ("/etc/shadow", "/proc/1/environ", "/sys/kernel", "/boot/x", "/dev/null", "/root/x", "/run/x"):
+        assert _blocked_reason(Path(p)), p
+    assert _blocked_reason(Path("/home/someone/project/file.txt")) is None

@@ -582,6 +582,20 @@ def _busy_batch_under(physical: Path) -> Optional[str]:
     return None
 
 
+def _folder_target_taken(old_physical: Path, new_physical: Path) -> bool:
+    """True when a directory or file other than ``old_physical`` already sits
+    at ``new_physical``. shutil.move would put the folder inside it instead of
+    at that path, leaving every row under the folder pointing at nothing.
+    A rename that only changes case on a case-insensitive disk is the same
+    directory and is not taken."""
+    if not old_physical.exists() or not os.path.lexists(new_physical):
+        return False
+    try:
+        return not old_physical.samefile(new_physical)
+    except OSError:
+        return True
+
+
 @files_bp.route("/folder/<int:folder_id>", methods=["PUT"])
 @ensure_db_session_cleanup
 def rename_folder(folder_id):
@@ -617,7 +631,7 @@ def rename_folder(folder_id):
             new_path = new_name
         new_physical_path = get_physical_path(new_path)
         existing = Folder.query.filter_by(path=new_path).first()
-        if existing:
+        if existing or _folder_target_taken(old_physical_path, new_physical_path):
             return error_response("Folder with this name already exists", 409, "FOLDER_EXISTS")
         if old_physical_path.exists():
             shutil.move(str(old_physical_path), str(new_physical_path))
@@ -691,6 +705,8 @@ def move_folder(folder_id):
             return error_response(
                 f"{busy} is still queued or rendering in this folder. Move it when it finishes.",
                 409, "BATCH_RUNNING")
+        if _folder_target_taken(old_physical_path, new_physical_path):
+            return error_response("A folder with this name already exists at the destination", 409, "FOLDER_EXISTS")
         if old_physical_path.exists():
             new_physical_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(old_physical_path), str(new_physical_path))
@@ -1312,6 +1328,18 @@ def move_document(doc_id):
         else:
             new_path = resolved_filename
         new_physical_path = get_physical_path(new_path)
+        # A file can sit on disk under another name than the one shown (a
+        # rename changes the shown name only), so a name free among the
+        # siblings' shown names may still be another document's file.
+        if new_physical_path != old_physical_path and os.path.lexists(new_physical_path):
+            from backend.utils.filename_resolver import resolve_storage_filename
+            in_folder = dest_path if dest_path and dest_path != "/" else ""
+            resolved_filename = resolve_storage_filename(
+                dest_folder_id, new_physical_path.parent, in_folder,
+                document.filename, db.session, DBDocument,
+            )
+            new_path = f"{in_folder}/{resolved_filename}" if in_folder else resolved_filename
+            new_physical_path = get_physical_path(new_path)
         if old_physical_path.exists():
             new_physical_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(old_physical_path), str(new_physical_path))

@@ -296,9 +296,10 @@ class UpscaleSupervisor:
             if self._cancelled(job) and not cancel_sent:
                 try:
                     requests.delete(f"{UPSCALING_URL}/jobs/{job.service_job_id}", headers=_auth_headers(), timeout=10)
+                    cancel_sent = True
                 except requests.RequestException as e:
+                    # Not delivered: ask again on the next pass.
                     logger.warning("upscale cancel of %s failed: %s", job.service_job_id, e)
-                cancel_sent = True
             try:
                 state, status = _service_get(f"/jobs/{job.service_job_id}")
             except (requests.RequestException, ValueError) as e:
