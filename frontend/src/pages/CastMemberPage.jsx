@@ -24,6 +24,7 @@ import { SubjectThumb } from '../components/filmcrew/CastLibraryView';
 import DragDropImageUpload from '../components/filmcrew/DragDropImageUpload';
 import CastVoicePicker from '../components/filmcrew/CastVoicePicker';
 import TrainAdapterInstall from '../components/filmcrew/TrainAdapterInstall';
+import { TrainingOutcomeNotice, SmokeIdentityNotice } from '../components/filmcrew/CastTrainingNotes';
 import ScheduleRequestButton from '../components/jobs/ScheduleRequestButton';
 import ChangedElsewhereNotice from '../components/common/ChangedElsewhereNotice';
 import EntityContextMenu from '../components/common/EntityContextMenu';
@@ -1148,32 +1149,7 @@ const CastMemberPage = () => {
             </Box>
           )}
 
-          {/* Enhanced error + recovery for real hardware (a 16 GB consumer GPU etc.)
-              Matches user's "no simulations" requirement and the exact failure mode
-              seen when the venv-torch cannot see CUDA despite a working GPU. */}
-          {subject.training_status === 'failed' && subject.training_error && (
-            <Alert severity="error" sx={{ mt: 1.5 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {t('cast.trainingData.failed')}
-              </Typography>
-              <Typography
-                variant="body2"
-                component="pre"
-                sx={{ 
-                  whiteSpace: 'pre-wrap', 
-                  fontFamily: 'monospace', 
-                  fontSize: '0.8rem',
-                  mt: 0.5,
-                  mb: 0.5
-                }}
-              >
-                {subject.training_error}
-              </Typography>
-              <Typography variant="caption">
-                {t('cast.trainingData.failedHelp')}
-              </Typography>
-            </Alert>
-          )}
+          <TrainingOutcomeNotice subject={subject} />
         </Box>
               </Box>
             ),
@@ -1233,37 +1209,7 @@ const CastMemberPage = () => {
                 : <Trans i18nKey="cast.generate.mismatchWarning" components={{ bold: <strong /> }} />}
             </Alert>
           )}
-          {subject.smoke_identity?.ok && (
-            subject.smoke_identity.status === 'measured' ? (
-              <Alert
-                severity={
-                  Number(subject.smoke_identity.score) >= Number(subject.smoke_identity.threshold ?? 0.75)
-                    ? 'success'
-                    : 'warning'
-                }
-                sx={{ mb: 2 }}
-              >
-                {subject.smoke_identity.family
-                  ? t('cast.generate.smokeScoreFamily', {
-                    score: Number(subject.smoke_identity.score).toFixed(2),
-                    method: subject.smoke_identity.method,
-                    family: subject.smoke_identity.family,
-                  })
-                  : t('cast.generate.smokeScore', {
-                    score: Number(subject.smoke_identity.score).toFixed(2),
-                    method: subject.smoke_identity.method,
-                  })}
-              </Alert>
-            ) : (
-              /* No badge and no number: the score is withheld until the method is
-                 proven on labelled pairs, and a colour would be a verdict. */
-              <Typography variant="caption" sx={{ color: "text.secondary", display: 'block', mb: 2 }}>
-                {subject.smoke_identity.reason
-                  ? t('cast.generate.identityNotMeasuredReason', { reason: subject.smoke_identity.reason })
-                  : t('cast.generate.identityNotMeasured')}
-              </Typography>
-            )
-          )}
+          <SmokeIdentityNotice subject={subject} />
 
           {/* Progress + honest status — so a planned-but-not-generated sheet doesn't
               read as "stuck", and a real render shows how far along it is. */}

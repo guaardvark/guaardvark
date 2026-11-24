@@ -140,8 +140,8 @@ def _serialize(s: Subject) -> dict:
         "train_ready": bool(base_prof.get("train_ready")),
         "train_status_note": base_prof.get("train_status_note"),
         "caption_coverage": _caption_coverage_for(s),
-        "smoke_identity": ((s.training_settings_json or {}).get("smoke_identity")
-                           if getattr(s, "training_settings_json", None) else None),
+        "smoke_identity": _smoke_identity_for(s),
+        "training_note": _training_note(s),
         "bible_vision_grounded": bool(
             (getattr(s, "training_settings_json", None) or {}).get("bible_vision_grounded")
         ),
@@ -155,6 +155,45 @@ def _serialize(s: Subject) -> dict:
             (getattr(s, "training_settings_json", None) or {}).get("class_token") or None
         ),
     }
+
+
+def _smoke_identity_for(s: Subject) -> dict | None:
+    """The stored smoke-render record, with ``current`` saying whether it scored
+    the member's default LoRA.
+
+    A killed or failed smoke render leaves the previous LoRA's record in place,
+    and an import or a version switch changes the default without a render.
+    Records from before the LoRA path was stored fall back to file times: the
+    smoke still is written after the LoRA it tested.
+    """
+    rec = (getattr(s, "training_settings_json", None) or {}).get("smoke_identity")
+    if not isinstance(rec, dict):
+        return None
+    rec = dict(rec)
+    default = s.lora_path
+    scored = rec.get("lora_path")
+    if not default:
+        rec["current"] = False
+    elif scored:
+        rec["current"] = scored == default
+    else:
+        try:
+            rec["current"] = os.path.getmtime(rec["path"]) >= os.path.getmtime(default)
+        except (KeyError, TypeError, OSError):
+            rec["current"] = False
+    return rec
+
+
+def _training_note(s: Subject) -> str | None:
+    """A code for a note the Cast page shows on a 'trained' member, or None.
+
+    Only the reaper's saved-LoRA note qualifies; any other text left in
+    training_error belongs to an earlier failed run.
+    """
+    if s.training_status != "trained" or not getattr(s, "training_error", None):
+        return None
+    from backend.tasks.lora_trainer_tasks import LORA_SAVED_NOTE
+    return "lora_saved_worker_stopped" if s.training_error == LORA_SAVED_NOTE else None
 
 
 def _identity_marks_for_captions(s: Subject) -> str:
@@ -1294,6 +1333,7 @@ def import_subject_lora(subject_id):
     )
     s.lora_version = next_import_seq
     s.training_status = "trained"
+    s.training_error = None
     became_default = s.lora_path == resolved_path
     if became_default:
         # Member-level fields are the default LoRA's own — only touch them when

@@ -142,7 +142,8 @@ def test_cast_use_existing_lora(client, app):
                           ref_image_paths=[])
         # New subject we want to cast
         new_subj = Subject(kind="character", name="Alex", description="y",
-                           training_status="untrained", ref_image_paths=[])
+                           training_status="failed", training_error="Cancelled by user",
+                           ref_image_paths=[])
         # A Production
         from backend.models import Production
         prod = Production(name="P", script_text="x", status="casting",
@@ -164,6 +165,7 @@ def test_cast_use_existing_lora(client, app):
         s = db.session.get(Subject, new_id)
         assert s.training_status == "trained"
         assert s.lora_path == "/loras/alex.safetensors"
+        assert s.training_error is None
 
 
 def test_cast_use_existing_lora_404_for_unknown_lora(client, app):

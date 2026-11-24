@@ -137,6 +137,7 @@ def test_smoke_run_still_writes_the_image_and_stores_not_measured(app, tmp_path,
 
         stored = db.session.get(Subject, subject.id).training_settings_json["smoke_identity"]
         assert stored["path"] == out_path
+        assert stored["lora_path"] == str(tmp_path / "loras" / "anna.safetensors")
         assert stored["score"] is None
         assert stored["status"] == "not_measured"
         assert stored["method"] != "size"
