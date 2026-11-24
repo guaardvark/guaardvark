@@ -21,34 +21,28 @@ else:
 ' "$PLUGIN_ROOT" 2>/dev/null || echo 8188)
 CURRENT_USER=$(whoami)
 
-# Working directory of a pid, or empty when it can't be read.
-proc_cwd() {
-    if [ -e "/proc/$1/cwd" ]; then
-        readlink -f "/proc/$1/cwd" 2>/dev/null
-    elif command -v lsof >/dev/null 2>&1; then
-        lsof -a -d cwd -p "$1" -Fn 2>/dev/null | sed -n 's/^n//p' | head -1
-    fi
-    return 0
-}
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$PROJECT_ROOT/scripts/lib/proc_owner.sh"
 
 # Free the ComfyUI port of a listener from this install still bound to it.
 # A crashed ComfyUI (or an orphaned child) can keep the port held with no usable
 # PID file; the next start then dies with "OSError: [Errno 98] address already
 # in use", which trips the circuit breaker and spams the boot log on every
-# restart. Mirrors Ollama stop.sh Step 4. Only a current-user process whose
-# working directory is inside this install is killed: a system service, or a
-# ComfyUI the user runs separately on the same port, is left alone.
+# restart. Mirrors Ollama stop.sh Step 4. Only a current-user process of this
+# install is killed (scripts/lib/proc_owner.sh): a system service, a ComfyUI the
+# user runs separately, or another install's, a worktree inside this one included,
+# is left alone.
 free_port_8188() {
     command -v lsof >/dev/null 2>&1 || return 0
-    local remaining_pids install_root
+    local remaining_pids
     remaining_pids=$(lsof -i TCP:$PORT -sTCP:LISTEN -t 2>/dev/null || true)
     [ -n "$remaining_pids" ] || return 0
-    install_root=$(cd "$PROJECT_ROOT" && pwd -P)
     for pid in $remaining_pids; do
         local proc_owner cwd
         proc_owner=$(ps -o user= -p "$pid" 2>/dev/null | tr -d ' ')
-        cwd=$(proc_cwd "$pid")
-        if [ -z "$cwd" ] || { [ "$cwd" != "$install_root" ] && [[ "$cwd" != "$install_root"/* ]]; }; then
+        if ! proc_in_install "$pid" "$PROJECT_ROOT"; then
+            cwd=$(proc_install_root "$pid")
+            [ -n "$cwd" ] || cwd=$(proc_cwd "$pid")
             echo "Port $PORT is held by a process outside this install (PID: $pid${cwd:+, $cwd}); leaving it running."
             continue
         fi
@@ -88,6 +82,18 @@ PID=$(cat "$PID_FILE")
 
 if [ -z "$PID" ] || ! pid_is_service "$PID" "main.py"; then
     echo "ComfyUI is not running (PID: $PID)"
+    rm -f "$PID_FILE"
+    free_port_8188
+    exit 0
+fi
+
+if ! proc_in_install "$PID" "$PROJECT_ROOT"; then
+    owner=$(proc_install_root "$PID")
+    if [ -n "$owner" ]; then
+        echo "ComfyUI PID $PID belongs to the Guaardvark install at $owner, not this one; leaving it running."
+    else
+        echo "PID $PID is not this install's ComfyUI (the pid file is stale); leaving it running."
+    fi
     rm -f "$PID_FILE"
     free_port_8188
     exit 0
