@@ -1191,10 +1191,10 @@ class BatchVideoGenerator:
             gpu_wait_message,
         )
         from backend.services.job_types import JobKind
-        from backend.services.video_model_registry import vram_mb_for_model
+        from backend.services.video_model_registry import admission_vram_mb
 
         slot_id = f"video_render:batch_{batch_request.batch_id}"
-        vram_mb = vram_mb_for_model(batch_request.model)
+        vram_mb = admission_vram_mb(batch_request.model)
         parallel_comfyui = os.environ.get(
             "GUAARDVARK_BATCH_COMFYUI_PARALLEL", ""
         ).lower() in ("1", "true", "yes")

@@ -1027,8 +1027,8 @@ def _generate_one_clip(mv: MusicVideo, clip: dict):
     # _comfyui_free_vram() below stays explicit (the FLUX→i2v evict is mid-block).
     # vram_estimate_mb makes this keyframe+i2v render visible to the GPU orchestrator's
     # budget so it evicts competing in-process models instead of both fighting for 16GB.
-    from backend.services.video_model_registry import vram_mb_for_model
-    mv_vram_mb = vram_mb_for_model(i2v_model, default=14000)
+    from backend.services.video_model_registry import admission_vram_mb
+    mv_vram_mb = admission_vram_mb(i2v_model, default=14000)
     try:
         with gpu_session(
             JobKind.VIDEO_RENDER,
