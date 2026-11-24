@@ -31,6 +31,16 @@ CAST_TRAIN_GPU_WAIT_S = 10 * 60
 # The card's cross-process lease outlives the longest run the limits allow.
 CAST_TRAIN_GPU_LEASE_S = CAST_TRAIN_GPU_WAIT_S + LORA_LOAD_TIMEOUT_S + LORA_TRAIN_TIMEOUT_S + 600
 
+# training_settings_json key binding a saved LoRA to the run (job id) that saved
+# it, written with the LoRA and cleared when that run marks the member 'trained'.
+LORA_SAVED_FOR_JOB_KEY = "lora_saved_for_job"
+# A run past its save is in its one-still smoke render (about a minute on a 16 GB
+# NVIDIA card, cooling retry included). Two pipeline loads at the load cap plus
+# half an hour is past any live render, so a member still 'training' that long
+# after its save lost its worker.
+LORA_SMOKE_REAP_AFTER_S = 2 * LORA_LOAD_TIMEOUT_S + 30 * 60
+LORA_SAVED_NOTE = "Training finished and the LoRA was saved (worker stopped during the test render). Ready to use."
+
 
 def _output_dir() -> str:
     from backend.config import STORAGE_DIR
@@ -372,12 +382,132 @@ def _promote_to_trained(subject_id: int, job_id: str | None = None) -> tuple[Sub
     s = db.session.get(Subject, subject_id, populate_existing=True)
     if s is None:
         return None, "deleted"
+    if job_id and s.training_status == "trained" and s.current_training_job_id == job_id:
+        # The reaper promoted this run's saved LoRA while the render overran.
+        if s.training_error == LORA_SAVED_NOTE:
+            s.training_error = None
+        _clear_saved_marker(s)
+        db.session.commit()
+        return s, None
     moved_to = _superseded_by(s, job_id)
     if moved_to:
         return None, moved_to
     s.training_status = "trained"
+    _clear_saved_marker(s)
     db.session.commit()
     return s, None
+
+
+def _clear_saved_marker(s: Subject) -> None:
+    cfg = s.training_settings_json
+    if isinstance(cfg, dict) and LORA_SAVED_FOR_JOB_KEY in cfg:
+        cfg = dict(cfg)
+        cfg.pop(LORA_SAVED_FOR_JOB_KEY)
+        s.training_settings_json = cfg
+
+
+def _saved_lora_for_current_run(s: Subject) -> dict | None:
+    """The save marker when the member's current run already saved its LoRA.
+
+    Evidence: the marker names the member's current job id, the member's
+    default LoRA (``lora_path``) is the file it names, and that file passes the
+    shared model-file integrity check. Returns None otherwise.
+    """
+    from backend.utils.model_file_integrity import file_complete
+
+    cfg = s.training_settings_json if isinstance(s.training_settings_json, dict) else {}
+    marker = cfg.get(LORA_SAVED_FOR_JOB_KEY)
+    if not isinstance(marker, dict):
+        return None
+    job_id, path = marker.get("job_id"), marker.get("lora_path")
+    if not job_id or job_id != s.current_training_job_id:
+        return None
+    if not path or path != s.lora_path:
+        return None
+    try:
+        if not file_complete(path):
+            return None
+    except Exception:
+        return None
+    return marker
+
+
+def _smoke_and_finish(
+    subject_id: int,
+    s: Subject,
+    job_id: str | None,
+    *,
+    run_smoke: bool,
+    used_images: list,
+    base_model_hint: str | None = None,
+) -> None:
+    """After a committed save: the smoke render, 'trained', then the job's end."""
+    from backend.utils.unified_progress_system import get_unified_progress
+
+    smoke = None
+    try:
+        if run_smoke and s.lora_path:
+            if job_id:
+                try:
+                    get_unified_progress().update_process(
+                        job_id, 92, "Checking the new LoRA with a test render",
+                    )
+                except Exception:
+                    pass
+            from backend.services.lora_posttrain_smoke import run_lora_smoke_test
+            from backend.services.lora_training_settings import settings_for_subject
+            train_settings = settings_for_subject(s)
+            smoke = run_lora_smoke_test(
+                subject_id=subject_id,
+                lora_path=s.lora_path,
+                trigger_word=s.trigger_word or s.name,
+                resolution=train_settings.get("resolution", 768),
+                base_model_id=train_settings.get("base_model_id") or base_model_hint,
+                ref_image_paths=list(used_images or [])[:8],
+                subject=s,
+            )
+            if smoke.get("ok"):
+                logger.info("lora smoke test passed for subject %s", subject_id)
+            else:
+                logger.warning(
+                    "lora smoke test did not pass for subject %s: %s",
+                    subject_id, smoke.get("error"),
+                )
+    except Exception as e:
+        # Includes Celery's SoftTimeLimitExceeded: the LoRA is saved either way.
+        logger.warning("lora smoke test for subject %s raised (non-fatal): %s", subject_id, e)
+        smoke = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+    finally:
+        s, moved_to = _promote_to_trained(subject_id, job_id)
+
+    if s is None:
+        logger.warning(
+            "lora train for %s saved its LoRA but status is %r; not marked trained",
+            subject_id, moved_to,
+        )
+        if job_id:
+            try:
+                get_unified_progress().error_process(job_id, f"training superseded (status={moved_to})")
+            except Exception:
+                pass
+        return
+
+    if job_id:
+        try:
+            get_unified_progress().update_process(job_id, 95, "Finalizing LoRA")
+            additional = {
+                "lora_path": s.lora_path,
+                "subject_id": subject_id,
+                "smoke_test": smoke,
+            }
+            msg = "LoRA training complete"
+            if smoke and smoke.get("ok"):
+                msg += " (smoke render verified LoRA loads)"
+            elif smoke and smoke.get("error"):
+                msg += f" (smoke render skipped: {smoke['error'][:120]})"
+            get_unified_progress().complete_process(job_id, msg, additional_data=additional)
+        except Exception:
+            pass
 
 
 def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -> None:
@@ -403,6 +533,22 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
                 get_unified_progress().error_process(job_id, f"skipped (status={s.training_status})")
             except Exception:
                 pass
+        return
+
+    saved = _saved_lora_for_current_run(s) if job_id else None
+    if saved is not None and saved.get("job_id") == job_id:
+        # A redelivered message for a run whose worker died after saving its
+        # LoRA: finish that run rather than train again.
+        logger.warning(
+            "lora train for %s: job %s already saved %s; finishing it without retraining",
+            subject_id, job_id, s.lora_path,
+        )
+        _smoke_and_finish(
+            subject_id, s, job_id,
+            # Recorded only after a verified real train (see below).
+            run_smoke=bool(s.last_trained_image_paths),
+            used_images=list(s.last_trained_image_paths or []),
+        )
         return
 
     if job_id:
@@ -481,6 +627,17 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
         except Exception:
             pass
         s.last_trained_at = utcnow()
+        if job_id:
+            # Lets the reaper tell a run that saved its LoRA and then lost its
+            # worker from one that never finished (reap_stuck_training_subjects).
+            s.training_settings_json = dict(
+                s.training_settings_json or {},
+                **{LORA_SAVED_FOR_JOB_KEY: {
+                    "job_id": job_id,
+                    "lora_path": s.lora_path,
+                    "saved_at": s.last_trained_at.isoformat(),
+                }},
+            )
 
         # Only record image lists + promote samples after a *verified real* train.
         # real_trainer writes sidecar mock=false; anything else (or a tiny weights
@@ -542,71 +699,12 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
 
         db.session.commit()
 
-        smoke = None
-        try:
-            if is_real_trained and s.lora_path:
-                if job_id:
-                    try:
-                        get_unified_progress().update_process(
-                            job_id, 92, "Checking the new LoRA with a test render",
-                        )
-                    except Exception:
-                        pass
-                from backend.services.lora_posttrain_smoke import run_lora_smoke_test
-                from backend.services.lora_training_settings import settings_for_subject
-                train_settings = settings_for_subject(s)
-                smoke = run_lora_smoke_test(
-                    subject_id=subject_id,
-                    lora_path=s.lora_path,
-                    trigger_word=s.trigger_word or s.name,
-                    resolution=train_settings.get("resolution", 768),
-                    base_model_id=train_settings.get("base_model_id")
-                    or (result.get("base_model_id") if isinstance(result, dict) else None),
-                    ref_image_paths=list(used_images or [])[:8],
-                    subject=s,
-                )
-                if smoke.get("ok"):
-                    logger.info("lora smoke test passed for subject %s", subject_id)
-                else:
-                    logger.warning(
-                        "lora smoke test did not pass for subject %s: %s",
-                        subject_id, smoke.get("error"),
-                    )
-        except Exception as e:
-            # Includes Celery's SoftTimeLimitExceeded: the LoRA is saved either way.
-            logger.warning("lora smoke test for subject %s raised (non-fatal): %s", subject_id, e)
-            smoke = {"ok": False, "error": f"{type(e).__name__}: {e}"}
-        finally:
-            s, moved_to = _promote_to_trained(subject_id, job_id)
-
-        if s is None:
-            logger.warning(
-                "lora train for %s saved its LoRA but status is %r; not marked trained",
-                subject_id, moved_to,
-            )
-            if job_id:
-                try:
-                    get_unified_progress().error_process(job_id, f"training superseded (status={moved_to})")
-                except Exception:
-                    pass
-            return
-
-        if job_id:
-            try:
-                get_unified_progress().update_process(job_id, 95, "Finalizing LoRA")
-                additional = {
-                    "lora_path": s.lora_path,
-                    "subject_id": subject_id,
-                    "smoke_test": smoke,
-                }
-                msg = "LoRA training complete"
-                if smoke and smoke.get("ok"):
-                    msg += " (smoke render verified LoRA loads)"
-                elif smoke and smoke.get("error"):
-                    msg += f" (smoke render skipped: {smoke['error'][:120]})"
-                get_unified_progress().complete_process(job_id, msg, additional_data=additional)
-            except Exception:
-                pass
+        _smoke_and_finish(
+            subject_id, s, job_id,
+            run_smoke=is_real_trained,
+            used_images=used_images,
+            base_model_hint=result.get("base_model_id") if isinstance(result, dict) else None,
+        )
     else:
         s.training_status = "failed"
         err = result.get("error") or "training failed"
@@ -642,6 +740,32 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
                 pass
 
 
+def _past_train_cap() -> list:
+    """Subjects in 'training' whose row has not changed for LORA_REAP_STUCK_AFTER_S.
+
+    Uses the DB clock to avoid process/DB timezone skew.
+    """
+    from sqlalchemy import text
+
+    return (
+        Subject.query
+        .filter(Subject.training_status == "training",
+                Subject.updated_at < text("now() - make_interval(secs => :stale_s)"))
+        .params(stale_s=LORA_REAP_STUCK_AFTER_S)
+        .all()
+    )
+
+
+def _mark_saved_run_trained(s: Subject) -> None:
+    s.training_status = "trained"
+    s.training_error = LORA_SAVED_NOTE
+    _clear_saved_marker(s)
+    logger.warning(
+        "reap_stuck_training: subject %s (%s) stuck in 'training' after its run saved %s — marked trained",
+        s.id, s.name, s.lora_path,
+    )
+
+
 def reap_stuck_training_subjects() -> dict:
     """Flip Subjects wedged in training_status='training' past the train cap to
     'failed' so the UI re-enables the Train button. A worker that dies mid-run
@@ -649,21 +773,38 @@ def reap_stuck_training_subjects() -> dict:
     nothing marks the Subject failed — it would otherwise stay 'training' forever.
     The cutoff comes from the one platform flag in backend.utils.platform
     (LORA_REAP_STUCK_AFTER_S) so it cannot drift from the daemon and task limits:
-    it sits 15 minutes past the task hard-limit on every platform. Uses the DB
-    clock to avoid process/DB timezone skew."""
-    from sqlalchemy import text
+    it sits 15 minutes past the task hard-limit on every platform.
 
-    stale = (
-        Subject.query
-        .filter(Subject.training_status == "training",
-                Subject.updated_at < text("now() - make_interval(secs => :stale_s)"))
-        .params(stale_s=LORA_REAP_STUCK_AFTER_S)
-        .all()
-    )
-    for s in stale:
+    A run that had already saved its LoRA (see _saved_lora_for_current_run) is
+    marked 'trained' with LORA_SAVED_NOTE instead, and is not left for the train
+    cap: it is promoted once LORA_SMOKE_REAP_AFTER_S has passed since the save.
+    """
+    from datetime import datetime, timedelta
+
+    smoke_cutoff = utcnow() - timedelta(seconds=LORA_SMOKE_REAP_AFTER_S)
+    promoted = 0
+    for s in Subject.query.filter(Subject.training_status == "training").all():
+        marker = _saved_lora_for_current_run(s)
+        if marker is None:
+            continue
+        try:
+            saved_at = datetime.fromisoformat(str(marker.get("saved_at")))
+        except ValueError:
+            continue
+        if saved_at < smoke_cutoff:
+            _mark_saved_run_trained(s)
+            promoted += 1
+
+    failed = 0
+    for s in _past_train_cap():
+        if _saved_lora_for_current_run(s) is not None:
+            _mark_saved_run_trained(s)
+            promoted += 1
+            continue
         s.training_status = "failed"
         s.training_error = "Training did not finish (worker stopped or timed out). Safe to retry."
         logger.warning(f"reap_stuck_training: subject {s.id} ({s.name}) stuck in 'training' — marked failed")
-    if stale:
+        failed += 1
+    if promoted or failed:
         db.session.commit()
-    return {"reaped": len(stale)}
+    return {"reaped": failed + promoted, "failed": failed, "trained": promoted}
