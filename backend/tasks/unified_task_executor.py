@@ -503,6 +503,12 @@ def execute_unified_task(self, task_id: int):
         if task.get('max_retries') == 0:
             retry_limit = 0
 
+        # A retried or redelivered start finds the writer already running the row.
+        from backend.services import csv_job
+        if csv_job.writer_holds(task):
+            logger.info(f"Task {task_id} is already with the CSV writer: {task['job_id']}")
+            return {'task_id': task_id, 'status': 'handed_off', 'csv_job': task['job_id']}
+
         # Update task status to in-progress with celery job ID
         update_task_status(task_id, 'in-progress', job_id=f"task_{task_id}")
         update_progress(10, f"Starting execution: {task['name']}")
@@ -554,10 +560,20 @@ def execute_unified_task(self, task_id: int):
 
         # A CSV file job goes to the structured CSV writer, which runs in the
         # backend and finishes the row itself (backend/services/csv_job.py).
-        from backend.services import csv_job
         if output is None and csv_job.is_csv_job(task_type, task.get('workflow_config')):
             update_progress(10, f"Starting {task['name']}")
             started = csv_job.start(task)
+            if started.get("error") and not started.get("refused"):
+                # A start that timed out may still have reached the writer.
+                current = get_task_by_id(task_id)
+                if current and csv_job.writer_holds(current):
+                    started = {"job_id": current["job_id"]}
+            if started.get("refused"):
+                error_msg = f"The CSV writer refused the job: {started['error']}"
+                update_task_status(task_id, 'failed', error_message=error_msg)
+                if progress_system and process_id:
+                    progress_system.error_process(process_id, error_msg)
+                return {'error': error_msg, 'task_id': task_id}
             if not started.get("error"):
                 if progress_system and process_id:
                     progress_system.complete_process(process_id, f"Started: {task['name']}")

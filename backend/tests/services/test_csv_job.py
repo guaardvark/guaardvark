@@ -51,6 +51,30 @@ def test_the_name_asked_for_is_reused_after_a_run_renamed_the_row():
     assert body["output_filename"] == "florida.csv"
 
 
+def test_a_job_saved_from_the_file_generation_page_keeps_its_writer_settings():
+    page = {"page_count": 2, "items": ["Tampa", "Orlando"], "prompt_rule_id": 3, "client_id": 11,
+            "client_website": "acme.example", "target_website": "rival.example", "website_id": 4,
+            "insert_content": None, "insert_position": None, "context_mode": "enhanced",
+            "use_entity_context": True, "use_competitor_analysis": True, "use_document_intelligence": True}
+    body = csv_job.csv_request(saved_row(target_website="acme.example", workflow_config=page, project_id=9))
+    assert body["website"] == "acme.example" and body["competitor_url"] == "rival.example"
+    assert body["context_mode"] == "enhanced"
+    assert body["use_entity_context"] and body["use_competitor_analysis"] and body["use_document_intelligence"]
+    assert (body["client_id"], body["website_id"], body["project_id"]) == (11, 4, 9)
+
+
+def test_a_job_from_the_new_job_form_keeps_its_site_and_competitor_apart():
+    config = {**SAVED, "competitor_url": "rival.example", "client_website": "acme-home.example"}
+    body = csv_job.csv_request(saved_row(workflow_config=config))
+    assert body["website"] == "acme.example" and body["competitor_url"] == "rival.example"
+    assert "context_mode" not in body
+
+
+def test_topics_saved_as_one_word_are_not_split_into_letters():
+    body = csv_job.csv_request(saved_row(workflow_config={"topics": "auto", "page_count": 2}))
+    assert body["topics"] == [] and body["num_items"] == 2
+
+
 @pytest.mark.parametrize("task_type, config, expected", [
     ("file_generation", SAVED, True),
     ("csv_generation", json.dumps(SAVED), True),
@@ -78,6 +102,49 @@ def test_executor_hands_a_csv_row_to_the_writer_not_the_generic_runner(monkeypat
     assert started == [5]
     assert result["status"] == "handed_off" and result["csv_job"] == "bulk_gen_1"
     assert "completed" not in statuses
+
+
+@pytest.fixture
+def executor(monkeypatch):
+    """The executor over one saved CSV row whose state the test sets."""
+    from backend.tasks import unified_task_executor as ute
+
+    box = {"row": {**saved_row(), "workflow_config": SAVED, "status": "queued", "job_id": "task_5",
+                   "max_retries": 3},
+           "statuses": [], "starts": []}
+    monkeypatch.setattr(ute, "get_task_by_id", lambda task_id: dict(box["row"]))
+    monkeypatch.setattr(ute, "update_task_status",
+                        lambda task_id, status, **kw: box["statuses"].append(status) or True)
+    monkeypatch.setattr(ute, "update_task_result", lambda *a, **k: pytest.fail("the writer finishes the row"))
+    monkeypatch.setattr(ute, "execute_generic_llm_task", lambda *a, **k: pytest.fail("generic runner used"))
+    box["run"] = lambda: ute.execute_unified_task.run(5)
+    return box
+
+
+def test_a_redelivered_start_leaves_the_running_writer_alone(executor, monkeypatch):
+    executor["row"].update(status="in-progress", job_id="bulk_gen_1_abc")
+    monkeypatch.setattr(csv_job, "start", lambda task: pytest.fail("a second writer was started"))
+    result = executor["run"]()
+    assert result["status"] == "handed_off" and result["csv_job"] == "bulk_gen_1_abc"
+    assert executor["statuses"] == ["in-progress"]
+
+
+def test_a_start_that_timed_out_after_the_writer_took_the_row_is_not_retried(executor, monkeypatch):
+    def start(task):
+        executor["row"].update(status="in-progress", job_id="bulk_gen_2_abc")
+        return {"error": "timeout"}
+
+    monkeypatch.setattr(csv_job, "start", start)
+    result = executor["run"]()
+    assert result["status"] == "handed_off" and result["csv_job"] == "bulk_gen_2_abc"
+    assert "queued" not in executor["statuses"] and "failed" not in executor["statuses"]
+
+
+def test_a_refused_start_fails_the_row_without_a_retry(executor, monkeypatch):
+    monkeypatch.setattr(csv_job, "start", lambda task: {"error": "Invalid filename", "refused": True})
+    result = executor["run"]()
+    assert "refused" in result["error"]
+    assert executor["statuses"][-1] == "failed" and "queued" not in executor["statuses"]
 
 
 @pytest.fixture

@@ -49,10 +49,31 @@ def is_csv_job(task_type: Optional[str], workflow_config: Any) -> bool:
     return task_type in CSV_TYPES and bool(_config(workflow_config))
 
 
+# A row's job_id while the writer's thread holds it.
+_WRITER_PREFIX = "bulk_gen_"
+
+
+def writer_holds(task: Any) -> bool:
+    """True when a writer already runs this row (a redelivered or retried start)."""
+    return (is_csv_job(_get(task, "type"), _get(task, "workflow_config"))
+            and str(_get(task, "job_id") or "").startswith(_WRITER_PREFIX)
+            and _get(task, "status") in ("pending", "queued", "in-progress"))
+
+
+def _items(value: Any) -> list:
+    """Saved items as a list; a single value such as ``"auto"`` is not a list of items."""
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [str(i).strip() for i in value if str(i).strip()]
+
+
 def csv_request(task: Any) -> dict:
     """The ``/api/bulk-generate/csv`` body for a saved row (a dict or a Task)."""
     config = _config(_get(task, "workflow_config"))
-    items = [str(i).strip() for i in (config.get("items") or config.get("topics") or []) if str(i).strip()]
+    items = _items(config.get("items")) or _items(config.get("topics"))
+    # The File Generation page saves the competitor site as target_website and
+    # has no competitor_url key; the New job form saves both.
+    page_saved = "context_mode" in config and "competitor_url" not in config
     pages = (_positive_int(config.get("page_count")) or _positive_int(config.get("items_count"))
              or len(items) or _DEFAULT_PAGES)
     body = {
@@ -61,9 +82,11 @@ def csv_request(task: Any) -> dict:
         "topics": items,
         "num_items": pages,
         "project": config.get("project") or _get(task, "name") or "Content Generation",
-        "website": _get(task, "target_website") or config.get("target_website") or config.get("website") or "",
+        "website": (_get(task, "target_website") or config.get("client_website")
+                    or (None if page_saved else config.get("target_website")) or config.get("website") or ""),
         "client_notes": config.get("client_notes") or "",
-        "competitor_url": config.get("competitor_url") or _get(task, "competitor_url") or "",
+        "competitor_url": (config.get("competitor_url") or _get(task, "competitor_url")
+                           or (config.get("target_website") if page_saved else None) or ""),
         "target_word_count": _positive_int(config.get("target_word_count")) or 1000,
         "concurrent_workers": _positive_int(config.get("concurrent_workers")) or 3,
         "batch_size": _positive_int(config.get("batch_size")) or 10,
@@ -72,7 +95,14 @@ def csv_request(task: Any) -> dict:
         "prompt_rule_id": config.get("prompt_rule_id") or None,
         "model_name": _get(task, "model_name") or None,
         "existing_task_id": _get(task, "id"),
+        "client_id": config.get("client_id") or _get(task, "client_id"),
+        "website_id": config.get("website_id") or _get(task, "website_id"),
+        "project_id": _get(task, "project_id"),
     }
+    for key in ("context_mode", "use_entity_context", "use_competitor_analysis",
+                "use_document_intelligence", "project_notes"):
+        if config.get(key) not in (None, ""):
+            body[key] = config[key]
     # Without a client name the writer's own default applies.
     client = (_get(task, "client_name") or config.get("client_name") or config.get("client") or "").strip()
     if client:
@@ -82,7 +112,8 @@ def csv_request(task: Any) -> dict:
 
 def start(task: Any) -> dict:
     """Start the writer for a saved row. Returns the writer's reply (``job_id``,
-    ``output_filename``) or ``{"error": ...}``.
+    ``output_filename``) or ``{"error": ...}``, with ``refused`` set when the
+    writer turned the request down and starting again would not help.
 
     In the backend process the writer is called directly; from the Celery
     worker it is reached over this checkout's own backend, where its thread
@@ -98,7 +129,8 @@ def start(task: Any) -> dict:
         reply, status = response if isinstance(response, tuple) else (response, 200)
         data = reply.get_json(silent=True) or {}
         if status >= 400:
-            return {"error": str(data.get("error") or f"the CSV writer refused the job (HTTP {status})")}
+            return {"error": str(data.get("error") or f"the CSV writer refused the job (HTTP {status})"),
+                    "refused": status < 500}
         return data
 
     from backend.utils import backend_http
@@ -107,4 +139,4 @@ def start(task: Any) -> dict:
         return backend_http.request_json("POST", "/api/bulk-generate/csv", payload=body,
                                          read_timeout=_START_TIMEOUT_S, own_backend=True).data or {}
     except backend_http.BackendError as e:
-        return {"error": str(e)}
+        return {"error": str(e), "refused": e.kind == "http" and 400 <= (e.status or 0) < 500}
