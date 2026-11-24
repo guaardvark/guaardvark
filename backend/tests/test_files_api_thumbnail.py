@@ -31,7 +31,11 @@ def uploads(tmp_path):
 
 
 @pytest.fixture
-def app(uploads):
+def app(uploads, monkeypatch):
+    # The document-id form goes through resolve_document_path, which serves a
+    # file only from the configured uploads folder or the install's outputs.
+    from backend import config
+    monkeypatch.setattr(config, "UPLOAD_DIR", str(uploads))
     app = Flask(__name__)
     app.config.update({
         "TESTING": True,

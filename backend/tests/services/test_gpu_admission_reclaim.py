@@ -42,6 +42,14 @@ def no_audio_foundry(monkeypatch):
     return calls
 
 
+@pytest.fixture(autouse=True)
+def no_real_load_gate(monkeypatch):
+    """The system load gate reads this machine's RAM, swap and free VRAM. A
+    render running here must not decide whether these tests pass; the gate has
+    its own tests."""
+    monkeypatch.setattr(grp, "_load_admit_or_busy", lambda slot, **kwargs: None)
+
+
 @pytest.fixture
 def fresh_gate(monkeypatch):
     gate = JobOperationGate()
@@ -308,19 +316,47 @@ def test_an_audio_foundry_slot_leaves_the_registry_when_the_plugin_evicts_it():
     assert "audio_foundry:voice" not in orch._registry
 
 
-def test_a_booking_is_never_evicted_out_from_under_its_owner():
-    """Registry-only 'unload' frees nothing but would credit the caller its whole
-    estimate, admitting a second job against VRAM still in use."""
-    orch = _bare_orch()
+def _batch_generator(monkeypatch, *, releases: bool):
+    import backend.services.batch_image_generator as big
+
+    class _Generator:
+        def release_batch_vram(self, batch_id):
+            return releases
+
+    monkeypatch.setattr(big, "_batch_generator_instance", _Generator())
+
+
+def _image_batch_booking(orch):
     slot = ModelSlot(
         slot_id="image_batch:x", model_type=ModelType.IMAGE_BATCH, vram_mb=11000,
         loaded_at=0.0, last_used=0.0, priority=50, state=SlotState.LOADED,
     )
     orch._registry["image_batch:x"] = slot
+    return slot
+
+
+def test_a_booking_is_never_evicted_out_from_under_its_owner(monkeypatch):
+    """Registry-only 'unload' frees nothing but would credit the caller its whole
+    estimate, admitting a second job against VRAM still in use. While the batch
+    runs, its generator refuses and the booking stays."""
+    _batch_generator(monkeypatch, releases=False)
+    orch = _bare_orch()
+    slot = _image_batch_booking(orch)
 
     assert orch._unload_model(slot) is False
     assert orch._registry["image_batch:x"] is slot
     assert slot.state == SlotState.LOADED
+
+
+def test_a_finished_batchs_booking_is_dropped(monkeypatch):
+    """Once the generator has released the idle pipeline the booking is stale,
+    and the next job gets the card."""
+    _batch_generator(monkeypatch, releases=True)
+    orch = _bare_orch()
+    slot = _image_batch_booking(orch)
+
+    assert orch._unload_model(slot) is True
+    assert "image_batch:x" not in orch._registry
 
 
 def test_hardware_sync_keeps_a_live_image_batch_booking():
