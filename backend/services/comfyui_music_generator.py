@@ -194,23 +194,31 @@ def job_status(job_id: str) -> Optional[Dict[str, Any]]:
 
 
 def _move_to_audio_folder(path: str) -> str:
-    """Move the finished song into uploads/Audio, where the Library record
-    says it is, and return its new path. The download lands in the video
-    cache, which the Library's path resolver does not search."""
+    """Move the finished song out of the video cache and return its new path:
+    into uploads/Audio, where the Library files it, or into the audio output
+    folder when uploads refuses it. Songs are registered and served only from
+    those folders, never from the cache."""
     import shutil
-    from backend.config import UPLOAD_DIR
+    from backend.config import OUTPUT_DIR, UPLOAD_DIR
     src = Path(path)
-    dest_dir = Path(UPLOAD_DIR) / "Audio"
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / src.name
-    if dest.exists():
-        dest = dest_dir / f"{src.stem}_{uuid.uuid4().hex[:6]}{src.suffix}"
-    try:
-        shutil.move(str(src), dest)
-    except OSError as e:
-        logger.warning("Music 3 song left in %s: %s", src.parent, e)
-        return path
-    return str(dest)
+    for dest_dir in (Path(UPLOAD_DIR) / "Audio", Path(OUTPUT_DIR) / "audio"):
+        dest = dest_dir / src.name
+        try:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            if dest.exists():
+                dest = dest_dir / f"{src.stem}_{uuid.uuid4().hex[:6]}{src.suffix}"
+            shutil.move(str(src), dest)
+            return str(dest)
+        except OSError as e:
+            logger.warning("Music 3 song not moved to %s: %s", dest_dir, e)
+            # A move across disks copies first; drop a partial copy.
+            if src.exists() and dest.exists():
+                try:
+                    dest.unlink()
+                except OSError:
+                    pass
+    logger.warning("Music 3 song left in %s", src.parent)
+    return path
 
 
 def _register(app, result: Dict[str, Any], params: Dict[str, Any]) -> Optional[int]:
