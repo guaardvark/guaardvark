@@ -13,6 +13,17 @@ logger = logging.getLogger(__name__)
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi", ".mts", ".m2ts"}
 
 
+def profile_summary(profile: dict, clause: str | None) -> str:
+    """One line on a measured profile: shots, pacing, motion and look, then the style clause."""
+    cutting = profile.get("cutting") or {}
+    look = profile.get("look") or {}
+    return (
+        f"{cutting.get('shot_count')} shots, average {cutting.get('asl_s')} s, "
+        f"motion {profile.get('motion_mix')}, look {look.get('key_mix')} at "
+        f"{look.get('cct_k_median')} K. {clause or ''}"
+    ).rstrip()
+
+
 class AnalyzeVideoStyleTool(BaseTool):
     """Measure a video's shots, camera motion, lighting, colour and pacing."""
 
@@ -24,8 +35,9 @@ class AnalyzeVideoStyleTool(BaseTool):
         "motion per shot, lighting key and colour temperature, palette, loudness, beats and how "
         "cuts sit on them. Runs on the CPU with ffmpeg and OpenCV; no model is involved. Use "
         "when the user asks to analyze a video's style, editing, pacing or look, or wants a "
-        "style recipe made from a video. Returns a job id to poll with get_generation_status, "
-        "or the finished profile when wait is true."
+        "style recipe made from a video. Returns a job id to poll with get_generation_status "
+        "(batch_id=<job id>), which reports the profile when the analysis completes, or the "
+        "finished profile at once when wait is true."
     )
     parameters = {
         "video": ToolParameter(
@@ -84,9 +96,12 @@ class AnalyzeVideoStyleTool(BaseTool):
                                       metadata={"job_id": job["id"]})
                 return ToolResult(
                     success=True,
-                    output=(f"Measuring '{title}'. Job {job['id']}; poll GET /api/video-style/{job['id']} "
-                            "or get_generation_status, then save a recipe with POST /api/video-style/<job>/recipe."),
-                    metadata={"job_id": job["id"], "status_url": f"/api/video-style/{job['id']}"},
+                    output=(f"Measuring '{title}' as job {job['id']}. "
+                            f"Poll: get_generation_status(batch_id=\"{job['id']}\") for the profile "
+                            f"(or GET /api/video-style/{job['id']}); save it as a recipe with "
+                            f"POST /api/video-style/{job['id']}/recipe."),
+                    metadata={"job_id": job["id"], "status_url": f"/api/video-style/{job['id']}",
+                              "status_tool": "get_generation_status"},
                 )
             from backend.tasks.video_style_tasks import run_stage
 
@@ -104,12 +119,7 @@ class AnalyzeVideoStyleTool(BaseTool):
             if save_recipe:
                 saved = str(recipes.save_recipe(rec))
             profile = analysis.get("profile") or {}
-            cutting = profile.get("cutting") or {}
-            summary = (
-                f"{cutting.get('shot_count')} shots, average {cutting.get('asl_s')} s, "
-                f"motion {profile.get('motion_mix')}, look {profile.get('look', {}).get('key_mix')} at "
-                f"{profile.get('look', {}).get('cct_k_median')} K. {clause}"
-            )
+            summary = profile_summary(profile, clause)
             if saved:
                 summary += f" Recipe saved: {saved}."
             return ToolResult(
