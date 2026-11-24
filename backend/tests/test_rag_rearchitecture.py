@@ -821,7 +821,8 @@ def test_auto_resume_source_routes_problem_ticks_to_warning():
     from backend.tasks import index_resume_tasks as t
 
     src = inspect.getsource(t.resume_pending_tick)
-    assert "if failed or missing:" in src
+    # The condition has grown (a document with no text is a problem tick too).
+    assert "if failed or missing" in src
     assert "logger.warning(summary" in src
     assert "logger.info(summary" in src
 
@@ -1282,7 +1283,9 @@ def test_reset_drops_every_vector_table_not_just_the_active_one():
     from backend.api import index_mgmt_api
     import backend.services.indexing_service as isvc
 
-    assert "drop_all_vector_stores" in inspect.getsource(index_mgmt_api.reset_index)
+    # reset_index hands the work to _reset_index_storage.
+    assert "_reset_index_storage" in inspect.getsource(index_mgmt_api.reset_index)
+    assert "drop_all_vector_stores" in inspect.getsource(index_mgmt_api._reset_index_storage)
     src = inspect.getsource(isvc.drop_all_vector_stores)
     # Enumerate by prefix, so a scope this process never saw is still dropped.
     assert "pg_tables" in src and "data_guaardvark%" in src
