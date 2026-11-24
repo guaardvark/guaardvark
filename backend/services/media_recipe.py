@@ -297,12 +297,19 @@ def _audio_recipe(doc, meta: Dict[str, Any]) -> Dict[str, Any]:
 def list_audio(limit: int = 60) -> List[Dict[str, Any]]:
     """The newest songs and sound effects in the Library, for the Media page:
     [{document_id, kind, title, model, duration_s, created_at, url}]."""
-    from backend.models import Document
+    from sqlalchemy import or_
+
+    from backend.models import Document, Folder
     from backend.services.song_recipe import audio_kind, audio_title
 
     rows: List[Dict[str, Any]] = []
+    # A song filed in the Audio folder from outside the uploads folder keeps
+    # its real path, so the folder is matched as well as the path.
+    audio_folders = Folder.query.with_entities(Folder.id).filter(
+        or_(Folder.path == "Audio", Folder.path.like("Audio/%")))
     # Voice clips share the folder, so read past them to fill the list.
-    query = (Document.query.filter(Document.path.like("Audio/%"))
+    query = (Document.query.filter(or_(Document.path.like("Audio/%"),
+                                       Document.folder_id.in_(audio_folders)))
              .order_by(Document.uploaded_at.desc()).limit(max(1, limit) * 4))
     for doc in query:
         if _media_of(doc.filename) != "audio":

@@ -121,3 +121,96 @@ def test_unsafe_folder_names_are_still_refused(root):
     assert reg.register_file(str(render), "Videos", filename="../take.mp4") is None
     assert reg.register_file(str(render), "Videos", subfolder_name="..") is None
     assert Document.query.count() == 0
+
+
+@pytest.mark.parametrize("secret", [".swarm_internal_secret", "interconnector/peer.key"])
+def test_a_file_under_data_outside_the_output_folders_is_refused(root, secret):
+    target = root / "data" / secret
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("secret")
+
+    assert reg.output_location_problem(target)
+    assert reg.register_file(str(target), "Videos", filename="x.mp4") is None
+    assert Document.query.count() == 0
+
+
+def test_a_symlink_in_an_output_folder_pointing_out_is_refused(root):
+    (root / "data" / ".swarm_internal_secret").write_text("secret")
+    link = root / "data" / "outputs" / "videos" / "editor-renders" / "take.mp4"
+    link.symlink_to(root / "data" / ".swarm_internal_secret")
+
+    assert reg.register_file(str(link), "Videos") is None
+    assert Document.query.count() == 0
+
+
+def test_a_traversal_path_out_of_the_output_folder_is_refused(root):
+    (root / "data" / ".swarm_internal_secret").write_text("secret")
+    sneaky = str(root / "data" / "outputs" / "videos" / ".." / ".." / ".swarm_internal_secret")
+
+    assert reg.register_file(sneaky, "Videos", filename="x.mp4") is None
+    assert Document.query.count() == 0
+
+
+def test_the_register_endpoint_answers_400_for_a_file_outside_the_output_folders(root):
+    from flask import current_app
+    from backend.api.outputs_api import outputs_bp
+    (root / "data" / ".swarm_internal_secret").write_text("secret")
+    current_app.register_blueprint(outputs_bp)
+
+    r = current_app.test_client().post(
+        "/api/outputs/register",
+        json={"physical_path": str(root / "data" / ".swarm_internal_secret"), "folder_name": "Videos"},
+        environ_base={"REMOTE_ADDR": "127.0.0.1"},
+    )
+
+    assert r.status_code == 400
+    assert Document.query.count() == 0
+
+
+def test_an_ambiguous_folder_name_row_is_not_handed_to_another_file(root):
+    videos = root / "data" / "outputs" / "videos"
+    render, overlay = videos / "editor-renders" / "final.mp4", videos / "text-overlay" / "final.mp4"
+    render.write_bytes(b"render")
+    overlay.write_bytes(b"overlay")
+    old = Document(filename="final.mp4", path="Videos/final.mp4", type=".mp4", index_status="STORED")
+    db.session.add(old)
+    db.session.commit()
+
+    doc = reg.register_file(str(overlay), "Videos")
+
+    assert doc.id != old.id
+    assert _bytes(doc) == b"overlay"
+
+
+def test_a_name_taken_by_a_parallel_registration_is_retried(root, monkeypatch):
+    from backend.utils import filename_resolver
+    overlays = root / "data" / "outputs" / "videos" / "text-overlay"
+    first, second = overlays / "clip_001.mp4", overlays / "clip_002.mp4"
+    first.write_bytes(b"first")
+    second.write_bytes(b"second")
+    a = reg.register_file(str(first), "Videos", filename="clip-text.mp4", subfolder_name="Text Overlay")
+    real = filename_resolver.resolve_filename
+    calls = []
+
+    def stale_once(folder_id, name, *args, **kwargs):
+        calls.append(name)
+        return name if len(calls) == 1 else real(folder_id, name, *args, **kwargs)
+
+    monkeypatch.setattr(filename_resolver, "resolve_filename", stale_once)
+    b = reg.register_file(str(second), "Videos", filename="clip-text.mp4", subfolder_name="Text Overlay")
+
+    assert b is not None and b.id != a.id
+    assert b.filename == "clip-text (2).mp4"
+    assert len(calls) == 2
+
+
+def test_a_song_filed_in_audio_from_an_output_folder_is_listed(root):
+    from backend.services.media_recipe import list_audio
+    (root / "data" / "outputs" / "audio").mkdir(parents=True)
+    song = root / "data" / "outputs" / "audio" / "song.wav"
+    song.write_bytes(b"RIFF")
+
+    doc = reg.register_file(str(song), "Audio", file_metadata={"source": "music_generation"})
+
+    assert doc.path == "data/outputs/audio/song.wav"
+    assert [row["document_id"] for row in list_audio()] == [doc.id]

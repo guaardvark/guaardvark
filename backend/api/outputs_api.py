@@ -17,7 +17,9 @@ from pathlib import Path
 
 from flask import Blueprint, request
 
-from backend.services.output_registration import register_file, registrable_path
+from backend.services.output_registration import (
+    output_location_problem, register_file, registrable_path,
+)
 from backend.utils import auth_guard
 from backend.utils.response_utils import error_response, success_response
 
@@ -71,6 +73,13 @@ def register_output():
             f"File does not exist: {physical_path}",
             status_code=404,
             error_code="FILE_NOT_FOUND",
+        )
+    problem = output_location_problem(physical)
+    if problem:
+        return error_response(
+            f"Not registered: {problem}",
+            status_code=400,
+            error_code="NOT_AN_OUTPUT",
         )
 
     try:
