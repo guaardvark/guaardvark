@@ -27,6 +27,9 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
   const [queue, setQueue] = useState([]);
 
   const pollingRef = useRef(null);
+  // Which startPollingStatus call may start the interval; a newer call or an
+  // unmount while the first snapshot is in flight makes the older one stale.
+  const pollTokenRef = useRef(0);
   const queuePollingRef = useRef(null);
   const socketRef = useRef(null);
   const activeBatchIdRef = useRef(null);
@@ -122,11 +125,13 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
 
   const startPollingStatus = useCallback((batchId) => {
     stopPolling();
+    const token = ++pollTokenRef.current;
     if (socketRef.current?.connected) {
       socketRef.current.emit("subscribe", { job_id: batchId });
     }
     // Immediate snapshot, then keep polling while active (WS is the fast path).
     fetchStatusOnce(batchId).then((snap) => {
+      if (token !== pollTokenRef.current) return;
       if (snap && ACTIVE_STATUSES.has(snap.status)) {
         pollingRef.current = setInterval(() => {
           fetchStatusOnce(batchId);
@@ -162,6 +167,7 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
     fetchQueue();
     queuePollingRef.current = setInterval(fetchQueue, STATUS_POLL_MS);
     return () => {
+      pollTokenRef.current += 1;
       stopPolling();
       if (queuePollingRef.current) clearInterval(queuePollingRef.current);
     };

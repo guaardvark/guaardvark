@@ -39,7 +39,7 @@ const EXEMPT_PATTERNS = [
   '/api/voice/',          // Voice processing
   '/health',              // Health checks
   '/api/meta/',           // System status polling (UnifiedProgressContext)
-  '/api/model/',          // Model switching (long-running)
+  '/api/model',           // Active model read (app-wide status) and model switching
   '/api/plugins/',        // Plugin management
   '/api/gpu/',            // GPU orchestrator + coordinator signals
   '/api/rules',           // Slash command registry (persistent config)

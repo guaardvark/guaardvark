@@ -322,6 +322,9 @@ const StickyNotesPage = () => {
 
   // Refs for latest state values — avoids stale closures in saveState/debouncedSave
   const notesRef = useRef(notes);
+  // Set when the saved board could not be read. The page then shows a blank
+  // default board, and saving that would replace the notes still stored.
+  const loadFailedRef = useRef(false);
   const noteColorsRef = useRef(noteColors);
   const minimizedCardsRef = useRef(minimizedCards);
   const pinnedNotesRef = useRef(pinnedNotes);
@@ -448,9 +451,13 @@ const StickyNotesPage = () => {
             setLayout(dl);
           }
         }
+        // A later read that succeeds (the effect can run twice) shows the
+        // stored board, so saving is safe again.
+        loadFailedRef.current = false;
       } catch (e) {
         console.error("StickyNotes: Error fetching state:", e);
         setLayoutError({ kind: "load", message: e.message });
+        loadFailedRef.current = true;
         const id = `note-${Date.now()}`;
         setNotes({ [id]: { content: "", title: "" } });
         setNoteColors({ [id]: NOTE_COLORS[0] });
@@ -482,6 +489,11 @@ const StickyNotesPage = () => {
 
   const saveState = useCallback(
     async (newLayout, newNoteColors, newMinimizedCards, newLayoutMode, newNotes, newPinnedNotes, newClosedNotes) => {
+      if (loadFailedRef.current) {
+        setLayoutError({ kind: "save" });
+        setSaveIndicator("error");
+        return;
+      }
       setSaveIndicator("saving");
       try {
         const body = {
@@ -511,10 +523,13 @@ const StickyNotesPage = () => {
 
   // Debounced save for content/title typing
   const debouncedSave = useCallback(
-    (newNotes) => {
+    () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      // Save the board as it is when the timer fires: a note added, duplicated
+      // or undone since the keystroke is already saved and must not be undone.
       saveTimeoutRef.current = setTimeout(() => {
-        saveState(null, null, null, undefined, newNotes);
+        saveTimeoutRef.current = null;
+        saveState(null, null, null, undefined, notesRef.current);
       }, 500);
     },
     [saveState],
@@ -611,11 +626,16 @@ const StickyNotesPage = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleUndo]);
 
+  // Leaving the page with a save still pending sends it now.
   useEffect(() => {
     return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+        saveState(null, null, null, undefined, notesRef.current);
+      }
     };
-  }, []);
+  }, [saveState]);
 
   // ── Search filter ─────────────────────────────────────────────────────────
 

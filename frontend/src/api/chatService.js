@@ -594,7 +594,7 @@ export const listChatSessions = async (projectId, limit = 50, offset = 0) => {
     return data;
   } catch (err) {
     console.error("chatService: Error listing chat sessions:", err.message);
-    return { sessions: [], total: 0 };
+    throw err;
   }
 };
 

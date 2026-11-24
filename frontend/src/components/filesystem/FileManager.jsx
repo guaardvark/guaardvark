@@ -632,6 +632,10 @@ const FileManager = () => {
   // Keyboard shortcuts (CTRL+A, Escape)
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Typing in a field keeps its own Ctrl+A and Delete.
+      const el = e.target;
+      const typing = el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable;
+      if (typing && e.key !== 'Escape') return;
       // CTRL+A to select all
       if (e.ctrlKey && e.key === 'a' && !createFolderOpen && !renameFolderOpen && !renameFileOpen) {
         e.preventDefault();
@@ -1084,6 +1088,8 @@ const FileManager = () => {
       );
     }
   };
+  const fileSelectRef = useRef(handleFileSelectWithPaths);
+  fileSelectRef.current = handleFileSelectWithPaths;
 
   const handleFileSelect = async (files) => {
     if (!files || files.length === 0) return;
@@ -1242,7 +1248,9 @@ const FileManager = () => {
     const filesToUpload = await collectDroppedFiles(snapshotDrop(e.dataTransfer), { prune });
 
     if (filesToUpload.length > 0) {
-      handleFileSelectWithPaths(filesToUpload, prune);
+      // Through the ref: this callback outlives navigation, and its own copy
+      // of the upload function would still target the folder it was made in.
+      fileSelectRef.current(filesToUpload, prune);
     } else if (prune.folders || prune.files) {
       showMessage(t('files.manager.nothingToUpload', { skipped: prunedNote(prune) }), 'info');
     }
