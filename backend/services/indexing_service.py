@@ -3744,6 +3744,10 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
         except Exception as e:
             logger.error(f"Error loading document {file_path}: {e}", exc_info=True)
             logger.error(f"Failed to load document: {str(e)}")
+            try:
+                progress_system.error_process(process_id, f"Could not read {db_document.filename}: {e}")
+            except Exception:  # noqa: BLE001 - the failure is already logged
+                pass
             return False
         
         logger.info(f"Processing text for {db_document.filename}")
@@ -3990,6 +3994,10 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
         except Exception as e:
             logger.error(f"Error adding document to index: {e}", exc_info=True)
             logger.error(f"Failed to add to index: {str(e)}")
+            try:
+                progress_system.error_process(process_id, f"Could not index {db_document.filename}: {e}")
+            except Exception:  # noqa: BLE001 - the failure is already logged
+                pass
             return False
         
         logger.info(f"Indexing complete for {db_document.filename}")

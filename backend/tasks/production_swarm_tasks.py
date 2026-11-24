@@ -84,6 +84,9 @@ def _agent_run(prod_id: int, *, agent_name: str, expected_stage: str, next_agent
     except Exception as e:
         # Catch all other exceptions, fail stage, and absorb.
         # Absorbing is safer because Celery retry behavior is default, which WILL retry.
+        # A stage that died in a flush or commit leaves the session unusable;
+        # without the rollback the failure itself could not be recorded.
+        db.session.rollback()
         ProductionService(db.session).fail_stage(prod_id, stage=expected_stage, error=str(e), kind=_render_kind(e))
         pass
     else:

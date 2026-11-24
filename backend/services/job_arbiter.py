@@ -192,7 +192,6 @@ class Ledger:
         if getattr(self._held, "on", False):
             raise RuntimeError("job queue ledger transaction opened inside another")
         with self._lock:
-            self._held.on = True
             self.path.parent.mkdir(parents=True, exist_ok=True)
             try:
                 import fcntl
@@ -201,6 +200,9 @@ class Ledger:
             with open(self._flock_path(), "a+") as fh:
                 if fcntl is not None:
                     fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+                # Set only once the finally below is sure to clear it: a failed
+                # mkdir or open used to leave it set for the thread for good.
+                self._held.on = True
                 try:
                     state = self._read()
                     before = json.dumps(state, sort_keys=True)

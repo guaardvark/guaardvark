@@ -574,6 +574,7 @@ def generate_samples(subject_id: int, job_id: str | None = None, use_lora: bool 
     # free_comfyui frees VRAM for offline Z-Image; require_fit matches train/offline paths.
     from backend.services.character_generation_cancel import job_is_cancelled
     from backend.services.gpu_resource_policy import gpu_session
+    from backend.services.job_operation_gate import GpuBusyError
 
     cancelled = False
     offline_gen = None
@@ -738,6 +739,24 @@ def generate_samples(subject_id: int, job_id: str | None = None, use_lora: bool 
                         )
                     except Exception:
                         pass
+    except GpuBusyError as exc:
+        # The GPU could not be claimed (another job holds it, or the model does
+        # not fit): nothing rendered. Close the rows and the job with the reason
+        # instead of leaving them pending.
+        log.warning("Character Generator: GPU not available for subject %s: %s", subject_id, exc)
+        db.session.rollback()
+        for waiting in sample_rows:
+            fresh = db.session.get(SubjectSample, waiting.id)
+            if fresh is not None and fresh.status in ("pending", "generating"):
+                fresh.status = "failed"
+        db.session.commit()
+        if job_id:
+            try:
+                get_unified_progress().error_process(job_id, str(exc))
+            except Exception:
+                pass
+        return {"subject_id": subject_id, "done": 0, "failed": len(sample_rows),
+                "total": len(sample_rows), "error": str(exc)}
     finally:
         if offline_gen is not None and hasattr(offline_gen, "_unload_pipeline"):
             try:
@@ -869,6 +888,7 @@ def regen_sample(sample_id: int, prompt_override: str | None = None, seed: int |
 
     from backend.services.character_generation_cancel import job_is_cancelled
     from backend.services.gpu_resource_policy import gpu_session
+    from backend.services.job_operation_gate import GpuBusyError
 
     offline_gen = None
     comfy_gen = None
@@ -964,6 +984,19 @@ def regen_sample(sample_id: int, prompt_override: str | None = None, seed: int |
                             pass
             finally:
                 db.session.commit()
+    except GpuBusyError as exc:
+        # The GPU could not be claimed: nothing rendered, so the row must not
+        # stay "generating".
+        log.warning("regen_sample: GPU not available for sample %s: %s", sample_id, exc)
+        db.session.rollback()
+        row = db.session.get(SubjectSample, sample_id)
+        row.status = "failed"
+        db.session.commit()
+        if job_id:
+            try:
+                get_unified_progress().error_process(job_id, str(exc))
+            except Exception:
+                pass
     finally:
         if offline_gen is not None and hasattr(offline_gen, "_unload_pipeline"):
             try:
@@ -978,7 +1011,8 @@ def regen_sample(sample_id: int, prompt_override: str | None = None, seed: int |
                     job_id, "Regen cancelled",
                     additional_data={"sample_id": sample_id, "status": row.status},
                 )
-            else:
+            elif row.status != "failed":
+                # A failed render already closed the job with its error above.
                 get_unified_progress().complete_process(
                     job_id, "Regen complete",
                     additional_data={"sample_id": sample_id, "status": row.status},

@@ -333,6 +333,9 @@ def _manual_drain(job_id, isvc, db, DBDocument, limit) -> dict:
 
     for doc in batch:
         job_arbiter.yield_point("indexing", doc.id, label=f"Indexing document {doc.id}")
+        # Per document, not per batch: a slow batch outlived the keys' lifetime
+        # and the catch-up stopped without finishing or reporting.
+        _drain_touch(r)
         r.sadd(DRAIN_TRIED_KEY, doc.id)
         rel = getattr(doc, "file_path", None) or doc.path
         path = rel if os.path.isabs(rel) else os.path.join(UPLOAD_DIR, rel)

@@ -32,6 +32,7 @@ Migrations on read:
 import json
 import logging
 import os
+import threading
 import time
 from pathlib import Path
 from typing import Dict, List
@@ -39,6 +40,11 @@ from typing import Dict, List
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 2
+
+# Every mutator reads the file, changes one key and writes it back. Request
+# threads, the boot restore and a status refresh all do that in one process;
+# unserialized, the later write drops the earlier one's change.
+_MUTATE_LOCK = threading.RLock()
 
 
 class PluginStateStore:
@@ -58,9 +64,10 @@ class PluginStateStore:
 
     def set_user_enabled(self, plugin_id: str, enabled: bool) -> None:
         """Atomically set user_enabled[plugin_id]; preserves running set."""
-        state = self._read()
-        state.setdefault("user_enabled", {})[plugin_id] = bool(enabled)
-        self._write(state)
+        with _MUTATE_LOCK:
+            state = self._read()
+            state.setdefault("user_enabled", {})[plugin_id] = bool(enabled)
+            self._write(state)
 
     def get_running(self) -> List[str]:
         """Return a copy of the last-known running set (always deduplicated, order preserved)."""
@@ -76,16 +83,17 @@ class PluginStateStore:
 
     def set_running(self, plugin_ids: List[str]) -> None:
         """Atomically set the running list (deduplicated); preserves user_enabled overlay."""
-        state = self._read()
-        # Always store a clean unique list.
-        seen = set()
-        clean = []
-        for pid in (plugin_ids or []):
-            if pid not in seen:
-                seen.add(pid)
-                clean.append(pid)
-        state["running"] = clean
-        self._write(state)
+        with _MUTATE_LOCK:
+            state = self._read()
+            # Always store a clean unique list.
+            seen = set()
+            clean = []
+            for pid in (plugin_ids or []):
+                if pid not in seen:
+                    seen.add(pid)
+                    clean.append(pid)
+            state["running"] = clean
+            self._write(state)
 
     def _empty(self) -> dict:
         return {
@@ -145,7 +153,11 @@ class PluginStateStore:
         state["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            tmp_path = self.path.with_suffix(self.path.suffix + ".tmp")
+            # One temp file per writer: two writers sharing a name can
+            # interleave and leave unparseable JSON, which reads as empty state.
+            tmp_path = self.path.with_suffix(
+                f"{self.path.suffix}.{os.getpid()}.{threading.get_ident()}.tmp"
+            )
             with open(tmp_path, "w") as f:
                 json.dump(state, f, indent=2)
             os.replace(tmp_path, self.path)
@@ -158,28 +170,31 @@ class PluginStateStore:
         return bool(self._read().get("breaker_tripped", {}).get(plugin_id))
 
     def set_breaker_tripped(self, plugin_id: str, value: bool) -> None:
-        state = self._read()
-        state.setdefault("breaker_tripped", {})[plugin_id] = bool(value)
-        self._write(state)
+        with _MUTATE_LOCK:
+            state = self._read()
+            state.setdefault("breaker_tripped", {})[plugin_id] = bool(value)
+            self._write(state)
 
     def record_start_failure(self, plugin_id: str, threshold: int = 4) -> None:
         """Count one consecutive start failure; trip the breaker at the threshold."""
-        state = self._read()
-        counts = state.setdefault("start_failure_counts", {})
-        c = int(counts.get(plugin_id, 0)) + 1
-        counts[plugin_id] = c
-        if c >= threshold:
-            state.setdefault("breaker_tripped", {})[plugin_id] = True
-        self._write(state)
+        with _MUTATE_LOCK:
+            state = self._read()
+            counts = state.setdefault("start_failure_counts", {})
+            c = int(counts.get(plugin_id, 0)) + 1
+            counts[plugin_id] = c
+            if c >= threshold:
+                state.setdefault("breaker_tripped", {})[plugin_id] = True
+            self._write(state)
 
     def reset_plugin_health_counters(self, plugin_id: str) -> None:
         """Reset a plugin's health state: drop its start-failure count AND reset the
         circuit breaker. A plugin that recovers must clear its breaker too — this
         used to pop only the counter and leave the sticky flag set, locking the
         plugin out forever (the bug that stranded comfyui)."""
-        state = self._read()
-        if "start_failure_counts" in state:
-            state["start_failure_counts"].pop(plugin_id, None)
-        if "breaker_tripped" in state:
-            state["breaker_tripped"].pop(plugin_id, None)
-        self._write(state)
+        with _MUTATE_LOCK:
+            state = self._read()
+            if "start_failure_counts" in state:
+                state["start_failure_counts"].pop(plugin_id, None)
+            if "breaker_tripped" in state:
+                state["breaker_tripped"].pop(plugin_id, None)
+            self._write(state)

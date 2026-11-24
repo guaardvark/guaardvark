@@ -19,6 +19,7 @@ import time
 import re
 import csv
 from celery import shared_task, current_task
+from celery.exceptions import Retry
 from typing import Optional, Dict, Any
 from sqlalchemy import create_engine, text as sa_text
 from sqlalchemy.orm import sessionmaker
@@ -830,8 +831,7 @@ def execute_unified_task(self, task_id: int):
                                    retry_count=self.request.retries + 1,
                                    error_message=f"Attempt {self.request.retries + 1} failed: {error_msg}")
                 logger.info(f"Scheduling Celery retry {self.request.retries + 1}/{self.max_retries} for task {task_id}")
-                # Raise Retry exception - this will NOT be caught by the outer except
-                # because Celery handles it specially
+                # Retry is an Exception; the outer handler re-raises it untouched.
                 raise self.retry(countdown=60 * (self.request.retries + 1), exc=Exception(error_msg))
             else:
                 update_task_status(task_id, 'failed', error_message=error_msg)
@@ -861,6 +861,10 @@ def execute_unified_task(self, task_id: int):
             'output_length': len(str(output)) if output else 0
         }
 
+    except Retry:
+        # A retry scheduled above is already queued; the handler below would
+        # queue a second one for the same attempt.
+        raise
     except Exception as e:
         error_msg = f"Task execution failed: {str(e)}"
         logger.error(f"Task {task_id} failed: {e}", exc_info=True)

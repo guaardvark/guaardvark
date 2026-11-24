@@ -438,6 +438,19 @@ class VideoGenerationRouter:
         logger.error(f"ComfyUI did not become ready within {timeout_seconds} seconds")
         return False
 
+    @staticmethod
+    def _pid_runs_comfyui(pid: int) -> bool:
+        """True when ``pid`` is a ComfyUI server (``python main.py``).
+
+        The PID file outlives a ComfyUI that crashed or a reboot, and the
+        number is then free for any other program to get.
+        """
+        try:
+            import psutil
+            return any(os.path.basename(part) == "main.py" for part in psutil.Process(pid).cmdline())
+        except Exception:  # noqa: BLE001 - gone, or not ours to inspect
+            return False
+
     def stop_comfyui(self) -> bool:
         """Stop ComfyUI server."""
         stopped = False
@@ -456,9 +469,14 @@ class VideoGenerationRouter:
         if not stopped and self._pid_file.exists():
             try:
                 pid = int(self._pid_file.read_text().strip())
-                os.kill(pid, signal.SIGTERM)
-                stopped = True
-                logger.info(f"Stopped ComfyUI (PID file: {pid})")
+                if self._pid_runs_comfyui(pid):
+                    os.kill(pid, signal.SIGTERM)
+                    stopped = True
+                    logger.info(f"Stopped ComfyUI (PID file: {pid})")
+                else:
+                    logger.warning(
+                        f"PID file names {pid}, which is not ComfyUI any more; not signalling it"
+                    )
             except (ProcessLookupError, ValueError):
                 pass
             except Exception as e:

@@ -205,7 +205,14 @@ class AnimationGenerator:
                     result.mp4_path = str(mp4_path)
                     result.mp4_url = f"/api/outputs/generated_animations/{mp4_path.name}"
 
-            result.success = True
+            # Success means a file was written: an unknown format or two failed
+            # assemblers used to be reported as a finished animation with no file.
+            result.success = bool(result.gif_path or result.mp4_path)
+            if not result.success:
+                result.error = (
+                    f"No animation file was written (output_format={request.output_format!r}; "
+                    "expected gif, mp4 or both)"
+                )
             result.generation_time = time.time() - start_time
             result.metadata = {
                 "prompt": request.prompt,

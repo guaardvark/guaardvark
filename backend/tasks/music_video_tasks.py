@@ -841,7 +841,15 @@ def run_clip_generator(mv_id: int):
         return
     except Exception as e:  # noqa: BLE001
         err = str(e)
-        if "execution_interrupted" in err.lower() and not (mv.status or "").startswith("cancelled"):
+        from backend.services.job_types import RenderErrorKind
+        # An interrupt arrives as a CANCELLED render failure; older ComfyUI
+        # paths put the event name in the text.
+        if _render_kind(e) == RenderErrorKind.CANCELLED or "execution_interrupted" in err.lower():
+            # The cancel is committed by the web process while this clip renders.
+            db.session.refresh(mv)
+            if (mv.status or "").startswith("cancelled"):
+                log.info("music_video %s cancelled while clip %s rendered", mv_id, target.get("index"))
+                return
             log.warning("music_video %s clip %s interrupted; marking clip failed and continuing",
                         mv_id, target.get("index"))
             _update_clip(mv, target.get("index"), status="failed", error=err)
@@ -1432,6 +1440,7 @@ def run_storyboard_generator(mv_id: int, force: bool = False):
     _set_storyboard_progress(mv_id, 0, len(todo))
 
     error_msg = None
+    last_still_error = None
     try:
         with gpu_session(JobKind.VIDEO_RENDER, f"mv_storyboards_{mv_id}", evict_ollama=True,
                          free_comfyui=True, vram_estimate_mb=10000, require_fit=True):
@@ -1484,8 +1493,10 @@ def run_storyboard_generator(mv_id: int, force: bool = False):
                     c["storyboard_variation"] = None
                     done_indices.add(idx)
                 except RuntimeError as e:
+                    last_still_error = str(e)
                     log.error("run_storyboard_generator ComfyUI failure for mv %s cut %s: %s", mv_id, idx, e)
                 except Exception as e:
+                    last_still_error = str(e)
                     log.warning("storyboard still failed for mv %s cut %s: %s", mv_id, idx, e)
                 sb_done += 1
                 _set_storyboard_progress(mv_id, sb_done, len(todo))
@@ -1513,6 +1524,9 @@ def run_storyboard_generator(mv_id: int, force: bool = False):
                     c["storyboard_path"], c["storyboard_variation"] = made[c["index"]]
             mv.clips = fresh
             db.session.commit()
+        if todo and not done_indices and last_still_error:
+            # Every still failed: say why instead of ending with no pictures and no reason.
+            error_msg = f"No storyboard picture could be made: {last_still_error}"
 
     _set_storyboard_generating(mv_id, generating=False, error=error_msg)
 

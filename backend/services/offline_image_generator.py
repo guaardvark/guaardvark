@@ -3047,7 +3047,6 @@ Negative Prompt: {negative_prompt}""",
                 # Best-effort VRAM hygiene after successful load for this job.
                 # Helps the chat LLM reload faster on the next turn.
                 try:
-                    import torch
                     if torch.cuda.is_available():
                         torch.cuda.synchronize()
                         torch.cuda.empty_cache()
@@ -3620,7 +3619,6 @@ Negative Prompt: {negative_prompt}""",
 
                 # Extra hygiene: release what we can so the chat LLM can reload promptly.
                 try:
-                    import torch
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
                         torch.cuda.synchronize()
