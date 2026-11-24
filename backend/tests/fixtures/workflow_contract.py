@@ -615,6 +615,7 @@ def install_fake_comfyui(monkeypatch, tmp_path, *, total_vram_mb: int = 16376, i
     orchestrator booking accepts; the ComfyUI models tree is not local."""
     import requests as _requests
 
+    from backend.services import comfyui_prompt_owner
     from backend.services import comfyui_video_generator as cvg
     from backend.services import gpu_memory_orchestrator, gpu_resource_coordinator
 
@@ -636,6 +637,7 @@ def install_fake_comfyui(monkeypatch, tmp_path, *, total_vram_mb: int = 16376, i
             return None
 
     monkeypatch.setattr(cvg, "requests", _Requests)
+    monkeypatch.setattr(comfyui_prompt_owner, "requests", _Requests)
     monkeypatch.setattr(cvg, "COMFYUI_DIR", "", raising=False)
     monkeypatch.setattr(
         gpu_resource_coordinator, "get_available_vram",
