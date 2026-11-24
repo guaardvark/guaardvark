@@ -105,9 +105,9 @@ _not_ours_note() {
     local root
     root=$(proc_install_root "$2")
     if [ -n "$root" ]; then
-        vader_warn "$1: PID $2 belongs to the Guaardvark install at $root, not this one; leaving it running."
+        vader_warn "$1: PID $2 belongs to the Guaardvark install at $root, not this one; leaving it running and dropping this install's stale pid file."
     else
-        vader_warn "$1: PID $2 is not a process of this install (the pid file is stale); leaving it running."
+        vader_warn "$1: PID $2 is not a process of this install; leaving it running and dropping the stale pid file."
     fi
 }
 

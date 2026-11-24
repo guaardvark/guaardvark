@@ -69,11 +69,16 @@ proc_install_root() {
 
 # 0 when PATH is ROOT, or below it with no other install in between; 1 when PATH is
 # below ROOT inside a nested install or inside another install; 2 when it tells nothing.
+# ROOT is physical; a PATH outside it textually may still reach it through a symlink.
 _path_in_root() {
-    local path="$1" root="$2" dir
+    local path="$1" root="$2" dir owner
     case "$path" in
         "$root"|"$root"/*) ;;
-        *) [ -n "$(install_root_of "$path")" ] && return 1; return 2 ;;
+        *)
+            owner=$(install_root_of "$path")
+            [ -z "$owner" ] && return 2
+            [ "$owner" = "$root" ] && return 0
+            return 1 ;;
     esac
     dir="$path"
     while [ "$dir" != "$root" ]; do
