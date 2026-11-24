@@ -804,7 +804,7 @@ def test_run_editor_honours_a_silent_i2v_model(app, production, monkeypatch):
     captured = {}
 
     class _I2V:
-        def __init__(self, model="wan22-5b", fps=None):
+        def __init__(self, model="wan22-5b", fps=None, canvas=None):
             captured["model"] = model
             captured["fps"] = fps
 
