@@ -9,6 +9,11 @@
 #   GUAARDVARK_AGENT_RESOLUTION - Display resolution (default: 1280x960x24, 4:3)
 
 GUAARDVARK_ROOT="${GUAARDVARK_ROOT:-$(dirname $(dirname $(readlink -f $0)))}"
+# Exported so the display processes started here can be told apart from another
+# install's (scripts/lib/proc_owner.sh reads it from their environment).
+export GUAARDVARK_ROOT
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$(dirname "$(readlink -f "$0")")/lib/proc_owner.sh"
 DISPLAY_NUM="${GUAARDVARK_AGENT_DISPLAY:-99}"
 # 1000x1000 matches Gemma4's internal coordinate grid (Google's box_2d normalizes
 # to 1000; identity mapping — no scaling drift). A 2026-08-01 trial at 1280x960
@@ -879,8 +884,74 @@ start() {
     echo "Connect TigerVNC to localhost:$VNC_PORT to watch the agent."
 }
 
+# True when PID's environment has exactly VAR=VALUE.
+_env_is() {
+    tr '\0' '\n' < "/proc/$1/environ" 2>/dev/null | grep -qxF -- "$2"
+}
+
+# The install PID belongs to, when that is an install other than this one.
+_other_install() {
+    local root
+    root=$(proc_install_root "$1")
+    [ -n "$root" ] && [ "$root" != "$(cd "$GUAARDVARK_ROOT" 2>/dev/null && pwd -P)" ] && printf '%s' "$root"
+    return 0
+}
+
+# Who runs the X server for :$DISPLAY_NUM. Sets DISPLAY_OWNER to "ours", "none", the
+# path of another install, or "unknown" (an Xvfb no install claims), and OUR_XVFB
+# to this install's Xvfb PIDs. The display number is one per machine, so every
+# program on it belongs to whoever runs its X server.
+find_display_owner() {
+    local pid root pidfile_pid=""
+    DISPLAY_OWNER=none; DISPLAY_OWNER_PID=""; OUR_XVFB=""
+    [ -f "$PID_DIR/xvfb.pid" ] && pidfile_pid=$(tr -dc '0-9' < "$PID_DIR/xvfb.pid" 2>/dev/null)
+    for pid in $(pgrep -f "Xvfb :$DISPLAY_NUM( |$)" 2>/dev/null); do
+        root=$(proc_install_root "$pid")
+        if proc_in_install "$pid" "$GUAARDVARK_ROOT" || { [ -z "$root" ] && [ "$pid" = "$pidfile_pid" ]; }; then
+            DISPLAY_OWNER=ours; OUR_XVFB="$OUR_XVFB $pid"
+        elif [ "$DISPLAY_OWNER" != ours ]; then
+            DISPLAY_OWNER=${root:-unknown}; DISPLAY_OWNER_PID=$pid
+        fi
+    done
+}
+
+# True when PID is a program on this install's agent display. With no X server
+# left, a leftover counts only when it carries this install's agent XFCE config.
+on_our_display() {
+    _env_is "$1" "DISPLAY=:$DISPLAY_NUM" || return 1
+    [ -z "$(_other_install "$1")" ] || return 1
+    case "$DISPLAY_OWNER" in
+        ours) return 0 ;;
+        none) proc_in_install "$1" "$GUAARDVARK_ROOT" \
+                  || _env_is "$1" "XDG_CONFIG_HOME=$DATA_DIR/xfce_config" ;;
+        *) return 1 ;;
+    esac
+}
+
+# True when PID is the agent browser running this install's profile, named by
+# the path as given or with symlinks resolved.
+runs_our_profile() {
+    local args dir
+    args=$(tr '\0' ' ' < "/proc/$1/cmdline" 2>/dev/null) || args=""
+    [ -n "$args" ] || args=$(ps -o args= -p "$1" 2>/dev/null)
+    for dir in "$DATA_DIR" "$(cd "$DATA_DIR" 2>/dev/null && pwd -P)"; do
+        [ -n "$dir" ] || continue
+        case "$args " in
+            *" $dir/firefox_profile "*|*" $dir/firefox_profile/"*) return 0 ;;
+            *"=$dir/chromium_profile "*|*"=$dir/chromium_profile/"*) return 0 ;;
+        esac
+    done
+    return 1
+}
+
 stop() {
     echo "Stopping Agent Virtual Display..."
+    find_display_owner
+    case "$DISPLAY_OWNER" in
+        ours|none) ;;
+        unknown) echo "  Xvfb :$DISPLAY_NUM (PID $DISPLAY_OWNER_PID) was not started by this install; leaving it and the programs on it running." ;;
+        *) echo "  Display :$DISPLAY_NUM belongs to the Guaardvark install at $DISPLAY_OWNER (Xvfb PID $DISPLAY_OWNER_PID); leaving it running." ;;
+    esac
 
     # Helper: kill processes by pattern only when they're on OUR display.
     # Each process gets its own /proc/$pid/environ scan so we don't touch
@@ -889,19 +960,27 @@ stop() {
     kill_on_agent_display() {
         local pattern="$1" label="$2"
         for pid in $(pgrep -f "$pattern" 2>/dev/null); do
-            if grep -qaz "DISPLAY=:$DISPLAY_NUM" /proc/$pid/environ 2>/dev/null; then
-                kill $pid 2>/dev/null && echo "  Killed $label (PID $pid)"
+            if on_our_display "$pid"; then
+                kill "$pid" 2>/dev/null && echo "  Killed $label (PID $pid)"
             fi
         done
     }
 
-    # 1. PID files first (clean shutdown path).
+    # 1. PID files first (clean shutdown path). A number in them may since have been
+    # reused by another process, so it is signalled only while it is still ours.
     for proc in xfce agent_browser agent_firefox \
                 pcmanfm nautilus tint2 openbox matchbox xvfb; do
         pid_file="$PID_DIR/${proc}.pid"
         if [ -f "$pid_file" ]; then
-            pid=$(cat "$pid_file")
-            kill $pid 2>/dev/null && echo "  Stopped $proc (PID $pid)" || true
+            pid=$(tr -dc '0-9' < "$pid_file" 2>/dev/null)
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                if proc_in_install "$pid" "$GUAARDVARK_ROOT" || on_our_display "$pid" \
+                        || runs_our_profile "$pid" || [[ " $OUR_XVFB " == *" $pid "* ]]; then
+                    kill "$pid" 2>/dev/null && echo "  Stopped $proc (PID $pid)" || true
+                else
+                    echo "  $proc: PID $pid is not this install's; leaving it running."
+                fi
+            fi
             rm -f "$pid_file"
         fi
     done
@@ -932,16 +1011,33 @@ stop() {
     kill_on_agent_display "pcmanfm.*--desktop" "orphan pcmanfm"
 
     # 4. Browser + display server + VNC.
-    pkill -f "firefox.*firefox_profile" 2>/dev/null && echo "  Stopped agent Firefox" || true
-    pkill -f "chrom.*chromium_profile" 2>/dev/null
-    pkill -f "Xvfb :$DISPLAY_NUM" 2>/dev/null && echo "  Killed Xvfb :$DISPLAY_NUM" || true
-    pkill -f "x11vnc.*-rfbport $VNC_PORT" 2>/dev/null && echo "  Stopped x11vnc" || echo "  x11vnc not running"
+    local pid stopped_browser=0
+    for pid in $(pgrep -f "firefox.*firefox_profile|chrom.*chromium_profile" 2>/dev/null); do
+        runs_our_profile "$pid" && kill "$pid" 2>/dev/null && stopped_browser=1
+    done
+    [ "$stopped_browser" = 1 ] && echo "  Stopped agent browser"
+    for pid in $OUR_XVFB; do
+        kill "$pid" 2>/dev/null && echo "  Killed Xvfb :$DISPLAY_NUM (PID $pid)"
+    done
+    local vnc_found=0
+    for pid in $(pgrep -f "x11vnc.*-rfbport $VNC_PORT( |$)" 2>/dev/null); do
+        vnc_found=1
+        if proc_in_install "$pid" "$GUAARDVARK_ROOT" || on_our_display "$pid"; then
+            kill "$pid" 2>/dev/null && echo "  Stopped x11vnc (PID $pid)"
+        else
+            echo "  x11vnc on port $VNC_PORT (PID $pid) is not this install's; leaving it running."
+        fi
+    done
+    [ "$vnc_found" = 1 ] || echo "  x11vnc not running"
 
-    # 5. Last resort: free the VNC port if anything still holds it.
-    local port_holder=$(lsof -ti TCP:$VNC_PORT -sTCP:LISTEN 2>/dev/null)
-    if [ -n "$port_holder" ]; then
-        kill $port_holder 2>/dev/null && echo "  Killed process holding port $VNC_PORT (PID $port_holder)"
-    fi
+    # 5. Last resort: free the VNC port if this install's process still holds it.
+    for pid in $(port_listener_pids "$VNC_PORT"); do
+        if proc_in_install "$pid" "$GUAARDVARK_ROOT" || on_our_display "$pid"; then
+            kill "$pid" 2>/dev/null && echo "  Killed process holding port $VNC_PORT (PID $pid)"
+        else
+            echo "  Port $VNC_PORT is held by PID $pid outside this install; leaving it running."
+        fi
+    done
 
     echo "Agent Virtual Display stopped."
 }
