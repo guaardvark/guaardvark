@@ -22,7 +22,6 @@ from typing import Callable, Optional
 logger = logging.getLogger(__name__)
 
 VRAM_BUSY_THRESHOLD_PCT = 60.0
-COMFYUI_URL = "http://127.0.0.1:8188"
 # How often a waiting model call looks again. A render holds the card for
 # minutes, so a few seconds of lag after it ends costs nothing.
 GPU_TURN_POLL_S = 5.0
@@ -54,6 +53,7 @@ def comfyui_generating() -> bool:
     """Is ComfyUI actively rendering something right now?"""
     try:
         import requests
+        from backend.config import COMFYUI_URL
         resp = requests.get(f"{COMFYUI_URL}/queue", timeout=5)
         if resp.status_code != 200:
             return False

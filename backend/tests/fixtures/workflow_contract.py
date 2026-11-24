@@ -518,6 +518,7 @@ class FakeComfyUI:
     def __init__(self, info: Optional[dict] = None):
         self.info = info if info is not None else object_info()
         self.prompts: list = []
+        self.extra_data: list = []       # each queued prompt's extra_data (owner tag)
         self.uploads: list = []
         # Scripted replies for the failure tests; the defaults are the above.
         self.alive = True                # False: every request fails to connect
@@ -552,7 +553,9 @@ class FakeComfyUI:
                 "messages": [["execution_error", {"exception_message": self.STOP}]],
             }}})
         if path.startswith("queue"):
-            running = [[0, f"contract-{len(self.prompts)}"]] if self.running and self.prompts else []
+            # Items as ComfyUI lists them: [number, prompt_id, prompt, extra_data, outputs].
+            running = ([[0, f"contract-{len(self.prompts)}", {}, self.extra_data[-1], []]]
+                       if self.running and self.prompts else [])
             return _Response(200, {"queue_running": running, "queue_pending": []})
         if path.startswith("view"):
             name = (kwargs.get("params") or {}).get("filename", "")
@@ -565,6 +568,7 @@ class FakeComfyUI:
         self._connect()
         if url.endswith("/prompt"):
             self.prompts.append(json["prompt"])
+            self.extra_data.append(dict(json.get("extra_data") or {}))
             if self.prompt_reply is not None:
                 return _Response(*self.prompt_reply)
             if self.die_after_prompt:
@@ -611,6 +615,7 @@ def install_fake_comfyui(monkeypatch, tmp_path, *, total_vram_mb: int = 16376, i
     orchestrator booking accepts; the ComfyUI models tree is not local."""
     import requests as _requests
 
+    from backend.services import comfyui_prompt_owner
     from backend.services import comfyui_video_generator as cvg
     from backend.services import gpu_memory_orchestrator, gpu_resource_coordinator
 
@@ -632,6 +637,7 @@ def install_fake_comfyui(monkeypatch, tmp_path, *, total_vram_mb: int = 16376, i
             return None
 
     monkeypatch.setattr(cvg, "requests", _Requests)
+    monkeypatch.setattr(comfyui_prompt_owner, "requests", _Requests)
     monkeypatch.setattr(cvg, "COMFYUI_DIR", "", raising=False)
     monkeypatch.setattr(
         gpu_resource_coordinator, "get_available_vram",

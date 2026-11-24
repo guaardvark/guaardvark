@@ -239,8 +239,9 @@ def _cancel_music_video(native_id: str) -> bool:
 
     if was_generating:
         try:
+            from backend.services.comfyui_prompt_owner import job_owner
             from backend.services.video_generation_router import get_video_router
-            get_video_router().interrupt()
+            get_video_router().interrupt(owner=job_owner("music_video", native_id))
         except Exception as e:
             logger.warning("cancel_music_video: interrupt failed for %s (%s)", native_id, e)
 

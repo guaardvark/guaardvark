@@ -34,10 +34,7 @@ from typing import Iterator, Optional
 
 log = logging.getLogger(__name__)
 
-try:
-    from backend.config import COMFYUI_URL
-except Exception:
-    COMFYUI_URL = "http://127.0.0.1:8188"
+from backend.config import COMFYUI_URL
 
 
 def compositor_vram_reserve_mb() -> int:

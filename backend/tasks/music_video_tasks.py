@@ -248,10 +248,7 @@ def _cut_length_bounds(s: dict) -> tuple[float, float]:
     return min_cut_s, max_cut_s
 
 
-try:
-    from backend.config import COMFYUI_URL
-except Exception:
-    COMFYUI_URL = "http://127.0.0.1:8188"
+from backend.config import COMFYUI_URL
 
 
 def _comfyui_free_vram():
@@ -1122,6 +1119,7 @@ def _generate_one_clip(mv: MusicVideo, clip: dict):
                 f"Clip {idx + 1}/{clip_count}: animating (I2V)…",
             )
 
+            from backend.services.comfyui_prompt_owner import job_owner
             req_kwargs = dict(
                 model=i2v_model,
                 prompt=clip_prompt,
@@ -1136,6 +1134,7 @@ def _generate_one_clip(mv: MusicVideo, clip: dict):
                     "item_id": process_id,
                     "music_video_id": mv.id,
                     "clip_index": idx,
+                    "comfy_owner": job_owner("music_video", mv.id),
                 },
                 interpolation_multiplier=int(s["interpolation_multiplier"]),
             )

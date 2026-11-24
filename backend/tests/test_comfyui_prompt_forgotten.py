@@ -1,6 +1,6 @@
 """A song's ComfyUI prompt id is forgotten when its wait ends, even by an
-exception: while any id is remembered, interrupt() skips the unscoped
-fallback that reaches prompts the Celery worker queued."""
+exception: a remembered id stays a target of every later interrupt() with no
+prompt id or owner."""
 import contextlib
 from unittest.mock import patch
 

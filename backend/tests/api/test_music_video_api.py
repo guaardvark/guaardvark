@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import pytest
 
 try:
@@ -210,7 +212,10 @@ def test_estimate_prefers_cuts_finished_on_this_box(client, app, tmp_path):
     assert est["estimated_seconds"] == 10 * 700
 
 
-def test_cancel_generating_music_video(client, app, tmp_path):
+def test_cancel_generating_music_video(client, app, tmp_path, monkeypatch):
+    router = MagicMock()
+    router.interrupt.return_value = False
+    monkeypatch.setattr("backend.services.video_generation_router.get_video_router", lambda: router)
     with app.app_context():
         doc = _song_doc(tmp_path)
         svc = MusicVideoService(db.session)
@@ -236,6 +241,8 @@ def test_cancel_generating_music_video(client, app, tmp_path):
     assert data["status"] == "cancelled"
     assert data["clips"][0]["status"] == "cancelled"
     assert data["clips"][1]["status"] == "done"
+    # Only this video's prompts: ComfyUI may be rendering someone else's work.
+    router.interrupt.assert_called_once_with(owner=f"music_video:{mv_id}")
 
 
 def test_approve_rejects_without_cut_plan(client, app, tmp_path):

@@ -21,8 +21,10 @@ logger = logging.getLogger(__name__)
 
 from backend.services.user_video_models import resolve_text_encoder
 
+from backend.config import COMFYUI_URL
+
 try:
-    from backend.config import CACHE_DIR, COMFYUI_URL, COMFYUI_OUTPUT_DIR, COMFYUI_DIR
+    from backend.config import CACHE_DIR, COMFYUI_OUTPUT_DIR, COMFYUI_DIR
     config_available = True
 except ImportError:
     config_available = False
@@ -339,7 +341,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     # generate and cancel do not always hold the same generator: the batch
     # runner uses the module singleton, the router keeps its own instance and
     # replaces it on every get_active_generator(). Bounded. Every waiter forgets
-    # its id: while any is listed, interrupt() skips the unscoped fallback.
+    # its id when its prompt ends.
     _queued_prompts: deque = deque(maxlen=16)
     _queued_prompts_lock = threading.Lock()
 
@@ -364,7 +366,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     def __init__(self):
         project_root = Path(__file__).parent.parent.parent
 
-        self.comfy_url = COMFYUI_URL if config_available else os.environ.get("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8188")
+        self.comfy_url = COMFYUI_URL
 
         self.templates_dir = project_root / "data" / "templates"
         self.templates_dir.mkdir(parents=True, exist_ok=True)
@@ -1410,62 +1412,41 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         except Exception as e:  # noqa: BLE001
             logger.debug("drop_booking(%s) failed: %s", slot_id, e)
 
-    def interrupt(self, prompt_id: Optional[str] = None) -> bool:
-        """Stop the named prompt, or every prompt this process queued.
+    def interrupt(self, prompt_id: Optional[str] = None, owner: Optional[str] = None) -> bool:
+        """Stop prompts this install queued, and never anyone else's.
 
-        ComfyUI is a shared sidecar: a bare ``/interrupt`` stops whatever is
-        sampling no matter who queued it, and ``/queue {"clear": true}`` drops
-        other clients' pending work with it. Both are scoped here — ComfyUI
-        matches the id against what is actually running and no-ops otherwise,
-        so a stale id is free.
-
-        Falls back to the unscoped interrupt when this process queued nothing
-        it knows of, which is how a cancel raised in Flask still reaches a clip
-        queued by the Celery worker. The fallback skips the queue clear, and
-        goes away once cancellation is a flag both processes can see.
+        ``prompt_id`` names one prompt. ``owner`` names a job: every prompt
+        ComfyUI holds under that owner tag (see comfyui_prompt_owner) is
+        stopped, whichever process queued it. With neither, the prompts this
+        process queued are stopped. Each is deleted from the pending queue and
+        interrupted only if it is the one running. With nothing to target, no
+        request is sent: an unscoped ``/interrupt`` would stop whatever ComfyUI
+        is rendering for someone else.
         """
-        targets = [prompt_id] if prompt_id else self._known_prompts()
+        from backend.services.comfyui_prompt_owner import owned_prompt_ids, stop_prompts
+
+        if prompt_id:
+            targets = [prompt_id]
+        elif owner:
+            targets = owned_prompt_ids(self.comfy_url, owner)
+        else:
+            targets = self._known_prompts()
         if not targets:
-            return self._interrupt_unscoped()
-
-        acked = False
-        for pid in targets:
-            try:
-                requests.post(
-                    f"{self.comfy_url}/interrupt",
-                    json={"prompt_id": pid},
-                    timeout=5,
-                )
-                acked = True
-            except Exception as e:
-                logger.warning(f"Failed to interrupt ComfyUI prompt {pid}: {e}")
-                continue
-            try:
-                requests.post(
-                    f"{self.comfy_url}/queue",
-                    json={"delete": [pid]},
-                    timeout=5,
-                )
-            except Exception as delete_err:
-                logger.debug(f"Queue delete for {pid} failed (non-fatal): {delete_err}")
-            self._forget_prompt(pid)
-
-        if acked:
-            logger.info(f"Sent scoped interrupt to ComfyUI for {len(targets)} prompt(s)")
-        return acked
-
-    def _interrupt_unscoped(self) -> bool:
-        """Stop whatever ComfyUI is sampling, whoever queued it."""
-        try:
-            requests.post(f"{self.comfy_url}/interrupt", timeout=5)
-            logger.info("Sent unscoped interrupt to ComfyUI (no prompt of ours tracked)")
-            return True
-        except Exception as e:
-            logger.warning(f"Failed to interrupt ComfyUI: {e}")
+            logger.info(
+                "ComfyUI interrupt skipped: no prompt of ours to stop (owner=%s); "
+                "other work in ComfyUI is left running", owner or "this process")
             return False
+
+        acked = stop_prompts(self.comfy_url, targets)
+        for pid in acked:
+            self._forget_prompt(pid)
+        if acked:
+            logger.info(f"Sent scoped interrupt to ComfyUI for {len(acked)} prompt(s)")
+        return bool(acked)
 
     def _queue_prompt(
         self, workflow: dict, client_id: Optional[str] = None, *, live_preview: bool = True,
+        owner: Optional[str] = None,
     ) -> Optional[str]:
         try:
             payload = {"prompt": workflow}
@@ -1477,6 +1458,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 # Per-prompt override; ComfyUI restores its launch default after
                 # this prompt (execution.py set_preview_method).
                 payload["extra_data"] = {"preview_method": "none"}
+            from backend.services.comfyui_prompt_owner import tag_payload
+            tag_payload(payload, owner)
             self._last_queue_error = None
             self._last_queue_error_kind = None
             response = requests.post(
@@ -2004,7 +1987,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         if not self.service_available:
             return VideoGenerationResult(
                 success=False,
-                error="ComfyUI service not available. Please start ComfyUI at http://127.0.0.1:8188",
+                error=f"ComfyUI service not available. Please start ComfyUI at {self.comfy_url}",
                 error_kind=RenderErrorKind.COMFYUI_DOWN.value,
                 prompt_used=request.prompt,
             )
@@ -2743,6 +2726,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             from backend.services.video_model_registry import live_preview_for_model
             prompt_id = self._queue_prompt(
                 workflow, client_id=client_id, live_preview=live_preview_for_model(model),
+                owner=(request.metadata or {}).get("comfy_owner"),
             )
 
             if not prompt_id:
