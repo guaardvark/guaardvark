@@ -383,6 +383,16 @@ def test_an_estimate_larger_than_the_card_is_still_terminal(monkeypatch):
     assert "estimate exceeds GPU capacity" in fit.reason
 
 
+@pytest.mark.parametrize("total_mb", [8188, 12282, 16376])
+def test_the_capacity_refusal_names_the_lighter_models_declared_booking(monkeypatch, total_mb):
+    from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY, admission_vram_mb
+    _patch_vram(monkeypatch, free_mb=total_mb - 2000, total_mb=total_mb)
+    fit = grp.fit_verdict(total_mb + 2000)
+    booked = admission_vram_mb("wan22-5b", total_vram_mb=total_mb)
+    assert f"e.g. {VIDEO_MODEL_REGISTRY['wan22-5b']['name']}, booked at ~{booked}MB" in fit.reason
+    assert "16GB cards" not in fit.reason
+
+
 # --------------------------------------------------------------------------
 # Teardown: the cross-process lease must not survive its session
 # --------------------------------------------------------------------------

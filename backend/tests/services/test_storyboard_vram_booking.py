@@ -1,4 +1,5 @@
-"""Storyboard sessions book their keyframe model's registry price.
+"""Storyboard sessions book their keyframe model's registry price, and every
+place that prices a still reads the same function.
 
 image_render_limits.still_vram_mb reads the price from media_model_registry
 (IMAGE_FAMILY_SPECS / IMAGE_MODEL_LIMITS, which read video_model_registry for
@@ -111,3 +112,59 @@ def test_music_video_books_the_keyframe_model_up_to_the_ceiling(monkeypatch, mod
     from backend.tasks.music_video_tasks import _keyframe_vram_mb
     monkeypatch.setattr(vmr, "_probe_total_vram_mb", lambda: card)
     assert _keyframe_vram_mb({"keyframe_model": model}, 10000) == expected
+
+
+# ── One price for a still ───────────────────────────────────────────────────
+
+@pytest.fixture
+def offline_gen(monkeypatch):
+    from backend.services.offline_image_generator import OfflineImageGenerator
+    gen = OfflineImageGenerator()
+    monkeypatch.setattr(gen, "_device", "cuda")
+    monkeypatch.setattr(gen, "_force_sequential_offload", False)
+    return gen
+
+
+@pytest.mark.parametrize("card", [CARD_8, CARD_12, CARD_16])
+def test_the_offline_generator_and_the_storyboard_price_agree(monkeypatch, offline_gen, card):
+    from backend.services.media_model_registry import IMAGE_MODEL_LIMITS
+    monkeypatch.setattr(vmr, "_probe_total_vram_mb", lambda: card)
+    monkeypatch.setattr(offline_gen, "_cuda_total_vram_gb", lambda: card / 1024)
+    for model in IMAGE_MODEL_LIMITS:
+        for w, h in ((None, None), (1344, 768), (2048, 1024)):
+            assert offline_gen._vram_estimate_mb(model, w, h) == still_vram_mb(
+                model, default=0, width=w, height=h), (model, card, w, h)
+
+
+def test_krea2_is_priced_for_the_offload_it_loads_with():
+    row = IMAGE_FAMILY_SPECS["krea2"]
+    seq_mb = row["sequential_at_or_below_vram_gb"] * 1024
+    assert still_vram_mb("krea2-turbo", default=1, total_vram_mb=CARD_16) == row["vram_mb_sequential"]
+    assert still_vram_mb("krea2-turbo", default=1, total_vram_mb=seq_mb + 1024) == row["vram_mb"]
+    assert still_vram_mb("krea2-turbo", default=1, total_vram_mb=0) == row["vram_mb"]
+
+
+def test_a_forced_sequential_load_is_priced_as_one(monkeypatch, offline_gen):
+    monkeypatch.setattr(offline_gen, "_cuda_total_vram_gb", lambda: 24.0)
+    assert offline_gen._vram_estimate_mb("krea2-turbo") == IMAGE_FAMILY_SPECS["krea2"]["vram_mb"]
+    monkeypatch.setattr(offline_gen, "_force_sequential_offload", True)
+    assert offline_gen._vram_estimate_mb("krea2-turbo") == IMAGE_FAMILY_SPECS["krea2"]["vram_mb_sequential"]
+
+
+def test_comfyui_families_are_flat_everywhere(offline_gen):
+    from backend.services.batch_image_generator import BatchImageGenerator
+    from backend.services.stills_pipeline import _comfy_admission_mb
+    for family in ("qwen-image-21", "moss-image", "flux3-klein", "minimax-h3-t2i"):
+        flat = IMAGE_FAMILY_SPECS[family]["vram_mb"]
+        assert flat == vmr.vram_mb_for_model(family)
+        assert BatchImageGenerator._comfy_t2i_price(family)[0] == flat
+        assert _comfy_admission_mb(family) == flat
+        assert offline_gen._vram_estimate_mb(family, 2048, 1024) == flat
+
+
+def test_the_load_mode_reads_the_same_threshold(offline_gen):
+    from backend.services.offline_image_generator import OfflineImageGenerator
+    for family in ("zimage", "krea2"):
+        assert OfflineImageGenerator._sequential_at_or_below_gb(family) == (
+            IMAGE_FAMILY_SPECS[family]["sequential_at_or_below_vram_gb"])
+    assert OfflineImageGenerator._sequential_at_or_below_gb("sdxl") == 0
