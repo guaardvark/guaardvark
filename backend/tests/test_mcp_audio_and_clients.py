@@ -114,14 +114,23 @@ def test_speech_refuses_overlong_text_and_offers_no_cloning():
 
 
 # ---- registration ------------------------------------------------------------------------
-def test_audio_tools_register_only_in_the_mcp_process(monkeypatch):
+def test_speech_registers_in_every_process_and_music_only_in_the_mcp_process(monkeypatch):
+    """Chat makes speech when a message asks to hear words; songs stay with MCP clients and the Studio."""
     from backend.tools import tool_registry_init
 
-    monkeypatch.setattr(tool_registry_init, "register_tool", lambda tool: None)
+    sent = []
+    monkeypatch.setattr(tool_registry_init, "register_tool", lambda tool: sent.append(tool.name))
+    monkeypatch.setattr(tool_registry_init, "_tool_categories", {})
     monkeypatch.delenv("GUAARDVARK_MCP_PROCESS", raising=False)
-    assert tool_registry_init.register_audio_tools() == []
+    assert tool_registry_init.register_audio_tools() == ["generate_speech"]
+    assert sent == ["generate_speech"]
+    assert tool_registry_init.get_tool_categories()["generate_speech"] == "audio"
+
+    sent.clear()
     monkeypatch.setenv("GUAARDVARK_MCP_PROCESS", "1")
     assert tool_registry_init.register_audio_tools() == ["generate_music", "generate_speech"]
+    assert sent == ["generate_music", "generate_speech"]
+    assert tool_registry_init.get_tool_categories()["generate_music"] == "audio"
 
 
 # ---- get_generation_status ---------------------------------------------------------------
