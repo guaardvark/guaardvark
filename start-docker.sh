@@ -64,6 +64,12 @@ if ! DOCKER_INFO_ERR="$(docker info 2>&1 >/dev/null)"; then
         if grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
             echo "  On Windows: start Docker Desktop, and in its Settings > Resources > WSL integration" >&2
             echo "  switch on this Ubuntu. Then re-run ./start-docker.sh." >&2
+        # Docker Desktop for Linux runs its own VM behind the desktop-linux context,
+        # with its socket under ~/.docker/desktop; the docker system service is not it.
+        elif [ "$(docker context show 2>/dev/null)" = desktop-linux ] \
+            || printf '%s\n%s\n' "$DOCKER_INFO_ERR" "${DOCKER_HOST:-}" | grep -q '/\.docker/desktop/'; then
+            echo "  Start Docker Desktop from the app menu, or with: systemctl --user start docker-desktop" >&2
+            echo "  Then re-run ./start-docker.sh." >&2
         else
             echo "  Start it with: sudo systemctl enable --now docker" >&2
         fi
