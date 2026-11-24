@@ -7,6 +7,9 @@ PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 PID_FILE="$PROJECT_ROOT/pids/video_editor.pid"
 
+# The port start.sh launches the service on.
+SERVICE_PORT=8207
+
 # True when PID $1 is alive and its command line contains $2. A PID file
 # outlives a reboot or a crash, and by then the number can belong to another
 # process: one this script must neither report as the service nor signal.
@@ -29,7 +32,7 @@ fi
 
 PID=$(cat "$PID_FILE")
 
-if [ -z "$PID" ] || ! pid_is_service "$PID" "--port 8207"; then
+if [ -z "$PID" ] || ! pid_is_service "$PID" "--port $SERVICE_PORT"; then
     echo "Video Editor is not running (stale PID: $PID)"
     rm -f "$PID_FILE"
     exit 0

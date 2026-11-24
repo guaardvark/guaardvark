@@ -6,6 +6,9 @@ PROJECT_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 
 PID_FILE="$PROJECT_ROOT/pids/swarm.pid"
 
+# The port start.sh launches the service on.
+SERVICE_PORT=8210
+
 # True when PID $1 is alive and its command line contains $2. A PID file
 # outlives a reboot or a crash, and by then the number can belong to another
 # process: one this script must neither report as the service nor signal.
@@ -29,7 +32,7 @@ fi
 
 PID=$(cat "$PID_FILE")
 
-if ! pid_is_service "$PID" "--port 8210"; then
+if ! pid_is_service "$PID" "--port $SERVICE_PORT"; then
     echo "Swarm service not running (stale PID file)"
     rm -f "$PID_FILE"
     exit 0
