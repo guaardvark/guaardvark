@@ -432,7 +432,7 @@ def launch_repl():
             state["server"] = server
         except Exception as e:
             console.print(f"[llx.warning]Could not auto-start backend: {e}[/llx.warning]")
-            console.print("[llx.dim]Try: guaardvark start --backend-only or ./start.sh[/llx.dim]")
+            console.print("[llx.dim]Try: guaardvark start or ./start.sh[/llx.dim]")
     elif not ctx.is_online() and _lite_mode:
         try:
             from llx.launch_config import load_launch_config

@@ -42,13 +42,16 @@ def _find_project_root(path: str) -> str:
     return os.path.abspath(path)
 
 
+BACKEND_ONLY_UNAVAILABLE = (
+    "--backend-only is not available: start.sh has no backend-only mode. It starts "
+    "the whole stack: Redis, PostgreSQL, Ollama, the backend, Celery, the frontend "
+    "and the plugins set to start automatically. Run `guaardvark start` for that."
+)
+
+
 def start(
     path: str | None = typer.Option(None, "--path", "-p", help="Project path (default: GUAARDVARK_ROOT or cwd)"),
-    backend_only: bool = typer.Option(
-        False,
-        "--backend-only",
-        help="Start Postgres, Redis, and Flask only (no Celery/Vite/plugins)",
-    ),
+    backend_only: bool = typer.Option(False, "--backend-only", hidden=True),
     json_out: bool = typer.Option(False, "--json", "-j",
                                   help="Send start.sh's output to stderr and report what was started as JSON"),
 ):
@@ -58,15 +61,8 @@ def start(
         _start_json(path, backend_only)
         return
     if backend_only:
-        from llx.backend_bootstrap import ensure_backend_running
-        from llx.theme import make_console
-
-        try:
-            ensure_backend_running(make_console())
-        except RuntimeError as e:
-            output.print_error(str(e))
-            raise typer.Exit(1)
-        raise typer.Exit(0)
+        output.print_error(BACKEND_ONLY_UNAVAILABLE)
+        raise typer.Exit(2)
 
     target = path or os.environ.get("GUAARDVARK_ROOT") or os.getcwd()
     target = _find_project_root(target)
@@ -93,21 +89,12 @@ def _stdout_to_stderr():
 
 
 def _start_json(path: str | None, backend_only: bool) -> None:
-    if not backend_only:
-        _run_script_json("start", path)
-        return
-    from llx.backend_bootstrap import ensure_backend_running
-
-    try:
-        with _stdout_to_stderr():
-            server_url, started = ensure_backend_running(make_console(stderr=True))
-    except RuntimeError as e:
+    if backend_only:
         output.print_json({"status": "error", "data": {"action": "start", "backend_only": True},
-                           "error": {"code": "START_FAILED", "message": str(e)}})
-        raise typer.Exit(1)
-    output.print_json({"status": "success", "data": {
-        "action": "start", "backend_only": True, "server_url": server_url,
-        "started": started, "backend_responding": True}})
+                           "error": {"code": "BACKEND_ONLY_UNAVAILABLE",
+                                     "message": BACKEND_ONLY_UNAVAILABLE}})
+        raise typer.Exit(2)
+    _run_script_json("start", path)
 
 
 def _run_script_json(action: str, path: str | None) -> None:
@@ -213,7 +200,7 @@ def _doctor_cli_check(json_out: bool = False) -> None:
         console.print(f"  [{style}]{icon}[/{style}] [llx.kv.key]{label}:[/llx.kv.key] {detail}")
 
     if failed:
-        hints = {"backend health": "guaardvark start --backend-only",
+        hints = {"backend health": "guaardvark start",
                  "install root (start.sh)": "run from the install folder or set GUAARDVARK_ROOT"}
         tries = [hints[label] for label in failed if label in hints]
         console.print(f"\n[llx.warning]Failed: {', '.join(failed)}."

@@ -243,25 +243,27 @@ def test_missing_script_is_a_json_error(tmp_path, monkeypatch):
     assert _envelope(result)["error"]["code"] == "SCRIPT_NOT_FOUND"
 
 
-def test_start_backend_only_json(monkeypatch):
+def _no_start(monkeypatch):
     monkeypatch.setattr("llx.backend_bootstrap.ensure_backend_running",
-                        lambda console=None, quiet=False: ("http://localhost:5999", True))
+                        lambda *a, **k: pytest.fail("started the backend"))
+    monkeypatch.setattr("llx.commands.system.subprocess.run", lambda *a, **k: pytest.fail("ran a script"))
+
+
+def test_start_backend_only_json_is_refused(monkeypatch):
+    # start.sh has no backend-only mode; the flag would otherwise start the whole stack.
+    _no_start(monkeypatch)
     result = runner.invoke(app, ["start", "--backend-only", "--json"])
-    assert result.exit_code == 0, result.output
-    assert _envelope(result)["data"] == {"action": "start", "backend_only": True,
-                                         "server_url": "http://localhost:5999", "started": True,
-                                         "backend_responding": True}
+    assert result.exit_code == 2
+    report = _envelope(result)
+    assert report["error"]["code"] == "BACKEND_ONLY_UNAVAILABLE"
+    assert "guaardvark start" in report["error"]["message"]
 
 
-def test_start_backend_only_json_failure(monkeypatch):
-    def fail(console=None, quiet=False):
-        raise RuntimeError("Guaardvark installation not found.")
-
-    monkeypatch.setattr("llx.backend_bootstrap.ensure_backend_running", fail)
-    result = runner.invoke(app, ["start", "--backend-only", "--json"])
-    assert result.exit_code == 1
-    assert _envelope(result)["error"] == {"code": "START_FAILED",
-                                          "message": "Guaardvark installation not found."}
+def test_start_backend_only_is_refused(monkeypatch):
+    _no_start(monkeypatch)
+    result = runner.invoke(app, ["start", "--backend-only"])
+    assert result.exit_code == 2
+    assert "no backend-only mode" in result.output
 
 
 # ── mcp config / list-tools --json ───────────────────────────────────

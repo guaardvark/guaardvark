@@ -201,7 +201,8 @@ class TestEnsureBackendRunning:
                 assert url == "http://127.0.0.1:5000"
                 mock_run.assert_called_once()
                 args = mock_run.call_args[0][0]
-                assert "--backend-only" in args
+                # start.sh has no backend-only mode; the flag is not passed as if it had.
+                assert "--backend-only" not in args
                 assert "--fast" in args
 
 

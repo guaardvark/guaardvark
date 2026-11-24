@@ -1,7 +1,8 @@
-"""Ensure the real Flask backend is running (Postgres + Redis + backend.app).
+"""Ensure this install's Flask backend is running.
 
-Used by bare `guaardvark`, the REPL, and `guaardvark start --backend-only`.
-Prefers `./start.sh --backend-only --fast` when the install root is found.
+Used by bare `guaardvark` and the REPL. When the backend is not answering it runs
+`./start.sh --fast --no-voice`, which starts the whole stack: start.sh has no
+backend-only mode.
 """
 from __future__ import annotations
 
@@ -206,7 +207,7 @@ def ensure_backend_running(console=None, quiet: bool = False) -> tuple[str, bool
         )
 
     if console and not quiet:
-        console.print(f"[llx.dim]Starting backend (Postgres, Redis, Flask) on port {port}...[/llx.dim]")
+        console.print(f"[llx.dim]Starting Guaardvark (./start.sh --fast) on port {port}...[/llx.dim]")
 
     env = {
         **os.environ,
@@ -215,7 +216,7 @@ def ensure_backend_running(console=None, quiet: bool = False) -> tuple[str, bool
         "FLASK_PORT": str(port),
     }
     result = subprocess.run(
-        ["bash", str(start_script), "--backend-only", "--fast", "--no-voice"],
+        ["bash", str(start_script), "--fast", "--no-voice"],
         cwd=str(root),
         env=env,
     )
