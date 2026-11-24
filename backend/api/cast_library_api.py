@@ -11,6 +11,7 @@ from flask import Blueprint, current_app, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 
 from backend.config import STORAGE_DIR
+from backend.utils.path_guard import contained_path
 from backend.celery_dispatch import TaskNotStarted, mark_progress_not_started
 from backend.models import db, Subject, SubjectSample
 from backend.services.cast_lora_selection import (
@@ -36,38 +37,69 @@ VALID_KINDS = {"character", "environment", "prop"}
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _resolve_ref_path(p: str) -> str | None:
-    """Return an on-disk absolute path for a stored ref image, or None.
-    Tries the value as-is (abs or cwd-relative), then relative to the repo root,
-    then relative to the data/STORAGE_DIR — covers training-dir refs and cast_refs
-    uploads. The resolved path MUST live under one of those roots: ref_image_paths
-    can be set via the create-API body, so this is the guard against a crafted
-    '../../etc/passwd' reaching send_file."""
-    if not p:
-        return None
-    # A reference is an image. Without this the roots below made every file
-    # of the install servable, the .env that holds the API key included.
-    if os.path.splitext(str(p))[1].lower() not in _ALLOWED_REF_EXTS:
-        return None
+def _cast_refs_root() -> Path:
+    """The folder reference uploads are saved in (see :func:`_cast_ref_dir`)."""
+    try:
+        base = current_app.config.get("STORAGE_DIR")  # registered key (NOT "DATA_DIR")
+    except RuntimeError:
+        base = None
+    return Path(base or STORAGE_DIR) / "cast_refs"
+
+
+def _ref_candidates(p: str) -> list[str]:
+    """Where a stored ref may be on disk: as given (absolute or cwd-relative),
+    then relative to the repo root and to STORAGE_DIR. Absolute paths always,
+    since Flask's send_file raises on a relative one."""
     roots = [_PROJECT_ROOT]
     try:
-        storage = current_app.config.get("STORAGE_DIR")  # registered key (NOT "DATA_DIR")
+        storage = current_app.config.get("STORAGE_DIR")
         if storage:
             roots.append(Path(storage).resolve())
     except RuntimeError:
-        pass  # outside app context (shouldn't happen on a request, but be safe)
-    candidates = [p] + [str(r / p) for r in roots]
-    for c in candidates:
+        pass
+    return [os.path.abspath(c) for c in [p] + [str(r / p) for r in roots]]
+
+
+def _is_image_name(p) -> bool:
+    return os.path.splitext(str(p))[1].lower() in _ALLOWED_REF_EXTS
+
+
+def _resolve_ref_path(p: str) -> str | None:
+    """The real file a stored ref image or sample names, or None.
+
+    Served only from the Cast Library's reference folder, the uploads folder
+    and the output folders (where samples are written), with symlinks and
+    ``..`` followed, so a stored path or an image-named link cannot reach a
+    key or other state elsewhere under the install. ref_image_paths is
+    settable through the API, so this is the only gate before send_file."""
+    if not p or not _is_image_name(p):
+        return None
+    from backend.services.document_path_resolver import servable_file
+    for c in _ref_candidates(p):
+        real = servable_file(c, str(_cast_refs_root()))
+        if real is not None and _is_image_name(real):
+            return str(real)
+    return None
+
+
+def _owned_ref_path(p: str) -> str | None:
+    """The stored ref's own path when it, and the file it leads to, sit in the
+    Cast Library's reference folder; else None. Removing a ref deletes only
+    what the Cast Library saved: a sample or Library upload used as a ref
+    keeps its file, and a link is removed rather than what it points at."""
+    if not p or not _is_image_name(p):
+        return None
+    root = os.path.realpath(_cast_refs_root())
+    for c in _ref_candidates(p):
         try:
-            if not os.path.isfile(c):
+            real = os.path.realpath(c)
+            if not os.path.isfile(real):
                 continue
-            # Always hand send_file an ABSOLUTE path — Flask raises on a relative one.
-            ap = os.path.abspath(c)
-            # Containment: the file must sit inside an allowed root, else skip it.
-            if any(os.path.commonpath([ap, str(r)]) == str(r) for r in roots):
-                return ap
-        except (OSError, ValueError):
+            contained_path(root, real)
+            contained_path(root, os.path.realpath(os.path.dirname(c)))
+        except (OSError, ValueError):  # PathEscapesRoot is a ValueError
             continue
+        return c
     return None
 
 # Standard image formats — anything else is rejected at upload time.
@@ -419,13 +451,12 @@ def delete_subject_ref(subject_id: int, index: int):
     s.ref_image_paths = paths
     db.session.commit()
 
-    # Best-effort disk cleanup — only delete files that resolve INSIDE an allowed
-    # root (same containment guard as serving), so a crafted stored path can't
-    # make us unlink something outside cast_refs/.
+    # Best-effort disk cleanup of the Cast Library's own copy only, so a
+    # crafted stored path can't make us unlink something outside cast_refs/.
     try:
-        resolved = _resolve_ref_path(removed)
-        if resolved and os.path.isfile(resolved):
-            os.remove(resolved)
+        owned = _owned_ref_path(removed)
+        if owned:
+            os.remove(owned)
     except OSError as e:
         log.warning("delete_subject_ref: could not unlink %s: %s", removed, e)
 
