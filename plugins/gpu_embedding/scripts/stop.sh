@@ -10,6 +10,9 @@ PROJECT_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 
 PID_FILE="$PROJECT_ROOT/pids/gpu_embedding_service.pid"
 
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$PROJECT_ROOT/scripts/lib/proc_owner.sh"
+
 # True when PID $1 is alive and its command line contains $2. A PID file
 # outlives a reboot or a crash, and by then the number can belong to another
 # process: one this script must neither report as the service nor signal.
@@ -35,6 +38,19 @@ PID=$(cat "$PID_FILE")
 
 if [ -z "$PID" ] || ! pid_is_service "$PID" "gpu_embedding.service.app"; then
     echo "Service is not running (PID: $PID)"
+    rm -f "$PID_FILE"
+    exit 0
+fi
+
+# The command line alone does not say whose process this is: a reused PID, or
+# another install's service (a git worktree inside this one included), passes it.
+if ! proc_in_install "$PID" "$PROJECT_ROOT"; then
+    owner=$(proc_install_root "$PID")
+    if [ -n "$owner" ]; then
+        echo "GPU Embedding Service PID $PID belongs to the Guaardvark install at $owner, not this one; leaving it running."
+    else
+        echo "PID $PID is not this install's GPU Embedding Service (the pid file is stale); leaving it running."
+    fi
     rm -f "$PID_FILE"
     exit 0
 fi
