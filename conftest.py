@@ -205,6 +205,15 @@ def _local_service_ports(settings=None, plugins_dir=None):
 
 LOCAL_SERVICE_PORTS = _local_service_ports()
 
+# backend.config resolves ComfyUI from this variable before the plugin
+# manifest, so code under test, and any child process it starts, gets a port
+# nothing listens on, even in a shell that exported the live install's .env.
+# Set after the ports above are read, so a live URL's port stays refused.
+DEAD_COMFYUI_URL = "http://127.0.0.1:9"
+if os.environ.get("GUAARDVARK_TEST_LIVE_SERVICES") != "1":
+    os.environ["GUAARDVARK_COMFYUI_URL"] = DEAD_COMFYUI_URL
+    LOCAL_SERVICE_PORTS.setdefault(9, "ComfyUI")
+
 
 class _ServiceGate:
     def __init__(self):
