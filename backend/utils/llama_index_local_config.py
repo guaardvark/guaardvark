@@ -141,8 +141,8 @@ def force_local_llama_index_config():
 
         # Configure embedding model via VRAM-aware selection in config.py
         try:
-            from llama_index.embeddings.ollama import OllamaEmbedding
             from backend.config import OLLAMA_BASE_URL, get_active_embedding_model, get_embedding_keep_alive
+            from backend.utils.index_embedding import IndexOllamaEmbedding
 
             model_name = get_active_embedding_model()
             # The prompts recorded on the index, read from its file (no database at
@@ -155,7 +155,7 @@ def force_local_llama_index_config():
                 _instr_kwargs["query_instruction"] = query_instruction
             if text_instruction:
                 _instr_kwargs["text_instruction"] = text_instruction
-            local_embed_model = OllamaEmbedding(
+            local_embed_model = IndexOllamaEmbedding(
                 model_name=model_name,
                 base_url=OLLAMA_BASE_URL,
                 ollama_additional_kwargs={"mirostat": 0},
