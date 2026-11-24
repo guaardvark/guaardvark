@@ -87,6 +87,17 @@ def backend_installed(name: str, backend_config) -> bool:
 # Files the agent backends write into a worktree for their own bookkeeping
 # (wrapper script, log, exit status, captured reply); not the agent's work.
 _SWARM_OWN_FILES = frozenset({".swarm-run.sh", ".swarm-agent.log", ".swarm-status", "completion.md"})
+# Caches an agent leaves by running its code or tests. In a repository whose
+# .gitignore does not list them they show as untracked, and a task that had
+# committed its work was sent to review for "uncommitted changes".
+_CACHE_DIRS = frozenset({"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"})
+
+
+def _not_the_agents_work(path: str) -> bool:
+    """An untracked path that is bookkeeping or a cache, not something the
+    agent was asked to write."""
+    return (path in _SWARM_OWN_FILES or path.endswith(".pyc")
+            or any(part in _CACHE_DIRS for part in path.split("/")))
 
 # Tag values that mean "no preference", as the plan's "Assign to:" line reads them.
 _NO_PREFERENCE = ("", "any", "auto", "none")
@@ -471,7 +482,7 @@ class SwarmOrchestrator:
                 return f"Error: git diff failed: {res.stderr.strip()}"
             out = res.stdout
             untracked = git("ls-files", "--others", "--exclude-standard").stdout.split()
-            untracked = [p for p in untracked if p not in _SWARM_OWN_FILES]
+            untracked = [p for p in untracked if not _not_the_agents_work(p)]
             if untracked:
                 out += ("\n" if out else "") + "# Untracked files (not in the diff):\n" + "\n".join(
                     f"#   {p}" for p in untracked
@@ -841,7 +852,7 @@ class SwarmOrchestrator:
                     ["git", "ls-files", "--others", "--exclude-standard"],
                     cwd=task.worktree_path, capture_output=True, text=True, timeout=5,
                 ).stdout.split()
-                if p not in _SWARM_OWN_FILES
+                if not _not_the_agents_work(p)
             ]
             return {
                 "base_head": base_head,
