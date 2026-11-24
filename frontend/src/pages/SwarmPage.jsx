@@ -79,6 +79,7 @@ import {
   getTemplates,
   getTemplateContent,
   saveTemplate,
+  draftPlan,
   getTaskLogs,
   getTaskDiff,
   getConnectivity,
@@ -491,41 +492,17 @@ const SwarmPage = () => {
 
     setIsAiGenerating(true);
     try {
-      // Use the main chat API to generate a plan.md structure
-      const sessionId = `swarm_builder_${Math.random().toString(36).substring(7)}`;
-      const response = await fetch("/api/enhanced-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_id: sessionId,
-          message: `Generate a swarm plan.md file for the following request: ${aiPrompt}. 
-          The format must be markdown with ## headers for each task. 
-          Each task should have:
-          - Assign to: any
-          - Files: (list of files)
-          - Deps: (IDs of tasks it depends on)
-          - Description: (what to do)
-          
-          Provide ONLY the markdown content, no extra talk.`,
-          chat_mode: "instinct"
-        }),
-      });
-
-      const result = await response.json();
-      // The enhanced-chat API returns success_response which wraps data in a 'data' field
-      const responseData = result.data || result;
-      
-      if (responseData.response) {
-        // Strip markdown code fences if present
-        let content = responseData.response.trim();
-        if (content.startsWith("```markdown")) content = content.split("```markdown")[1].split("```")[0];
-        else if (content.startsWith("```")) content = content.split("```")[1].split("```")[0];
-        
-        setEditorContent(content);
+      const res = await draftPlan(aiPrompt.trim());
+      const drafted = res.data || res;
+      if (drafted.markdown) {
+        setEditorContent(drafted.markdown);
         showMessage(t("swarm.messages.planGenerated"), "success");
+      } else {
+        showMessage(res.message || t("swarm.messages.aiGenerationFailed"), "error");
       }
     } catch (err) {
-      showMessage(t("swarm.messages.aiGenerationFailed"), "error");
+      // The backend says why: no model loaded, or a reply that held no plan.
+      showMessage(err.message || t("swarm.messages.aiGenerationFailed"), "error");
     } finally {
       setIsAiGenerating(false);
     }

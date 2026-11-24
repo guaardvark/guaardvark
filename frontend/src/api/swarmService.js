@@ -145,6 +145,18 @@ export const getTemplateContent = async (filename) => {
 /**
  * Save a new or existing plan template
  */
+/**
+ * Draft a plan for a goal with the chat model. Nothing is saved or launched.
+ */
+export const draftPlan = async (goal) => {
+  const response = await fetch(`${BASE_URL}/draft-plan`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ goal }),
+  });
+  return handleResponse(response);
+};
+
 export const saveTemplate = async (filename, content) => {
   const response = await fetch(`${BASE_URL}/templates/save`, {
     method: "POST",
