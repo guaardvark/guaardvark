@@ -474,6 +474,22 @@ class Fit:
     reason: str = ""
 
 
+def _lighter_model_hint(total_mb: int) -> str:
+    """" (e.g. <the default video model>, booked at ~N MB on this card)", from
+    its registry entry; empty when the registry cannot be read."""
+    try:
+        from backend.services.video_model_registry import (
+            VIDEO_MODEL_REGISTRY,
+            admission_vram_mb,
+        )
+        model_id = "wan22-5b"
+        name = VIDEO_MODEL_REGISTRY[model_id]["name"]
+        booked = admission_vram_mb(model_id, total_vram_mb=total_mb or None)
+    except Exception:  # noqa: BLE001 — the hint is optional text
+        return ""
+    return f" (e.g. {name}, booked at ~{booked}MB on this card)"
+
+
 def fit_verdict(estimate_mb: int, *, reserve_mb: int = 0, margin_mb: int = 1024) -> Fit:
     """Decide whether ``estimate_mb`` fits the card right now — the one fit check.
 
@@ -510,8 +526,8 @@ def fit_verdict(estimate_mb: int, *, reserve_mb: int = 0, margin_mb: int = 1024)
     capacity_reason = (
         f"Not enough free VRAM for {{slot}}: estimate exceeds GPU capacity "
         f"(~{need}MB needed = est {estimate_mb} + {margin_mb} headroom, "
-        f"card total ~{total}MB, free ~{free}MB). Pick a lighter model "
-        f"(e.g. Wan 2.2 5B on 16GB cards) or lower the estimate."
+        f"card total ~{total}MB, free ~{free}MB). Pick a lighter model"
+        f"{_lighter_model_hint(total)} or lower the estimate."
     )
     if total > 0 and estimate_mb > total:
         return Fit(

@@ -1141,7 +1141,7 @@ class OfflineImageGenerator:
     # (2026-07-11); sequential offload is used on consumer cards and peaks lower.
     # Per-family prices are declared in media_model_registry.IMAGE_FAMILY_SPECS
     # (vram_mb, vram_mb_sequential, ram_gb, *_slope_*), with the measurements
-    # behind them; the Diffusers families are read here.
+    # behind them; VRAM is priced by image_render_limits.family_still_vram_mb.
     _FAMILY_VRAM_MB = _offline_family_values("vram_mb")
     _KREA2_SEQUENTIAL_VRAM_MB = _offline_family_values("vram_mb_sequential")["krea2"]  # layer-by-layer offload on ≤18GB cards
     # CPU-RAM footprint with enable_model_cpu_offload (weights + PyTorch arena).
@@ -1152,10 +1152,6 @@ class OfflineImageGenerator:
     # measured peak RSS flat at 20.9-21.0 GB across 1024/1448/2048 AFTER those fixes.
     # Measured again on a 32GB/RTX5080 box 2026-08-05: 16.3 GB peak for a single
     # 1024 image, 19.9 GB across a 15-image batch - so 21.0 remains conservative.
-    # auto-router worst-case: zimage leads on consumer cards; krea2 when absent
-    _OFFLOAD_TURBO_VRAM_MB = 11000
-    # Prefer sequential offload for krea2 on consumer cards (module offload OOMs).
-    _SEQUENTIAL_OFFLOAD_VRAM_GB = 18.0
     # Resolution scaling (2026-08-04 client box 2048² incident): the flat constants
     # above were measured at ~1024², but admission approved 2048² (4× the pixels)
     # under the same numbers. Slope = additional cost per megapixel ABOVE the 1MP
@@ -1197,46 +1193,38 @@ class OfflineImageGenerator:
         except (TypeError, ValueError):
             return False
 
+    @staticmethod
+    def _sequential_at_or_below_gb(family: str) -> float:
+        """Card size up to which ``family`` loads with sequential CPU offload (its
+        registry row); 0 for a family that never does."""
+        return float(_image_limits_for(family).get("sequential_at_or_below_vram_gb") or 0)
+
     def _will_use_sequential_for_krea2(self) -> bool:
-        """True when krea2 loads with sequential CPU offload (≤18GB CUDA cards)."""
+        """True when krea2 loads with sequential CPU offload (see its registry row)."""
         if self._force_sequential_offload:
             return True
         total = self._cuda_total_vram_gb()
-        return total > 0 and total <= self._SEQUENTIAL_OFFLOAD_VRAM_GB
+        return total > 0 and total <= self._sequential_at_or_below_gb("krea2")
 
     def _vram_estimate_mb(
         self, model_id: str, width: Optional[int] = None, height: Optional[int] = None
     ) -> int:
-        # No dims ⇒ assume the 1MP calibration point ⇒ exactly the flat constants
-        # (backward compatible with every estimate-only caller).
+        """VRAM a render on ``model_id`` is admitted at on this card, priced by
+        image_render_limits.family_still_vram_mb. Auto prices the family it would
+        pick: Krea 2 on roomy cards, else Z-Image."""
+        from backend.services.image_render_limits import family_still_vram_mb
         if model_id in (None, "", "auto"):
-            # Auto leads with zimage on consumer GPUs; worst-case is still ~11GB.
-            # On roomy GPUs auto may pick krea2 — use the sequential/model peak.
-            if self._prefer_krea2_for_auto():
-                family, base = "krea2", self._FAMILY_VRAM_MB["krea2"]
-            else:
-                family, base = "zimage", self._OFFLOAD_TURBO_VRAM_MB
+            family, row = ("krea2" if self._prefer_krea2_for_auto() else "zimage"), {}
         else:
-            family = self._model_family(model_id)
-            if _image_limits_for(family).get("engine") == "comfy":
-                # ComfyUI families (FLUX, Qwen-Image 2.1) are priced flat by their row.
-                base = int(_image_limits_for(family)["vram_mb"])
-            elif family == "krea2" and self._will_use_sequential_for_krea2():
-                base = self._KREA2_SEQUENTIAL_VRAM_MB
-            elif family == "sdxl" and self._sdxl_offloads():
-                base = int(_image_limits_for("sdxl")["vram_mb_offload"])
-            elif self._limits_row(model_id).get("vram_mb"):
-                base = int(self._limits_row(model_id)["vram_mb"])
-            else:
-                base = self._FAMILY_VRAM_MB.get(family, 4000)
-        extra_mp = self._extra_megapixels(width, height)
-        if extra_mp > 0:
-            try:
-                slope = int(os.environ["GUAARDVARK_VRAM_SLOPE_MB_PER_MP"])
-            except (KeyError, ValueError):
-                slope = self._FAMILY_VRAM_SLOPE_MB_PER_MP.get(family, 1500)
-            base += round(extra_mp * slope)
-        return base
+            family, row = self._model_family(model_id), self._limits_row(model_id)
+        return family_still_vram_mb(
+            family,
+            row,
+            width=width,
+            height=height,
+            probe=lambda: self._cuda_total_vram_gb() * 1024,
+            sequential=True if getattr(self, "_force_sequential_offload", False) else None,
+        )
 
     def _ram_estimate_gb(
         self, model_id: str, width: Optional[int] = None, height: Optional[int] = None
@@ -2123,7 +2111,7 @@ class OfflineImageGenerator:
                 total_gb = self._cuda_total_vram_gb()
                 use_sequential = (
                     want_sequential
-                    or (total_gb > 0 and total_gb <= self._SEQUENTIAL_OFFLOAD_VRAM_GB)
+                    or (total_gb > 0 and total_gb <= self._sequential_at_or_below_gb(family))
                 )
                 if use_sequential:
                     try:

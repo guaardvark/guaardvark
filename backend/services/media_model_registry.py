@@ -203,8 +203,14 @@ MEDIA_MODEL_REGISTRY: dict[str, dict[str, Any]] = {
 #                                         warned about (quality slider owns them)
 #   prompt_style                          "natural" (LLM encoder, prose) or "tags"
 #   vram_mb / ram_gb                      admission price at 1 MP; *_slope_* add
-#                                         per megapixel above that; flux is priced
-#                                         for ComfyUI and has no slope
+#                                         per megapixel above that; ComfyUI
+#                                         families are priced flat, with no slope
+#   vram_mb_offload, offload_below_vram_gb  price on a card under the threshold,
+#                                         where the pipeline runs with model offload
+#   vram_mb_sequential,                   price with sequential offload, which the
+#   sequential_at_or_below_vram_gb        pipeline uses on cards up to the threshold
+#                                         (image_render_limits.family_still_vram_mb
+#                                         reads all of these; nothing else prices a still)
 #   engine                                "offline" (Diffusers) or "comfy"
 #   starts_from_family                    the caller-side defaults are the family
 #                                         row's unless GUAARDVARK_IMAGE_STRICT_LIMITS
@@ -249,6 +255,7 @@ IMAGE_FAMILY_SPECS: dict[str, dict[str, Any]] = {
         "width": 1024, "height": 1024, "default_steps": 9, "min_steps": 2, "cfg_when_unset": 0.0,
         "prompt_style": "natural", "engine": "offline", "max_prompt_tokens": 1024,
         "vram_mb": 11000, "ram_gb": 21.0, "vram_slope_mb_per_mp": 500, "ram_slope_gb_per_mp": 1.0,
+        "sequential_at_or_below_vram_gb": 18.0,
     },
     # Krea 2: native 2K, same canvas as Z-Image. The family row is Turbo
     # (8 steps, CFG-free); Raw overrides below. Model-offload peak ~14 GB on a
@@ -259,8 +266,8 @@ IMAGE_FAMILY_SPECS: dict[str, dict[str, Any]] = {
         "max_side": 2688, "max_pixel_area": 2048 * 2048, "min_side": 256, "dimension_alignment": 16,
         "width": 1024, "height": 1024, "default_steps": 8, "cfg_when_unset": 0.0,
         "prompt_style": "tags", "engine": "offline", "max_prompt_tokens": 512,
-        "vram_mb": 14000, "vram_mb_sequential": 10000, "ram_gb": 24.0,
-        "vram_slope_mb_per_mp": 1000, "ram_slope_gb_per_mp": 1.0,
+        "vram_mb": 14000, "vram_mb_sequential": 10000, "sequential_at_or_below_vram_gb": 18.0,
+        "ram_gb": 24.0, "vram_slope_mb_per_mp": 1000, "ram_slope_gb_per_mp": 1.0,
     },
     # FLUX.1-dev: design range ~0.1-2.0 MP (not 2048^2), through ComfyUI.
     # 28 steps / FluxGuidance 3.5 is the verified quality point.

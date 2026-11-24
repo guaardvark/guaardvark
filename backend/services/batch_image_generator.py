@@ -939,9 +939,9 @@ class BatchImageGenerator:
     def _comfy_t2i_price(family: str) -> Tuple[int, float]:
         """(vram_mb, ram_gb) a ComfyUI stills family is admitted at: its
         IMAGE_FAMILY_SPECS row, which for Qwen-Image 2.1 reads the registry."""
-        from backend.services.image_render_limits import limits_for
+        from backend.services.image_render_limits import limits_for, still_vram_mb
         lim = limits_for(family)
-        return int(lim.get("vram_mb") or 12000), float(lim.get("ram_gb") or 16.0)
+        return still_vram_mb(family, default=12000), float(lim.get("ram_gb") or 16.0)
 
     def _should_use_comfy_stills(self, prompt: BatchPrompt) -> bool:
         if self._comfy_t2i_family(prompt.model):

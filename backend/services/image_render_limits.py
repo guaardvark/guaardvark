@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 from backend.services.media_model_registry import IMAGE_FAMILY_SPECS, IMAGE_MODEL_LIMITS
 
@@ -103,10 +103,85 @@ def family_values(field: str) -> dict:
 
 # ── VRAM ─────────────────────────────────────────────────────────────────────
 
+VRAM_SLOPE_ENV = "GUAARDVARK_VRAM_SLOPE_MB_PER_MP"
+# Per-megapixel surcharge for a Diffusers family that declares no measured slope.
+UNMEASURED_SLOPE_MB_PER_MP = 1500
+# Price of a family name with no row at all.
+UNPRICED_FAMILY_MB = 4000
+
+
 def _is_known(model: Optional[str]) -> bool:
     """True when ``model`` names a row rather than falling through to SD 1.5's."""
     key = (model or "").strip().lower()
     return bool(key) and (model_key(key) is not None or family_of(key) != "sd" or key == "sd")
+
+
+def extra_megapixels(width: Optional[int], height: Optional[int]) -> float:
+    """Megapixels above the 1 MP point the prices are declared at; 0 without dims."""
+    if not width or not height:
+        return 0.0
+    return max(0.0, (int(width) * int(height)) / 1_048_576.0 - 1.0)
+
+
+def family_still_vram_mb(
+    family: str,
+    row: Optional[dict] = None,
+    *,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    total_vram_mb: Optional[float] = None,
+    probe: Optional[Callable[[], float]] = None,
+    sequential: Optional[bool] = None,
+) -> int:
+    """VRAM one still on a ``family`` pipeline takes on this card.
+
+    Every admission that prices a still reads this, from the family's
+    IMAGE_FAMILY_SPECS row and the model's own IMAGE_MODEL_LIMITS ``row``.
+    A ComfyUI family is its flat ``vram_mb``. A Diffusers family is priced for
+    the mode it loads in on this card (``vram_mb_sequential`` up to
+    ``sequential_at_or_below_vram_gb``, or always when ``sequential`` is True;
+    ``vram_mb_offload`` under ``offload_below_vram_gb``), else the row's own
+    ``vram_mb``, else the family's; above 1 MP it adds the family slope per
+    megapixel (``GUAARDVARK_VRAM_SLOPE_MB_PER_MP`` overrides it). The card is
+    ``total_vram_mb``, else ``probe()`` when a mode depends on it; unknown (0)
+    prices the card as one that holds the model whole.
+    """
+    lim = limits_for(family)
+    if lim.get("engine") == "comfy":
+        return int(lim["vram_mb"])
+    spec = IMAGE_FAMILY_SPECS.get(family) or {}
+    row = row or {}
+
+    card_mb: List[float] = []
+
+    def card() -> float:
+        if not card_mb:
+            total = total_vram_mb
+            if total is None and probe is not None:
+                total = probe()
+            card_mb.append(float(total or 0))
+        return card_mb[0]
+
+    seq_gb = spec.get("sequential_at_or_below_vram_gb")
+    below_gb = spec.get("offload_below_vram_gb")
+    if spec.get("vram_mb_sequential") and (
+        sequential or (seq_gb and 0 < card() <= float(seq_gb) * 1024)
+    ):
+        price = int(spec["vram_mb_sequential"])
+    elif spec.get("vram_mb_offload") and below_gb and 0 < card() < float(below_gb) * 1024:
+        price = int(spec["vram_mb_offload"])
+    elif row.get("vram_mb"):
+        price = int(row["vram_mb"])
+    else:
+        price = int(spec.get("vram_mb") or UNPRICED_FAMILY_MB)
+    extra_mp = extra_megapixels(width, height)
+    if extra_mp > 0:
+        try:
+            slope = int(os.environ[VRAM_SLOPE_ENV])
+        except (KeyError, ValueError):
+            slope = int(spec.get("vram_slope_mb_per_mp") or UNMEASURED_SLOPE_MB_PER_MP)
+        price += round(extra_mp * slope)
+    return price
 
 
 def still_vram_mb(
@@ -117,33 +192,22 @@ def still_vram_mb(
     height: Optional[int] = None,
     total_vram_mb: Optional[float] = None,
 ) -> int:
-    """VRAM one still on ``model`` takes on this card, from its registry row.
-
-    The row's ``vram_mb`` is the price at 1 MP; a family that declares
-    ``vram_slope_mb_per_mp`` adds that per megapixel above it. A family that
-    declares a smaller-card mode (``offload_below_vram_gb`` with
-    ``vram_mb_offload``) is priced for that mode on a card under the threshold,
-    probed when ``total_vram_mb`` is not given. ``default`` is returned for a
-    model with no row.
+    """VRAM one still on ``model`` takes on this card (family_still_vram_mb for
+    the row ``model`` names). The card is probed when ``total_vram_mb`` is not
+    given and the price depends on it. ``default`` is returned for a model
+    with no row.
     """
     if not _is_known(model):
         return int(default)
-    lim = limits_for(model)
-    price = int(lim.get("vram_mb") or 0)
-    if price <= 0:
-        return int(default)
-    below_gb = lim.get("offload_below_vram_gb")
-    if below_gb and lim.get("vram_mb_offload"):
-        if total_vram_mb is None:
-            from backend.services.video_model_registry import _probe_total_vram_mb
-            total_vram_mb = _probe_total_vram_mb()
-        if total_vram_mb and float(total_vram_mb) < float(below_gb) * 1024:
-            price = int(lim["vram_mb_offload"])
-    slope = lim.get("vram_slope_mb_per_mp")
-    if slope and width and height:
-        extra_mp = max(0.0, (int(width) * int(height)) / 1_048_576.0 - 1.0)
-        price += round(extra_mp * int(slope))
-    return price
+    from backend.services.video_model_registry import _probe_total_vram_mb
+    return family_still_vram_mb(
+        family_of(model),
+        IMAGE_MODEL_LIMITS.get(model_key(model) or ""),
+        width=width,
+        height=height,
+        total_vram_mb=total_vram_mb,
+        probe=_probe_total_vram_mb,
+    )
 
 
 # ── Canvas ───────────────────────────────────────────────────────────────────

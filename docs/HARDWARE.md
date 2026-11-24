@@ -64,8 +64,10 @@ What works, and how the system adapts:
 - **Screen agents work**, with a reduced step budget: below 16 GB VRAM an agent
   task gets 10 steps instead of 20.
 - **Image generation** is realistic with SD (~4 GB working estimate) and
-  SDXL-class (~8 GB) models. The heavier paths (FLUX, Z-Image) budget
-  11–12 GB — tight-to-refused on a 12 GB card, refused on 8 GB.
+  SDXL-class models: ~8 GB loaded whole on 10 GB cards and up, ~5.7 GB below
+  that, where SDXL runs with model offload (measured on an 8 GB GTX 1080).
+  The heavier paths (FLUX, Z-Image) budget 11–12 GB — tight-to-refused on a
+  12 GB card, refused on 8 GB.
 - **Upscaling** runs fine (~1.5 GB, tiled to avoid OOM).
 - **Music generation** (ACE-Step, ~10 GB, runs exclusively) fits on 12 GB —
   the orchestrator evicts everything else first — but not on 8 GB. FX
@@ -221,7 +223,10 @@ Checked on an RX 7900 XTX with a Radeon 780M iGPU: `torch.cuda.device_count()` i
 For contributors updating this guide: hardware detection and policy are in
 `backend/services/hardware_policy.py` and `hardware_detector.py`; per-model
 VRAM budgets and the video preflight floors (`vram_mb` per model and
-`min_vram_gb` per family) in `backend/services/video_model_registry.py`; arbitration in
+`min_vram_gb` per family, or per model where one declares its own) in
+`backend/services/video_model_registry.py`; still-image prices in
+`IMAGE_FAMILY_SPECS` in `backend/services/media_model_registry.py`, read by
+`image_render_limits.family_still_vram_mb`; arbitration in
 `backend/services/gpu_memory_orchestrator.py` and `gpu_resource_policy.py`;
 plugin budgets in each `plugins/*/plugin.json` (`vram_estimate_mb`).
 

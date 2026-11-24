@@ -681,15 +681,15 @@ def _user_comfy_target(model: str | None) -> dict | None:
 
 
 def _comfy_admission_mb(model_tag: str | None) -> int | None:
-    """The VRAM a chat render on ``model_tag`` is admitted at, from the family's
-    registry entry; None for the FLUX graphs, which chat has always queued
+    """The VRAM a chat render on ``model_tag`` is admitted at, the family's
+    still price; None for the FLUX graphs, which chat has always queued
     without a claim."""
     from backend.services.user_model_families import comfy_t2i_family
     family = comfy_t2i_family(model_tag)
     if family not in ("qwen-image-21", "moss-image", "flux3-klein", "minimax-h3-t2i"):
         return None
-    from backend.services.video_model_registry import vram_mb_for_model
-    return int(vram_mb_for_model(family))
+    from backend.services.image_render_limits import still_vram_mb
+    return still_vram_mb(family, default=11000)
 
 
 def _comfyui_backend_choice() -> tuple[str, str] | None:
