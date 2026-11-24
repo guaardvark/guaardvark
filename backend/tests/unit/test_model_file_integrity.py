@@ -248,3 +248,31 @@ def test_interrupted_direct_download_leaves_nothing_under_the_final_name(models,
         vmr.download_entry_files(entry, local)
     assert not (local / "codeformer.pth").exists()
     assert vmr.is_model_installed("codeformer") is False
+
+
+def test_recorded_size_catches_a_cut_short_pickle(tmp_path):
+    # A legacy pickle checkpoint has no length of its own: only the size its
+    # registry records can tell the front part of a download from the file.
+    whole = tmp_path / "legacy.pth"
+    whole.write_bytes(b"\x80\x02" + b"x" * 998)
+    cut = tmp_path / "cut.pth"
+    cut.write_bytes(b"\x80\x02" + b"x" * 398)
+    assert mfi.file_problem(cut) is None
+
+    mfi.expect_size(whole, 1000)
+    mfi.expect_size(cut, 1000)
+    assert mfi.file_problem(whole) is None
+    assert mfi.file_problem(cut).startswith("truncated")
+
+    # Another build of the model, larger than the recorded one, is left alone.
+    bigger = tmp_path / "bigger.pth"
+    bigger.write_bytes(b"\x80\x02" + b"x" * 1998)
+    mfi.expect_size(bigger, 1000)
+    assert mfi.file_problem(bigger) is None
+
+
+def test_recorded_size_does_not_override_a_structure_check(tmp_path):
+    path = tmp_path / "model.safetensors"
+    path.write_bytes(b"\x00" * 64)
+    mfi.expect_size(path, 10)
+    assert mfi.file_problem(path).startswith("corrupt")

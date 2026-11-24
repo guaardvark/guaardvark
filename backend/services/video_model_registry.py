@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Optional
 
 from backend.services.job_types import RenderErrorKind, RenderFailure
-from backend.utils.model_file_integrity import file_complete, file_incomplete
+from backend.utils.model_file_integrity import expect_size, file_complete, file_incomplete
 
 logger = logging.getLogger(__name__)
 
@@ -117,15 +117,26 @@ def _entry_file_paths(entry: dict) -> list:
     Hugging Face cache file that is not cached."""
     if entry.get("dest") == "hf_cache":
         from backend.services.local_weights import cached_path
-        return [
+        cached = [
             (f["src"], cached_path(entry["hf_repo"], f["src"]))
             for f in entry.get("files", [])
         ]
-    return [
+        for name, path in cached:
+            if path is not None and name in (entry.get("file_bytes") or {}):
+                expect_size(path, entry["file_bytes"][name])
+        return cached
+    # file_bytes: the published size of a file whose format carries no length
+    # of its own (a legacy pickle .pth), so a cut-short copy can be told apart.
+    sizes = entry.get("file_bytes") or {}
+    paths = [
         (check_file, base / check_file)
         for base in _entry_check_dirs(entry)
         for check_file in entry.get("check_files", [])
     ]
+    for check_file, path in paths:
+        if check_file in sizes:
+            expect_size(path, sizes[check_file])
+    return paths
 
 
 def entry_files_present(entry: dict) -> bool:
@@ -220,6 +231,7 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
             check()
 
     _check()
+    _entry_file_paths(entry)  # records the entry's published file sizes
     if entry.get("dest") == "hf_cache":
         # The loader that reads this file calls hf_hub_download itself, so the
         # file has to sit in the Hugging Face cache under its own repo.
@@ -824,6 +836,8 @@ VIDEO_MODEL_REGISTRY = {
             }
         ],
         "requires": ["facerestore-facedetection"],
+        # Published sizes in bytes (Content-Length of each file's URL, read 2026-11-23).
+        "file_bytes": {"codeformer.pth": 376637898},
         "size_gb": 0.35,
         "vram_mb": 0,
         "type": "facerestore",
@@ -847,6 +861,8 @@ VIDEO_MODEL_REGISTRY = {
                 "dst": "parsing_parsenet.pth",
             },
         ],
+        # Published sizes in bytes (Content-Length of each file's URL, read 2026-11-23).
+        "file_bytes": {"detection_Resnet50_Final.pth": 109497761, "parsing_parsenet.pth": 85331193},
         "size_gb": 0.19,
         "vram_mb": 0,
         "type": "encoder",
@@ -858,6 +874,8 @@ VIDEO_MODEL_REGISTRY = {
         "hf_filename": "RealESRGAN_x2.pth",
         "local_subdir": "upscale_models",
         "check_files": ["RealESRGAN_x2.pth"],
+        # Published sizes in bytes (Content-Length of each file's URL, read 2026-11-23).
+        "file_bytes": {"RealESRGAN_x2.pth": 67061725},
         "size_gb": 0.07,
         "vram_mb": 0,
         "type": "upscaler",
@@ -1304,6 +1322,8 @@ VIDEO_MODEL_REGISTRY = {
         "files": [
             {"src": "EVA02_CLIP_L_336_psz14_s6B.pt", "dst": "EVA02_CLIP_L_336_psz14_s6B.pt"},
         ],
+        # Published sizes in bytes (Content-Length of each file's URL, read 2026-11-23).
+        "file_bytes": {"EVA02_CLIP_L_336_psz14_s6B.pt": 856461210},
         "size_gb": 0.86,
         "vram_mb": 0,
         "type": "encoder",
@@ -1330,6 +1350,8 @@ VIDEO_MODEL_REGISTRY = {
                 "dst": "parsing_bisenet.pth",
             },
         ],
+        # Published sizes in bytes (Content-Length of each file's URL, read 2026-11-23).
+        "file_bytes": {"detection_Resnet50_Final.pth": 109497761, "parsing_parsenet.pth": 85331193, "parsing_bisenet.pth": 53289463},
         "size_gb": 0.25,
         "vram_mb": 0,
         "type": "encoder",
