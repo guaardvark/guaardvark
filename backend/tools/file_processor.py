@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 def _get_config_path(config_key, default_path):
-    """Safely gets a path from Flask config or returns default."""
+    """The folder ``config_key`` names: the app's config inside a request, the
+    same value from ``backend.config`` in a background thread, else ``default_path``."""
     try:
         from flask import current_app
 
@@ -36,12 +37,21 @@ def _get_config_path(config_key, default_path):
                 return path
             else:
                 logger.warning(f"Config key '{config_key}' not found.")
-        else:
-            logger.warning(f"Flask current_app not available for '{config_key}'.")
     except ImportError:
         logger.warning(f"Flask not installed/context unavailable for '{config_key}'.")
     except Exception as e:
         logger.error(f"Error getting config key '{config_key}': {e}", exc_info=True)
+
+    # A writer's thread has no app context; GUAARDVARK_OUTPUT_DIR still applies there.
+    try:
+        from backend import config as backend_config
+
+        path = getattr(backend_config, config_key, None)
+        if path:
+            os.makedirs(path, exist_ok=True)
+            return path
+    except Exception as e:
+        logger.warning(f"backend.config has no usable '{config_key}': {e}")
 
     logger.warning(f"Using default path for '{config_key}': {default_path}")
     os.makedirs(default_path, exist_ok=True)

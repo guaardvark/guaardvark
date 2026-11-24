@@ -18,6 +18,12 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 CSV_TYPES = frozenset({"file_generation", "csv_generation"})
+# A row's job_id while the writer's thread runs it. Celery has never heard of
+# these ids, so stuck-job recovery reads them as queued and leaves them alone.
+WRITER_JOB_PREFIX = "bulk_gen_"
+# The wording hand-off jobs use when the backend restarted under them (job_handoff.sync).
+INTERRUPTED = "the backend restarted while this job was running"
+_OPEN_STATUSES = ("pending", "queued", "in-progress")
 _START_TIMEOUT_S = 120
 # The page count the New job form starts with.
 _DEFAULT_PAGES = 50
@@ -49,15 +55,11 @@ def is_csv_job(task_type: Optional[str], workflow_config: Any) -> bool:
     return task_type in CSV_TYPES and bool(_config(workflow_config))
 
 
-# A row's job_id while the writer's thread holds it.
-_WRITER_PREFIX = "bulk_gen_"
-
-
 def writer_holds(task: Any) -> bool:
     """True when a writer already runs this row (a redelivered or retried start)."""
     return (is_csv_job(_get(task, "type"), _get(task, "workflow_config"))
-            and str(_get(task, "job_id") or "").startswith(_WRITER_PREFIX)
-            and _get(task, "status") in ("pending", "queued", "in-progress"))
+            and str(_get(task, "job_id") or "").startswith(WRITER_JOB_PREFIX)
+            and _get(task, "status") in _OPEN_STATUSES)
 
 
 def _items(value: Any) -> list:
@@ -140,3 +142,46 @@ def start(task: Any) -> dict:
                                          read_timeout=_START_TIMEOUT_S, own_backend=True).data or {}
     except backend_http.BackendError as e:
         return {"error": str(e), "refused": e.kind == "http" and 400 <= (e.status or 0) < 500}
+
+
+def fail_interrupted(app) -> int:
+    """At boot: fail the rows a writer thread still held open.
+
+    The writer runs in a daemon thread of the backend process, so once the
+    backend starts again no such row has anything running it. The row is
+    failed, not re-run, and its progress entry ends; Start runs it again.
+    Server only. Returns the number of rows failed; never raises.
+    """
+    import datetime
+
+    try:
+        with app.app_context():
+            from backend.models import Task, db
+
+            rows = (Task.query
+                    .filter(Task.job_id.like(f"{WRITER_JOB_PREFIX}%"), Task.status.in_(_OPEN_STATUSES))
+                    .all())
+            if not rows:
+                return 0
+            now = datetime.datetime.now(datetime.timezone.utc)
+            job_ids = []
+            for row in rows:
+                row.status = "failed"
+                row.error_message = INTERRUPTED
+                row.updated_at = now
+                job_ids.append(row.job_id)
+            db.session.commit()
+    except Exception:
+        logger.warning("CSV writer row sweep skipped", exc_info=True)
+        return 0
+
+    try:
+        from backend.utils.unified_progress_system import get_unified_progress
+
+        progress = get_unified_progress()
+        for job_id in job_ids:
+            progress.error_process(job_id, INTERRUPTED)
+    except Exception:
+        logger.debug("progress entries for interrupted CSV jobs not closed", exc_info=True)
+    logger.warning("Failed %d CSV job(s) a restart interrupted", len(job_ids))
+    return len(job_ids)

@@ -169,11 +169,8 @@ def generate_proven_csv_task(self, topics, output_filename, client_name, project
                 'Image': row.image
             })
 
-        output_dir = os.environ.get('GUAARDVARK_OUTPUT_DIR')
-        if not output_dir:
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-            output_dir = os.path.join(project_root, 'data', 'outputs')
-        
+        from backend.config import OUTPUT_DIR as output_dir
+
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, output_filename)
         

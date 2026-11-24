@@ -1648,6 +1648,12 @@ try:
                 from backend.services.plan_executor import sweep_interrupted
                 sweep_interrupted(app)
 
+            # ---- CSV jobs whose writer thread the restart ended ---------------------
+            # Server only: the writer runs in the server's own threads.
+            if os.environ.get("CELERY_WORKER_MODE", "false").lower() != "true":
+                from backend.services.csv_job import fail_interrupted
+                fail_interrupted(app)
+
             # ---- Changes Guaardvark made to its own code ----------------------------
             # The server got this far with them in place, so they are live; a
             # start that fails before here has start.sh put them back.
