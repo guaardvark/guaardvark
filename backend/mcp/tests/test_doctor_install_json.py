@@ -112,3 +112,26 @@ def test_main_prints_only_the_report_on_stdout(monkeypatch, capfd):
     out, err = capfd.readouterr()
     assert json.loads(out)["status"] == "success"
     assert "tool registry banner" in err
+
+
+def test_config_report_names_the_entry_and_where_it_goes(scratch, monkeypatch, capsys):
+    from backend.mcp import cli
+
+    monkeypatch.setattr(cli.platform, "system", lambda: "Linux")
+    code, report = cli.snippet_report("cursor")
+    assert capsys.readouterr().out == ""
+    assert code == 0 and report["status"] == "success"
+    assert report["data"]["where"].endswith(".cursor/mcp.json")
+    assert report["data"]["snippet"]["mcpServers"]["guaardvark"]["command"] == "sh"
+    assert "command" not in report["data"]
+
+    code, report = cli.snippet_report("claude-code")
+    assert report["data"]["command"][:4] == ["claude", "mcp", "add", "--scope"]
+
+
+def test_config_report_unknown_client():
+    from backend.mcp import cli
+
+    code, report = cli.snippet_report("vim")
+    assert code == 2
+    assert report["error"]["code"] == "UNKNOWN_CLIENT"

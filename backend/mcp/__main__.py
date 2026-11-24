@@ -95,6 +95,10 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         choices=("claude-desktop", "claude-code", "cursor", "zed"),
     )
+    config_cmd.add_argument(
+        "--json", action="store_true",
+        help="Print one JSON document: the entry, where it goes and, for claude-code, the command",
+    )
 
     install_cmd = sub.add_parser(
         "install",
@@ -225,6 +229,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if cmd == "config":
+        if args.json:
+            from backend.mcp.cli import snippet_report
+            return _print_report(lambda: snippet_report(args.client))
         from backend.mcp.cli import print_snippet
         return print_snippet(args.client)
 

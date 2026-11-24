@@ -138,3 +138,17 @@ def print_snippet(client: str) -> int:
         print(f"# Paste the following into: {where}")
     print(json.dumps(snippet, indent=2))
     return 0
+
+
+def snippet_report(client: str) -> tuple[int, dict[str, Any]]:
+    """What print_snippet prints, as ``(exit code, {status, data[, error]})``:
+    the entry, where it goes and, for Claude Code, the command that adds it."""
+    try:
+        snippet, where = _snippet(client)
+    except ValueError as exc:
+        return 2, {"status": "error", "error": {
+            "code": "UNKNOWN_CLIENT", "message": f"{exc}; choose one of: {', '.join(CLIENT_CHOICES)}"}}
+    data: dict[str, Any] = {"client": client, "where": where, "snippet": snippet}
+    if client == "claude-code":
+        data["command"] = _claude_code_add_command()
+    return 0, {"status": "success", "data": data}

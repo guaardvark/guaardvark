@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -151,8 +152,13 @@ def mcp_config(
         "-c",
         help="claude-desktop | claude-code | cursor | zed",
     ),
+    json_out: bool = typer.Option(False, "--json", "-j",
+                                  help="Report the entry, where it goes and any command to run as JSON"),
 ):
     """Print the JSON snippet to paste into an MCP client config."""
+    if json_out or get_global_json():
+        output.set_json_mode(True)
+        raise typer.Exit(_run_mcp_json(["config", "--client", client]))
     code = _run_mcp(["config", "--client", client])
     raise typer.Exit(code)
 
@@ -200,12 +206,48 @@ def mcp_doctor(
 @mcp_app.command("list-tools")
 def mcp_list_tools(
     toolset: str = typer.Option(None, "--toolset", "-t", help=_TOOLSET_HELP),
+    json_out: bool = typer.Option(False, "--json", "-j",
+                                  help="Report the tools, their toolsets and the toolset served as JSON"),
 ):
-    """Print tools the MCP server exposes (a JSON array with --json)."""
+    """Print tools the MCP server exposes."""
     args = ["list-tools", "--toolset", toolset] if toolset else ["list-tools"]
-    if get_global_json() or output.is_json_mode():
-        args.append("--json")
+    if json_out or get_global_json() or output.is_json_mode():
+        output.set_json_mode(True)
+        raise typer.Exit(_list_tools_json(args))
     raise typer.Exit(_run_mcp(args))
+
+
+_SERVED_TOOLSET = re.compile(r"\((\d+) tools exposed, toolset (\S+)\)")
+
+
+def _list_tools_json(args: list[str]) -> int:
+    """`backend.mcp list-tools --json` prints a bare array; wrap it in the
+    {status, data} document the other commands print."""
+    from llx.commands.system import _ANSI_ESCAPE
+
+    py, root = _python_and_root()
+    if root is None:
+        output.print_json({"status": "error", "error": {
+            "code": "CHECKOUT_NOT_FOUND", "message": _CHECKOUT_NOT_FOUND_MSG.strip()}})
+        return 1
+    result = subprocess.run([py, "-m", "backend.mcp", *args, "--json"], cwd=str(root),
+                            capture_output=True, text=True)
+    errors = _ANSI_ESCAPE.sub("", result.stderr)
+    try:
+        tools = json.loads(result.stdout) if result.returncode == 0 else None
+    except ValueError:
+        tools = None
+    if not isinstance(tools, list):
+        reason = next((line for line in reversed(errors.splitlines()) if line.strip()), "")
+        output.print_json({"status": "error", "data": {
+            "returncode": result.returncode, "errors": errors[-2000:]}, "error": {
+            "code": "MCP_ERROR",
+            "message": reason or f"mcp list-tools ended (exit {result.returncode}) without a tool list"}})
+        return result.returncode or 1
+    served = _SERVED_TOOLSET.search(errors)
+    output.print_json({"status": "success", "data": {
+        "toolset": served.group(2) if served else None, "count": len(tools), "tools": tools}})
+    return 0
 
 
 # `guaardvark mcp client ...`: the external MCP servers the agent itself uses.

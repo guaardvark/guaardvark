@@ -2,6 +2,8 @@ import os
 import re
 import subprocess
 import sys
+from contextlib import contextmanager
+
 import typer
 
 from llx.client import get_client, LlxError, LlxConnectionError
@@ -47,8 +49,14 @@ def start(
         "--backend-only",
         help="Start Postgres, Redis, and Flask only (no Celery/Vite/plugins)",
     ),
+    json_out: bool = typer.Option(False, "--json", "-j",
+                                  help="Send start.sh's output to stderr and report what was started as JSON"),
 ):
     """Start Guaardvark services."""
+    if json_out or get_global_json():
+        output.set_json_mode(True)
+        _start_json(path, backend_only)
+        return
     if backend_only:
         from llx.backend_bootstrap import ensure_backend_running
         from llx.theme import make_console
@@ -68,6 +76,63 @@ def start(
         raise typer.Exit(1)
     result = subprocess.run([start_script], cwd=target)
     raise typer.Exit(result.returncode)
+
+
+@contextmanager
+def _stdout_to_stderr():
+    """Point fd 1 at stderr so child scripts cannot write into the JSON document."""
+    sys.stdout.flush()
+    saved = os.dup(1)
+    try:
+        os.dup2(2, 1)
+        yield
+    finally:
+        sys.stdout.flush()
+        os.dup2(saved, 1)
+        os.close(saved)
+
+
+def _start_json(path: str | None, backend_only: bool) -> None:
+    if not backend_only:
+        _run_script_json("start", path)
+        return
+    from llx.backend_bootstrap import ensure_backend_running
+
+    try:
+        with _stdout_to_stderr():
+            server_url, started = ensure_backend_running(make_console(stderr=True))
+    except RuntimeError as e:
+        output.print_json({"status": "error", "data": {"action": "start", "backend_only": True},
+                           "error": {"code": "START_FAILED", "message": str(e)}})
+        raise typer.Exit(1)
+    output.print_json({"status": "success", "data": {
+        "action": "start", "backend_only": True, "server_url": server_url,
+        "started": started, "backend_responding": True}})
+
+
+def _run_script_json(action: str, path: str | None) -> None:
+    """Run start.sh or stop.sh with its output on stderr, then report the exit
+    code and whether the backend answers afterwards."""
+    from pathlib import Path
+
+    from llx.backend_bootstrap import is_backend_healthy, resolve_flask_port, server_url_for_port
+
+    target = _find_project_root(path or os.environ.get("GUAARDVARK_ROOT") or os.getcwd())
+    script = os.path.join(target, f"{action}.sh")
+    if not os.path.isfile(script):
+        output.print_json({"status": "error", "error": {
+            "code": "SCRIPT_NOT_FOUND", "message": f"{action}.sh not found at {script}"}})
+        raise typer.Exit(1)
+    sys.stdout.flush()
+    result = subprocess.run([script], cwd=target, stdout=2)
+    server_url = server_url_for_port(resolve_flask_port(Path(target)))
+    data = {"action": action, "root": target, "script": script, "returncode": result.returncode,
+            "server_url": server_url, "backend_responding": is_backend_healthy(server_url)}
+    if result.returncode:
+        output.print_json({"status": "error", "data": data, "error": {
+            "code": f"{action.upper()}_FAILED", "message": f"{action}.sh exited {result.returncode}"}})
+        raise typer.Exit(result.returncode)
+    output.print_json({"status": "success", "data": data})
 
 
 def _doctor_cli_check(json_out: bool = False) -> None:
@@ -159,8 +224,14 @@ def _doctor_cli_check(json_out: bool = False) -> None:
 
 def stop(
     path: str | None = typer.Option(None, "--path", "-p", help="Project path (default: GUAARDVARK_ROOT or cwd)"),
+    json_out: bool = typer.Option(False, "--json", "-j",
+                                  help="Send stop.sh's output to stderr and report what was stopped as JSON"),
 ):
     """Stop Guaardvark services."""
+    if json_out or get_global_json():
+        output.set_json_mode(True)
+        _run_script_json("stop", path)
+        return
     target = path or os.environ.get("GUAARDVARK_ROOT") or os.getcwd()
     target = _find_project_root(target)
     stop_script = os.path.join(target, "stop.sh")
