@@ -159,7 +159,7 @@ export const upscaleVideo = async (inputPath, options = {}) => {
 /**
  * Upscale a library image or video; the result is filed beside it.
  * @param {number} documentId
- * @param {{model?: string, scale?: number}} [options]
+ * @param {{model?: string, scale?: number, target_width?: number}} [options] target_width: output long edge in px
  * @returns {Promise<Object>} image: {document_id, filename}; video: the queued job with output_file
  */
 export const upscaleDocument = async (documentId, options = {}) => {

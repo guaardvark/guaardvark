@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from service.upscaler import upscale_image, _pre_process, _post_process
+from service.upscaler import fit_long_edge, upscale_image, _pre_process, _post_process
 
 
 def test_pre_process_shape():
@@ -27,3 +27,44 @@ def test_post_process_clamps():
     img = _post_process(tensor)
     assert img.max() <= 255
     assert img.min() >= 0
+
+
+class _NearestX4:
+    """A stand-in 4x model: nearest-neighbour, no weights, CPU."""
+
+    def __call__(self, tensor):
+        import torch.nn.functional as F
+        return F.interpolate(tensor, scale_factor=4, mode="nearest")
+
+
+@pytest.mark.parametrize("size, long_edge, expected", [
+    ((1920, 1080), 3840, (3840, 2160)),
+    ((1080, 1920), 3840, (2160, 3840)),
+    ((1920, 1080), 7680, (7680, 4320)),
+    ((512, 512), 3840, (3840, 3840)),
+    ((1366, 768), 3840, (3840, 2159)),
+])
+def test_fit_long_edge_keeps_the_aspect(size, long_edge, expected):
+    assert fit_long_edge(*size, long_edge) == expected
+
+
+def _upscale(img, **kwargs):
+    return upscale_image(img, _NearestX4(), 4, device="cpu", precision="fp32", sharpen=0.0, **kwargs)
+
+
+def test_target_size_is_the_output_size():
+    img = np.random.randint(0, 255, (27, 48, 3), dtype=np.uint8)
+    out = _upscale(img, target_size=(3840, 2160))
+    assert out.shape == (2160, 3840, 3)
+
+
+def test_target_size_wins_over_outscale():
+    img = np.random.randint(0, 255, (27, 48, 3), dtype=np.uint8)
+    out = _upscale(img, outscale=2.0, target_size=(320, 180))
+    assert out.shape == (180, 320, 3)
+
+
+def test_without_a_target_the_scale_decides():
+    img = np.random.randint(0, 255, (27, 48, 3), dtype=np.uint8)
+    assert _upscale(img).shape == (108, 192, 3)
+    assert _upscale(img, outscale=2.0).shape == (54, 96, 3)

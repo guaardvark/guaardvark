@@ -18,14 +18,14 @@ from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from service.auth import TOKEN_NAME, auth_token, guard, verify_token
 from service.config import UpscalingConfig, load_config
 from service.health import get_health_status
 from service.jobs import JobManager
 from service.model_manager import ModelManager
-from service.upscaler import upscale_image
+from service.upscaler import fit_long_edge, upscale_image
 from service.video_pipeline import get_video_info, process_video
 from service.watcher import FolderWatcher
 
@@ -62,11 +62,17 @@ _worker_thread: Optional[threading.Thread] = None
 
 
 # --- Pydantic models ---
+
+# ``target_width`` is the output's long edge in pixels (3840 for 4K). When set it
+# wins over ``scale``: the model runs at its native factor, then a resize lands on it.
+TARGET_WIDTH_MIN, TARGET_WIDTH_MAX = 16, 16384
+
 class ImageUpscaleRequest(BaseModel):
     input_path: str
     output_path: str
     model: Optional[str] = None
     scale: Optional[float] = None
+    target_width: Optional[int] = Field(None, ge=TARGET_WIDTH_MIN, le=TARGET_WIDTH_MAX)
     denoise_strength: Optional[float] = 0.0
     sharpen: Optional[float] = 0.3
     two_pass: Optional[bool] = False
@@ -78,6 +84,7 @@ class ImageBatchUpscaleRequest(BaseModel):
     output_dir: str
     model: Optional[str] = None
     scale: Optional[float] = None
+    target_width: Optional[int] = Field(None, ge=TARGET_WIDTH_MIN, le=TARGET_WIDTH_MAX)
     denoise_strength: Optional[float] = 0.0
     sharpen: Optional[float] = 0.3
     two_pass: Optional[bool] = False
@@ -90,6 +97,7 @@ class VideoUpscaleRequest(BaseModel):
     output_path: Optional[str] = None
     model: Optional[str] = None
     scale: Optional[float] = None
+    target_width: Optional[int] = Field(None, ge=TARGET_WIDTH_MIN, le=TARGET_WIDTH_MAX)
     denoise_strength: Optional[float] = 0.0
     sharpen: Optional[float] = 0.3
     two_pass: Optional[bool] = False
@@ -215,6 +223,13 @@ def _atomic_imwrite(output_path: str, image) -> bool:
     return True
 
 
+def _target_size(img, target_width: Optional[int]):
+    """The (width, height) an image's output is resized to, or None for scale."""
+    if not target_width:
+        return None
+    return fit_long_edge(img.shape[1], img.shape[0], target_width)
+
+
 def _default_model() -> str:
     """The model a request that names none uses: the configured default when it
     is installed, else the first installed model (the one the Upscaling page
@@ -302,6 +317,7 @@ def _start_video_job(
     two_pass: bool,
     face_enhance: bool,
     double_fps: bool,
+    target_width: Optional[int] = None,
 ) -> dict:
     """Create a video upscale job and drop it on the queue. The worker will
     pick it up when the GPU is free."""
@@ -316,6 +332,7 @@ def _start_video_job(
         two_pass=two_pass,
         face_enhance=face_enhance,
         double_fps=double_fps,
+        target_width=target_width,
     )
     cancel_event = threading.Event()
     _cancel_flags[job["job_id"]] = cancel_event
@@ -337,6 +354,7 @@ def _start_video_job(
         "two_pass": two_pass,
         "face_enhance": face_enhance,
         "double_fps": double_fps,
+        "target_width": target_width,
         "cancel_event": cancel_event,
     })
     return job
@@ -352,6 +370,7 @@ def _start_image_batch_job(
     two_pass: bool,
     face_enhance: bool,
     suffix: str,
+    target_width: Optional[int] = None,
 ) -> dict:
     """Create one job covering N images and drop it on the shared GPU queue.
 
@@ -371,6 +390,7 @@ def _start_image_batch_job(
         double_fps=False,
         kind="image_batch",
         item_count=len(inputs),
+        target_width=target_width,
     )
     cancel_event = threading.Event()
     _cancel_flags[job["job_id"]] = cancel_event
@@ -391,6 +411,7 @@ def _start_image_batch_job(
         "two_pass": two_pass,
         "face_enhance": face_enhance,
         "suffix": suffix,
+        "target_width": target_width,
         "cancel_event": cancel_event,
     })
     return job
@@ -412,14 +433,14 @@ def _job_worker():
                     job_id, task["inputs"], task["output_dir"], task["model_name"],
                     task["scale"], task["denoise_strength"], task["sharpen"],
                     task["two_pass"], task["face_enhance"], task["suffix"],
-                    task["cancel_event"],
+                    task["cancel_event"], target_width=task.get("target_width"),
                 )
             else:
                 _run_video_job(
                     job_id, task["input_path"], task["output_path"], task["model_name"],
                     task["scale"], task["denoise_strength"], task["sharpen"],
                     task["two_pass"], task["face_enhance"], task["double_fps"],
-                    task["cancel_event"],
+                    task["cancel_event"], target_width=task.get("target_width"),
                 )
         except Exception as e:
             # The runners already record failure into the job manager; this is a
@@ -441,6 +462,7 @@ def _run_video_job(
     face_enhance: bool,
     double_fps: bool,
     cancel_event: threading.Event,
+    target_width: Optional[int] = None,
 ):
     """Background worker for video upscale job."""
     try:
@@ -464,13 +486,17 @@ def _run_video_job(
         model, model_scale = _claim_job_model(model_name)
 
         outscale = scale if scale else float(model_scale)
-        out_w = int(in_w * outscale)
-        out_h = int(in_h * outscale)
+        if target_width:
+            out_w, out_h = fit_long_edge(in_w, in_h, target_width)
+        else:
+            out_w = int(in_w * outscale)
+            out_h = int(in_h * outscale)
         # NVENC / H.264 require even dimensions
         if out_w % 2:
             out_w += 1
         if out_h % 2:
             out_h += 1
+        frame_size = (out_w, out_h) if target_width else None
 
         tile_size = 400
         if _config.max_tile_size != "auto":
@@ -502,7 +528,7 @@ def _run_video_job(
                 outscale=outscale, tile_size=tile_size,
                 device=device, precision=_config.precision,
                 sharpen=sharpen, denoise_strength=denoise_strength, two_pass=two_pass,
-                face_enhance=face_enhance,
+                face_enhance=face_enhance, target_size=frame_size,
             )
             frame_count[0] += 1
             elapsed = time.time() - start_time
@@ -573,6 +599,7 @@ def _run_image_batch_job(
     face_enhance: bool,
     suffix: str,
     cancel_event: threading.Event,
+    target_width: Optional[int] = None,
 ):
     """Background worker for an image-batch upscale job.
 
@@ -631,6 +658,7 @@ def _run_image_batch_job(
                     device=device, precision=_config.precision,
                     sharpen=sharpen, denoise_strength=denoise_strength,
                     two_pass=two_pass, face_enhance=face_enhance,
+                    target_size=_target_size(img, target_width),
                 )
 
             stem = os.path.splitext(os.path.basename(input_path))[0]
@@ -755,6 +783,7 @@ def upscale_image_endpoint(req: ImageUpscaleRequest, request: Request):
             denoise_strength=req.denoise_strength if req.denoise_strength is not None else 0.0,
             two_pass=req.two_pass if req.two_pass is not None else False,
             face_enhance=req.face_enhance if req.face_enhance is not None else False,
+            target_size=_target_size(img, req.target_width),
         )
     _free_cache_unless_job()
 
@@ -839,6 +868,7 @@ def upscale_images_endpoint(req: ImageBatchUpscaleRequest, request: Request):
         two_pass=req.two_pass if req.two_pass is not None else False,
         face_enhance=req.face_enhance if req.face_enhance is not None else False,
         suffix=req.suffix,
+        target_width=req.target_width,
     )
     return job
 
@@ -869,6 +899,7 @@ def upscale_video_endpoint(req: VideoUpscaleRequest, request: Request):
         two_pass=req.two_pass if req.two_pass is not None else False,
         face_enhance=req.face_enhance if req.face_enhance is not None else False,
         double_fps=req.double_fps if req.double_fps is not None else False,
+        target_width=req.target_width,
     )
     return job
 

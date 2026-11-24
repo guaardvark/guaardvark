@@ -202,12 +202,17 @@ def upscale_video():
     input_path = body.get("input_path")
     if not input_path:
         return error_response("input_path is required", 400)
+    try:
+        target_width = _parse_target_width(body.get("target_width"))
+    except ValueError as exc:
+        return error_response(str(exc), 400)
 
     payload = {
         "input_path": input_path,
         "output_path": body.get("output_path"),
         "model": body.get("model"),
         "scale": body.get("scale"),
+        "target_width": target_width,
         "suffix": body.get("suffix", "upscaled"),
         "two_pass": body.get("two_pass", False),
         # The options /upload takes from its form, so a request it saved for
@@ -445,8 +450,32 @@ def _stage_image(file) -> Path:
     return staged
 
 
+# The plugin's bounds for target_width (plugins/upscaling/service/app.py).
+TARGET_WIDTH_MIN, TARGET_WIDTH_MAX = 16, 16384
+
+
+def _parse_target_width(value) -> Optional[int]:
+    """``target_width`` from a form or JSON body: None when absent, else the
+    output's long edge in pixels. Raises ValueError on anything else."""
+    if value is None or value == "":
+        return None
+    try:
+        number = float(str(value).strip())
+    except ValueError:
+        number = float("nan")
+    if not number.is_integer():
+        raise ValueError(f"target_width must be a whole number of pixels, got {value!r}")
+    width = int(number)
+    if not TARGET_WIDTH_MIN <= width <= TARGET_WIDTH_MAX:
+        raise ValueError(f"target_width must be between {TARGET_WIDTH_MIN} and {TARGET_WIDTH_MAX}")
+    return width
+
+
 def _image_options_from_form(form) -> dict:
-    """Collect the shared upscale knobs out of a multipart form."""
+    """Collect the shared upscale knobs out of a multipart form.
+
+    Raises ValueError on a malformed ``target_width``.
+    """
     options = {}
     model = form.get("model")
     if model:
@@ -454,6 +483,9 @@ def _image_options_from_form(form) -> dict:
     scale = form.get("scale")
     if scale:
         options["scale"] = float(scale)
+    target_width = _parse_target_width(form.get("target_width"))
+    if target_width:
+        options["target_width"] = target_width
     sharpen = form.get("sharpen")
     if sharpen is not None:
         options["sharpen"] = float(sharpen)
@@ -478,6 +510,7 @@ def upscale_image():
         return error_response("No file uploaded", 400)
 
     try:
+        options = _image_options_from_form(flask_request.form)
         staged = _stage_image(flask_request.files["file"])
     except ValueError as exc:
         return error_response(str(exc), 400)
@@ -486,7 +519,7 @@ def upscale_image():
     payload = {
         "input_path": str(staged),
         "output_path": str(output_path),
-        **_image_options_from_form(flask_request.form),
+        **options,
     }
 
     down = _start_upscaling_for_job()
@@ -514,6 +547,10 @@ def upscale_images():
     files = flask_request.files.getlist("files")
     if not files:
         return error_response("No files uploaded", 400)
+    try:
+        options = _image_options_from_form(flask_request.form)
+    except ValueError as exc:
+        return error_response(str(exc), 400)
 
     staged = []
     rejected = []
@@ -530,7 +567,7 @@ def upscale_images():
         "inputs": [str(p) for p in staged],
         "output_dir": str(_image_output_dir()),
         "suffix": "upscaled",
-        **_image_options_from_form(flask_request.form),
+        **options,
     }
 
     if upscale_supervisor.enabled():
@@ -631,8 +668,11 @@ def upscale_document():
     if not is_video and ext not in DOCUMENT_IMAGE_EXTENSIONS:
         return error_response(f"{ext or 'This file'} cannot be upscaled; images and videos only", 400)
 
-    options = _image_options_from_form({k: (str(v) if v is not None else None)
-                                        for k, v in body.items() if k != "document_id"})
+    try:
+        options = _image_options_from_form({k: (str(v) if v is not None else None)
+                                            for k, v in body.items() if k != "document_id"})
+    except ValueError as exc:
+        return error_response(str(exc), 400)
     out_path, doc_path = _free_sibling_name(document, source, ".mp4" if is_video else ".png")
 
     if is_video:
@@ -681,6 +721,15 @@ def serve_image_output(filename):
 
 
 
+def _target_suffix(target_width: Optional[int]) -> str:
+    """Output name suffix for a video upscale: the preset it reaches, if any."""
+    if target_width and target_width >= 7680:
+        return "8k"
+    if target_width and target_width >= 3840:
+        return "4k"
+    return "upscaled"
+
+
 @upscaling_bp.route("/upload", methods=["POST"])
 def upload_and_upscale():
     """Upload a video file and submit it for upscaling."""
@@ -708,8 +757,11 @@ def upload_and_upscale():
     base_name = os.path.splitext(filename)[0]
     model = flask_request.form.get("model")
     scale = flask_request.form.get("scale")
-    target_width = flask_request.form.get("target_width")
-    suffix = "4k" if target_width and int(target_width) >= 3840 else "upscaled"
+    try:
+        target_width = _parse_target_width(flask_request.form.get("target_width"))
+    except ValueError as exc:
+        return error_response(str(exc), 400)
+    suffix = _target_suffix(target_width)
     output_path = upload_dir / "output" / f"{base_name}_{suffix}{ext}"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -723,6 +775,8 @@ def upload_and_upscale():
         payload["model"] = model
     if scale:
         payload["scale"] = float(scale)
+    if target_width:
+        payload["target_width"] = target_width
         
     sharpen = flask_request.form.get("sharpen")
     if sharpen is not None:
