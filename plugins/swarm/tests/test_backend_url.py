@@ -52,7 +52,7 @@ def test_gpu_holds_reach_the_backend_port_with_flask_port_unset(no_flask_port, m
     monkeypatch.delenv("SWARM_DISABLE_GPU_HOLD", raising=False)
     sent = []
     monkeypatch.setattr(gpu_hold.requests, "post",
-                        lambda url, json=None, timeout=None: sent.append(url) or _Response())
+                        lambda url, json=None, timeout=None, headers=None: sent.append(url) or _Response())
 
     orch = SwarmOrchestrator(tmp_path, SwarmConfig())
     slot = orch._gpu_client().hold("gemma4:e4b")
@@ -82,7 +82,7 @@ def test_events_and_agent_bus_urls_use_the_backend_port(no_flask_port, monkeypat
 
     posted = []
     monkeypatch.setattr(orchestrator.requests, "post",
-                        lambda url, json=None, timeout=None: posted.append(url) or _Response())
+                        lambda url, json=None, timeout=None, headers=None: posted.append(url) or _Response())
 
     orchestrator.SwarmOrchestrator(tmp_path, SwarmConfig())._emit_event("task_spawned", "t1", {})
     prompt = ClaudeBackend()._build_prompt(SwarmTask(id="t1", title="T1", description="do it"))
