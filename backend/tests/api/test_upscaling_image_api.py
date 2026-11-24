@@ -6,6 +6,7 @@ the proxy hands to the plugin.
 """
 from __future__ import annotations
 
+import contextlib
 import io
 import os
 from pathlib import Path
@@ -41,6 +42,10 @@ def test_contained_file_rejects_symlink_escape(tmp_path):
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(m, "_get_upload_dir", lambda: tmp_path)
+    # Never start the real plugin or book the real GPU from a test.
+    monkeypatch.setattr(m, "_start_upscaling_for_job", lambda: None)
+    monkeypatch.setattr(m, "_gpu_turn", lambda _model: contextlib.nullcontext())
+    monkeypatch.setenv(m.upscale_supervisor.ENV, "0")
     (tmp_path / "secret.txt").write_text("TOPSECRET-CONTENT-7731")
 
     app = Flask(__name__)

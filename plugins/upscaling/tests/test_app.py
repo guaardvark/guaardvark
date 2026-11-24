@@ -2,6 +2,8 @@
 
 Uses httpx TestClient. Model-dependent tests are skipped if no GPU.
 """
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -243,3 +245,153 @@ def test_atomic_imwrite_creates_missing_directories(tmp_path):
     assert _atomic_imwrite(str(target), np.zeros((4, 4, 3), np.uint8)) is True
     assert target.exists()
 
+
+
+# --- target_width: the output has the chosen size -------------------------
+
+def _stub_model(monkeypatch):
+    """Serve every request with a weightless nearest-neighbour 4x model on CPU."""
+    import functools
+
+    import service.app as app_module
+    import service.video_pipeline as video_pipeline
+    from tests.test_upscaler import _NearestX4
+
+    manager = app_module._model_manager
+    monkeypatch.setattr(manager, "_model", _NearestX4())
+    monkeypatch.setattr(manager, "current_model_name", "stub-x4")
+    monkeypatch.setattr(manager, "current_scale", 4)
+    for name in ("_default_model", "_require_installed", "_ensure_model"):
+        monkeypatch.setattr(app_module, name, lambda *_a, **_k: "stub-x4")
+    monkeypatch.setattr(
+        torch.cuda, "is_available", functools.wraps(torch.cuda.is_available)(lambda: False)
+    )
+    # Software decode and encode: no NVDEC/NVENC probe touches a card.
+    monkeypatch.setattr(video_pipeline, "_check_nvdec_available", lambda: False)
+    pick = video_pipeline._pick_codecs_for_size
+    monkeypatch.setattr(
+        video_pipeline, "_pick_codecs_for_size",
+        lambda w, h, ten_bit, force_software=False: pick(w, h, ten_bit, force_software=True),
+    )
+    return app_module
+
+
+def _wait_for_job(client, job_id, timeout=120):
+    import time as _time
+
+    deadline = _time.time() + timeout
+    while _time.time() < deadline:
+        job = client.get(f"/jobs/{job_id}", headers=AUTH_HEADER).json()
+        if job["status"] in ("completed", "failed", "cancelled"):
+            return job
+        _time.sleep(0.2)
+    raise AssertionError(f"job {job_id} did not finish")
+
+
+def _clip(path, width, height, frames=3):
+    import subprocess
+
+    subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+         "-i", f"testsrc=size={width}x{height}:rate=10", "-frames:v", str(frames),
+         "-pix_fmt", "yuv420p", str(path)],
+        check=True,
+    )
+    return path
+
+
+@pytest.mark.parametrize("size, target, expected", [
+    ((48, 27), 320, (320, 180)),
+    ((27, 48), 320, (180, 320)),
+])
+def test_single_image_lands_on_the_target(client, monkeypatch, tmp_path, size, target, expected):
+    import cv2
+    import numpy as np
+
+    _stub_model(monkeypatch)
+    source = tmp_path / "in.png"
+    cv2.imwrite(str(source), np.random.randint(0, 255, (size[1], size[0], 3), np.uint8))
+
+    resp = client.post(
+        "/upscale/image",
+        json={"input_path": str(source), "output_path": str(tmp_path / "out.png"), "target_width": target},
+        headers=AUTH_HEADER,
+    )
+
+    assert resp.status_code == 200
+    out = cv2.imread(str(tmp_path / "out.png"))
+    assert (out.shape[1], out.shape[0]) == expected
+
+
+def test_image_batch_lands_on_the_target(client, monkeypatch, tmp_path):
+    import cv2
+    import numpy as np
+
+    _stub_model(monkeypatch)
+    inputs = []
+    for name, (w, h) in {"wide": (48, 27), "tall": (27, 48)}.items():
+        path = tmp_path / f"{name}.png"
+        cv2.imwrite(str(path), np.random.randint(0, 255, (h, w, 3), np.uint8))
+        inputs.append(str(path))
+
+    resp = client.post(
+        "/upscale/images",
+        json={"inputs": inputs, "output_dir": str(tmp_path / "out"), "target_width": 320},
+        headers=AUTH_HEADER,
+    )
+    assert resp.status_code == 202
+    assert resp.json()["target_width"] == 320
+    job = _wait_for_job(client, resp.json()["job_id"])
+
+    assert job["status"] == "completed", job.get("error")
+    sizes = {os.path.basename(p): cv2.imread(p).shape[:2] for p in job["outputs"]}
+    assert sizes == {"wide_upscaled.png": (180, 320), "tall_upscaled.png": (320, 180)}
+
+
+@pytest.mark.parametrize("size, expected", [((96, 54), (640, 360)), ((54, 96), (360, 640))])
+def test_video_lands_on_the_target(client, monkeypatch, tmp_path, size, expected):
+    from service.video_pipeline import get_video_info
+
+    _stub_model(monkeypatch)
+    source = _clip(tmp_path / "clip.mp4", *size)
+
+    resp = client.post(
+        "/upscale/video",
+        json={"input_path": str(source), "output_path": str(tmp_path / "out.mp4"), "target_width": 640},
+        headers=AUTH_HEADER,
+    )
+    assert resp.status_code == 202
+    job = _wait_for_job(client, resp.json()["job_id"])
+
+    assert job["status"] == "completed", job.get("error")
+    info = get_video_info(str(tmp_path / "out.mp4"))
+    assert (info["width"], info["height"]) == expected
+
+
+def test_video_without_a_target_keeps_the_models_scale(client, monkeypatch, tmp_path):
+    from service.video_pipeline import get_video_info
+
+    _stub_model(monkeypatch)
+    source = _clip(tmp_path / "clip.mp4", 96, 54)
+
+    resp = client.post(
+        "/upscale/video",
+        json={"input_path": str(source), "output_path": str(tmp_path / "out.mp4")},
+        headers=AUTH_HEADER,
+    )
+    job = _wait_for_job(client, resp.json()["job_id"])
+
+    assert job["status"] == "completed", job.get("error")
+    info = get_video_info(str(tmp_path / "out.mp4"))
+    assert (info["width"], info["height"]) == (384, 216)
+
+
+@pytest.mark.parametrize("target", [0, 15, 16385, "4k"])
+def test_an_impossible_target_is_refused(client, tmp_path, target):
+    resp = client.post(
+        "/upscale/image",
+        json={"input_path": str(tmp_path / "in.png"), "output_path": str(tmp_path / "o.png"),
+              "target_width": target},
+        headers=AUTH_HEADER,
+    )
+    assert resp.status_code == 422

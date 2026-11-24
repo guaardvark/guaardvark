@@ -5,7 +5,7 @@ Works with any spandrel-loaded model.
 """
 import logging
 import math
-from typing import Optional
+from typing import Optional, Tuple
 
 import cv2
 import numpy as np
@@ -114,6 +114,16 @@ def _tile_process(
     return output
 
 
+def fit_long_edge(width: int, height: int, long_edge: int) -> Tuple[int, int]:
+    """(width, height) scaled so the longer side is ``long_edge``, aspect kept.
+
+    A 4K target is 3840 on the long side: 1920x1080 -> 3840x2160 and a
+    portrait 1080x1920 -> 2160x3840.
+    """
+    factor = long_edge / max(width, height)
+    return max(1, round(width * factor)), max(1, round(height * factor))
+
+
 def _sharpen(img: np.ndarray, amount: float = 0.3, radius: int = 1) -> np.ndarray:
     """Apply a mild unsharp mask to restore micro-contrast after upscaling.
 
@@ -141,6 +151,7 @@ def upscale_image(
     denoise_strength: float = 0.0,
     two_pass: bool = False,
     face_enhance: bool = False,
+    target_size: Optional[Tuple[int, int]] = None,
 ) -> np.ndarray:
     """Upscale a single image (HWC uint8 numpy).
 
@@ -154,6 +165,8 @@ def upscale_image(
         device: torch device string.
         precision: "bf16", "fp16", or "fp32".
         sharpen: Post-upscale unsharp mask strength (0.0 to disable).
+        target_size: Exact output (width, height). The model runs at its
+                  native scale and LANCZOS4 resizes to this; overrides outscale.
 
     Returns:
         Upscaled image as HWC uint8 numpy array (BGR).
@@ -186,7 +199,11 @@ def upscale_image(
 
     output = _post_process(output_tensor)
 
-    if outscale is not None and abs(outscale - scale) > 0.01:
+    if target_size is not None:
+        target_w, target_h = int(target_size[0]), int(target_size[1])
+        if output.shape[1] != target_w or output.shape[0] != target_h:
+            output = cv2.resize(output, (target_w, target_h), interpolation=cv2.INTER_LANCZOS4)
+    elif outscale is not None and abs(outscale - scale) > 0.01:
         target_w = int(w_in * outscale)
         target_h = int(h_in * outscale)
         output = cv2.resize(output, (target_w, target_h), interpolation=cv2.INTER_LANCZOS4)

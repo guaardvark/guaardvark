@@ -36,6 +36,7 @@ class JobManager:
         double_fps: bool = False,
         kind: str = "video",
         item_count: int = 1,
+        target_width: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Register a PENDING job.
 
@@ -58,6 +59,7 @@ class JobManager:
             "two_pass": two_pass,
             "face_enhance": face_enhance,
             "double_fps": double_fps,
+            "target_width": target_width,
             "progress": 0.0,
             "fps": 0.0,
             "eta_seconds": None,
