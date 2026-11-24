@@ -579,9 +579,9 @@ class EmbeddingRouter:
             except Exception as e:
                 logger.warning(f"GPU Embedding plugin failed, using the indexer's own path: {e}")
         if vectors is None:
-            gate.texts_via_fallback += len(texts)
+            gate.count(len(texts), via_plugin=False)
             return None
-        gate.texts_via_plugin += len(texts)
+        gate.count(len(texts), via_plugin=True)
         self._note_path("gpu_embedding_plugin", len(texts))
         return vectors
 

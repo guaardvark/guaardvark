@@ -661,9 +661,8 @@ def get_default_embed_model():
 
     try:
         from backend.config import get_active_embedding_model, get_embedding_keep_alive
-        from llama_index.embeddings.ollama import OllamaEmbedding
-
         from backend.services.embedding_prompts import index_prompts
+        from backend.utils.index_embedding import IndexOllamaEmbedding
 
         model_name = get_active_embedding_model()
         # This client embeds every passage the index stores and every query that
@@ -674,7 +673,7 @@ def get_default_embed_model():
             f"(query prompt {query_prompt!r}, document prompt {document_prompt!r})"
         )
 
-        embed_model = OllamaEmbedding(
+        embed_model = IndexOllamaEmbedding(
             model_name=model_name,
             base_url=OLLAMA_BASE_URL,
             ollama_additional_kwargs={"mirostat": 0},

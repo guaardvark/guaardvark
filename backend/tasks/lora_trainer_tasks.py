@@ -345,6 +345,41 @@ def create_lora_trainer_tasks(celery_app: Celery):
     return {"train_lora": train_lora_task, "reap_stuck_training": reap_stuck_training_task}
 
 
+def _superseded_by(s: Subject, job_id: str | None) -> str | None:
+    """Why this run no longer owns the member's 'training' state, or None.
+
+    A cancel moves the status; a cancel followed by a new Train puts it back to
+    'training' under the new run's job id, which this run must not finish.
+    """
+    if s.training_status != "training":
+        return s.training_status
+    if job_id and s.current_training_job_id != job_id:
+        return f"training (job {s.current_training_job_id})"
+    return None
+
+
+def _promote_to_trained(subject_id: int, job_id: str | None = None) -> tuple[Subject | None, str | None]:
+    """Mark a finished run 'trained' once the post-train smoke render is over.
+
+    'trained' is what the Cast page, the job handoff and the night shift treat
+    as "the card is free for the next job", so it is committed only after the
+    smoke render has released the GPU, whether it passed, failed or raised.
+    Returns ``(subject, None)`` when promoted, or ``(None, reason)`` when a
+    cancel, a newer run or a delete took the row meanwhile.
+    """
+    # The smoke render commits on this session and may have left it failed.
+    db.session.rollback()
+    s = db.session.get(Subject, subject_id, populate_existing=True)
+    if s is None:
+        return None, "deleted"
+    moved_to = _superseded_by(s, job_id)
+    if moved_to:
+        return None, moved_to
+    s.training_status = "trained"
+    db.session.commit()
+    return s, None
+
+
 def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -> None:
     """Module-level entry point — directly callable from tests."""
     from backend.utils.unified_progress_system import get_unified_progress
@@ -397,16 +432,17 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
         return
 
     # Cancel or delete may have moved the row while the GPU work ran; only a
-    # Subject still marked 'training' may be promoted to 'trained'.
+    # Subject still in this run's 'training' may be promoted to 'trained'.
     db.session.refresh(s)
-    if s.training_status != "training":
+    moved_to = _superseded_by(s, job_id)
+    if moved_to:
         logger.warning(
             "lora train for %s finished but status is %r; result not recorded",
-            subject_id, s.training_status,
+            subject_id, moved_to,
         )
         if job_id:
             try:
-                get_unified_progress().error_process(job_id, f"training superseded (status={s.training_status})")
+                get_unified_progress().error_process(job_id, f"training superseded (status={moved_to})")
             except Exception:
                 pass
         return
@@ -434,7 +470,8 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
             logger.warning("lora train for %s: per-base LoRA record failed: %s", subject_id, e)
         s.lora_path = result["lora_path"]
         s.lora_version = result.get("lora_version", 1)
-        s.training_status = "trained"
+        # training_status stays 'training' until the smoke render below has
+        # released the card; see _promote_to_trained.
         s.training_error = None
         # When Z-Image is routed through ComfyUI, link the freshly-trained LoRA into
         # ComfyUI's models/loras so generation can resolve it by basename.
@@ -506,27 +543,53 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
         db.session.commit()
 
         smoke = None
-        if is_real_trained and s.lora_path:
-            from backend.services.lora_posttrain_smoke import run_lora_smoke_test
-            from backend.services.lora_training_settings import settings_for_subject
-            train_settings = settings_for_subject(s)
-            smoke = run_lora_smoke_test(
-                subject_id=subject_id,
-                lora_path=s.lora_path,
-                trigger_word=s.trigger_word or s.name,
-                resolution=train_settings.get("resolution", 768),
-                base_model_id=train_settings.get("base_model_id")
-                or (result.get("base_model_id") if isinstance(result, dict) else None),
-                ref_image_paths=list(used_images or [])[:8],
-                subject=s,
-            )
-            if smoke.get("ok"):
-                logger.info("lora smoke test passed for subject %s", subject_id)
-            else:
-                logger.warning(
-                    "lora smoke test did not pass for subject %s: %s",
-                    subject_id, smoke.get("error"),
+        try:
+            if is_real_trained and s.lora_path:
+                if job_id:
+                    try:
+                        get_unified_progress().update_process(
+                            job_id, 92, "Checking the new LoRA with a test render",
+                        )
+                    except Exception:
+                        pass
+                from backend.services.lora_posttrain_smoke import run_lora_smoke_test
+                from backend.services.lora_training_settings import settings_for_subject
+                train_settings = settings_for_subject(s)
+                smoke = run_lora_smoke_test(
+                    subject_id=subject_id,
+                    lora_path=s.lora_path,
+                    trigger_word=s.trigger_word or s.name,
+                    resolution=train_settings.get("resolution", 768),
+                    base_model_id=train_settings.get("base_model_id")
+                    or (result.get("base_model_id") if isinstance(result, dict) else None),
+                    ref_image_paths=list(used_images or [])[:8],
+                    subject=s,
                 )
+                if smoke.get("ok"):
+                    logger.info("lora smoke test passed for subject %s", subject_id)
+                else:
+                    logger.warning(
+                        "lora smoke test did not pass for subject %s: %s",
+                        subject_id, smoke.get("error"),
+                    )
+        except Exception as e:
+            # Includes Celery's SoftTimeLimitExceeded: the LoRA is saved either way.
+            logger.warning("lora smoke test for subject %s raised (non-fatal): %s", subject_id, e)
+            smoke = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        finally:
+            s, moved_to = _promote_to_trained(subject_id, job_id)
+
+        if s is None:
+            logger.warning(
+                "lora train for %s saved its LoRA but status is %r; not marked trained",
+                subject_id, moved_to,
+            )
+            if job_id:
+                try:
+                    get_unified_progress().error_process(job_id, f"training superseded (status={moved_to})")
+                except Exception:
+                    pass
+            return
 
         if job_id:
             try:
