@@ -27,12 +27,12 @@ def client_app(tmp_path, monkeypatch):
     with app.app_context():
         db.create_all()
         db.session.add(Setting(key="interconnector_config", value=json.dumps(
-            {"is_enabled": True, "node_mode": "client", "node_name": "alpaca"})))
-        for node_id in ("machine-a", "alpaca", "other-node"):
+            {"is_enabled": True, "node_mode": "client", "node_name": "node-b"})))
+        for node_id in ("machine-a", "node-b", "other-node"):
             db.session.add(InterconnectorNode(node_id=node_id, node_name=node_id, node_mode="client",
                                               host="127.0.0.1", port=5000))
         now = datetime.now()
-        for node_id, minutes_ago in (("machine-a", 1), ("machine-a", 5), ("alpaca", 60), ("other-node", 0)):
+        for node_id, minutes_ago in (("machine-a", 1), ("machine-a", 5), ("node-b", 60), ("other-node", 0)):
             db.session.add(InterconnectorSyncHistory(
                 node_id=node_id, sync_direction="pull", status="success",
                 sync_timestamp=now - timedelta(minutes=minutes_ago)))
@@ -46,7 +46,7 @@ def client_app(tmp_path, monkeypatch):
 
 def test_history_written_under_the_machine_id_is_shown(client_app):
     body = client_app.test_client().get("/api/interconnector/sync/history").get_json()["data"]
-    assert [row["node_id"] for row in body["history"]] == ["machine-a", "machine-a", "alpaca"]
+    assert [row["node_id"] for row in body["history"]] == ["machine-a", "machine-a", "node-b"]
     assert body["latest_sync"]["node_id"] == "machine-a"
     assert body["total_records"] == 3
 
