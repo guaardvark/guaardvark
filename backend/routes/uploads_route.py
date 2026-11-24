@@ -17,7 +17,10 @@ def get_upload(filename):
         safe_path = contained_path(uploads_dir, filename)
     except PathEscapesRoot:
         abort(403, description="Invalid file path.")
-    if os.path.isfile(safe_path):
+    if os.path.lexists(safe_path):
+        from backend.services.document_path_resolver import servable_file
+        if servable_file(safe_path, uploads_dir) is None:
+            abort(404, description="File not found.")
         rel_path = os.path.relpath(safe_path, uploads_dir)
         return send_from_directory(uploads_dir, rel_path)
 

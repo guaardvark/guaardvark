@@ -645,7 +645,6 @@ def upscale_document():
     document; a video is queued and its document appears when the job completes.
     """
     from flask import current_app
-    from backend.api.files_api import get_physical_path
     from backend.models import Document as DBDocument, db
 
     body = flask_request.get_json(silent=True) or {}
@@ -656,12 +655,9 @@ def upscale_document():
     document = db.session.get(DBDocument, doc_id)
     if document is None:
         return error_response("Document not found", 404)
-    try:
-        from backend.services.document_path_resolver import resolve_document_path
-        source = resolve_document_path(document) or get_physical_path(document.path)
-    except Exception:
-        return error_response("Document path is outside the library", 400)
-    if not source.is_file():
+    from backend.services.document_path_resolver import resolve_document_path
+    source = resolve_document_path(document)
+    if source is None:
         return error_response("File not found on disk", 404)
 
     ext = source.suffix.lower()

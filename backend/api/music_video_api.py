@@ -809,10 +809,11 @@ def get_mv_storyboard(mv_id, idx):
     mv = db.session.get(MusicVideo, mv_id)
     if not mv or not mv.clips:
         return jsonify({"error": "not found"}), 404
+    from backend.services.document_path_resolver import servable_file
     for c in (mv.clips or []):
         if int(c.get("index", -1)) == int(idx):
-            sp = c.get("storyboard_path")
-            if sp and os.path.exists(sp):
+            sp = servable_file(c["storyboard_path"]) if c.get("storyboard_path") else None
+            if sp is not None:
                 return send_file(sp, mimetype="image/png")
     return jsonify({"error": "storyboard not found for this cut"}), 404
 
@@ -824,10 +825,11 @@ def get_mv_clip(mv_id, idx):
     mv = db.session.get(MusicVideo, mv_id)
     if not mv or not mv.clips:
         return jsonify({"error": "not found"}), 404
+    from backend.services.document_path_resolver import servable_file
     for c in (mv.clips or []):
         if int(c.get("index", -1)) == int(idx):
-            cp = c.get("clip_path")
-            if cp and os.path.exists(cp):
+            cp = servable_file(c["clip_path"]) if c.get("clip_path") else None
+            if cp is not None:
                 return send_file(cp, mimetype="video/mp4", conditional=True)
     return jsonify({"error": "no rendered clip for this cut"}), 404
 

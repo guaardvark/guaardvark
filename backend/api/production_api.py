@@ -557,8 +557,8 @@ def regenerate_shot(prod_id, shot_id):
 
 @bp.get("/<int:prod_id>/storyboard/shot/<int:shot_id>/image")
 def storyboard_shot_image(prod_id, shot_id):
-    from backend.config import STORAGE_DIR
     from backend.models import ProductionShot
+    from backend.services.document_path_resolver import servable_file
 
     shot = db.session.get(ProductionShot, shot_id)
     if shot is None or shot.production_id != prod_id:
@@ -566,13 +566,7 @@ def storyboard_shot_image(prod_id, shot_id):
     if not shot.storyboard_image_path:
         return jsonify({"error": "shot has no storyboard image"}), 404
 
-    image_path = Path(shot.storyboard_image_path).resolve()
-    storage_root = Path(STORAGE_DIR).resolve()
-    try:
-        image_path.relative_to(storage_root)
-    except ValueError:
-        return jsonify({"error": "storyboard image is outside storage"}), 403
-
-    if not image_path.is_file():
+    image_path = servable_file(shot.storyboard_image_path)
+    if image_path is None:
         return jsonify({"error": "storyboard image file not found"}), 404
     return send_file(image_path)

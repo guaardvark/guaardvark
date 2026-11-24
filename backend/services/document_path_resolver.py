@@ -50,33 +50,32 @@ _GENERATOR_OUTPUT_BASES = [
 
 
 def _inside_install_outputs(path: Path) -> bool:
-    """True when ``path`` lies under this install's data folder or a known
-    generator output base, so a row's absolute path never reaches other files."""
-    root = _project_root()
-    bases = [root / b for b in ("data", *_GENERATOR_OUTPUT_BASES)]
+    """True when ``path``, symlinks followed, is a file in one of :func:`output_dirs`."""
+    return _real_file_in(path, output_dirs()) is not None
+
+
+def _real_file_in(path, roots: list[Path]) -> Optional[Path]:
+    """The real location of ``path`` when it is a file inside one of ``roots``."""
+    from backend.utils.path_guard import PathEscapesRoot, contained_path
     try:
-        from backend.config import OUTPUT_DIR, STORAGE_DIR
-        bases += [Path(STORAGE_DIR), Path(OUTPUT_DIR)]
-    except Exception:  # noqa: BLE001 — the repo-relative bases still apply
-        pass
-    try:
-        real = path.resolve()
+        real = os.path.realpath(path)
+        if not os.path.isfile(real):
+            return None
     except (OSError, ValueError):
-        return False
-    for base in bases:
+        return None
+    for root in roots:
         try:
-            real.relative_to(base.resolve())
-            return True
-        except (OSError, ValueError):
+            return Path(contained_path(root, real))
+        except PathEscapesRoot:
             continue
-    return False
+    return None
 
 
 def _candidates_for_doc(doc) -> list[Path]:
     """Build an ordered list of paths to try for `doc`.
 
     Order:
-    1. Absolute Document.path, when it is inside this install's folders.
+    1. Absolute Document.path, when it is inside an output folder.
     2. UPLOAD_BASE + Document.path (the canonical join).
     3. project-root + Document.path (relative to repo root).
     4. Each known generator output base + basename(path).
@@ -91,7 +90,7 @@ def _candidates_for_doc(doc) -> list[Path]:
         return candidates
 
     # 1. Absolute path stored as-is (the Film Crew registers its outputs this
-    #    way), only inside this install's own data and generator folders.
+    #    way), only when it is in an output folder.
     if stored.startswith("/") and _inside_install_outputs(Path(stored)):
         candidates.append(Path(stored))
 
@@ -144,22 +143,8 @@ def _uploads_root() -> Optional[Path]:
 
 
 def _servable(candidate: Path) -> bool:
-    """True when a candidate lies in the uploads folder or in this install's
-    data and generator folders. Document.path is joined onto the install root
-    and the generator bases as it is stored, so a row holding ``..`` segments
-    or naming a file at the root (``.env``) must not resolve."""
-    uploads = _uploads_root()
-    if uploads is not None:
-        try:
-            from backend.utils.path_guard import PathEscapesRoot, contained_path
-            try:
-                contained_path(str(uploads), candidate)
-                return True
-            except PathEscapesRoot:
-                pass
-        except ImportError:
-            pass
-    return _inside_install_outputs(candidate)
+    """True when :func:`servable_file` accepts ``candidate``."""
+    return servable_file(candidate) is not None
 
 
 def file_outside_uploads(doc) -> Optional[Path]:
@@ -169,24 +154,27 @@ def file_outside_uploads(doc) -> Optional[Path]:
     Only the row's stored path is followed: absolute, or relative to the
     install root. The name-based guesses resolve_document_path also tries can
     land on another document's file of the same name, which is fine for
-    serving a best effort and wrong for moving or deleting.
+    serving a best effort and wrong for moving or deleting. The path returned
+    is the stored one, not its link target, so deleting it removes only the
+    row's own entry; its real location must still be in an output folder.
     """
     stored = (getattr(doc, "path", None) or "").strip()
     if not stored:
         return None
-    candidate = Path(stored) if stored.startswith("/") else _project_root() / stored
+    candidate = Path(os.path.abspath(stored if stored.startswith("/") else _project_root() / stored))
+    uploads = _uploads_root()
     try:
-        if not candidate.is_file() or not _inside_install_outputs(candidate):
-            return None
         from backend.utils.path_guard import PathEscapesRoot, contained_path
-        uploads = _uploads_root()
         if uploads is None:
             return None
         try:
             contained_path(str(uploads), candidate)
             return None  # inside uploads: the ordinary join handles it
         except PathEscapesRoot:
-            return candidate.resolve()
+            pass
+        if not _inside_install_outputs(candidate):
+            return None
+        return candidate
     except (OSError, ValueError, ImportError):
         return None
 
@@ -234,16 +222,48 @@ def resolved_files(doc) -> list[Path]:
 
 
 def output_dirs() -> list[Path]:
-    """Folders generators write to outside the uploads folder (OUTPUT_DIR and
-    the known generator output bases), symlinks resolved."""
+    """Folders generators write to outside the uploads folder (OUTPUT_DIR, the
+    Film Crew's ``<STORAGE_DIR>/outputs`` and the known generator output
+    bases), symlinks resolved."""
     root = _project_root()
     dirs = [root / base for base in _GENERATOR_OUTPUT_BASES]
     try:
-        from backend.config import OUTPUT_DIR
-        dirs.insert(0, Path(OUTPUT_DIR))
+        from backend.config import OUTPUT_DIR, STORAGE_DIR
+        dirs[:0] = [Path(OUTPUT_DIR), Path(STORAGE_DIR) / "outputs"]
     except Exception:  # noqa: BLE001 — the repo-relative bases still apply
         pass
-    return [Path(os.path.realpath(d)) for d in dirs]
+    return _without_install_folders(Path(os.path.realpath(d)) for d in dirs)
+
+
+def _without_install_folders(dirs) -> list[Path]:
+    """``dirs`` without any folder that is, or contains, the install or its
+    data folder: an output folder linked there would expose keys."""
+    held = [_project_root(), _project_root() / "data"]
+    try:
+        from backend.config import STORAGE_DIR
+        held.append(Path(STORAGE_DIR))
+    except Exception:  # noqa: BLE001 — the install root still applies
+        pass
+    held = [Path(os.path.realpath(h)) for h in held]
+    return [d for d in dirs if not any(h == d or d in h.parents for h in held)]
+
+
+def serve_roots() -> list[Path]:
+    """Folders a stored file may be served from: the uploads folder and
+    :func:`output_dirs`, symlinks resolved. The rest of the data folder holds
+    keys and internal state."""
+    uploads = _uploads_root()
+    roots = [Path(os.path.realpath(uploads))] if uploads is not None else []
+    return _without_install_folders(roots) + output_dirs()
+
+
+def servable_file(path, *also: str) -> Optional[Path]:
+    """The real location of ``path`` (symlinks and ``..`` resolved) when it is a
+    file inside :func:`serve_roots` or one of the folders ``also``, else None.
+    Checked when a file is served, so a link swapped in after a row was made
+    cannot reach other files."""
+    extra = _without_install_folders(Path(os.path.realpath(d)) for d in also)
+    return _real_file_in(path, extra + serve_roots())
 
 
 def resolve_by_id(doc_id) -> Optional[Path]:

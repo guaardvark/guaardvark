@@ -238,22 +238,12 @@ def output_location_problem(physical_path) -> Optional[str]:
     """Why ``physical_path`` may not be registered from where it lies, or None.
 
     A file outside the uploads folder is registered by its real location, so
-    that location, symlinks followed, must be in an output folder: the rest of
-    the data folder holds keys and internal state, not outputs.
+    it must be one the download route will serve: symlinks followed, inside the
+    uploads or an output folder (``document_path_resolver.servable_file``).
     """
-    from backend.services.document_path_resolver import output_dirs
-    try:
-        contained(UPLOAD_DIR, physical_path)
+    from backend.services.document_path_resolver import servable_file
+    if servable_file(physical_path) is not None:
         return None
-    except PathEscapesRoot:
-        pass
-    real = Path(os.path.realpath(physical_path))
-    for base in output_dirs():
-        try:
-            real.relative_to(base)
-            return None
-        except ValueError:
-            continue
     return "files outside the uploads folder are registered only from an output folder"
 
 
