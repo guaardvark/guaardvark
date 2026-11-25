@@ -83,6 +83,9 @@
     "planPath": "Plan file path",
     "planPathPlaceholder": "path/to/plan.md or select a template above",
     "planPathHelp": "Relative to GUAARDVARK_ROOT or absolute path",
+    "repoPath": "Repository (optional)",
+    "repoPathPlaceholder": "~/projects/my-repo",
+    "repoPathHelp": "Leave empty to work on this install's own code. Otherwise the full path of a git repository; ~ is your home folder.",
     "maxAgents": "Max concurrent agents",
     "autoMerge": "Auto-merge",
     "flightModeInfo": "Flight Mode: offline backends only (Ollama). Conflicts will be auto-serialized.",
@@ -123,6 +126,7 @@
   "card": {
     "progress": "{{done}}/{{total}} tasks",
     "waitingOn": "Waiting: {{reason}}",
+    "repository": "Repository this swarm works on",
     "free": "Free",
     "activeAgents": "{{count}} active",
     "diskUsage": "{{size}} MB",

@@ -549,7 +549,13 @@ def merge_swarm(req: MergeRequest):
 @app.post("/swarm/cleanup")
 def cleanup_swarm(req: CleanupRequest):
     """Remove worktrees and branches for a swarm."""
-    repo_path = Path(req.repo_path) if req.repo_path else _get_default_repo()
+    # A swarm launched on another repository has its worktrees there.
+    with _lock:
+        tracked = _active_orchestrators.get(req.swarm_id) if req.swarm_id else None
+    if req.repo_path:
+        repo_path = Path(req.repo_path)
+    else:
+        repo_path = tracked.repo_path if tracked else _get_default_repo()
     if not repo_path:
         raise HTTPException(400, "No repo path available")
 
@@ -747,20 +753,19 @@ def check_connectivity():
 @app.get("/swarm/history")
 def swarm_history(limit: int = 20):
     """List past swarm runs from saved results on disk."""
-    repo_path = _get_default_repo()
-    if not repo_path:
-        return {"success": True, "swarms": [], "count": 0}
-
+    # The default repository, and any other repository a tracked swarm ran on.
+    repos = [_get_default_repo()]
+    with _lock:
+        repos += [o.repo_path for o in _active_orchestrators.values()]
     worktree_base = _config.worktree_base if _config else ".swarm-worktrees"
-    swarm_base = repo_path / worktree_base
-
-    if not swarm_base.exists():
-        return {"success": True, "swarms": [], "count": 0}
+    swarm_dirs = []
+    for repo_path in dict.fromkeys(r for r in repos if r):
+        swarm_base = repo_path / worktree_base
+        if swarm_base.exists():
+            swarm_dirs += [d for d in swarm_base.iterdir() if d.is_dir()]
 
     swarms = []
-    for d in sorted(swarm_base.iterdir(), key=lambda x: x.name, reverse=True):
-        if not d.is_dir():
-            continue
+    for d in sorted(swarm_dirs, key=lambda x: x.name, reverse=True):
         result_file = d / "result.json"
         if result_file.exists():
             with open(result_file) as f:

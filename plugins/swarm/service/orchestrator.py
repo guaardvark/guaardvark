@@ -407,6 +407,7 @@ class SwarmOrchestrator:
         if not self.result:
             return {
                 "swarm_id": self.swarm_id,
+                "repo_path": str(self.repo_path),
                 "status": "failed" if getattr(self, "_error", None) else "not_started",
                 "error": getattr(self, "_error", None),
                 "tasks": [],
@@ -424,6 +425,7 @@ class SwarmOrchestrator:
 
         return {
             "swarm_id": self.swarm_id,
+            "repo_path": str(self.repo_path),
             "status": self._overall_status(),
             "error": getattr(self, "_error", None),
             # Why no new agent is being started right now, when that is so.
