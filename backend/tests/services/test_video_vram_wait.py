@@ -217,7 +217,7 @@ def test_run_batch_retries_resident_vram_then_succeeds(monkeypatch):
     monkeypatch.setenv("GUAARDVARK_VIDEO_VRAM_WAIT_S", "120")
     monkeypatch.setattr(
         "backend.services.video_model_registry.vram_mb_for_model",
-        lambda m: 11000,
+        lambda m, **_: 11000,
     )
     monkeypatch.setattr(
         grp, "vram_probe_snapshot", lambda **k: {"free_mb": 3000, "success": True}
@@ -261,7 +261,7 @@ def test_run_batch_capacity_overflow_no_retry(monkeypatch):
     monkeypatch.setattr(grp, "gpu_session", fake_session)
     monkeypatch.setattr(grp, "vram_probe_snapshot", lambda **k: {"free_mb": 16000, "success": True})
     monkeypatch.setattr(
-        "backend.services.video_model_registry.vram_mb_for_model", lambda m: 20000
+        "backend.services.video_model_registry.vram_mb_for_model", lambda m, **_: 20000
     )
     monkeypatch.setattr("time.sleep", lambda s: None)
 
@@ -300,7 +300,7 @@ def test_run_batch_busy_until_deadline_fails_without_evicting(monkeypatch):
     monkeypatch.setattr(grp, "free_comfyui_vram", lambda **k: reclaims.append("comfy"))
     monkeypatch.setattr(grp, "vram_probe_snapshot", lambda **k: {"free_mb": 2000, "success": True})
     monkeypatch.setattr(
-        "backend.services.video_model_registry.vram_mb_for_model", lambda m: 11000
+        "backend.services.video_model_registry.vram_mb_for_model", lambda m, **_: 11000
     )
     monkeypatch.setenv("GUAARDVARK_VIDEO_VRAM_WAIT_S", "60")
 
@@ -351,7 +351,7 @@ def test_run_batch_cancel_during_vram_wait(monkeypatch):
     monkeypatch.setattr(grp, "gpu_session", fake_session)
     monkeypatch.setattr(grp, "vram_probe_snapshot", lambda **k: {"free_mb": 2000, "success": True})
     monkeypatch.setattr(
-        "backend.services.video_model_registry.vram_mb_for_model", lambda m: 11000
+        "backend.services.video_model_registry.vram_mb_for_model", lambda m, **_: 11000
     )
     monkeypatch.setenv("GUAARDVARK_VIDEO_VRAM_WAIT_S", "120")
     monkeypatch.setattr("time.sleep", lambda s: None)

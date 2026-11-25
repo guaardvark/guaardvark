@@ -396,10 +396,11 @@ def test_swarm_freeze_guard_blocks_on_swap(monkeypatch):
         available = int(40.0 * (1024 ** 3))
 
     class _SWhigh:
-        used = int(2.0 * (1024 ** 3))
+        used = int(orch.SPAWN_MAX_SWAP_USED_GB * 1.5 * (1024 ** 3))
 
     monkeypatch.setattr(orch.psutil, "virtual_memory", lambda: _VMok())
     monkeypatch.setattr(orch.psutil, "swap_memory", lambda: _SWhigh())
+    monkeypatch.delenv("GUAARDVARK_SWAP_HARD_MAX_GB", raising=False)
     reason = orch._spawn_freeze_guard_block_reason()
     assert reason is not None and "swap" in reason
 
