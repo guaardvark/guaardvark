@@ -17,6 +17,19 @@ const keepIfUnchanged = (prev, next) =>
   JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
 
 /**
+ * The batch a page with nothing selected should show: the one rendering now,
+ * else the most recently started one that is still waiting or running.
+ * Takes the rows of GET /batch-video/queue; null when none is active.
+ */
+export const pickBatchToAttach = (rows) => {
+  const active = (rows || []).filter((r) => r?.batch_id && ACTIVE_STATUSES.has(r.status));
+  if (active.length === 0) return null;
+  const rendering = active.find((r) => r.is_running);
+  if (rendering) return rendering.batch_id;
+  return active.reduce((a, b) => ((b.start_time || "") > (a.start_time || "") ? b : a)).batch_id;
+};
+
+/**
  * Batch video queue state, WebSocket progress, and batch lifecycle handlers.
  * HTTP status polling runs while a batch is active so progress survives WS drops.
  */
@@ -157,6 +170,13 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
         fetchBatches();
       }
     });
+    // Rooms do not survive a reconnect, and a batch can be selected before
+    // the first connect, so the room is joined again on every connect.
+    socketRef.current.on("connect", () => {
+      if (activeBatchIdRef.current) {
+        socketRef.current.emit("subscribe", { job_id: activeBatchIdRef.current });
+      }
+    });
     return () => {
       socketRef.current?.disconnect();
     };
@@ -172,6 +192,17 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
       if (queuePollingRef.current) clearInterval(queuePollingRef.current);
     };
   }, [fetchBatches, fetchQueue, stopPolling]);
+
+  // A batch started before this page was opened (or from chat, or a schedule)
+  // is followed without a click. A batch that is already selected is never
+  // replaced.
+  useEffect(() => {
+    if (activeBatchId) return;
+    const batchId = pickBatchToAttach(queue);
+    if (!batchId) return;
+    setActiveBatchId(batchId);
+    startPollingStatus(batchId);
+  }, [queue, activeBatchId, startPollingStatus]);
 
   const handleDownloadBatch = useCallback(async (batchId) => {
     window.open(`${API_BASE}/batch-video/download/${batchId}`, "_blank");
