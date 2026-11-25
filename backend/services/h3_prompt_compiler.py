@@ -676,10 +676,15 @@ def enhance_for_family(prompt: str, *, style: str = "cinematic", width: int = 0,
 
 def intent_from_dict(data: dict) -> H3Intent:
     """Rebuild an intent from its JSON form (the request field h3_intent)."""
+    language = normalize_language(data.get("language"))
+    # A line that names no language of its own is spoken in the intent's.
     shots = [
         H3Shot(description=s.get("description", ""), duration_s=float(s.get("duration_s") or 0),
                camera=s.get("camera"), transition=s.get("transition") or "the camera cuts to",
-               dialogue=[H3Dialogue(**{k: v for k, v in d.items() if k in ("speaker", "text", "lang", "intro", "voiceover")})
+               dialogue=[H3Dialogue(**{"lang": language,
+                                       **{k: v for k, v in d.items()
+                                          if k in ("speaker", "text", "lang", "intro", "voiceover")
+                                          and not (k == "lang" and not v)}})
                          for d in s.get("dialogue", []) if d.get("text")])
         for s in data.get("shots", [])
     ]
@@ -694,7 +699,7 @@ def intent_from_dict(data: dict) -> H3Intent:
         shots=shots, subjects=subjects, audio_refs=audio_refs, picture_frames=list(data.get("picture_frames", [])),
         task_types=list(data.get("task_types", [])), soundscape=data.get("soundscape", ""),
         music=data.get("music", "N/A"), summary=data.get("summary", ""),
-        language=normalize_language(data.get("language")),
+        language=language,
     )
 
 

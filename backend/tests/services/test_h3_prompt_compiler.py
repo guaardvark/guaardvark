@@ -27,9 +27,10 @@ def test_keyframe_modes_carry_their_alignment_instruction():
     assert i2v.startswith("For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\n")
     fl = c.compile(c.intent_from_plain_prompt("she opens the umbrella", 8, mode="fl2va"))[0]
     assert "Picture 1 (from Shot 1) aligns with the 0.00-second mark" in fl
-    assert "Picture 2 (from Shot 1) aligns with the 8.04-second mark" in fl
+    # 8 s is 192 frames, already on the 17k+5 grid; 6 s (144) snaps up to 158.
+    assert "Picture 2 (from Shot 1) aligns with the 8.00-second mark" in fl
     l2v = c.compile(c.intent_from_plain_prompt("the glass breaks", 6, mode="l2va"))[0]
-    assert "<Picture 1> (from [Shot 1]) aligns with the 6.04-second mark" in l2v
+    assert "<Picture 1> (from [Shot 1]) aligns with the 6.58-second mark" in l2v
 
 
 def test_shots_get_cut_times_that_fit_the_clip_and_stable_speaker_ids():
@@ -48,8 +49,8 @@ def test_shots_get_cut_times_that_fit_the_clip_and_stable_speaker_ids():
     )
     prompt, diag = c.compile(intent)
     assert diag["seconds"] == 10.12
-    # 6 + 4 scaled to 10.12: the second shot starts at 6.07 s.
-    assert "[Shot 2] At 00:06.072, the camera cuts to a man across the table looks up." in prompt
+    # 6 + 4 scaled to 10.12, in hundredths: the second shot starts at 6.07 s.
+    assert "[Shot 2] At 00:06.070, the camera cuts to a man across the table looks up." in prompt
     assert "the woman, with a quiet, breathy voice, (S1) says: <d>[English] I get off at the next station.</d>" in prompt
     assert "the man (S2) says: <d>[English] Then I'll wait.</d>" in prompt
     assert "(S1) says in an off-screen voiceover: <d>[English] Don't.</d> while their lips remain completely closed." in prompt
@@ -126,7 +127,7 @@ def test_enhancer_hook_uses_a_structured_intent_when_given():
 def test_intent_from_cut_anchors_the_song():
     intent = c.intent_from_cut({"start_s": 12.0, "end_s": 20.0}, "the singer walks toward the camera", song_audio_index=1)
     prompt, diag = c.compile(intent)
-    assert diag["seconds"] == 8.04 and intent.mode == "i2va"
+    assert diag["seconds"] == 8.0 and diag["frames"] == 192 and intent.mode == "i2va"
     assert "lands on the beats of <Audio 1>" in prompt
     assert "non_diegetic_music: <Audio 1> is reused as the complete audience-only score." in prompt
 
@@ -141,7 +142,7 @@ def test_director_result_dialogue_becomes_tagged_lines():
     prompt, diag = c.compile(c.intent_from_director(result, 5, style="cinematic"))
     assert diag["shots"] == 2
     assert "the baker, with a raspy voice, (S1) says: <d>[English] First batch.</d>" in prompt
-    assert "[Shot 2] At 00:03.102, the camera cuts to steam over sliced bread." in prompt
+    assert "[Shot 2] At 00:03.100, the camera cuts to steam over sliced bread." in prompt
 
 
 def test_polish_failure_keeps_the_deterministic_prompt(monkeypatch):
