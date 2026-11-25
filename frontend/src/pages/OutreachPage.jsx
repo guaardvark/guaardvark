@@ -47,6 +47,9 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import * as outreachApi from "../api/outreachService";
+import TypingRhythmCard from "../components/outreach/TypingRhythmCard";
+import InfographicKeepersCard from "../components/outreach/InfographicKeepersCard";
+import OutreachDraftImage from "../components/outreach/OutreachDraftImage";
 import { CardWorkspace } from "../components/board";
 import ChoiceChips from "../components/settings/ui/ChoiceChips";
 import { AtTimeDialog } from "../components/jobs/ScheduleButton";
@@ -1102,6 +1105,14 @@ const OutreachPage = () => {
                               sx={{ height: 18, fontSize: "0.65rem" }}
                             />
                           )}
+                          {row.image_url && (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={t("outreach.draftImage.chip")}
+                              sx={{ height: 18, fontSize: "0.65rem" }}
+                            />
+                          )}
                         </Stack>
                       }
                       secondary={
@@ -1138,6 +1149,7 @@ const OutreachPage = () => {
                     {t("outreach.source.threadId", { id: selected.target_thread_id })}
                   </Typography>
                 )}
+                <OutreachDraftImage draft={selected} />
                 {selected.abort_reason && (
                   <Alert severity="warning" sx={{ py: 0.5 }}>{selected.abort_reason}</Alert>
                 )}
@@ -1421,9 +1433,29 @@ const OutreachPage = () => {
             ),
           },
           {
+            id: "typing",
+            title: t("outreach.typing.title"),
+            layout: { x: 0, y: 96, w: 85, h: 30 },
+            body: (
+              <Box sx={{ p: 0.5, "& > .MuiPaper-root": { mt: 0, boxShadow: "none", backgroundColor: "transparent", backgroundImage: "none" } }}>
+                <TypingRhythmCard />
+              </Box>
+            ),
+          },
+          {
+            id: "infographics",
+            title: t("outreach.infographics.title"),
+            layout: { x: 85, y: 96, w: 90, h: 30 },
+            body: (
+              <Box sx={{ p: 0.5, "& > .MuiPaper-root": { mt: 0, boxShadow: "none", backgroundColor: "transparent", backgroundImage: "none" } }}>
+                <InfographicKeepersCard />
+              </Box>
+            ),
+          },
+          {
             id: "history",
             title: t("outreach.history.title"),
-            layout: { x: 0, y: 96, w: 175, h: 40 },
+            layout: { x: 0, y: 126, w: 175, h: 40 },
             body: (
               <Box sx={{ p: 1.5 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1.5 }}>

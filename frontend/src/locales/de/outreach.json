@@ -257,5 +257,16 @@
     "cancel": "Abbrechen",
     "disable": "Deaktivieren",
     "enable": "Aktivieren"
+  },
+  "typing": {
+    "title": "Tipprhythmus",
+    "explain": "Beiträge, die über den beobachteten Browser laufen, werden Taste für Taste eingegeben. Tippe hier ein paar Sätze ganz normal ein und sie werden in deinem Rhythmus übertragen. Es wird nur die Zeit zwischen den Tasten gespeichert, nicht das, was du tippst.",
+    "recorded": "Dein Rhythmus wird verwendet: gelernt aus {{keys}} Tasten, ca. {{ms}} ms zwischen den Buchstaben.",
+    "notRecorded": "Der Standard-Rhythmus wird verwendet (ca. {{ms}} ms zwischen den Buchstaben). Dies ist ein Schätzwert, kein echter Tipprhythmus.",
+    "boxLabel": "Hier tippen",
+    "placeholder": "Schreibe alles auf: was du heute gemacht hast, eine Antwort auf einen Post oder ein paar Sätze über dein Projekt.",
+    "save": "Meinen Rhythmus lernen",
+    "clear": "Vergessen",
+    "progress": "{{count}} von {{needed}} Tasten"
   }
 }

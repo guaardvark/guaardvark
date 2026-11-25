@@ -376,7 +376,7 @@
     "logs": "Tail a Guaardvark log (optional filename and grep)",
     "sysmap": "Report the System Mapper's findings, or ask it about the code: /sysmap where the seed box is, /sysmap module backend/app.py, /sysmap impact backend/services/agent_tools.py",
     "swarm": "Swarm orchestrator status (plugin must be running)",
-    "outreach": "Outreach status, short verbs, or natural-language scout/draft (e.g. YouTube topics)",
+    "outreach": "Outreach in plain words: reply to posts on Reddit or YouTube, answer comments on your videos, paste a link, or ask for status",
     "plan": "Plan mode: look into it first, act only on a plan you approve",
     "orchestrate": "Split a request across several agents",
     "training": "Run the agent in training mode — full 1000-iteration loop, bypasses chat LLM decomposition",

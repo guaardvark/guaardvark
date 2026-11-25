@@ -266,6 +266,7 @@ REASONS = (
     "parse_fail",        # the reply held no usable answer
     "error",             # the call failed, or something failed inside decide()
     "third_party_unlock",  # the answer would unlock, and some of the state is third-party text
+    "shadow_skipped",    # a shadow question not asked: chat stayed busy for SHADOW_WAIT_S
 )
 
 # With the decision on, these mean no model answer could be used. A layer
@@ -558,6 +559,10 @@ def decide(
         result, asked = _decide_live(entry, decision, state, fallback, mode, timeout_s, ctx, run, authors, started)
         if memo is not None:
             memo[key] = result
+        if result.reason == "shadow":
+            # Asked later, off the person's wait; recorded when it is asked.
+            _queue_shadow(entry, decision, state, fallback, timeout_s, ctx, run, authors, sha, chars)
+            return result
         _record({
             "ts": time.time(), "decision": decision, "layer": entry["layer"], "mode": mode, "run": run,
             "backend": "chat", "model": result.model, "digest": result.digest,
@@ -576,6 +581,120 @@ def decide(
         return DecisionResult(decision, fallback, "fallback", "error", latency_ms=_ms(started))
 
 
+def _live_model(ctx: Optional[Mapping[str, Any]], authors: Optional[tuple]):
+    """(problem, model, digest, num_ctx) for asking now: problem is None when
+    the GPU is free, the turn's chat model is loaded on it and staying loaded,
+    and that model did not write what is judged; else the reason it may not."""
+    from backend.services.decision_evidence import check_counts_as_independent
+    from backend.utils.ollama_resource_manager import _short_digest
+
+    try:
+        busy = gpu_busy()
+    except Exception as e:  # noqa: BLE001 - an unreadable GPU state counts as busy
+        busy = f"the GPU state could not be read: {e}"
+    if busy:
+        return "gpu_busy", None, None, None
+    model = _chat_model(ctx)
+    resident = _resident(model) if model else None
+    if not resident:
+        return "not_resident", model, None, None
+    digest = _short_digest(resident.get("digest")) or None
+    if authors:
+        if model in authors or check_counts_as_independent("model", judge=model, authors=authors) is not True:
+            return "author_is_judge", model, digest, None
+    num_ctx = resident.get("context_length")
+    return None, model, digest, (int(num_ctx) if isinstance(num_ctx, int) and num_ctx > 0 else None)
+
+
+# Shadow questions are asked after the person has the reply: a caller that
+# keeps a list under ctx[SHADOW_KEY] (the chat engine does, for its turn)
+# collects them there and hands them over with run_shadow() when the turn
+# ends; any other shadow question goes to the worker at once. One worker asks
+# them one at a time, at the measured settings, with the same checks as on
+# (GPU free, the turn's model loaded, not the author) except the floor:
+# collecting evidence below the floor is what shadow is for.
+SHADOW_KEY = "_decide_shadow"
+_shadow_pool = None
+_shadow_pool_lock = threading.Lock()
+# Nobody waits on a shadow answer, so it gets longer than a person would, and
+# it waits for the model to be free: with OLLAMA_NUM_PARALLEL=1 a question sent
+# while a chat reply streams queues behind it, and one sent between a turn's
+# model calls delays the next. ``busy_check`` is set by the chat
+# (chat_decisions): True while a chat turn is running.
+SHADOW_TIMEOUT_S = 30.0
+SHADOW_WAIT_S = 120.0
+busy_check: Optional[Callable[[], bool]] = None
+
+
+def _wait_until_idle() -> bool:
+    """False when chat stayed busy for SHADOW_WAIT_S."""
+    check = busy_check
+    deadline = time.monotonic() + SHADOW_WAIT_S
+    while check is not None and check():
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(0.5)
+    return True
+
+
+def _submit_shadow(job: Callable[[], None]) -> None:
+    """Start one shadow question on the shadow worker (tests replace this)."""
+    global _shadow_pool
+    with _shadow_pool_lock:
+        if _shadow_pool is None:
+            from concurrent.futures import ThreadPoolExecutor
+            _shadow_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="decide-shadow")
+        pool = _shadow_pool
+    pool.submit(job)
+
+
+def _queue_shadow(entry, decision, state, fallback, timeout_s, ctx, run, authors, sha, chars) -> None:
+    turn = {"model": ctx.get("model")} if isinstance(ctx, Mapping) and ctx.get("model") else None
+    request_id = ctx.get("request_id") if isinstance(ctx, Mapping) else None
+    state = dict(state)
+
+    def job():
+        started = time.perf_counter()
+        asked, model, digest = None, None, None
+        try:
+            reason = None if _wait_until_idle() else "shadow_skipped"
+            if not reason:
+                reason, model, digest, num_ctx = _live_model(turn, authors)
+            if not reason:
+                asked = ask_question(entry, state, model=model,
+                                     timeout_s=max(float(timeout_s), SHADOW_TIMEOUT_S), num_ctx=num_ctx)
+                reason = "shadow" if asked.reason == "ok" else asked.reason
+        except Exception as e:  # noqa: BLE001 - a shadow question never reaches the turn
+            logger.warning("decide(%s) shadow question failed: %s", decision, e)
+            reason = "error"
+        _record({
+            "ts": time.time(), "decision": decision, "layer": entry["layer"], "mode": "shadow", "run": run,
+            "backend": "chat", "model": model, "digest": digest,
+            "state_sha256": sha, "state_chars": chars,
+            "llm_answer": asked.answer if asked and asked.reason == "ok" else None,
+            "llm_confidence": asked.confidence if asked else None,
+            "fallback_answer": fallback, "used_answer": fallback, "source": "fallback",
+            "reason": reason, "latency_ms": _ms(started), "request_id": request_id,
+        }, state)
+
+    pending = ctx.get(SHADOW_KEY) if isinstance(ctx, dict) else None
+    if isinstance(pending, list):
+        pending.append(job)
+    else:
+        _submit_shadow(job)
+
+
+def run_shadow(ctx: Any) -> int:
+    """Hand the shadow questions collected in ``ctx`` to the shadow worker;
+    returns how many. Call once the reply is out."""
+    jobs = ctx.pop(SHADOW_KEY, None) if isinstance(ctx, dict) else None
+    if not jobs:
+        return 0
+    for job in jobs:
+        _submit_shadow(job)
+    return len(jobs)
+
+
 def _fails_closed(entry: Mapping[str, Any]) -> bool:
     from backend.services.decision_data import BACKEND_POLICY
 
@@ -585,8 +704,7 @@ def _fails_closed(entry: Mapping[str, Any]) -> bool:
 def _decide_live(entry, decision, state, fallback, mode, timeout_s, ctx, run, authors, started):
     """(result, what the model said) for a decision in shadow or on; see decide()."""
     from backend.services.decision_data import BACKEND_POLICY, RUN_KINDS
-    from backend.services.decision_evidence import check_counts_as_independent, qualifies
-    from backend.utils.ollama_resource_manager import _short_digest
+    from backend.services.decision_evidence import qualifies
 
     policy = BACKEND_POLICY[entry["layer"]]
     asked: Optional[Asked] = None
@@ -611,26 +729,13 @@ def _decide_live(entry, decision, state, fallback, mode, timeout_s, ctx, run, au
     if mode != "on":
         return refuse("shadow")
 
-    try:
-        busy = gpu_busy()
-    except Exception as e:  # noqa: BLE001 - an unreadable GPU state counts as busy
-        busy = f"the GPU state could not be read: {e}"
-    if busy:
-        return refuse("gpu_busy")
-    model = _chat_model(ctx)
-    resident = _resident(model) if model else None
-    if not resident:
-        return refuse("not_resident", model)
-    digest = _short_digest(resident.get("digest")) or None
-    if authors:
-        if model in authors or check_counts_as_independent("model", judge=model, authors=authors) is not True:
-            return refuse("author_is_judge", model, digest)
+    problem, model, digest, num_ctx = _live_model(ctx, authors)
+    if problem:
+        return refuse(problem, model, digest)
     if not qualifies(decision, digest):
         return refuse("below_floor", model, digest)
 
-    num_ctx = resident.get("context_length")
-    asked = ask_question(entry, state, model=model, timeout_s=max(0.1, float(timeout_s)),
-                         num_ctx=int(num_ctx) if isinstance(num_ctx, int) and num_ctx > 0 else None)
+    asked = ask_question(entry, state, model=model, timeout_s=max(0.1, float(timeout_s)), num_ctx=num_ctx)
     if asked.reason != "ok":
         return refuse(asked.reason, model, digest)
     if asked.answer in entry["unlocks"] and any(src == "third_party" for src, _ in entry["state"].values()):

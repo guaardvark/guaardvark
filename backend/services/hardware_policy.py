@@ -89,6 +89,13 @@ def gpu_memory_mb(gpu: dict[str, Any]) -> int:
     return 0
 
 
+def intel_igpu_only(gpu: dict[str, Any]) -> bool:
+    """The machine's only GPU is Intel integrated graphics with a Vulkan
+    driver installed (the detector's `integrated` entry)."""
+    integrated = (gpu or {}).get("integrated") or {}
+    return integrated.get("vendor") == "intel" and integrated.get("vulkan") is True
+
+
 def shares_system_memory(gpu: dict[str, Any]) -> bool:
     """An NVIDIA GPU with no VRAM of its own and a unified pool instead (GB10 /
     DGX Spark). The unified-memory rules key on this, so a discrete card never
@@ -109,7 +116,7 @@ def unified_pool_mb() -> int:
     return gpu_memory_mb(gpu) if shares_system_memory(gpu) else 0
 
 
-def ollama_tuning(gpu: dict[str, Any]) -> dict[str, Any]:
+def ollama_tuning(gpu: dict[str, Any], igpu: bool = True) -> dict[str, Any]:
     """Derive Ollama server env from VRAM.
 
     The 16 GB ceiling is the design target (see CLAUDE.md). On a 16 GB card,
@@ -121,11 +128,17 @@ def ollama_tuning(gpu: dict[str, Any]) -> dict[str, Any]:
 
     KV_CACHE_TYPE stays f16 (Ollama default) — q8_0 quantization degrades
     Gemma4 box_2d spatial outputs; May-2026 working aim used full-precision KV.
+
+    When Intel integrated graphics are the only GPU, Ollama's Vulkan backend
+    runs on them (VULKAN=1 plus IGPU_ENABLE=1, which Ollama needs before it will
+    use an integrated GPU). The model still lives in system RAM; the gain is
+    mostly prompt reading. `igpu=False` (GUAARDVARK_OLLAMA_IGPU=0) keeps such a
+    machine on the CPU.
     """
     vendor = (gpu or {}).get("vendor", "none")
     vram = gpu_memory_mb(gpu)
     if vendor not in ("nvidia", "amd") or vram <= 0:
-        return {
+        env = {
             "NUM_PARALLEL": 1,
             "KV_CACHE_TYPE": "f16",
             "FLASH_ATTENTION": 0,
@@ -133,6 +146,10 @@ def ollama_tuning(gpu: dict[str, Any]) -> dict[str, Any]:
             "KEEP_ALIVE": "15m",
             "VULKAN": 0,
         }
+        if igpu and vendor in ("none", "intel") and intel_igpu_only(gpu):
+            env["VULKAN"] = 1
+            env["IGPU_ENABLE"] = 1
+        return env
     # >= ~19.5 GB ⇒ 24 GB-class cards (RTX 3090/4090): headroom for 2 parallel
     # slots + 2 loaded models. A 16 GB-class card keeps one slot but holds the
     # embedding model beside a ~9 GB chat model at a 16k window, so retrieval and
@@ -315,7 +332,9 @@ def main(argv: list[str] | None = None) -> int:
         fit = training_fit(ram_gb, gpu, hw.get("arch", ""))
         print(f"{'practical' if fit['practical'] else 'not-practical'}\t{fit['reason']}")
     elif key == "ollama_env":
-        for k, v in ollama_tuning(gpu).items():
+        import os
+        igpu = os.environ.get("GUAARDVARK_OLLAMA_IGPU", "1") != "0"
+        for k, v in ollama_tuning(gpu, igpu=igpu).items():
             print(f'Environment="OLLAMA_{k}={v}"')
     elif key == "model_tier":
         ram_gb = (hw.get("ram", {}) or {}).get("total_gb", 0)

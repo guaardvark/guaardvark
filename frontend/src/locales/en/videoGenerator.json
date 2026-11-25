@@ -285,7 +285,8 @@
   "results": {
     "thumbAlt": "thumb",
     "ready": "Ready",
-    "error": "Error"
+    "error": "Error",
+    "batchContinues": "Only this clip failed. The rest of the batch is still rendering."
   },
   "gallery": {
     "title": "Select Images from Gallery",

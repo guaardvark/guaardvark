@@ -139,6 +139,27 @@
     "textLabel": "What will be posted",
     "approve": "Approve",
     "outreachPage": "Outreach page",
-    "approveNote": "Approving posts nothing. A Reddit, YouTube or Facebook draft then waits here for Post now; the Discord bot sends a Discord draft."
+    "approveNote": "Approving posts nothing. A Reddit, YouTube or Facebook draft then waits here for Post now; the Discord bot sends a Discord draft.",
+    "chat": {
+      "running": "Looking for posts and drafting replies (task {{tasks}})…",
+      "readFailed": "Could not read how this run is going: {{reason}}",
+      "noDrafts": "No drafts came out of this run.",
+      "replyingTo": "Replying to",
+      "replyingToAuthor": "Replying to {{author}}",
+      "olderWaiting": "{{count}} older drafts are also waiting.",
+      "approvalsPage": "Approvals page",
+      "answering": "Answering",
+      "answeringAuthor": "Answering {{author}}",
+      "answeringIn": "in r/{{community}}",
+      "pickedBecause": "Picked because: {{why}}",
+      "reviewHint": "Say \"yes\" to post it, \"skip\", \"reject\", \"change it to …\", \"make it shorter\", or \"stop\".",
+      "reviewItem": "Draft #{{id}} for {{platform}}. This is the last one.",
+      "reviewItemMore_one": "Draft #{{id}} for {{platform}}. {{count}} more after this one.",
+      "reviewItemMore_other": "Draft #{{id}} for {{platform}}. {{count}} more after this one.",
+      "reviewDone": "That was the last one. The review is closed.",
+      "reviewNothing": "No drafts are waiting for approval.",
+      "reviewNeedsChat": "A review needs a chat session; send a message first, then try again.",
+      "reviewFailed": "The review could not be reached: {{reason}}"
+    }
   }
 }

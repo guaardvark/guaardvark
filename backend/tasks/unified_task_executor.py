@@ -638,24 +638,122 @@ def execute_unified_task(self, task_id: int):
                             task_id=task_id,
                         )
                 elif task_type == 'social_outreach_recon':
+                    from backend.services.social_outreach import audit as outreach_audit
+                    from backend.services.social_outreach.recon import (
+                        DEFAULT_CANDIDATES_PER_PASS,
+                        RecondAgent,
+                    )
                     subreddit = (wf.get('subreddit') or '').strip()
                     topic_filters = list(wf.get("keyword_profiles") or [])
-                    if not subreddit:
-                        from backend.tasks.social_outreach_tasks import _load_targets, _next_target
-                        from backend.services.social_outreach.recon import prefer_subreddit_for_topics
-                        targets = _load_targets()
-                        subs = (targets.get("reddit") or {}).get("outreach_subs") or []
-                        preferred = prefer_subreddit_for_topics(subs, topic_filters)
-                        subreddit = preferred or _next_target("reddit_recon", subs) or ''
-                    if not subreddit:
-                        output = {"skipped": True, "reason": "no_targets"}
-                    else:
-                        update_progress(35, f"Scouting Outreach candidates in r/{subreddit}")
-                        from backend.services.social_outreach.recon import RecondAgent
-                        output = RecondAgent().scout_reddit(
-                            subreddit,
-                            topic_filters=topic_filters or None,
+                    searches = list(wf.get("search_queries") or [])
+                    try:
+                        wanted = int(wf.get('batch_size') or DEFAULT_CANDIDATES_PER_PASS)
+                    except (TypeError, ValueError):
+                        wanted = DEFAULT_CANDIDATES_PER_PASS
+                    # Rows this pass adds have a higher id; a chained draft
+                    # step drafts those and leaves older candidates alone.
+                    before_id = outreach_audit.latest_id()
+                    if searches:
+                        update_progress(35, f"Searching Reddit for {', '.join(searches[:3])}")
+                        output = RecondAgent().scout_reddit_search(
+                            searches, subreddit=subreddit or None, max_candidates=wanted,
                         )
+                    else:
+                        if not subreddit:
+                            from backend.tasks.social_outreach_tasks import _load_targets, _next_target
+                            from backend.services.social_outreach.recon import prefer_subreddit_for_topics
+                            targets = _load_targets()
+                            subs = (targets.get("reddit") or {}).get("outreach_subs") or []
+                            preferred = prefer_subreddit_for_topics(subs, topic_filters)
+                            subreddit = preferred or _next_target("reddit_recon", subs) or ''
+                        if not subreddit:
+                            output = {"skipped": True, "reason": "no_targets"}
+                        else:
+                            update_progress(35, f"Scouting Outreach candidates in r/{subreddit}")
+                            output = RecondAgent().scout_reddit(
+                                subreddit,
+                                max_candidates=wanted,
+                                topic_filters=topic_filters or None,
+                            )
+                    if wf.get("chain_draft") and output.get("candidates"):
+                        update_progress(80, "Drafting replies")
+                        from backend.services.social_outreach.content_agent import ContentAgent
+                        output["draft"] = ContentAgent().draft_batch(wanted, after_id=before_id)
+                elif task_type == 'social_outreach_facebook':
+                    from backend.services.social_outreach import audit as outreach_audit
+                    from backend.services.social_outreach.recon import (
+                        DEFAULT_CANDIDATES_PER_PASS,
+                        RecondAgent,
+                    )
+                    try:
+                        wanted = int(wf.get('batch_size') or DEFAULT_CANDIDATES_PER_PASS)
+                    except (TypeError, ValueError):
+                        wanted = DEFAULT_CANDIDATES_PER_PASS
+                    before_id = outreach_audit.latest_id()
+                    post_url = (wf.get('post_url') or '').strip()
+                    if post_url:
+                        update_progress(35, "Reading the Facebook post")
+                        output = RecondAgent().scout_facebook_post(post_url)
+                    else:
+                        groups = list(wf.get("groups") or [])
+                        if not groups:
+                            from backend.tasks.social_outreach_tasks import _load_targets
+                            groups = list((_load_targets().get("facebook") or {}).get("groups") or [])
+                        update_progress(35, "Reading your Facebook groups")
+                        output = RecondAgent().scout_facebook_groups(
+                            groups or None,
+                            max_candidates=wanted,
+                            topic_filters=list(wf.get("keyword_profiles") or []) or None,
+                        )
+                    if wf.get("chain_draft") and output.get("candidates"):
+                        update_progress(80, "Drafting replies")
+                        from backend.services.social_outreach.content_agent import ContentAgent
+                        output["draft"] = ContentAgent().draft_batch(wanted, after_id=before_id)
+                elif task_type == 'social_outreach_make_infographic':
+                    from backend.services.social_outreach import infographic_maker
+                    update_progress(20, "Writing the infographic from the pitch sheet")
+                    output = infographic_maker.make(str(wf.get("topic") or ""))
+                elif task_type == 'social_outreach_own_posts':
+                    from backend.services.social_outreach import audit as outreach_audit
+                    from backend.services.social_outreach import own_posts
+                    try:
+                        wanted = int(wf.get('batch_size') or own_posts.DEFAULT_POSTS_PER_PASS)
+                    except (TypeError, ValueError):
+                        wanted = own_posts.DEFAULT_POSTS_PER_PASS
+                    post_on = (wf.get("post_on") or "facebook").strip().lower()
+                    communities = list(wf.get("communities") or [])
+                    if not communities:
+                        from backend.tasks.social_outreach_tasks import _load_targets
+                        saved = _load_targets()
+                        communities = list(
+                            (saved.get("reddit") or {}).get("share_subs") or []
+                            if post_on == "reddit"
+                            else (saved.get("facebook") or {}).get("groups") or []
+                        )
+                    before_id = outreach_audit.latest_id()
+                    update_progress(35, "Choosing an infographic for each community")
+                    output = own_posts.plan(post_on, communities, max_posts=wanted)
+                    if output.get("candidates"):
+                        update_progress(80, "Writing the posts")
+                        from backend.services.social_outreach.content_agent import ContentAgent
+                        output["draft"] = ContentAgent().draft_batch(wanted, after_id=before_id)
+                elif task_type == 'social_outreach_youtube_replies':
+                    from backend.services.social_outreach import audit as outreach_audit
+                    from backend.services.social_outreach.recon import (
+                        DEFAULT_CANDIDATES_PER_PASS,
+                        scout_youtube_channel_comments,
+                    )
+                    try:
+                        wanted = int(wf.get('batch_size') or DEFAULT_CANDIDATES_PER_PASS)
+                    except (TypeError, ValueError):
+                        wanted = DEFAULT_CANDIDATES_PER_PASS
+                    before_id = outreach_audit.latest_id()
+                    update_progress(35, "Reading the comments on your YouTube videos")
+                    output = scout_youtube_channel_comments(max_candidates=wanted)
+                    if wf.get("chain_draft") and output.get("candidates"):
+                        update_progress(80, "Drafting replies")
+                        from backend.services.social_outreach.content_agent import ContentAgent
+                        output["draft"] = ContentAgent().draft_batch(wanted, after_id=before_id)
                 elif task_type == 'social_outreach_youtube':
                     from backend.services.social_outreach.recon import RecondAgent
                     from backend.tasks.social_outreach_tasks import _load_targets, _next_target

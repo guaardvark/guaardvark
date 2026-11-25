@@ -172,6 +172,8 @@ class Seams:
 
 @pytest.fixture
 def seams(monkeypatch):
+    # Shadow questions are held, not run on the shadow worker after the test.
+    monkeypatch.setattr(ncp, "_submit_shadow", lambda job: None)
     return Seams(monkeypatch)
 
 

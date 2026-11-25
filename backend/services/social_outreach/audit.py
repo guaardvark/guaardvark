@@ -164,6 +164,19 @@ def log_candidate(
     )
 
 
+def latest_id() -> int:
+    """The newest outreach row's id (0 when there is none). Rows added after
+    the call have a higher one."""
+    try:
+        from sqlalchemy import func
+
+        from backend.models import SocialOutreachLog, db
+        return int(db.session.query(func.max(SocialOutreachLog.id)).scalar() or 0)
+    except Exception as e:
+        logger.error("latest outreach row id unavailable: %s", e)
+        return 0
+
+
 def _detached_audit_session():
     """Build a Session bound directly to the engine, isolated from the caller's
     db.session. Same pattern log_outreach_event uses — keeps audit writes from
@@ -172,6 +185,36 @@ def _detached_audit_session():
     from sqlalchemy.orm import Session
     from backend.models import db
     return Session(db.engine)
+
+
+# The longest original shown beside a draft; a post longer than this is cut.
+SOURCE_TEXT_MAX = 4000
+
+
+def source_of(payload: dict) -> Optional[str]:
+    """What a candidate answers, as the JSON kept in ``source_json``: the
+    post's title and body or the comment's text, who wrote it, where, and why
+    recon picked it. None when the payload names nothing to show (a share)."""
+    if not isinstance(payload, dict):
+        return None
+    text = (
+        payload.get("incoming_text")
+        or payload.get("source_text")
+        or payload.get("selftext_preview")
+        or payload.get("snippet")
+        or ""
+    )
+    title = payload.get("title") or ""
+    if not (str(text).strip() or str(title).strip()):
+        return None
+    source = {
+        "title": str(title).strip(),
+        "text": str(text).strip()[:SOURCE_TEXT_MAX],
+        "author": str(payload.get("incoming_author") or payload.get("author") or "").strip(),
+        "community": str(payload.get("subreddit") or payload.get("community") or "").strip(),
+        "why": str(payload.get("relevance_reason") or "").strip(),
+    }
+    return json.dumps(source, ensure_ascii=False)
 
 
 def mark_drafted_from_candidate(
@@ -197,6 +240,10 @@ def mark_drafted_from_candidate(
             row = s.get(SocialOutreachLog, audit_id)
             if row is None or row.status != "candidate":
                 return False
+            try:
+                row.source_json = source_of(json.loads(row.draft_text or "{}"))
+            except ValueError:
+                pass
             row.status = status
             row.draft_text = draft_text
             if grade_score is not None:
@@ -210,9 +257,13 @@ def mark_drafted_from_candidate(
         return False
 
 
-def mark_rejected(audit_id: int, reason: str) -> bool:
+def mark_rejected(audit_id: int, reason: str, draft: Optional[str] = None) -> bool:
     """Mark a candidate or draft as rejected (Content agent's grade too low,
     sub bans self-promo discovered late, etc.). Preserves draft_text for audit.
+
+    ``draft`` is the text that was written and turned away; it is kept in the
+    candidate's payload as ``rejected_draft`` so a person can read what the
+    checks refused.
     """
     try:
         from backend.models import SocialOutreachLog
@@ -220,12 +271,36 @@ def mark_rejected(audit_id: int, reason: str) -> bool:
             row = s.get(SocialOutreachLog, audit_id)
             if row is None:
                 return False
+            if draft and row.status == "candidate":
+                try:
+                    payload = json.loads(row.draft_text or "{}")
+                except ValueError:
+                    payload = None
+                if isinstance(payload, dict):
+                    payload["rejected_draft"] = draft
+                    row.draft_text = json.dumps(payload, ensure_ascii=False)
             row.status = "rejected"
             row.abort_reason = reason
             s.commit()
         return True
     except Exception as e:
         logger.error("mark_rejected failed for audit_id %s: %s", audit_id, e)
+        return False
+
+
+def set_media(audit_id: int, media: Optional[dict]) -> bool:
+    """Set (or with None, remove) the image a row's post carries."""
+    try:
+        from backend.models import SocialOutreachLog
+        with _detached_audit_session() as s:
+            row = s.get(SocialOutreachLog, audit_id)
+            if row is None:
+                return False
+            row.media_json = json.dumps(media, ensure_ascii=False) if media else None
+            s.commit()
+        return True
+    except Exception as e:
+        logger.error("set_media failed for audit_id %s: %s", audit_id, e)
         return False
 
 

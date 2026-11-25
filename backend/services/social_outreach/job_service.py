@@ -25,8 +25,12 @@ OUTREACH_TASK_TYPES = {
     "recon": "social_outreach_recon",
     "youtube": "social_outreach_youtube",
     "youtube_recon": "social_outreach_youtube",
+    "youtube_replies": "social_outreach_youtube_replies",
     "draft": "social_outreach_draft",
     "discord": "social_outreach_discord",
+    "facebook": "social_outreach_facebook",
+    "own_posts": "social_outreach_own_posts",
+    "make_infographic": "social_outreach_make_infographic",
 }
 
 # Runs that read an outside site, by what they read; with web access off they
@@ -36,6 +40,9 @@ WEB_READING_RUNS = {
     "social_outreach_recon": "scout Reddit for outreach",
     "social_outreach_reddit": "scout Reddit for outreach",
     "social_outreach_share": "scout Reddit for outreach",
+    "social_outreach_youtube_replies": "read the comments on your YouTube videos",
+    "social_outreach_facebook": "scout Facebook groups for outreach",
+    "social_outreach_own_posts": "read community rules for outreach posts",
 }
 
 
@@ -46,6 +53,12 @@ def queue_outreach_run(
     link_url: str | None = None,
     batch_size: int | None = None,
     keyword_profiles: list[str] | None = None,
+    search_queries: list[str] | None = None,
+    groups: list[str] | None = None,
+    post_url: str | None = None,
+    post_on: str | None = None,
+    communities: list[str] | None = None,
+    topic: str | None = None,
     chain_draft: bool = False,
     priority: int = 2,
     created_by: str = "outreach",
@@ -84,7 +97,7 @@ def queue_outreach_run(
         "chain_draft": bool(chain_draft),
     }
     if subreddit:
-        workflow_config["subreddit"] = subreddit.strip().lstrip("r/").lstrip("/")
+        workflow_config["subreddit"] = subreddit.strip().lstrip("/").removeprefix("r/")
     if link_url:
         workflow_config["link_url"] = link_url.strip()
     elif task_type == "social_outreach_share":
@@ -92,6 +105,29 @@ def queue_outreach_run(
         site = profile.site_url()
         if site:
             workflow_config["link_url"] = site
+    if search_queries:
+        # Reddit recon: read Reddit's search for these instead of a
+        # community's front listing.
+        cleaned = [str(q).strip() for q in search_queries if q and str(q).strip()]
+        if cleaned:
+            workflow_config["search_queries"] = cleaned[:8]
+    if groups:
+        # Facebook: the groups to read instead of the saved or matching ones.
+        cleaned = [str(g).strip() for g in groups if g and str(g).strip()]
+        if cleaned:
+            workflow_config["groups"] = cleaned[:12]
+    if post_url:
+        # Facebook: draft a reply to this one post.
+        workflow_config["post_url"] = post_url.strip()
+    if task_type == "social_outreach_make_infographic":
+        workflow_config["topic"] = (topic or "").strip()[:300]
+    if task_type == "social_outreach_own_posts":
+        # Posts of the account's own with an infographic: which platform, and
+        # the communities instead of the saved ones.
+        workflow_config["post_on"] = (post_on or "facebook").strip().lower()
+        cleaned = [str(c).strip() for c in communities or [] if c and str(c).strip()]
+        if cleaned:
+            workflow_config["communities"] = cleaned[:12]
     if batch_size is not None:
         workflow_config["batch_size"] = max(1, min(int(batch_size), 25))
     if keyword_profiles:
@@ -168,11 +204,26 @@ def _task_name(platform: str, workflow_config: dict[str, Any]) -> str:
         suffix = f" ({', '.join(profiles[:3])})" if profiles else ""
         return f"Outreach YouTube recon{suffix}"
     if platform == "recon":
-        return "Outreach recon pass"
+        searches = workflow_config.get("search_queries") or []
+        if searches:
+            return f"Outreach Reddit search ({', '.join(searches[:3])})"
+        subreddit = workflow_config.get("subreddit")
+        return f"Outreach recon pass{f' for r/{subreddit}' if subreddit else ''}"
+    if platform == "youtube_replies":
+        return "Outreach replies to comments on your videos"
     if platform == "draft":
         return "Outreach draft candidates"
     if platform == "discord":
         return "Outreach Discord pass"
+    if platform == "facebook":
+        if workflow_config.get("post_url"):
+            return "Outreach reply to a Facebook group post"
+        return "Outreach Facebook groups scout"
+    if platform == "own_posts":
+        where = "Reddit" if workflow_config.get("post_on") == "reddit" else "Facebook groups"
+        return f"Outreach infographic posts for {where}"
+    if platform == "make_infographic":
+        return "Outreach infographic"
     return "Outreach pass"
 
 
@@ -187,11 +238,26 @@ def _task_description(platform: str, workflow_config: dict[str, Any]) -> str:
         draft = " then draft" if workflow_config.get("chain_draft") else ""
         return f"Scout YouTube for {profiles}{draft}; leave drafts for human approve."
     if platform == "recon":
-        return "Scout the next configured Reddit target and add candidate Outreach rows."
+        draft = " and draft a reply for each" if workflow_config.get("chain_draft") else ""
+        searches = workflow_config.get("search_queries") or []
+        if searches:
+            return f"Search Reddit for {searches}{draft}; drafts wait for approval."
+        return f"Scout a Reddit community and add candidate Outreach rows{draft}."
+    if platform == "youtube_replies":
+        return "Read the new comments on your YouTube videos and draft a reply for each; drafts wait for approval."
     if platform == "draft":
         return "Draft pending Outreach candidates into reviewable queue rows."
     if platform == "discord":
         return "Discord Outreach is handled by the Discord plugin cog (Celery path is a noop)."
+    if platform == "facebook":
+        if workflow_config.get("post_url"):
+            return f"Read {workflow_config['post_url']} and draft a reply; the draft waits for approval."
+        return "Read the newest posts in your Facebook groups and draft a reply for each that fits; drafts wait for approval."
+    if platform == "own_posts":
+        return "Pick an infographic you kept for each community and draft a post with it; drafts wait for approval."
+    if platform == "make_infographic":
+        topic = workflow_config.get("topic") or "the product"
+        return f"Write an infographic about {topic} from the pitch sheet, render it and read its text back."
     return "Run an Outreach pass."
 
 
@@ -207,7 +273,11 @@ def _queued_message(platform: str, workflow_config: dict[str, Any], task_id: int
         "self_share": "Self-share Outreach pass",
         "share": "Self-share Outreach pass",
         "recon": "Recon Outreach pass",
+        "youtube_replies": "Replies to comments on your videos",
         "draft": "Drafting Outreach pass",
         "discord": "Discord Outreach pass",
+        "facebook": "Facebook groups Outreach pass",
+        "own_posts": "Infographic posts Outreach pass",
+        "make_infographic": "Outreach infographic",
     }
     return f"{labels.get(platform, 'Outreach pass')} added to the Job Queue as task #{task_id}."

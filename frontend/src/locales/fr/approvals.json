@@ -125,6 +125,8 @@
     "readyHeading": "Approuvés : prêts pour Publication maintenant ({{count}})",
     "waitingHeading": "En attente d'approbation ({{count}})",
     "postNowNote": "Publier maintenant active le navigateur de l'agent sur l'Écran Agent : il ouvre la page ci-dessus, tape ce texte et le soumet, une publication par clic. Gardez l'Écran Agent ouvert et surveillez jusqu'à la fin ; si l'écran est fermé avant l'étape de soumission, rien n'est publié.",
+    "postNowApiNote": "Publier maintenant envoie ce commentaire via l'API officielle de YouTube en tant que votre chaîne connectée. YouTube peut le retenir pour examen.",
+    "postNowApi": "Publier maintenant",
     "openAgentScreen": "Ouvrir l'Écran Agent",
     "screenClosed": "L'Écran Agent n'est pas ouvert.",
     "postingNow": "Publication en cours. Surveillez l'Écran Agent.",
@@ -137,6 +139,27 @@
     "textLabel": "Ce qui sera publié",
     "approve": "Approuver",
     "outreachPage": "Page de prospection",
-    "approveNote": "Approuver les posts ne fait rien. Un brouillon Reddit, YouTube ou Facebook attendra ici pour Publication maintenant ; le bot Discord envoie un brouillon Discord."
+    "approveNote": "Approuver les posts ne fait rien. Un brouillon Reddit, YouTube ou Facebook attendra ici pour Publication maintenant ; le bot Discord envoie un brouillon Discord.",
+    "chat": {
+      "running": "Recherche de publications et rédaction des réponses (tâche {{tasks}})…",
+      "readFailed": "Impossible de lire le déroulement de cette exécution : {{reason}}",
+      "noDrafts": "Aucun brouillon n'a été généré lors de cette exécution.",
+      "replyingTo": "Réponse à",
+      "replyingToAuthor": "Réponse à {{author}}",
+      "olderWaiting": "{{count}} brouillons plus anciens sont également en attente.",
+      "approvalsPage": "Page des Approbations",
+      "answering": "Réponse en cours",
+      "answeringAuthor": "Réponse de {{author}}",
+      "answeringIn": "dans r/{{community}}",
+      "pickedBecause": "Sélectionné car : {{why}}",
+      "reviewHint": "Dites « oui » pour publier, « passer », « rejeter », « changer en … », « raccourcir » ou « arrêter ».",
+      "reviewItem": "Brouillon n°{{id}} pour {{platform}}. C'est le dernier.",
+      "reviewItemMore_one": "Brouillon n°{{id}} pour {{platform}}. Encore {{count}} après celui-ci.",
+      "reviewItemMore_other": "Brouillon n°{{id}} pour {{platform}}. Encore {{count}} après celui-ci.",
+      "reviewDone": "C'était le dernier. La révision est terminée.",
+      "reviewNothing": "Aucun brouillon n'attend d'approbation.",
+      "reviewNeedsChat": "Une révision nécessite une session de chat ; envoyez un message d'abord, puis réessayez.",
+      "reviewFailed": "La révision est inaccessible : {{reason}}"
+    }
   }
 }

@@ -125,6 +125,8 @@
     "readyHeading": "Goedgekeurd: klaar om nu te plaatsen ({{count}})",
     "waitingHeading": "Wachten op goedkeuring ({{count}})",
     "postNowNote": "Post nu activeert de browser van de agent op het Agenten-scherm: het opent de bovenstaande pagina, typt deze tekst en verzendt deze, één bericht per klik. Houd het Agenten-scherm open en kijk tot het klaar is; als het scherm voor de verzendstap wordt gesloten, wordt er niets geplaatst.",
+    "postNowApiNote": "Nu plaatsen verzendt deze reactie via de officiële API van YouTube als je aangesloten kanaal. YouTube kan deze voor beoordeling aanhouden.",
+    "postNowApi": "Nu plaatsen",
     "openAgentScreen": "Agenten-scherm Openen",
     "screenClosed": "Het Agenten-scherm is niet geopend.",
     "postingNow": "Nu plaatsen. Bekijk het Agenten-scherm.",
@@ -137,6 +139,27 @@
     "textLabel": "Wat er geplaatst zal worden",
     "approve": "Goedkeuren",
     "outreachPage": "Outreach-pagina",
-    "approveNote": "Goedkeuren doet niets. Een Reddit-, YouTube- of Facebook-concept wacht dan hier op 'Nu plaatsen'; de Discord-bot verzendt een Discord-concept."
+    "approveNote": "Goedkeuren doet niets. Een Reddit-, YouTube- of Facebook-concept wacht dan hier op 'Nu plaatsen'; de Discord-bot verzendt een Discord-concept.",
+    "chat": {
+      "running": "Zoeken naar berichten en concepten opstellen (taak {{tasks}})…",
+      "readFailed": "Kon niet lezen hoe deze run verloopt: {{reason}}",
+      "noDrafts": "Er kwamen geen concepten uit deze run.",
+      "replyingTo": "Beantwoorden van",
+      "replyingToAuthor": "Beantwoorden van {{author}}",
+      "olderWaiting": "{{count}} oudere concepten wachten ook.",
+      "approvalsPage": "Goedkeuringen pagina",
+      "answering": "Beantwoorden",
+      "answeringAuthor": "Beantwoorden {{author}}",
+      "answeringIn": "in r/{{community}}",
+      "pickedBecause": "Gekozen omdat: {{why}}",
+      "reviewHint": "Zeg \"ja\" om het te plaatsen, \"overslaan\", \"weigeren\", \"verander het naar ...\", \"maak het korter\" of \"stop\".",
+      "reviewItem": "Concept #{{id}} voor {{platform}}. Dit is de laatste.",
+      "reviewItemMore_one": "Concept #{{id}} voor {{platform}}. Nog {{count}} na deze.",
+      "reviewItemMore_other": "Concept #{{id}} voor {{platform}}. Nog {{count}} na deze.",
+      "reviewDone": "Dat was de laatste. De beoordeling is gesloten.",
+      "reviewNothing": "Er wachten geen concepten op goedkeuring.",
+      "reviewNeedsChat": "Een beoordeling vereist een chatsessie; stuur eerst een bericht en probeer het opnieuw.",
+      "reviewFailed": "De beoordeling kon niet worden bereikt: {{reason}}"
+    }
   }
 }

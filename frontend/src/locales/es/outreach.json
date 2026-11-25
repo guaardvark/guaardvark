@@ -257,5 +257,16 @@
     "cancel": "Cancelar",
     "disable": "Desactivar",
     "enable": "Activar"
+  },
+  "typing": {
+    "title": "Ritmo de escritura",
+    "explain": "Las publicaciones que pasan por el navegador vigilado se escriben tecla por tecla. Escribe aquí unas frases de forma normal y se escribirán a tu ritmo. Solo se guarda el tiempo entre teclas, no lo que escribes.",
+    "recorded": "Usando tu ritmo: aprendido de {{keys}} teclas, unos {{ms}} ms entre letras.",
+    "notRecorded": "Usando el ritmo integrado (unos {{ms}} ms entre letras). Es una estimación, no el ritmo real de nadie.",
+    "boxLabel": "Escribe aquí",
+    "placeholder": "Escribe lo que quieras: lo que hiciste hoy, una respuesta a una publicación, unas frases sobre tu proyecto.",
+    "save": "Aprender mi ritmo",
+    "clear": "Olvidar",
+    "progress": "{{count}} de {{needed}} teclas"
   }
 }

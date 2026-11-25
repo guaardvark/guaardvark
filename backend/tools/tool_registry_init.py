@@ -789,7 +789,7 @@ def register_outreach_tools() -> List[str]:
             OutreachDraftPostTool,
             OutreachApproveDraftTool,
             OutreachRejectDraftTool,
-            OutreachRunPassTool,
+            OutreachPostDraftTool,
             OutreachExecuteIntentTool,
         )
 
@@ -799,7 +799,7 @@ def register_outreach_tools() -> List[str]:
             OutreachDraftPostTool,
             OutreachApproveDraftTool,
             OutreachRejectDraftTool,
-            OutreachRunPassTool,
+            OutreachPostDraftTool,
             OutreachExecuteIntentTool,
         ):
             tool = cls()

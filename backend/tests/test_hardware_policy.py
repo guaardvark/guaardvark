@@ -98,6 +98,60 @@ def test_ollama_tuning_no_gpu_disables_gpu_knobs():
     assert t["FLASH_ATTENTION"] == 0
     assert t["MAX_LOADED_MODELS"] == 1
     assert t["VULKAN"] == 0
+    assert "IGPU_ENABLE" not in t
+
+
+_INTEL_IGPU = {"vendor": "none", "integrated": {"vendor": "intel", "vulkan": True}}
+
+
+def test_ollama_tuning_intel_igpu_turns_on_vulkan():
+    t = hp.ollama_tuning(_INTEL_IGPU)
+    assert t["VULKAN"] == 1
+    assert t["IGPU_ENABLE"] == 1
+    # Everything else stays on the CPU-machine values.
+    assert t["NUM_PARALLEL"] == 1
+    assert t["FLASH_ATTENTION"] == 0
+    assert t["MAX_LOADED_MODELS"] == 1
+
+
+def test_ollama_tuning_intel_igpu_also_when_intel_gpu_top_named_it():
+    gpu = {"vendor": "intel", "vram_mb": None, "integrated": {"vendor": "intel", "vulkan": True}}
+    assert hp.ollama_tuning(gpu)["IGPU_ENABLE"] == 1
+
+
+def test_ollama_tuning_intel_igpu_without_vulkan_driver_stays_cpu():
+    t = hp.ollama_tuning({"vendor": "none", "integrated": {"vendor": "intel", "vulkan": False}})
+    assert t["VULKAN"] == 0
+    assert "IGPU_ENABLE" not in t
+
+
+def test_ollama_tuning_intel_igpu_opt_out():
+    t = hp.ollama_tuning(_INTEL_IGPU, igpu=False)
+    assert t["VULKAN"] == 0
+    assert "IGPU_ENABLE" not in t
+
+
+def test_ollama_tuning_nvidia_output_unchanged_by_igpu_support():
+    # An NVIDIA box never carries IGPU_ENABLE, even with an `integrated` entry.
+    gpu = {"vendor": "nvidia", "vram_mb": 16311, "integrated": {"vendor": "intel", "vulkan": True}}
+    assert hp.ollama_tuning(gpu) == {
+        "NUM_PARALLEL": 1, "KV_CACHE_TYPE": "f16", "FLASH_ATTENTION": 1,
+        "MAX_LOADED_MODELS": 2, "KEEP_ALIVE": "15m", "VULKAN": 0,
+    }
+
+
+def test_ollama_env_cli_honours_the_opt_out(monkeypatch, capsys):
+    monkeypatch.setattr(hp, "_load_hardware", lambda: {"gpu": dict(_INTEL_IGPU)})
+    monkeypatch.setenv("GUAARDVARK_OLLAMA_IGPU", "0")
+    assert hp.main(["ollama_env"]) == 0
+    out = capsys.readouterr().out
+    assert 'Environment="OLLAMA_VULKAN=0"' in out
+    assert "IGPU_ENABLE" not in out
+    monkeypatch.delenv("GUAARDVARK_OLLAMA_IGPU")
+    assert hp.main(["ollama_env"]) == 0
+    out = capsys.readouterr().out
+    assert 'Environment="OLLAMA_VULKAN=1"' in out
+    assert 'Environment="OLLAMA_IGPU_ENABLE=1"' in out
 
 
 def test_ollama_tuning_nvidia_zero_vram_degrades():

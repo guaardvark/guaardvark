@@ -257,5 +257,16 @@
     "cancel": "Annuleren",
     "disable": "Uitschakelen",
     "enable": "Inschakelen"
+  },
+  "typing": {
+    "title": "Typingritme",
+    "explain": "Berichten die via de gemonitorde browser gaan, worden toets voor toets getypt. Typ hier een paar zinnen op je normale manier en ze worden getypt volgens jouw ritme. Alleen de tijd tussen de toetsen wordt bewaard, niet wat je typt.",
+    "recorded": "Gebruik jouw ritme: geleerd van {{keys}} toetsen, ongeveer {{ms}} ms tussen letters.",
+    "notRecorded": "Gebruik het ingebouwde ritme (ongeveer {{ms}} ms tussen letters). Dit is een schatting, geen echt typritme.",
+    "boxLabel": "Typ hier",
+    "placeholder": "Schrijf alles: wat je vandaag hebt gedaan, een reactie op een bericht, een paar zinnen over je project.",
+    "save": "Leer mijn ritme",
+    "clear": "Vergeet het",
+    "progress": "{{count}} van {{needed}} toetsen"
   }
 }

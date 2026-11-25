@@ -417,7 +417,7 @@
       "noCadence": "Sem dados de cadência.",
       "statusFailed": "Falha no status de Alcance: {{reason}}",
       "refused": "Alcance: solicitação recusada.",
-      "intentFailed": "Falha na intenção de Alcance: {{reason}}",
+      "intentFailed": "Alcance: {{reason}}",
       "queued": "Tarefa de Alcance na fila como tarefa #{{taskId}}.",
       "commandFailed": "Falha no comando de Alcance: {{reason}}"
     },

@@ -58,9 +58,9 @@ class StartOutcome(NamedTuple):
     status: Optional[str]
 
 
-def _refusal(row) -> Optional[str]:
+def _refusal(row, approved_only: bool = True, viewer_required: bool = True) -> Optional[str]:
     """Why ``row`` may not be posted now, in words the person can act on."""
-    if row.status != "approved":
+    if approved_only and row.status != "approved":
         return f"Only an approved draft can be posted; this one is '{row.status}'."
     policy = platforms.policy_for(row.platform)
     if policy is None:
@@ -84,10 +84,31 @@ def _refusal(row) -> Optional[str]:
     cadence_ok, cadence_reason = kill_switch.cadence_allows_post((row.platform or "").strip().lower())
     if not cadence_ok:
         return f"{policy.label} posting limit: {cadence_reason}."
+    if not viewer_required:
+        return None
     watching, why = agent_screen_presence.watching()
     if not watching:
         return why
     return None
+
+
+def needs_viewer(row) -> bool:
+    """True when this draft posts through the watched browser, so a person
+    must have the Agent Screen open; False when a connected account posts it."""
+    from backend.services.social_outreach import api_post
+
+    return not api_post.handles(row)
+
+
+def refusal_before_approval(row, viewer_required: bool = True) -> Optional[str]:
+    """Why approving ``row`` now would not lead to a post (a limit, a switch,
+    nobody watching the Agent Screen), so a caller that approves and posts in
+    one step can leave the draft as it is. None when the post may start."""
+    from backend.services.social_outreach import api_post
+
+    if api_post.handles(row):
+        return api_post._refusal(row, approved_only=False)
+    return _refusal(row, approved_only=False, viewer_required=viewer_required)
 
 
 def _row(event_id: int):
@@ -295,7 +316,9 @@ def _post(row, before_submit: Callable[[], bool]) -> tuple[bool, str]:
         text = row.posted_text or row.draft_text
         if platform == "reddit":
             from backend.services.social_outreach.reddit_outreach import post_comment_via_servo
-            success, reason = post_comment_via_servo(row.target_url, text, before_submit=before_submit)
+            success, reason = post_comment_via_servo(
+                row.target_url, text, image_path=_image_path(row), before_submit=before_submit,
+            )
         elif platform == "youtube":
             from backend.services.social_outreach.youtube_outreach import post_youtube_comment_via_servo
             success, reason = post_youtube_comment_via_servo(
@@ -303,7 +326,9 @@ def _post(row, before_submit: Callable[[], bool]) -> tuple[bool, str]:
             )
         elif platform == "facebook":
             from backend.services.social_outreach.facebook_outreach import post_comment_via_bidi
-            success, reason = post_comment_via_bidi(row.target_url, text, before_submit=before_submit)
+            success, reason = post_comment_via_bidi(
+                row.target_url, text, image_path=_image_path(row), before_submit=before_submit,
+            )
         else:
             raise _NotPostable(f"unsupported: no poster for action 'comment' on platform '{platform}'")
         if success:
@@ -326,6 +351,34 @@ def _post(row, before_submit: Callable[[], bool]) -> tuple[bool, str]:
         if success:
             record_post_via_backend(
                 row.id, row.target_url, row.target_thread_id, reply_text, row.task_id, platform=platform,
+            )
+        return success, reason
+
+    if action == "post":
+        # The account's own post in a community, with the infographic the row carries.
+        text = (row.posted_text or row.draft_text or "").strip()
+        image = _image_path(row)
+        if not text:
+            raise _NotPostable("post row has no text")
+        if platform == "facebook":
+            from backend.services.social_outreach.facebook_outreach import group_ref, post_to_group_via_bidi
+            group = group_ref(row.target_url or "")
+            if not group:
+                raise _NotPostable("post row names no Facebook group")
+            success, reason = post_to_group_via_bidi(group, text, image_path=image, before_submit=before_submit)
+        elif platform == "reddit":
+            from backend.services.social_outreach.self_share import submit_image_post
+            m = re.search(r"/r/([^/]+)", row.target_url or "")
+            if not m:
+                raise _NotPostable("post row names no subreddit")
+            if not image:
+                raise _NotPostable("post row carries no image")
+            success, reason = submit_image_post(m.group(1), text, image, before_submit=before_submit)
+        else:
+            raise _NotPostable(f"unsupported: no poster for action 'post' on platform '{platform}'")
+        if success:
+            record_post_via_backend(
+                row.id, row.target_url, row.target_thread_id, text, row.task_id, platform=platform,
             )
         return success, reason
 
@@ -356,6 +409,25 @@ def _post(row, before_submit: Callable[[], bool]) -> tuple[bool, str]:
     raise _NotPostable(f"unsupported: no poster for action '{action}' on platform '{platform}'")
 
 
+def _image_path(row) -> Optional[str]:
+    """The file of the image ``row`` carries, or None when it carries none.
+    A row whose image is recorded but no longer on disk cannot be posted."""
+    from backend.services.social_outreach import infographics
+
+    media = infographics.media_of(row)
+    if not media:
+        return None
+    try:
+        document_id = int(media["document_id"])
+        # The same picture the person approved, and still one outreach may use.
+        current = infographics.media_for(document_id)
+        if current.get("path") != media.get("path"):
+            raise ValueError("the file behind it changed after the draft was approved")
+        return str(infographics.file_path(document_id))
+    except Exception as e:
+        raise _NotPostable(f"attach_failed: nothing was posted; the image for this post is unavailable ({e})")
+
+
 def reply_parts(row) -> tuple[str, str]:
     """A reply draft's (text, anchor). The anchor names the parent comment."""
     reply_text = (row.posted_text or "").strip()
@@ -379,7 +451,7 @@ def reply_parts(row) -> tuple[str, str]:
 def _record_share(row, posted_text: str) -> None:
     import requests
 
-    from backend.services.social_outreach.reddit_outreach import backend_url
+    from backend.services.social_outreach.reddit_outreach import backend_headers, backend_url
 
     try:
         requests.post(
@@ -392,6 +464,7 @@ def _record_share(row, posted_text: str) -> None:
                 "target_thread_id": None,
                 "task_id": row.task_id,
             },
+            headers=backend_headers(),
             timeout=10,
         )
     except Exception as e:  # noqa: BLE001 - the post is out; the reaper and history show it

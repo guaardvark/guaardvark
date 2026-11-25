@@ -49,32 +49,56 @@ FALLBACK_GRADER_MODEL = "gemma4:e2b"
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 
-GRADER_SYSTEM = """You are a strict outreach-comment grader. You did NOT write this draft. Answer each question below about it with 1 (yes) or 0 (no) and return only JSON.
+GRADER_SYSTEM = """You grade a comment someone wants to post under another person's post in an online community. You did NOT write it. First say in one sentence what the post asks or is about, and whether what the comment offers is for that same thing. Then answer each question with 1 (yes) or 0 (no). Return only JSON.
 
 Questions:
-  engages: Does the comment substantively engage with the specific thread, not generic boilerplate?
-  on_topic: Is the comment relevant to the thread's actual subject?
-  appropriate_tone: Does the tone fit a casual Reddit thread (not corporate, not sycophantic, not spammy)?
+  engages: Does the comment respond to something specific in this post: what it asks, shows or argues? Answer 1 when it answers the post's question, or adds to the exact point the post makes, even in one or two short sentences, and even when it does so by naming the commenter's own tool. Answer 0 when the comment could be pasted under any post, when what it offers is for a different need than the one in this post, when the features it lists have nothing to do with the post, or when it ignores what was asked.
+  on_topic: Is the comment about the post's actual subject?
+  appropriate_tone: Does it read like a person in that community typed it: casual and plain? People there do share what they built, so when engages is 1, a short comment that names the commenter's own project, says what it does for the need in the post, and ends with a link or "give it a try" answers 1. Answer 0 for marketing language (superlatives such as "best" or "comprehensive", "we are excited", "empowers"), for a list of selling points, or for praise piled on the post.
 
-Return ONLY this JSON shape:
-{"engages": 1, "on_topic": 1, "appropriate_tone": 0, "reason": "Engages with the question and stays on topic, but reads like an advert."}"""
+Return ONLY this JSON shape, reason first, with your own answers:
+{"reason": "<one sentence>", "engages": <0 or 1>, "on_topic": <0 or 1>, "appropriate_tone": <0 or 1>}"""
 
 
 RUBRIC_QUESTIONS = ("engages", "on_topic", "appropriate_tone")
-"""The items the grader answers about a comment; it passes only when all are yes."""
+"""The items the grader answers about a comment; it passes only when all are yes.
 
-REPLY_GRADER_SYSTEM = """You are a strict grader of a reply that a video's creator wants to post under their own video, answering a viewer. You did NOT write this reply. Answer each question below about it with 1 (yes) or 0 (no) and return only JSON.
+GRADER_SYSTEM measured on 18 labelled comments under three group posts: 10
+that should pass (short replies that answer the post, most naming the
+commenter's own tool, one naming none) and 8 that should not (replies placed
+under a different post, a feature list, a bare link, an advert, corporate
+copy). Right answers out of 18, as passed/10 and turned away/8:
+
+    qwen3.5:9b   18   (10, 8)
+    gemma4:e2b   13   (10, 3)
+    qwen3.5:4b   11   (4, 7)
+
+The wording before it scored 9 with gemma4:e2b (1, 8) and 8 with qwen3.5:9b
+(0, 8): its example answer showed a failing comment, and it turned away the
+comment that named no tool at all. The check is only as sharp as the model:
+the small ones cannot tell a reply that fits the post from one that does not,
+so GUAARDVARK_OUTREACH_GRADER_MODEL is worth setting to a 9b-class model of a
+family other than the drafter's."""
+
+REPLY_GRADER_SYSTEM = """You grade a reply that a video's creator wants to post under their own video, answering a viewer's comment. You did NOT write this reply. First say in one sentence what the viewer's comment was and whether the reply fits it, then answer each question with 1 (yes) or 0 (no). Return only JSON.
 
 Questions:
-  on_topic: Does the reply respond to what the viewer actually said?
-  appropriate_tone: Is the tone right for a creator answering a viewer (friendly and genuine, not corporate, not sycophantic, not a sales pitch)?
+  on_topic: Is the reply a fitting response to the viewer's comment? Answer 1 when the comment is praise, a compliment or emoji and the reply thanks them. Answer 1 when the comment is a question or a criticism and the reply answers it, including by naming the creator's own tool when asked how the video was made. Answer 0 when the reply ignores what they said.
+  appropriate_tone: Is the tone right for a creator answering a viewer: friendly and genuine, not corporate, not gushing, not hostile? Answer 0 when the reply carries a link, a pitch or an invitation to try something that the viewer did not ask for. A brief plain reply is fine; short is not dismissive.
 
-Return ONLY this JSON shape:
-{"on_topic": 1, "appropriate_tone": 0, "reason": "Answers the question but turns into a sales pitch."}"""
+Return ONLY this JSON shape, reason first, with your own answers:
+{"reason": "<one sentence>", "on_topic": <0 or 1>, "appropriate_tone": <0 or 1>}"""
 
 REPLY_RUBRIC_QUESTIONS = ("on_topic", "appropriate_tone")
 """The items asked about a reply on the account's own video. Not engages: the
-reply answers one viewer and is not trying to add to someone else's thread."""
+reply answers one viewer and is not trying to add to someone else's thread.
+
+REPLY_GRADER_SYSTEM measured 2026-11-11 with gemma4:e2b on 14 labelled replies
+(8 that should pass, 6 that should not): 12 right. Both replies that added a
+link to plain praise were turned away; the misses were one good thank-you
+turned away and one gushing thank-you let through. The wording before it
+turned away all 8 good replies, a plain "Thanks! Glad you liked it." among
+them, because its example answer showed a failing reply."""
 
 RUBRICS = {
     "comment": (GRADER_SYSTEM, RUBRIC_QUESTIONS),
@@ -312,6 +336,7 @@ def score_thread_relevance(
     top_comments: list[str],
     feature_hint: str,
     subreddit: str = "",
+    community: str = "",
 ) -> dict:
     """LLM judge for whether a keyword-matched thread is actually a good
     outreach target. Catches the "keyword present but context hostile" cases
@@ -328,7 +353,8 @@ def score_thread_relevance(
     if model is None:
         return {"grade": 0.0, "skipped": True, "model": None, "reason": "no_grader_model_loaded"}
 
-    sub_part = f"r/{subreddit}\n" if subreddit else ""
+    # Where the thread is: a subreddit, or another community named in words.
+    sub_part = f"r/{subreddit}\n" if subreddit else (f"{community}\n" if community else "")
     comments_part = "\n---\n".join(c[:400] for c in top_comments[:3])
     user_msg = (
         f"FEATURE_HINT: {feature_hint}\n"

@@ -125,6 +125,8 @@
     "readyHeading": "Aprobados: listos para Publicar ahora ({{count}})",
     "waitingHeading": "Esperando aprobación ({{count}})",
     "postNowNote": "Publicar ahora activa el navegador del agente en la Pantalla del agente: abre la página de arriba, escribe este texto y lo envía, un post por clic. Mantén la Pantalla del agente abierta y observa hasta que termine; si la pantalla se cierra antes del paso de envío, no se publicará nada.",
+    "postNowApiNote": "«Publicar ahora» envía este comentario a través de la API oficial de YouTube como tu canal conectado. YouTube puede retenerlo para revisión.",
+    "postNowApi": "Publicar ahora",
     "openAgentScreen": "Abrir Pantalla del agente",
     "screenClosed": "La Pantalla del agente no está abierta.",
     "postingNow": "Publicando ahora. Mira la Pantera del agente.",
@@ -137,6 +139,27 @@
     "textLabel": "Lo que se publicará",
     "approve": "Aprobar",
     "outreachPage": "Página de alcance",
-    "approveNote": "Aprobar publicaciones no hace nada. Un borrador de Reddit, YouTube o Facebook esperará aquí para Publicar ahora; el bot de Discord envía un borrador de Discord."
+    "approveNote": "Aprobar publicaciones no hace nada. Un borrador de Reddit, YouTube o Facebook esperará aquí para Publicar ahora; el bot de Discord envía un borrador de Discord.",
+    "chat": {
+      "running": "Buscando publicaciones y redactando respuestas (tarea {{tasks}})…",
+      "readFailed": "No se pudo leer cómo va esta ejecución: {{reason}}",
+      "noDrafts": "No se generaron borradores en esta ejecución.",
+      "replyingTo": "Respondiendo a",
+      "replyingToAuthor": "Respondiendo a {{author}}",
+      "olderWaiting": "También hay {{count}} borradores anteriores esperando.",
+      "approvalsPage": "Página de Aprobaciones",
+      "answering": "Respondiendo",
+      "answeringAuthor": "Respondiendo {{author}}",
+      "answeringIn": "en r/{{community}}",
+      "pickedBecause": "Elegido porque: {{why}}",
+      "reviewHint": "Di \"sí\" para publicarlo, \"omitir\", \"rechazar\", \"cambiarlo a ...\", \"acortarlo\" o \"detener\".",
+      "reviewItem": "Borrador #{{id}} para {{platform}}. Este es el último.",
+      "reviewItemMore_one": "Borrador #{{id}} para {{platform}}. {{count}} más después de este.",
+      "reviewItemMore_other": "Borrador #{{id}} para {{platform}}. {{count}} más después de este.",
+      "reviewDone": "Ese fue el último. La revisión ha finalizado.",
+      "reviewNothing": "No hay borradores esperando aprobación.",
+      "reviewNeedsChat": "Una revisión requiere una sesión de chat; envía un mensaje primero y vuelve a intentarlo.",
+      "reviewFailed": "No se pudo acceder a la revisión: {{reason}}"
+    }
   }
 }

@@ -257,5 +257,16 @@
     "cancel": "Cancelar",
     "disable": "Desativar",
     "enable": "Ativar"
+  },
+  "typing": {
+    "title": "Ritmo de digitação",
+    "explain": "As postagens que passam pelo navegador monitorado são digitadas uma tecla por vez. Digite algumas frases aqui do seu jeito normal e elas serão digitadas no seu ritmo. Apenas o tempo entre as teclas é mantido, não o que você digita.",
+    "recorded": "Usando seu ritmo: aprendido de {{keys}} teclas, cerca de {{ms}} ms entre letras.",
+    "notRecorded": "Usando o ritmo padrão (cerca de {{ms}} ms entre letras). É uma estimativa, não a digitação real de ninguém.",
+    "boxLabel": "Digite aqui",
+    "placeholder": "Escreva qualquer coisa: o que você fez hoje, uma resposta a uma postagem, algumas frases sobre seu projeto.",
+    "save": "Aprender meu ritmo",
+    "clear": "Esquecer",
+    "progress": "{{count}} de {{needed}} teclas"
   }
 }

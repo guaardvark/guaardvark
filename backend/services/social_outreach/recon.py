@@ -6,7 +6,8 @@ emit candidate rows for the Content agent to draft. **Never posts. Never drafts.
 The whole point of the recon split is that this phase has zero posting risk and
 can run on cron without the kill-switch gate.
 
-Today this implements Reddit (`scout_reddit`) and YouTube (`scout_youtube`).
+Today this implements Reddit (`scout_reddit`), YouTube (`scout_youtube`) and
+Facebook groups (`scout_facebook_groups`).
 HN / GitHub sources land in later slices —
 see plans/2026-05-09-outreach-pipeline-multi-agent.md.
 
@@ -26,8 +27,12 @@ from backend.services.social_outreach.reddit_outreach import (
     REDDIT_BASE,
     fetch_hot_threads,
     fetch_subreddit_rules,
+    fetch_thread,
     fetch_thread_comments,
     is_self_promo_banned,
+    reading_problem,
+    reddit_reading,
+    search_thread_refs,
     thread_is_relevant,
 )
 from backend.utils.settings_utils import web_access_block_reason
@@ -177,6 +182,10 @@ class RecondAgent:
         if not kill_switch.is_enabled():
             report["reason"] = "kill_switch_off"
             return report
+        backlog = kill_switch.review_backlog_reason("reddit")
+        if backlog:
+            report["reason"] = backlog
+            return report
         # Keywords alone are enough to match a thread; a blurb is optional.
         if not profile.load().features:
             report["reason"] = NO_FEATURES_REASON
@@ -189,17 +198,21 @@ class RecondAgent:
             report["reason"] = "web_access_off"
             return report
 
-        rules = fetch_subreddit_rules(subreddit)
-        if rules is None:
-            # Unread rules are not "no rules": skip the community this pass.
-            report["reason"] = "rules_unreadable"
-            return report
-        rules_text = "\n".join(rules)
-        ban_match = is_self_promo_banned(rules_text)
-        if ban_match:
-            # We skip even at recon time — no point queueing candidates we'd
-            # have to reject in Content for promo-policy reasons.
-            report["reason"] = f"sub_bans_self_promo:{ban_match}"
+        with reddit_reading():
+            return self._scout_reddit_threads(subreddit, max_candidates, topic_filters, report)
+
+    def _scout_reddit_threads(
+        self,
+        subreddit: str,
+        max_candidates: int,
+        topic_filters: Optional[list[str]],
+        report: dict,
+    ) -> dict:
+        closed = self._subreddit_closed(subreddit)
+        if closed:
+            report["reason"] = closed
+            if closed == "rules_unreadable":
+                report["detail"] = reading_problem()
             return report
 
         threads = fetch_hot_threads(subreddit)
@@ -217,85 +230,411 @@ class RecondAgent:
             if thread.id in already_touched:
                 report["skipped_dedupe"] += 1
                 continue
-
-            comments = fetch_thread_comments(thread.permalink)
-            feature_hint = thread_is_relevant(thread, comments)
-            if feature_hint is None:
-                report["skipped_irrelevant"] += 1
-                continue
-
-            # NL topic filter (optional) — e.g. "ComfyUI" from chat intent.
-            # The profile keyword match already passed; this narrows further.
-            blob = f"{thread.title} {thread.selftext or ''}"
-            if not topic_matches_text(blob, topic_filters):
-                report["skipped_topic"] += 1
-                continue
-
-            # LLM relevance judge — the keyword match got us here, but it
-            # can't tell "I love ollama" from "ollama is broken trash" or
-            # "OP already solved it, no comment needed". A short LLM call
-            # spends a second to filter out the false positives that would
-            # otherwise burn drafting tokens later. Skipped-as-pass behavior
-            # if the model isn't loaded.
-            relevance = external_grader.score_thread_relevance(
-                title=thread.title,
-                selftext=thread.selftext,
-                top_comments=comments,
-                feature_hint=feature_hint,
-                subreddit=subreddit,
-            )
-            if judged_unfit(relevance):
-                report["skipped_by_llm"] += 1
-                logger.info(
-                    "recon: r/%s thread=%s skipped by LLM (grade=%.2f, reason=%s)",
-                    subreddit, thread.id, relevance.get("grade", 0.0),
-                    relevance.get("reason", "")[:80],
-                )
-                continue
-
-            # Recon-stage payload — Content agent reads this and drafts
-            # without a live Reddit API call. Stores enough context that
-            # each phase is self-contained. Caps comment length to keep
-            # rows reasonable; the LLM doesn't need huge comments to draft.
-            extras = {
-                "title": thread.title,
-                "score": thread.score,
-                "num_comments": thread.num_comments,
-                "selftext_preview": thread.selftext[:400] if thread.selftext else "",
-                "top_comments": [c[:600] for c in comments[:5]],
-                # Content reads these to adjust tone (per-sub voice) and
-                # timeliness framing (a 30-min-old thread is hot, a 12-hour
-                # old one isn't). created_utc is unix seconds; Content
-                # converts to a human-readable "age" string.
-                "subreddit": subreddit,
-                "created_utc": thread.created_utc,
-                # Preserve the LLM's relevance verdict so Content has the
-                # original "why we picked this thread" rationale available
-                # in the prompt context if it wants it.
-                "relevance_grade": relevance.get("grade"),
-                "relevance_reason": relevance.get("reason", "")[:200],
-                "relevance_skipped": relevance.get("skipped", False),
-            }
-            audit_id = audit.log_candidate(
-                platform="reddit",
-                action="comment",
-                target_url=thread.permalink,
-                target_thread_id=thread.id,
-                feature_hint=feature_hint,
-                # Recon "score" — for now the simple heuristic of upvote count
-                # normalized to the 1k mark. Content agent's grade_score will
-                # overwrite this. Better recon scoring can come later.
-                score=min(1.0, thread.score / 1000.0),
-                extras=extras,
-            )
-            if audit_id is not None:
-                report["candidates"] += 1
-                logger.info(
-                    "recon: queued candidate r/%s thread=%s feature=%s score=%d",
-                    subreddit, thread.id, feature_hint, thread.score,
-                )
-
+            self._consider_thread(thread, subreddit, topic_filters, report)
         return report
+
+    @staticmethod
+    def _subreddit_closed(subreddit: str) -> Optional[str]:
+        """Why outreach leaves ``subreddit`` alone, or None when it may comment
+        there: its rules could not be read, or they ban self-promotion."""
+        rules = fetch_subreddit_rules(subreddit)
+        if rules is None:
+            # Unread rules are not "no rules": skip the community this pass.
+            return "rules_unreadable"
+        ban_match = is_self_promo_banned("\n".join(rules))
+        if ban_match:
+            # No point queueing candidates Content would have to reject for
+            # promo-policy reasons.
+            return f"sub_bans_self_promo:{ban_match}"
+        return None
+
+    def scout_reddit_search(
+        self,
+        queries: list[str],
+        subreddit: Optional[str] = None,
+        max_candidates: int = DEFAULT_CANDIDATES_PER_PASS,
+    ) -> dict:
+        """Scout Reddit's search for ``queries`` (within ``subreddit`` when one
+        is given) and emit candidate rows for the threads that fit.
+
+        Each thread goes through what the hot-list scout applies: its
+        community's rules must be readable and allow promotion, the thread must
+        match the profile and pass the thread-fit judge. Needs the agent
+        browser, the only reader Reddit serves search to.
+        """
+        report = {
+            "platform": "reddit",
+            "search": list(queries),
+            "subreddit": subreddit,
+            "threads_found": 0,
+            "candidates": 0,
+            "skipped_dedupe": 0,
+            "skipped_irrelevant": 0,
+            "skipped_by_llm": 0,
+            "skipped_topic": 0,
+            "skipped_rules": 0,
+            "reason": None,
+        }
+        if not kill_switch.is_enabled():
+            report["reason"] = "kill_switch_off"
+            return report
+        backlog = kill_switch.review_backlog_reason("reddit")
+        if backlog:
+            report["reason"] = backlog
+            return report
+        if not profile.load().features:
+            report["reason"] = NO_FEATURES_REASON
+            return report
+        blocked = web_access_block_reason("scout Reddit for outreach")
+        if blocked:
+            logger.info("recon: reddit search skipped: %s", blocked)
+            report["reason"] = "web_access_off"
+            return report
+
+        with reddit_reading():
+            already_touched = set(audit.recent_thread_ids(
+                "reddit", statuses=CANDIDATE_DEDUPE_STATUSES,
+            ))
+            closed: dict[str, Optional[str]] = {}
+            for query in queries:
+                if report["candidates"] >= max_candidates:
+                    break
+                for sub, thread_id, permalink in search_thread_refs(query, subreddit):
+                    if report["candidates"] >= max_candidates:
+                        break
+                    report["threads_found"] += 1
+                    if thread_id in already_touched:
+                        report["skipped_dedupe"] += 1
+                        continue
+                    already_touched.add(thread_id)
+                    if sub not in closed:
+                        closed[sub] = self._subreddit_closed(sub)
+                    if closed[sub]:
+                        report["skipped_rules"] += 1
+                        continue
+                    thread = fetch_thread(permalink)
+                    if thread is None:
+                        report["skipped_irrelevant"] += 1
+                        continue
+                    self._consider_thread(thread, thread.subreddit or sub, None, report)
+            if not report["threads_found"]:
+                report["reason"] = "no_search_results"
+                report["detail"] = reading_problem()
+        return report
+
+    def _consider_thread(
+        self,
+        thread,
+        subreddit: str,
+        topic_filters: Optional[list[str]],
+        report: dict,
+    ) -> None:
+        """Emit a candidate row for ``thread`` if it fits; count why not in
+        ``report`` otherwise."""
+        comments = fetch_thread_comments(thread.permalink)
+        feature_hint = thread_is_relevant(thread, comments)
+        if feature_hint is None:
+            report["skipped_irrelevant"] += 1
+            return
+
+        # NL topic filter (optional) — e.g. "ComfyUI" from chat intent.
+        # The profile keyword match already passed; this narrows further.
+        blob = f"{thread.title} {thread.selftext or ''}"
+        if not topic_matches_text(blob, topic_filters):
+            report["skipped_topic"] += 1
+            return
+
+        # LLM relevance judge — the keyword match got us here, but it
+        # can't tell "I love ollama" from "ollama is broken trash" or
+        # "OP already solved it, no comment needed". A short LLM call
+        # spends a second to filter out the false positives that would
+        # otherwise burn drafting tokens later. Skipped-as-pass behavior
+        # if the model isn't loaded.
+        relevance = external_grader.score_thread_relevance(
+            title=thread.title,
+            selftext=thread.selftext,
+            top_comments=comments,
+            feature_hint=feature_hint,
+            subreddit=subreddit,
+        )
+        if judged_unfit(relevance):
+            report["skipped_by_llm"] += 1
+            logger.info(
+                "recon: r/%s thread=%s skipped by LLM (grade=%.2f, reason=%s)",
+                subreddit, thread.id, relevance.get("grade", 0.0),
+                relevance.get("reason", "")[:80],
+            )
+            return
+
+        # Recon-stage payload — Content agent reads this and drafts
+        # without a live Reddit API call. Stores enough context that
+        # each phase is self-contained. Caps comment length to keep
+        # rows reasonable; the LLM doesn't need huge comments to draft.
+        extras = {
+            "title": thread.title,
+            "score": thread.score,
+            "num_comments": thread.num_comments,
+            "selftext_preview": thread.selftext[:400] if thread.selftext else "",
+            # The post as its approver reads it; the drafter works from the preview.
+            "source_text": (thread.selftext or "")[:audit.SOURCE_TEXT_MAX],
+            "top_comments": [c[:600] for c in comments[:5]],
+            # Content reads these to adjust tone (per-sub voice) and
+            # timeliness framing (a 30-min-old thread is hot, a 12-hour
+            # old one isn't). created_utc is unix seconds; Content
+            # converts to a human-readable "age" string.
+            "subreddit": subreddit,
+            "created_utc": thread.created_utc,
+            # Preserve the LLM's relevance verdict so Content has the
+            # original "why we picked this thread" rationale available
+            # in the prompt context if it wants it.
+            "relevance_grade": relevance.get("grade"),
+            "relevance_reason": relevance.get("reason", "")[:200],
+            "relevance_skipped": relevance.get("skipped", False),
+        }
+        audit_id = audit.log_candidate(
+            platform="reddit",
+            action="comment",
+            target_url=thread.permalink,
+            target_thread_id=thread.id,
+            feature_hint=feature_hint,
+            # Recon "score" — for now the simple heuristic of upvote count
+            # normalized to the 1k mark. Content agent's grade_score will
+            # overwrite this. Better recon scoring can come later.
+            score=min(1.0, thread.score / 1000.0),
+            extras=extras,
+        )
+        if audit_id is not None:
+            report["candidates"] += 1
+            logger.info(
+                "recon: queued candidate r/%s thread=%s feature=%s score=%d",
+                subreddit, thread.id, feature_hint, thread.score,
+            )
+
+
+    def scout_facebook_groups(
+        self,
+        groups: Optional[list[str]] = None,
+        max_candidates: int = DEFAULT_CANDIDATES_PER_PASS,
+        topic_filters: Optional[list[str]] = None,
+    ) -> dict:
+        """Scout the newest posts of Facebook groups the account is in and
+        emit a candidate row for each post that fits.
+
+        ``groups`` are group ids or names-in-address; without any, the groups
+        the account is in whose name matches a profile keyword are read. A
+        post goes through what a Reddit thread does: the group's rules must
+        be readable and allow promotion, the post must match the profile and
+        pass the fit judge. Reads through the agent browser, signed in to
+        Facebook, and is skipped while the agent is using it.
+        """
+        from backend.services.social_outreach import facebook_outreach as fb
+        from backend.services.social_outreach.reddit_outreach import bidi_reachable, is_self_promo_banned
+        from backend.utils.agent_browser_control import agent_browser_control
+
+        report = {
+            "platform": "facebook",
+            "groups": [],
+            "posts_seen": 0,
+            "candidates": 0,
+            "skipped_dedupe": 0,
+            "skipped_irrelevant": 0,
+            "skipped_by_llm": 0,
+            "skipped_topic": 0,
+            "skipped_rules": 0,
+            "skipped_answered": 0,
+            "reason": None,
+        }
+        if not kill_switch.is_enabled():
+            report["reason"] = "kill_switch_off"
+            return report
+        backlog = kill_switch.review_backlog_reason("facebook")
+        if backlog:
+            report["reason"] = backlog
+            return report
+        if not profile.load().features:
+            report["reason"] = NO_FEATURES_REASON
+            return report
+        blocked = web_access_block_reason("scout Facebook groups for outreach")
+        if blocked:
+            logger.info("recon: facebook pass skipped: %s", blocked)
+            report["reason"] = "web_access_off"
+            return report
+
+        with agent_browser_control() as refusal:
+            if refusal:
+                report["reason"] = "browser_in_use"
+                report["detail"] = str(refusal)
+                return report
+            ok, why = bidi_reachable()
+            if not ok:
+                report["reason"] = "browser_unreadable"
+                report["detail"] = why
+                return report
+
+            wanted_groups = [g for g in (fb.group_ref(g) for g in groups or []) if g]
+            if not wanted_groups:
+                wanted_groups = [
+                    group for group, name in fb.joined_groups()
+                    if persona.find_relevant_feature(name) is not None
+                ]
+            if not wanted_groups:
+                report["reason"] = "no_groups"
+                return report
+
+            already_touched = set(audit.recent_thread_ids("facebook", statuses=CANDIDATE_DEDUPE_STATUSES))
+            for group in wanted_groups:
+                if report["candidates"] >= max_candidates:
+                    break
+                entry = {"group": group, "name": "", "posts_seen": 0, "candidates": 0, "reason": None}
+                report["groups"].append(entry)
+                rules = fb.read_group_rules(group)
+                if rules is None:
+                    entry["reason"] = "rules_unreadable"
+                    report["skipped_rules"] += 1
+                    continue
+                ban_match = is_self_promo_banned(rules)
+                if ban_match:
+                    entry["reason"] = f"group_bans_self_promo:{ban_match}"
+                    report["skipped_rules"] += 1
+                    continue
+
+                def fits(text: str) -> bool:
+                    return (
+                        persona.find_relevant_feature(text) is not None
+                        and topic_matches_text(text, topic_filters)
+                    )
+
+                name, posts, counts = fb.read_group_feed(
+                    group, fits, max_candidates - report["candidates"], skip_post_ids=already_touched,
+                )
+                entry.update(name=name, posts_seen=counts["seen"], reason=counts.get("problem"))
+                report["posts_seen"] += counts["seen"]
+                report["skipped_irrelevant"] += counts["unwanted"] + counts["no_address"]
+                report["skipped_dedupe"] += counts["known"]
+                for post in posts:
+                    already_touched.add(post.post_id)
+                    if self._consider_group_post(post, name, report):
+                        entry["candidates"] += 1
+        return report
+
+    def scout_facebook_post(self, url: str) -> dict:
+        """Emit a candidate row for the one group post at ``url``, which a
+        person named: it is read and queued without the keyword match or the
+        fit judge."""
+        from backend.services.social_outreach import facebook_outreach as fb
+        from backend.services.social_outreach.reddit_outreach import bidi_reachable
+        from backend.utils.agent_browser_control import agent_browser_control
+
+        report = {"platform": "facebook", "post": url, "candidates": 0, "reason": None}
+        if not kill_switch.is_enabled():
+            report["reason"] = "kill_switch_off"
+            return report
+        blocked = web_access_block_reason("read the Facebook post at that link")
+        if blocked:
+            report["reason"] = "web_access_off"
+            return report
+        with agent_browser_control() as refusal:
+            if refusal:
+                report.update(reason="browser_in_use", detail=str(refusal))
+                return report
+            ok, why = bidi_reachable()
+            if not ok:
+                report.update(reason="browser_unreadable", detail=why)
+                return report
+            post, why = fb.read_group_post(url)
+        if post is None:
+            report.update(reason="post_unreadable", detail=why)
+            return report
+        if not post.actor:
+            report["reason"] = "post_takes_no_comment"
+            return report
+        audit_id = audit.log_candidate(
+            platform="facebook",
+            action="comment",
+            target_url=post.url,
+            target_thread_id=post.post_id,
+            feature_hint=persona.find_relevant_feature(post.text) or "",
+            extras={
+                "title": "",
+                "selftext_preview": post.text[:1200],
+                "source_text": post.text[:audit.SOURCE_TEXT_MAX],
+                "top_comments": post.comments[:5],
+                "author": post.author,
+                "community": post.group_name,
+                "group": post.group,
+                "posts_as": post.actor,
+                "relevance_reason": "You gave this post's link.",
+                "relevance_skipped": True,
+            },
+        )
+        if audit_id is not None:
+            report["candidates"] = 1
+        return report
+
+    def _consider_group_post(self, preview, group_name: str, report: dict) -> bool:
+        """Read the whole post and emit a candidate row if it fits; count why
+        not in ``report`` otherwise."""
+        from backend.services.social_outreach import facebook_outreach as fb
+
+        post, why = fb.read_group_post(preview.url)
+        if post is None:
+            logger.info("recon: facebook post %s not read: %s", preview.url, why)
+            report["skipped_irrelevant"] += 1
+            return False
+        if not post.actor or post.answered:
+            # No comment box for this account, or it has commented already.
+            report["skipped_answered"] += 1
+            return False
+        feature_hint = persona.find_relevant_feature("\n".join([post.text, *post.comments[:5]]))
+        if feature_hint is None:
+            report["skipped_irrelevant"] += 1
+            return False
+
+        group_name = post.group_name or group_name
+        title = post.text.split("\n", 1)[0][:200]
+        relevance = external_grader.score_thread_relevance(
+            title=title,
+            selftext=post.text,
+            top_comments=post.comments,
+            feature_hint=feature_hint,
+            community=f"Facebook group: {group_name}" if group_name else "Facebook group",
+        )
+        if judged_unfit(relevance):
+            report["skipped_by_llm"] += 1
+            logger.info(
+                "recon: facebook post %s skipped by LLM (grade=%.2f, reason=%s)",
+                post.post_id, relevance.get("grade", 0.0), relevance.get("reason", "")[:80],
+            )
+            return False
+
+        extras = {
+            # A group post has no title; the drafter and the approver read the text.
+            "title": "",
+            "selftext_preview": post.text[:1200],
+            "source_text": post.text[:audit.SOURCE_TEXT_MAX],
+            "top_comments": post.comments[:5],
+            "author": post.author,
+            "community": group_name,
+            "group": post.group,
+            "posts_as": post.actor,
+            "relevance_grade": relevance.get("grade"),
+            "relevance_reason": relevance.get("reason", "")[:200],
+            "relevance_skipped": relevance.get("skipped", False),
+        }
+        audit_id = audit.log_candidate(
+            platform="facebook",
+            action="comment",
+            target_url=post.url,
+            target_thread_id=post.post_id,
+            feature_hint=feature_hint,
+            score=relevance.get("grade"),
+            extras=extras,
+        )
+        if audit_id is None:
+            return False
+        report["candidates"] += 1
+        logger.info("recon: queued facebook candidate group=%s post=%s feature=%s", post.group, post.post_id, feature_hint)
+        return True
 
     def scout_youtube(
         self,
@@ -339,6 +678,10 @@ class RecondAgent:
 
         if not kill_switch.is_enabled():
             report["reason"] = "kill_switch_off"
+            return report
+        backlog = kill_switch.review_backlog_reason("youtube")
+        if backlog:
+            report["reason"] = backlog
             return report
         # Keywords alone are enough to match a thread; a blurb is optional.
         if not profile.load().features:
@@ -628,6 +971,96 @@ class RecondAgent:
                     )
 
         return report
+
+
+def scout_youtube_channel_comments(max_candidates: int = DEFAULT_CANDIDATES_PER_PASS) -> dict:
+    """Emit a reply candidate for each new comment on the account's own
+    YouTube videos that it has not answered.
+
+    Read through the connected YouTube account (the one switched on for
+    Outreach comments), so it needs that connection and no browser. The
+    candidate's link names the comment (``&lc=``), which is where the reply
+    is posted.
+    """
+    from backend.services.social_outreach import api_post
+
+    report = {
+        "platform": "youtube",
+        "action": "reply",
+        "comments_found": 0,
+        "candidates": 0,
+        "skipped_dedupe": 0,
+        "reason": None,
+    }
+    if not kill_switch.is_enabled():
+        report["reason"] = "kill_switch_off"
+        return report
+    blocked = web_access_block_reason("read the comments on your YouTube videos")
+    if blocked:
+        report["reason"] = "web_access_off"
+        return report
+    connection = api_post.account()
+    if connection is None:
+        report["reason"] = "no_youtube_account"
+        return report
+
+    from backend.services.connections.providers import youtube
+    from backend.services.connections.service import build_ctx
+
+    try:
+        # Read more than asked for: some will already have a draft.
+        comments = youtube.unanswered_comments(build_ctx(connection), limit=max_candidates * 4)
+    except (RuntimeError, ValueError) as e:
+        report["reason"] = "youtube_refused"
+        report["detail"] = str(e)
+        return report
+    except Exception as e:  # noqa: BLE001 - a dropped connection is reported, not raised
+        logger.warning("recon: reading channel comments failed: %s", e)
+        report["reason"] = "youtube_unreachable"
+        report["detail"] = type(e).__name__
+        return report
+
+    report["comments_found"] = len(comments)
+    if not comments:
+        report["reason"] = "no_new_comments"
+        return report
+
+    already_touched = set(audit.recent_thread_ids(
+        "youtube", statuses=CANDIDATE_DEDUPE_STATUSES,
+    ))
+    for comment in comments:
+        if report["candidates"] >= max_candidates:
+            break
+        thread_id = f"{comment['video_id']}::{comment['comment_id']}"
+        if thread_id in already_touched:
+            report["skipped_dedupe"] += 1
+            continue
+        text = comment["text"]
+        audit_id = audit.log_candidate(
+            platform="youtube",
+            action="reply",
+            target_url=(
+                f"https://www.youtube.com/watch?v={comment['video_id']}&lc={comment['comment_id']}"
+            ),
+            target_thread_id=thread_id,
+            feature_hint="own_video_reply",
+            score=None,
+            extras={
+                "video_id": comment["video_id"],
+                "title": comment["video_title"],
+                # A comment on the video itself: there is no earlier comment of ours.
+                "parent_text": "",
+                "incoming_text": text[:600],
+                "incoming_author": comment["author"][:80],
+                "selftext_preview": text[:600],
+                # The browser poster finds the comment to reply under by its opening words.
+                "anchor_hint": text[:80],
+            },
+        )
+        if audit_id is not None:
+            report["candidates"] += 1
+            already_touched.add(thread_id)
+    return report
 
 
 def enqueue_youtube_reply_candidate(

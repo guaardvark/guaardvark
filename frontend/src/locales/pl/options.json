@@ -369,7 +369,7 @@
     "logs": "Wyświetl logi Guaardvark (opcjonalnie nazwa pliku i grep)",
     "sysmap": "Zgłoś wyniki System Mappera lub zapytaj go o Kod: /sysmap gdzie jest seed box, /sysmap module backend/app.py, /sysmap impact backend/services/agent_tools.py",
     "swarm": "Status orchestratora Swarm (Wtyczka musi być uruchomiona)",
-    "outreach": "Status Outreach, krótkie czasowniki lub rozpoznanie/szkic w języku naturalnym (np. tematy na YouTube)",
+    "outreach": "Outreach w prostych słowach: odpowiadaj na posty na Reddit lub YouTube, odpowiadaj na komentarze pod swoimi filmami, wklejaj link lub pytaj o status",
     "plan": "Tryb planowania: najpierw przeanalizuj, działaj tylko na podstawie zatwierdzonego planu",
     "orchestrate": "Rozdziel zapytanie pomiędzy kilku Agentów",
     "training": "Uruchom agenta w trybie Treningu — pełna pętla 1000 iteracji, omija dekompozycję LLM w Czatze",

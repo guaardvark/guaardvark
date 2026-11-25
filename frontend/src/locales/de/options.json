@@ -367,7 +367,7 @@
     "logs": "Guaardvark-Log auslesen (optionaler Dateiname und grep)",
     "sysmap": "Berichte die Ergebnisse des System Mappers oder frage ihn nach dem Code: /sysmap wo die seed box ist, /sysmap module backend/app.py, /sysmap impact backend/services/agent_tools.py",
     "swarm": "Swarm-Orchestrator-Status (Plugin muss laufen)",
-    "outreach": "Kontaktaufnahme-Status, kurze Verben oder Scouting/Entwurf in natürlicher Sprache (z. B. YouTube-Themen)",
+    "outreach": "Kontaktaufnahme in einfachen Worten: Antworte auf Posts auf Reddit oder YouTube, beantworte Kommentare zu deinen Videos, füge einen Link ein oder frage nach dem Status",
     "plan": "Planungsmodus: erst prüfen, erst auf einen von dir genehmigten Plan handeln",
     "orchestrate": "Verteile eine Anfrage auf mehrere Agenten",
     "training": "Agent im Trainingsmodus ausführen – vollständiger 1000-Iterationen-Zyklus, überspringt die Chat-LLM-Zerlegung",

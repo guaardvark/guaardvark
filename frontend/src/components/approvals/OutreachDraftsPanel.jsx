@@ -29,6 +29,7 @@ import {
 } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
 import { approveDraft, fetchWatchedPost, postNow, rejectDraft } from "../../api/outreachService";
+import OutreachDraftImage from "../outreach/OutreachDraftImage";
 import { useAppStore } from "../../stores/useAppStore";
 import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
@@ -62,6 +63,10 @@ const draftStatusLabel = (status) =>
     unsupported: translate("approvals.outreach.status.unsupported"),
   })[status] ?? status;
 
+// What a person reads and edits. A reply's draft_text is a JSON envelope that
+// also names the comment it answers; the API sends the words as `text`.
+const draftWords = (d) => d?.text ?? d?.draft_text ?? "";
+
 const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChanged, showMessage }) => {
   const { t } = useUiTranslation();
   const [selectedId, setSelectedId] = useState(null);
@@ -94,7 +99,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
 
   // Reset the editable text only when another draft is picked, not on every poll.
   useEffect(() => {
-    setText(selected?.draft_text || "");
+    setText(draftWords(selected));
     setError(null);
   }, [selectedId]);
 
@@ -103,7 +108,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
     setError(null);
     try {
       if (approve) {
-        const row = await approveDraft(selected.id, text !== selected.draft_text ? text : null);
+        const row = await approveDraft(selected.id, text !== draftWords(selected) ? text : null);
         showMessage?.(t("approvals.outreach.approvedNext", { next: row?.next || "" }).trim());
       } else {
         await rejectDraft(selected.id);
@@ -149,7 +154,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
             variant="caption"
             sx={{ color: "text.secondary", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
           >
-            {d.draft_text || t("approvals.noText")} · {formatWhen(d.created_at)}
+            {draftWords(d) || t("approvals.noText")} · {formatWhen(d.created_at)}
           </Typography>
         }
       />
@@ -198,7 +203,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
     return (
       <>
         <Paper variant="outlined" sx={{ p: 2, mt: 2, whiteSpace: "pre-wrap" }}>
-          <Typography variant="body2">{selected.draft_text || t("approvals.noText")}</Typography>
+          <Typography variant="body2">{draftWords(selected) || t("approvals.noText")}</Typography>
         </Paper>
         <Alert severity="info" icon={<DesktopWindowsIcon />} sx={{ mt: 2 }}>
           {byApi ? t("approvals.outreach.postNowApiNote") : t("approvals.outreach.postNowNote")}
@@ -281,6 +286,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
             </Link>
           </Typography>
         )}
+        <OutreachDraftImage draft={selected} sx={{ mb: 2 }} />
         {isWaiting ? (
           renderPostNow()
         ) : (

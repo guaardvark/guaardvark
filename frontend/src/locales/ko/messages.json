@@ -413,7 +413,7 @@
       "noCadence": "주기 데이터 없음.",
       "statusFailed": "아웃리치 상태 실패: {{reason}}",
       "refused": "아웃리치: 요청이 거부되었습니다.",
-      "intentFailed": "아웃리치 의도 실패: {{reason}}",
+      "intentFailed": "아웃리치: {{reason}}",
       "queued": "아웃리치 작업이 작업 #{{taskId}}로 큐에 추가되었습니다.",
       "commandFailed": "아웃리치 명령 실패: {{reason}}"
     },

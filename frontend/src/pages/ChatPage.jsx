@@ -9,6 +9,7 @@ import StopCircleIcon from "@mui/icons-material/StopCircle";
 import LessonPearlsFloater from "../components/agent/LessonPearlsFloater";
 import LessonSummaryModal from "../components/modals/LessonSummaryModal";
 import { useAppStore } from "../stores/useAppStore";
+import { answerInReview, resumeReview, reviewOpen } from "../components/chat/outreachReview";
 import { BASE_URL, handleResponse } from "../api/apiClient";
 import ChatSessionDrawer from "../components/chat/ChatSessionDrawer";
 // AgentScreenViewer is now global in Sidebar — available on all pages
@@ -1373,12 +1374,36 @@ const ChatPage = () => {
     [sessionId]
   );
 
+  // Messages an outreach review adds to this chat (outreachReview.js).
+  const addReviewMessage = useCallback(
+    (msg) => setMessages((prev) => [...prev, { ...msg, id: msg.tempId }]),
+    []
+  );
+  // A review left open in this chat shows its current draft again.
+  useEffect(() => {
+    resumeReview(sessionId, { addMessage: addReviewMessage });
+  }, [sessionId, addReviewMessage]);
+
   const handleSendMessage = useCallback(
     async (inputText, file, voiceOptions) => {
       // Allow image analysis messages through even when inputText is empty
       if (!inputText.trim() && !file && !voiceOptions?.isImageAnalysis) return;
       if (isSending) return;
       setComposerError("");
+
+      // An open outreach review reads the message as its answer ("yes",
+      // "skip", "change it to ..."); the model does not see it.
+      if (!file && !voiceOptions?.isImageAnalysis && reviewOpen(sessionId)) {
+        const taken = await answerInReview(
+          sessionId,
+          inputText,
+          { spoken: Boolean(voiceOptions?.isVoiceMessage) },
+          { addMessage: addReviewMessage }
+        );
+        // false tells a voice turn that no reply will stream (useVoiceSink),
+        // so the mic is free again for a "stop".
+        if (taken) return false;
+      }
 
 
       const messageKey = `${inputText.trim()}_${voiceOptions?.isImageAnalysis ? `image_${Date.now()}` : voiceOptions?.isVoiceMessage ? "voice" : "text"

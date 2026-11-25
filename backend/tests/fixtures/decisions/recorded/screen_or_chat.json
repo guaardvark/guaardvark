@@ -1,244 +1,13 @@
 {
  "decision": "screen_or_chat",
  "wording_sha": "d89ca1e4e3f1",
- "set_version": 1,
+ "set_version": 2,
  "provenance": "replies of the named builds to the labelled set, as received; synthetic items",
  "runs": [
   {
-   "model": "gemma4:e2b",
-   "digest": "2cf98652fdc6",
-   "recorded": "2026-10-16",
-   "replies": [
-    {
-     "id": "scr0",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr1",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr2",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr3",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr4",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr5",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr6",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr7",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr8",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr9",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr10",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr11",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr12",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr13",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr14",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr15",
-     "raw": "{\n  \"choice\": \"chat\",\n  \"confidence\": 0.95\n}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr16",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr17",
-     "raw": "{\n  \"choice\": \"chat\",\n  \"confidence\": 0.95\n}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr18",
-     "raw": "{\n  \"choice\": \"chat\",\n  \"confidence\": 0.95\n}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr19",
-     "raw": "{\n  \"choice\": \"chat\",\n  \"confidence\": 0.95\n}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr20",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr21",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr22",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr23",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr24",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr25",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr26",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr27",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr28",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr29",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "chat"
-    },
-    {
-     "id": "scr30",
-     "raw": "{\"choice\": \"chat\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat",
-     "want": "screen_task"
-    },
-    {
-     "id": "scr31",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_task",
-     "want": "screen_task"
-    }
-   ]
-  },
-  {
    "model": "gemma4:12b",
    "digest": "4eb23ef187e2",
-   "recorded": "2026-10-16",
+   "recorded": "2026-11-05",
    "replies": [
     {
      "id": "scr0",
@@ -256,14 +25,14 @@
     },
     {
      "id": "scr2",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
      "reason": "ok",
      "answer": "screen_task",
      "want": "screen_task"
     },
     {
      "id": "scr3",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
      "reason": "ok",
      "answer": "screen_task",
      "want": "screen_task"
@@ -319,7 +88,7 @@
     },
     {
      "id": "scr11",
-     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
      "reason": "ok",
      "answer": "screen_task",
      "want": "screen_task"
@@ -460,6 +229,629 @@
     {
      "id": "scr31",
      "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr32",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr33",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr34",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr35",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr36",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr37",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr38",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr39",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr40",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr41",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr42",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr43",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr44",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr45",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr46",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr47",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr48",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr49",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr50",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr51",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr52",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr53",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr54",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr55",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr56",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr57",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr58",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr59",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr60",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr61",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr62",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr63",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr64",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr65",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr66",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr67",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr68",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr69",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr70",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr71",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr72",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr73",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "scr74",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr75",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr76",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr77",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr78",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr79",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr80",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr81",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr82",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr83",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr84",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr85",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr86",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr87",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr88",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr89",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "chat"
+    },
+    {
+     "id": "scr90",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr91",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr92",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "chat"
+    },
+    {
+     "id": "scr93",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr94",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr95",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr96",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr97",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "chat"
+    },
+    {
+     "id": "scr98",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr99",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr100",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr101",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr102",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr103",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr104",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr105",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr106",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr107",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr108",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr109",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr110",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr111",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "scr112",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "inj14a",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "inj14b",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "chat"
+    },
+    {
+     "id": "inj15a",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "inj15b",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "inj16a",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "inj16b",
+     "raw": "{\"choice\": \"chat\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat",
+     "want": "chat"
+    },
+    {
+     "id": "inj17a",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "screen_task",
+     "want": "screen_task"
+    },
+    {
+     "id": "inj17b",
+     "raw": "{\"choice\": \"screen_task\", \"confidence\": 0.9}",
      "reason": "ok",
      "answer": "screen_task",
      "want": "screen_task"

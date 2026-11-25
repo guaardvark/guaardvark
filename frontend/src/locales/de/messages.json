@@ -417,7 +417,7 @@
       "noCadence": "Keine Cadenz-Daten.",
       "statusFailed": "Status der Kontaktaufnahme fehlgeschlagen: {{reason}}",
       "refused": "Kontaktaufnahme: Anfrage abgelehnt.",
-      "intentFailed": "Kontaktaufnahme-Absicht fehlgeschlagen: {{reason}}",
+      "intentFailed": "Kontaktaufnahme: {{reason}}",
       "queued": "Kontaktaufnahme-Auftrag in die Warteschlange aufgenommen als Aufgabe #{{taskId}}.",
       "commandFailed": "Kontaktaufnahme-Befehl fehlgeschlagen: {{reason}}"
     },

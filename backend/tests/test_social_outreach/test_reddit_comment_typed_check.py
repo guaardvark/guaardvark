@@ -29,7 +29,7 @@ def rig(monkeypatch):
         def click(self, x, y):
             state["log"].append("click")
 
-        def type_text(self, text):
+        def type_text(self, text, key_delays=None):
             state["log"].append("type")
             state["focus"] = {**state["focus"], "text": text[state["drop"]:]}
 

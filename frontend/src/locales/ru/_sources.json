@@ -1132,6 +1132,14 @@
       "en": "d09afb71dc6a",
       "out": "e52f604e87fa"
     },
+    "outreach.postNowApiNote": {
+      "en": "fb22f0ad35c3",
+      "out": "cd1c18d5ad9a"
+    },
+    "outreach.postNowApi": {
+      "en": "2d55a384ec9e",
+      "out": "978601e02e08"
+    },
     "outreach.openAgentScreen": {
       "en": "41da9ab9ad56",
       "out": "459b33d78e10"
@@ -1183,6 +1191,86 @@
     "outreach.approveNote": {
       "en": "db0713ade016",
       "out": "00155f988669"
+    },
+    "outreach.chat.running": {
+      "en": "f553c6ad9eba",
+      "out": "8a0daf2118e4"
+    },
+    "outreach.chat.readFailed": {
+      "en": "b05394b81537",
+      "out": "e819a7f9806b"
+    },
+    "outreach.chat.noDrafts": {
+      "en": "fa7092e815b7",
+      "out": "01bf2ed6d2c9"
+    },
+    "outreach.chat.replyingTo": {
+      "en": "dc7ded472d3f",
+      "out": "d77fba4c89d9"
+    },
+    "outreach.chat.replyingToAuthor": {
+      "en": "d31b34374d82",
+      "out": "23b14457a4dc"
+    },
+    "outreach.chat.olderWaiting": {
+      "en": "17f66ba65b69",
+      "out": "fd530f37d2e2"
+    },
+    "outreach.chat.approvalsPage": {
+      "en": "c511aac7d7c0",
+      "out": "ce9c3d0cba8f"
+    },
+    "outreach.chat.answering": {
+      "en": "75b1c024bccf",
+      "out": "e9d7bdd83831"
+    },
+    "outreach.chat.answeringAuthor": {
+      "en": "08464474b89a",
+      "out": "23b14457a4dc"
+    },
+    "outreach.chat.answeringIn": {
+      "en": "1fd2c9735d5b",
+      "out": "207b26ed96e4"
+    },
+    "outreach.chat.pickedBecause": {
+      "en": "e13cee8f7a82",
+      "out": "aa4e959aea9a"
+    },
+    "outreach.chat.reviewHint": {
+      "en": "5380cef1526c",
+      "out": "f684bcdfcfa5"
+    },
+    "outreach.chat.reviewItem": {
+      "en": "66a49ebc910c",
+      "out": "c5b93b770243"
+    },
+    "outreach.chat.reviewItemMore_few": {
+      "en": "17c6a9bf8bd4",
+      "out": "14b05c930ac1"
+    },
+    "outreach.chat.reviewItemMore_many": {
+      "en": "17c6a9bf8bd4",
+      "out": "14b05c930ac1"
+    },
+    "outreach.chat.reviewItemMore_one": {
+      "en": "17c6a9bf8bd4",
+      "out": "14b05c930ac1"
+    },
+    "outreach.chat.reviewDone": {
+      "en": "5e607daed6d2",
+      "out": "876b784b3aa3"
+    },
+    "outreach.chat.reviewNothing": {
+      "en": "61684d8e5fd7",
+      "out": "c76935218919"
+    },
+    "outreach.chat.reviewNeedsChat": {
+      "en": "2a4722f53ed1",
+      "out": "8ff13dbe8241"
+    },
+    "outreach.chat.reviewFailed": {
+      "en": "1a76d58a2da1",
+      "out": "e03cf7131b0c"
     }
   },
   "audio": {
@@ -21470,8 +21558,8 @@
       "out": "9f6fadbc5613"
     },
     "slash.outreach.intentFailed": {
-      "en": "6795ee9f7bfe",
-      "out": "8a526bc5ffeb"
+      "en": "4193eeea9c14",
+      "out": "9e705e4e42e1"
     },
     "slash.outreach.queued": {
       "en": "e91f44a45e6d",
@@ -24966,8 +25054,8 @@
       "out": "9923725bdcc8"
     },
     "slashCommands.outreach": {
-      "en": "56a87e0cf1c7",
-      "out": "c3577cd0e404"
+      "en": "def9c944fa5b",
+      "out": "288fa4c71d86"
     },
     "slashCommands.plan": {
       "en": "41af7cffaa50",
@@ -25898,6 +25986,42 @@
     "enableDialog.enable": {
       "en": "20063ad90532",
       "out": "66be7e0c9aee"
+    },
+    "typing.title": {
+      "en": "110df7b9c88b",
+      "out": "82064c2945da"
+    },
+    "typing.explain": {
+      "en": "7ecf025cd08d",
+      "out": "568d85b2d46a"
+    },
+    "typing.recorded": {
+      "en": "12e849b3b4fd",
+      "out": "34e314b24178"
+    },
+    "typing.notRecorded": {
+      "en": "2e475354a374",
+      "out": "8dd75b7eab81"
+    },
+    "typing.boxLabel": {
+      "en": "d2c87462cd5d",
+      "out": "9dfa21cb536e"
+    },
+    "typing.placeholder": {
+      "en": "63befc8d49e3",
+      "out": "dfe6c15efd1c"
+    },
+    "typing.save": {
+      "en": "1137ba23e96d",
+      "out": "72a34888dc50"
+    },
+    "typing.clear": {
+      "en": "2d5f5b0553b6",
+      "out": "90bc7dd8b586"
+    },
+    "typing.progress": {
+      "en": "c7520796f907",
+      "out": "9050cb18a3f9"
     }
   },
   "plugins": {

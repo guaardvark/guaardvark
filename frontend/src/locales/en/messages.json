@@ -420,7 +420,7 @@
       "noCadence": "No cadence data.",
       "statusFailed": "Outreach status failed: {{reason}}",
       "refused": "Outreach: request refused.",
-      "intentFailed": "Outreach intent failed: {{reason}}",
+      "intentFailed": "Outreach: {{reason}}",
       "queued": "Outreach job queued as task #{{taskId}}.",
       "commandFailed": "Outreach command failed: {{reason}}"
     },

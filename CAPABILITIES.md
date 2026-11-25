@@ -429,17 +429,19 @@ Montage assembly built into Guaardvark: put clips in a bin, pick a song, and an 
 
 ## Outreach System
 
-Supervised AI for social-media engagement. Production path: **recon → draft → human approve → dispatch** (cadence-gated). Natural language from chat, `/outreach …`, or `guaardvark outreach "…"` queues the same jobs.
+Supervised AI for social-media engagement. Production path: **recon → draft → human approve → dispatch** (cadence-gated). Plain words after `/outreach` in chat, or `guaardvark outreach "…"`, queue the same jobs.
 
 ### Three Phases
-1. **Recon** — search for candidate posts/threads (YouTube keyword topics, Reddit subs, Discord channels). Outputs candidates; **never posts**
-2. **Content** — LLM drafts + grades in the user's voice. Outputs `drafted` rows; **never posts**
+1. **Recon** — search for candidate posts/threads (YouTube keyword topics, Reddit subs, Discord channels, the newest posts of the Facebook groups the signed-in account is in). Outputs candidates; **never posts**
+2. **Content** — LLM drafts + grades in the user's voice (a voice sheet the person keeps in `data/social_outreach/VOICE.md`, or `VOICE.<platform>.md` for one platform). Outputs `drafted` rows; **never posts**
 3. **Dispatch** — after approve, Reddit, YouTube and Facebook drafts are posted one at a time through the agent's browser when a person presses **Post now, I'm watching**, and Discord drafts by the Discord bot, with Redis cadence (at most 1 post per 30 min and 8 per 24 h, per platform)
 
 ### Natural language control
-- GUI Chat / slash: `/outreach comment on some youtube videos regarding Offline AI or ComfyUI`
+- GUI Chat: `/outreach reply to some posts on Reddit about ComfyUI`, `/outreach reply to posts in my Facebook groups`, `/outreach reply to the new comments on our YouTube videos`, or `/outreach <link to a post or a Facebook group>`. The drafts come back into the chat one at a time, each with the post or comment it answers. Answer in words, typed or spoken: "yes" posts it, "skip" leaves it for later, "reject" discards it, "change it to …" or "make it shorter" edits it, "stop" closes the review. A spoken "yes" waits three seconds so "stop" can cancel it. `/outreach review` goes through everything that is waiting the same way. The Approve, Reject and Post now buttons are on each card too. Name no topic and the search uses the outreach profile's keywords.
+- Infographics: on the Outreach page, mark the infographics outreach may use. One is usable once a vision model has read its text back and every line asked for is on the picture. `/outreach post an infographic in my Facebook groups` (or `on r/<subreddit>`) drafts a post of your own with one attached, at most one per community a week, never the same picture twice in one place; while reviewing a Facebook reply, or a Reddit reply in a subreddit that allows images in comments, "add an infographic" attaches the best match and "without the image" takes it off. `/outreach make an infographic about <topic>` writes one from the pitch sheet, each line backed by a sentence of the sheet, and leaves it for you to mark.
+- A scout adds no drafts for a platform while ten wait for review there (`GUAARDVARK_OUTREACH_REVIEW_BACKLOG`, 0 for no limit). A draft a check turns away is shown with what the check said.
 - CLI: `guaardvark outreach "comment on youtube videos regarding Offline AI or ComfyUI"`
-- Chat tools: `outreach_execute_intent`, `outreach_run_pass` (youtube + topics), approve/reject/status/queue
+- Chat tools, offered on a message that starts with `/outreach`: `outreach_execute_intent` (find posts and draft replies), `outreach_post_draft`, approve/reject/status/queue
 
 ### Safety
 - **Kill switch** — single toggle that halts all outreach activity immediately

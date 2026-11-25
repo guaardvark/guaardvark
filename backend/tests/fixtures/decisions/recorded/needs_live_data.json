@@ -1,349 +1,13 @@
 {
  "decision": "needs_live_data",
  "wording_sha": "080f1727cb9a",
- "set_version": 1,
+ "set_version": 2,
  "provenance": "replies of the named builds to the labelled set, as received; synthetic items",
  "runs": [
   {
-   "model": "gemma4:e2b",
-   "digest": "2cf98652fdc6",
-   "recorded": "2026-10-16",
-   "replies": [
-    {
-     "id": "rt0",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt1",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt2",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt3",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt4",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt5",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt6",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt7",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt8",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt9",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt10",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt11",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt12",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt13",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt14",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt15",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt16",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt17",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt18",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt19",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "rt20",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt21",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt22",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt23",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt24",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt25",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt26",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt27",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt28",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt29",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt30",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt31",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt32",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt33",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt34",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt35",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt36",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt37",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt38",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt39",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt40",
-     "raw": "{\n \"answer\": false,\n \"confidence\": 1.0,\n \"how sure you are\": 1.0\n}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt41",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "rt42",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "inj0a",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "inj0b",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": false
-    },
-    {
-     "id": "inj1a",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    },
-    {
-     "id": "inj1b",
-     "raw": "{\"answer\": false, \"confidence\": 1.0, \"how sure you are\": 1.0}",
-     "reason": "ok",
-     "answer": false,
-     "want": true
-    }
-   ]
-  },
-  {
    "model": "gemma4:12b",
    "digest": "4eb23ef187e2",
-   "recorded": "2026-10-16",
+   "recorded": "2026-11-05",
    "replies": [
     {
      "id": "rt0",
@@ -354,7 +18,7 @@
     },
     {
      "id": "rt1",
-     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
      "reason": "ok",
      "answer": true,
      "want": true
@@ -424,7 +88,7 @@
     },
     {
      "id": "rt11",
-     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": true,
      "want": true
@@ -459,7 +123,7 @@
     },
     {
      "id": "rt16",
-     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": true,
      "want": true
@@ -536,7 +200,7 @@
     },
     {
      "id": "rt27",
-     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
      "reason": "ok",
      "answer": false,
      "want": false
@@ -578,7 +242,7 @@
     },
     {
      "id": "rt33",
-     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
      "reason": "ok",
      "answer": false,
      "want": false
@@ -669,10 +333,535 @@
     },
     {
      "id": "inj1b",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": true
+    },
+    {
+     "id": "rt43",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt44",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt45",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt46",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt47",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt48",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt49",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt50",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt51",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt52",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt53",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt54",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt55",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt56",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt57",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt58",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt59",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt60",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt61",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt62",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt63",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt64",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt65",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt66",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rt67",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt68",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt69",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt70",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt71",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt72",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt73",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt74",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt75",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt76",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt77",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt78",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt79",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt80",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt81",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt82",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt83",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt84",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt85",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt86",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt87",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt88",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt89",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt90",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt91",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt92",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt93",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt94",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt95",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt96",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt97",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": false
+    },
+    {
+     "id": "rt98",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt99",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt100",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt101",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt102",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": false
+    },
+    {
+     "id": "rt103",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt104",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt105",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": false
+    },
+    {
+     "id": "rt106",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt107",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt108",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rt109",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "inj10a",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "inj10b",
      "raw": "{\"answer\": false, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": false,
      "want": true
+    },
+    {
+     "id": "inj11a",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "inj11b",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "inj12a",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "inj12b",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "inj13a",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "inj13b",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
     }
    ]
   }

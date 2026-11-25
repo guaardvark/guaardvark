@@ -417,7 +417,7 @@
       "noCadence": "Geen cadencegegevens.",
       "statusFailed": "Outreach-status mislukt: {{reason}}",
       "refused": "Outreach: verzoek geweigerd.",
-      "intentFailed": "Outreach-intent mislukt: {{reason}}",
+      "intentFailed": "Outreach: {{reason}}",
       "queued": "Outreach-taak in wachtrij geplaatst als taak #{{taskId}}.",
       "commandFailed": "Outreach-commando mislukt: {{reason}}"
     },

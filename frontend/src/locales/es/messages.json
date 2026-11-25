@@ -417,7 +417,7 @@
       "noCadence": "Sin datos de cadencia.",
       "statusFailed": "Error en el estado de alcance: {{reason}}",
       "refused": "Alcance: solicitud denegada.",
-      "intentFailed": "Error de intención de alcance: {{reason}}",
+      "intentFailed": "Alcance: {{reason}}",
       "queued": "Tarea de alcance en cola como tarea #{{taskId}}.",
       "commandFailed": "Error en el comando de alcance: {{reason}}"
     },

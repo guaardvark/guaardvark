@@ -125,6 +125,8 @@
     "readyHeading": "Aprovados: prontos para Postar agora ({{count}})",
     "waitingHeading": "Aguardando aprovação ({{count}})",
     "postNowNote": "Postar agora aciona o navegador do agente na Tela do Agente: ele abre a página acima, digita este texto e o envia, um post por clique. Mantenha a Tela do Agente aberta e acompanhe até terminar; se a tela for fechada antes da etapa de envio, nada será postado.",
+    "postNowApiNote": "Postar agora envia este comentário através da API oficial do YouTube como seu canal conectado. O YouTube pode retê-lo para revisão.",
+    "postNowApi": "Postar agora",
     "openAgentScreen": "Abrir Tela do Agente",
     "screenClosed": "A Tela do Agente não está aberta.",
     "postingNow": "Postando agora. Acompanhe a Tela do Agente.",
@@ -137,6 +139,27 @@
     "textLabel": "O que será postado",
     "approve": "Aprovar",
     "outreachPage": "Página de Alcance",
-    "approveNote": "Aprovar postagens não faz nada. Um rascunho do Reddit, YouTube ou Facebook aguardará aqui para Postar agora; o bot do Discord envia um rascunho do Discord."
+    "approveNote": "Aprovar postagens não faz nada. Um rascunho do Reddit, YouTube ou Facebook aguardará aqui para Postar agora; o bot do Discord envia um rascunho do Discord.",
+    "chat": {
+      "running": "Buscando postagens e rascunhando respostas (tarefa {{tasks}})…",
+      "readFailed": "Não foi possível ler como esta execução está progredindo: {{reason}}",
+      "noDrafts": "Nenhum rascunho foi gerado nesta execução.",
+      "replyingTo": "Respondendo a",
+      "replyingToAuthor": "Respondendo a {{author}}",
+      "olderWaiting": "{{count}} rascunhos mais antigos também estão aguardando.",
+      "approvalsPage": "Página de Aprovações",
+      "answering": "Respondendo",
+      "answeringAuthor": "Respondendo {{author}}",
+      "answeringIn": "no r/{{community}}",
+      "pickedBecause": "Selecionado porque: {{why}}",
+      "reviewHint": "Diga \"sim\" para postar, \"pular\", \"rejeitar\", \"mudar para ...\", \"encurtar\" ou \"parar\".",
+      "reviewItem": "Rascunho #{{id}} para {{platform}}. Este é o último.",
+      "reviewItemMore_one": "Rascunho #{{id}} para {{platform}}. Mais {{count}} após este.",
+      "reviewItemMore_other": "Rascunho #{{id}} para {{platform}}. Mais {{count}} após este.",
+      "reviewDone": "Esse foi o último. A revisão foi encerrada.",
+      "reviewNothing": "Nenhum rascunho aguarda aprovação.",
+      "reviewNeedsChat": "Uma revisão precisa de uma sessão de chat; envie uma mensagem primeiro e tente novamente.",
+      "reviewFailed": "A revisão não pôde ser alcançada: {{reason}}"
+    }
   }
 }

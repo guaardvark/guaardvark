@@ -791,12 +791,14 @@ MCP_TOOLS = ["mcp_connect", "mcp_disconnect", "mcp_execute", "mcp_get_state",
 # Bulk and event-driven file ops. Distinct from generate_file (which is in CORE)
 # because these touch many files at once or watch for changes — heavier intent.
 FILE_TOOLS = ["file_bulk_operation", "file_watch"]
-# Social outreach tools — surfaced when the user mentions outreach/posting/drafts.
-# Cadence + kill switch + supervised mode all still gate the actual posting
-# downstream; these tools are just chat-side handles on the same surfaces the
-# OutreachPage uses.
+# Social outreach tools: chat-side handles on the same surfaces the
+# OutreachPage uses. They are offered only on a message that starts with
+# OUTREACH_COMMAND (_gate_outreach_tools), so talk about Reddit or YouTube in
+# an ordinary chat never reaches them. Cadence, the posting stop and the
+# person's approval still gate every post downstream.
+OUTREACH_COMMAND = "/outreach"
 OUTREACH_TOOLS = ["outreach_status", "outreach_list_queue", "outreach_draft_post",
-                  "outreach_approve_draft", "outreach_reject_draft", "outreach_run_pass",
+                  "outreach_approve_draft", "outreach_reject_draft", "outreach_post_draft",
                   "outreach_execute_intent"]
 # Publishing to the user's own connections. The tool only queues; the Approvals
 # page holds every chat request until a person approves it.
@@ -950,24 +952,7 @@ TOOL_CONTEXT_KEYWORDS = {
              "external service", "remote tool", "claude desktop"], MCP_TOOLS),
     "workstation": (WORKSTATION_KEYWORDS, WORKSTATION_TOOLS),
     "knowledge": (KNOWLEDGE_NAV_KEYWORDS, KNOWLEDGE_NAV_TOOLS_PINNED),
-    "outreach": (["outreach", "social outreach", "reddit post", "reddit comment",
-                  "draft a comment", "draft a post", "draft a reply",
-                  "draft a reddit", "draft a discord", "draft a tweet",
-                  "draft post", "queue a post", "queue a draft", "queued drafts",
-                  "pending drafts", "approve draft", "reject draft", "kill draft",
-                  "post on reddit", "post to reddit", "share on reddit",
-                  "self-share", "self share", "outreach pass", "run outreach",
-                  "outreach status", "is outreach", "outreach queue",
-                  "scout subreddit", "scout reddit", "recon pass",
-                  "subreddit", "youtube", "youtube comment", "comment on youtube",
-                  "comment on some youtube", "youtube videos", "comfyui",
-                  "offline ai", "local llm", "local ai", "video comment",
-                  "scout youtube",
-                  # Marketing phrasings operators (and chat) actually say
-                  "market", "market on youtube", "market on reddit",
-                  "promote", "advertise", "share the github",
-                  "guaardvark on youtube", "guaardvark on reddit",
-                  "post comments on youtube", "github on youtube"], OUTREACH_TOOLS),
+    "outreach": ([OUTREACH_COMMAND], OUTREACH_TOOLS),
     "publish": (["publish", "post to discord", "post on discord", "post to bluesky",
                  "post on bluesky", "post to mastodon", "post on mastodon",
                  "post to telegram", "send to telegram", "announce"], PUBLISH_TOOLS),
@@ -1497,6 +1482,30 @@ def select_tools_for_context(message: str, all_tool_names: List[str], max_tools:
                 selected.add(t)
 
     return list(selected)[:max_tools]
+
+
+def _gate_outreach_tools(
+    message: str,
+    selected: List[str],
+    all_tool_names: List[str],
+    step_tools=(),
+) -> List[str]:
+    """Offer the outreach tools on a message that starts with /outreach, and
+    on no other.
+
+    Every selector upstream (keywords, embeddings, the router) is overruled
+    here in both directions: the command puts all of them in, and without it
+    none stays, however much the message talks about Reddit or YouTube. A plan
+    step keeps the outreach tools its plan named for it (``step_tools``).
+    """
+    words = (message or "").lstrip().lower()
+    commanded = words == OUTREACH_COMMAND or words.startswith(OUTREACH_COMMAND + " ")
+    if commanded:
+        available = set(all_tool_names)
+        pinned = [t for t in OUTREACH_TOOLS if t in available and t not in selected]
+        return pinned + list(selected)
+    kept = set(step_tools or ())
+    return [t for t in selected if t not in OUTREACH_TOOLS or t in kept]
 
 
 def _pin_repo_intel_tools(message: str, selected: List[str], all_tool_names: List[str]) -> List[str]:
@@ -2802,8 +2811,16 @@ class UnifiedChatEngine:
         self._request_id = request_id
         self._emit_fn = emit_fn
         self._prov = {"request_id": request_id, "tier": int((options or {}).get("tier", 2) or 2)}
+        self._turn_t0 = time.perf_counter()
+        self._turn_first_chunk = False
+        from backend.services.chat_decisions import finish_turn, turn_context, turn_ended, turn_started
+        _model = getattr(getattr(self, "llm", None), "model", None)
+        self._decide_ctx = (options or {}).get("_decide_ctx") or turn_context(request_id, _model)
+        if isinstance(self._decide_ctx, dict) and not self._decide_ctx.get("model"):
+            self._decide_ctx["model"] = _model
 
         begin_turn(session_id)
+        turn_started()
         try:
             # Store app reference for thread-safe DB access in helper methods
             self.app = app
@@ -2836,6 +2853,8 @@ class UnifiedChatEngine:
             return {"success": False, "error": error_text, "request_id": request_id}
         finally:
             end_turn(session_id)
+            turn_ended()
+            finish_turn(getattr(self, "_decide_ctx", None))
 
     def _format_interface_context(self, options: Dict[str, Any]) -> str:
         """Return caller-supplied context for injection into the active turn.
@@ -2952,6 +2971,7 @@ class UnifiedChatEngine:
                   emit_fn: Callable, request_id: str, steps: List) -> Dict[str, Any]:
         """Internal chat execution with app context assumed."""
         from backend.utils.agent_output_parser import parse_tool_calls_xml, format_tool_result_for_llm, failure_text
+        _t = getattr(self, "_turn_t0", None) or time.perf_counter()
 
         # A host that supplies its own routing (options["skip_direct_intercepts"])
         # bypasses the pattern-matched shortcuts and lets the model choose. So
@@ -3058,6 +3078,7 @@ class UnifiedChatEngine:
         except Exception:
             self._think = bool(options.get("think", False))
 
+        _t = self._stage_done("intercepts", _t)
         # 1. Load conversation history
         from backend.config import AGENTIC_HISTORY_LIMIT
         if isinstance(options.get("history"), list):
@@ -3067,6 +3088,7 @@ class UnifiedChatEngine:
             ]
         else:
             history = self._load_history(session_id, limit=AGENTIC_HISTORY_LIMIT)
+        _t = self._stage_done("history", _t)
 
         # 2. RAG context (optional, skipped for action-oriented, conversational, and image messages)
         self._local_facts_this_turn = False
@@ -3074,8 +3096,8 @@ class UnifiedChatEngine:
         self._rag_error = None
         conversational = is_conversational(message)
         has_image = bool(self._image_data)
-        if options.get("use_rag", True) and not conversational and not has_image and not self._should_skip_rag(message):
-            rag_context = self._retrieve_rag_context(message)
+        rag_context = self._rag_for_turn(message, history, options, conversational, has_image)
+        _t = self._stage_done("retrieval", _t)
 
         # 3. Route-aware tool selection (skipped for social / skip_tools path)
         # A "yes" to the assistant's own offer is selected for by what was
@@ -3153,6 +3175,10 @@ class UnifiedChatEngine:
             except Exception as exc:
                 logger.debug(f"MCP tool selection skipped: {exc}")
 
+            selected_tools = _gate_outreach_tools(
+                selection_text, selected_tools, self.registry.list_tools(),
+                step_tools=(options.get("step_tools") or ()) if isinstance(options, dict) else (),
+            )
             _step_tools = (options.get("step_tools") or ()) if isinstance(options, dict) else ()
             selected_tools = [t for t in selected_tools if t not in SCHEDULE_TOOLS or t in _step_tools]
 
@@ -3194,6 +3220,7 @@ class UnifiedChatEngine:
             if mcp_section:
                 tool_list = tool_list + "\n" + mcp_section
 
+        _t = self._stage_done("tool_selection", _t)
         brain_state = getattr(self, "_brain_state", None)
         if (
             brain_state is not None
@@ -3229,6 +3256,7 @@ class UnifiedChatEngine:
                 options=options,
             )
 
+        _t = self._stage_done("system_prompt", _t)
         # ── Native tool-calling gate (feature-flagged, default OFF) ──────────
         # GUAARDVARK_NATIVE_TOOLCALLS toggles passing Ollama's native tools=[...]
         # schema in the Tier 2 streaming call and reading structured
@@ -3278,7 +3306,9 @@ class UnifiedChatEngine:
         )
 
         # 4. Compact history if approaching context window limit
+        _t = self._stage_done("other", _t)
         history = self._compact_history(history, context_window=self._compaction_window())
+        _t = self._stage_done("compaction", _t)
 
         # 5. Build Ollama messages array — static content first for prefix cache
         ollama_messages = [{"role": "system", "content": system_prompt}]
@@ -3434,8 +3464,10 @@ class UnifiedChatEngine:
             if isinstance(image_urls, list) and len(image_urls) > 1:
                 extra["imageUrls"] = list(image_urls)
         persist = options.get("persist", True)
+        _t = self._stage_done("context", _t)
         if persist:
             self._save_message(session_id, "user", message, extra_data=extra)
+        _t = self._stage_done("save_question", _t)
         if persist and not options.get("skip_memory_capture"):
             try:
                 from backend.services.memory_capture import capture_from_message
@@ -3446,6 +3478,7 @@ class UnifiedChatEngine:
                 )
             except Exception:
                 logger.exception("Chat memory auto-capture failed")
+        _t = self._stage_done("memory_capture", _t)
 
         # 6. ReACT loop
         accumulated_response = ""
@@ -3478,6 +3511,8 @@ class UnifiedChatEngine:
         wrap_up_nudge_pushed = False
         tool_list_echo_retried = False
         claimed_search_retried = False
+        self._stage_done("other", _t)
+        self._stage_done("before_first_call", getattr(self, "_turn_t0", None) or _t)
         for iteration in range(1, self.max_iterations + 1):
             if is_aborted(session_id):
                 emit_fn("chat:complete", {
@@ -3678,7 +3713,7 @@ class UnifiedChatEngine:
                 # LLM answer from memory.
                 if (
                     not options.get("skip_nudges")
-                    and self._is_realtime_query(message)
+                    and self._wants_live_data(message)
                     and not tools_called
                     and not getattr(self, "_local_facts_this_turn", False)
                 ):
@@ -4231,7 +4266,7 @@ class UnifiedChatEngine:
             if (
                 iteration == 1
                 and not options.get("skip_nudges")
-                and self._is_realtime_query(message)
+                and self._wants_live_data(message)
                 and not getattr(self, "_local_facts_this_turn", False)
             ):
                 if not _web_search_succeeded(steps):
@@ -5207,11 +5242,16 @@ class UnifiedChatEngine:
         if last and not os.path.exists(last):
             last = None
         focus = session_id in _SESSION_IMAGE_FOCUS
-        if not user_wants_image_edit(
+        wants_edit = user_wants_image_edit(
             message,
             has_recent_image=attached or bool(last and focus),
             has_stale_image=bool(last and not focus),
-        ):
+        )
+        decided = self._image_intent(message, has_image=self._session_picture(session_id), rule_edit=wants_edit,
+                                     rule_new=user_wants_image_generation(message))
+        if decided is not None:
+            wants_edit = decided == "edit_image" and bool(attached or last)
+        if not wants_edit:
             return None
         if not self.registry.get_tool("edit_image"):
             return None
@@ -5350,7 +5390,20 @@ class UnifiedChatEngine:
         """
         if not message or not message.strip():
             return None
-        if not user_wants_image_generation(message):
+        wants_new = user_wants_image_generation(message)
+        if getattr(self, "_decide_ctx", None) is not None:
+            _attached = bool(getattr(self, "_image_data", None))
+            _last = None if _attached else _SESSION_LAST_EDIT.get(session_id)
+            _focus = session_id in _SESSION_IMAGE_FOCUS
+            _rule_edit = user_wants_image_edit(
+                message, has_recent_image=_attached or bool(_last and _focus),
+                has_stale_image=bool(_last and not _focus),
+            ) if (_attached or (_last and os.path.exists(_last))) else False
+            decided = self._image_intent(message, has_image=self._session_picture(session_id),
+                                         rule_edit=_rule_edit, rule_new=wants_new)
+            if decided is not None:
+                wants_new = decided == "new_image"
+        if not wants_new:
             return None
         if not self.registry.get_tool("generate_image"):
             return None
@@ -5868,6 +5921,9 @@ class UnifiedChatEngine:
                 nonlocal xml_detected, think_buffer
                 nonlocal input_tokens, output_tokens, done_reason
                 for chunk in chunks:
+                    if not getattr(self, "_turn_first_chunk", True):
+                        self._turn_first_chunk = True
+                        self._stage_done("first_chunk", getattr(self, "_turn_t0", None) or time.perf_counter())
                     if is_aborted(session_id):
                         break
                     if _too_many_calls():
@@ -6397,6 +6453,14 @@ class UnifiedChatEngine:
         same source-labelled shape, so the model can cite either corpus.
         """
         self._rag_error = None
+        return self._format_passages(self._find_passages(query))
+
+    def _find_passages(self, query: str) -> Dict[str, Any]:
+        """The knowledge-base search for ``query``, with no effect on the turn,
+        so it can run on another thread: {"passages": [{"label", "source",
+        "text", "score"}], "notes": {provenance key: value}, "error": reason
+        the search could not run or None, "failed": True when it raised}."""
+        found: Dict[str, Any] = {"passages": [], "notes": {}, "error": None, "failed": False}
         try:
             from backend.services.indexing_service import search_with_llamaindex
             project_id = getattr(self, '_project_id', None)
@@ -6408,33 +6472,91 @@ class UnifiedChatEngine:
             # A search that could not run returns no results like one that
             # found nothing; the trace tells them apart.
             if trace.get("error"):
-                self._note_rag_failure(str(trace["error"]))
+                found["error"] = str(trace["error"])
             elif trace.get("degraded"):
-                self._prov_note("rag_degraded", str(trace.get("degraded_reason") or "")[:200])
+                found["notes"]["rag_degraded"] = str(trace.get("degraded_reason") or "")[:200]
             from backend.utils.reranker import drop_unrelated
             results, dropped = drop_unrelated(results or [])
             if dropped:
-                self._prov_note("rag_dropped_unrelated", dropped)
+                found["notes"]["rag_dropped_unrelated"] = dropped
             from backend.services.chat_prompt_blocks import CHAT_KB_EXCERPT_CHARS
-            chunks = []
-            sources = []
             for r in results:
                 source = r.get("metadata", {}).get("source_filename", "Unknown")
-                text = cut_on_whitespace(r.get("text", ""), CHAT_KB_EXCERPT_CHARS)
-                chunks.append(f"[Source: {source}]\n{text}")
-                sources.append(str(source))
+                found["passages"].append({
+                    "label": source, "source": str(source), "score": r.get("rerank_score"),
+                    "text": cut_on_whitespace(r.get("text", ""), CHAT_KB_EXCERPT_CHARS),
+                })
             try:
                 from backend.services.knowledge_sources import retrieve_from_sources
                 for hit in retrieve_from_sources(query):
-                    chunks.append(f"[Source: {hit['title']}]\n{cut_on_whitespace(hit['snippet'], CHAT_KB_EXCERPT_CHARS)}")
-                    sources.append("ks:" + str(hit.get("title", "")))
+                    found["passages"].append({
+                        "label": hit['title'], "source": "ks:" + str(hit.get("title", "")), "score": None,
+                        "text": cut_on_whitespace(hit['snippet'], CHAT_KB_EXCERPT_CHARS),
+                    })
             except Exception as e:
                 logger.debug(f"Knowledge source retrieval skipped: {e}")
-            self._prov_note("rag_sources", list(dict.fromkeys(sources))[:10])
-            return "\n\n".join(chunks)
         except Exception as e:
-            self._note_rag_failure(f"{e.__class__.__name__}: {e}")
+            found.update(error=f"{e.__class__.__name__}: {e}", failed=True, passages=[])
+        return found
+
+    def _format_passages(self, found: Dict[str, Any]) -> str:
+        """The prompt block for what _find_passages found; records the search
+        in the turn's provenance."""
+        if found.get("error"):
+            self._note_rag_failure(found["error"])
+        if found.get("failed"):
             return ""
+        for key, value in (found.get("notes") or {}).items():
+            self._prov_note(key, value)
+        chunks = [f"[Source: {p['label']}]\n{p['text']}" for p in found.get("passages") or []]
+        sources = [p["source"] for p in found.get("passages") or []]
+        self._prov_note("rag_sources", list(dict.fromkeys(sources))[:10])
+        scores = [round(p["score"], 3) for p in found.get("passages") or [] if isinstance(p.get("score"), (int, float))]
+        if scores:
+            self._prov_note("rag_scores", scores[:10])
+        return "\n\n".join(chunks)
+
+    def _rag_for_turn(self, message: str, history: List[Dict[str, str]], options: Dict[str, Any],
+                      conversational: bool, has_image: bool) -> str:
+        """The knowledge-base block for this turn's prompt, "" for none.
+
+        Today's rule searches unless the message is small talk, carries a
+        picture, or starts with an action word (_should_skip_rag). With the
+        skip_rag or context_answers decision not off, the loaded chat model is
+        also asked whether the user's documents could help (beside the search)
+        and whether each passage found answers the message (chat_decisions).
+        """
+        if not options.get("use_rag", True) or conversational or has_image:
+            return ""
+        by_rule = not self._should_skip_rag(message)
+        from backend.services import chat_decisions
+        if not chat_decisions.any_active(("skip_rag", "context_answers")):
+            return self._retrieve_rag_context(message) if by_rule else ""
+        self._rag_error = None
+        previous = next((m.get("content") or "" for m in reversed(history or [])
+                         if m.get("role") == "user"), "")
+        app = getattr(self, "app", None)
+        if app is None:
+            try:
+                from flask import current_app, has_app_context
+                app = current_app._get_current_object() if has_app_context() else None
+            except Exception:
+                app = None
+        ctx = getattr(self, "_decide_ctx", None)
+        try:
+            found, gate = chat_decisions.search(self._find_passages, message, previous_message=previous,
+                                                by_rule=by_rule, ctx=ctx, app=app)
+        except Exception as e:
+            logger.warning("search with the skip_rag question failed: %s", e)
+            found, gate = (self._find_passages(message) if by_rule else None), None
+        if gate:
+            self._prov_note("rag_gate", gate)
+        if found is None:
+            return ""
+        found, left_out = chat_decisions.check_passages(found, message, ctx=ctx)
+        if left_out:
+            self._prov_note("rag_judged_unrelated", left_out)
+        return self._format_passages(found)
 
     def _note_rag_failure(self, reason: str) -> None:
         """Retrieval failed this turn: log it where an operator looks and keep
@@ -6590,6 +6712,65 @@ class UnifiedChatEngine:
         if UnifiedChatEngine._REALTIME_BLOCKER_RE.search(msg_lower):
             return False
         return bool(UnifiedChatEngine._REALTIME_KEYWORD_RE.search(msg_lower))
+
+    # Words that may mean live data where _REALTIME_KEYWORD_RE has no match;
+    # with needs_live_data not off, a message with one is put to the model.
+    _LIVE_CANDIDATE_RE = re.compile(
+        r"\b(?:today|tonight|tomorrow|yesterday|latest|newest|current(?:ly)?|now|this (?:week|weekend|month|year)"
+        r"|prices?|costs?|stocks?|scores?|news|weather|forecast|who won|released?|release date|open(?:ing)? hours"
+        r"|standings|results)\b", re.IGNORECASE,
+    )
+
+    def _wants_live_data(self, message: str) -> bool:
+        """Whether this message needs live web information (the web-search
+        nudge and the could-not-verify note). Today's rule is
+        _is_realtime_query; with needs_live_data not off, a message the rule
+        or _LIVE_CANDIDATE_RE matches is put to the chat model."""
+        rule = self._is_realtime_query(message)
+        from backend.services import chat_decisions
+        if chat_decisions.mode("needs_live_data") == "off":
+            return rule
+        if not message or len(message) > 600 or not (rule or self._LIVE_CANDIDATE_RE.search(message)):
+            return rule
+        result = chat_decisions.ask("needs_live_data", {"message": message}, fallback=rule,
+                                    ctx=getattr(self, "_decide_ctx", None))
+        self._prov_note("live_data_decision", {"answer": result.answer, "source": result.source,
+                                               "reason": result.reason})
+        return bool(result.answer)
+
+    # Words that may mean a picture where the image rules have no match; with
+    # image_intent not off, a message with one (or with a picture at hand)
+    # is put to the model.
+    _IMAGE_CANDIDATE_RE = re.compile(
+        r"\b(?:images?|pictures?|photos?|pics?|draw(?:ing)?|paint(?:ing)?|sketch|render|illustrat\w*|logo"
+        r"|wallpaper|portrait|artwork|poster|selfie)\b", re.IGNORECASE,
+    )
+
+    def _image_intent(self, message: str, *, has_image: bool, rule_edit: bool,
+                      rule_new: bool) -> Optional[str]:
+        """new_image, edit_image or neither from the chat model when the
+        image_intent decision is not off and the message may be about a
+        picture; None leaves the image rules to decide. ``has_image``: a
+        picture is attached or this chat made one."""
+        from backend.services import chat_decisions
+        if chat_decisions.mode("image_intent") == "off" or not message or len(message) > 600:
+            return None
+        if not (rule_edit or rule_new or self._IMAGE_CANDIDATE_RE.search(message)
+                or (has_image and _IMAGE_EDIT_VERB_RE.search(message))):
+            return None
+        fallback = "edit_image" if rule_edit else "new_image" if rule_new else "neither"
+        result = chat_decisions.ask("image_intent", {"message": message, "has_recent_image": bool(has_image)},
+                                    fallback=fallback, ctx=getattr(self, "_decide_ctx", None))
+        self._prov_note("image_intent_decision", {"answer": result.answer, "source": result.source,
+                                                  "reason": result.reason})
+        return result.answer
+
+    def _session_picture(self, session_id: str) -> bool:
+        """A picture is attached to this turn, or this chat edited or made one."""
+        if getattr(self, "_image_data", None):
+            return True
+        last = _SESSION_LAST_EDIT.get(session_id)
+        return bool(last and os.path.exists(last))
 
     def _load_rules(self, model_name: str) -> str:
         """The persona and active rules block for the system prompt.
@@ -6928,6 +7109,17 @@ You are a private, local AI assistant running on the user's own hardware. There 
         text = re.sub(r"!\[[^\]]*\]\(\s*https?://[^)]+\)", "[remote image removed — offline]", text)
         text = re.sub(r"https?://[^\s)\]<>\"']*oaiusercontent[^\s)\]<>\"']*", "[remote image removed]", text)
         return text
+
+    def _stage_done(self, stage: str, since: float) -> float:
+        """Add the milliseconds since ``since`` to this turn's ``stage`` in the
+        provenance block ``timings_ms``; returns now, where the next stage starts."""
+        now = time.perf_counter()
+        try:
+            timings = self._prov.setdefault("timings_ms", {})
+            timings[stage] = timings.get(stage, 0) + round((now - since) * 1000)
+        except Exception:
+            pass
+        return now
 
     def _prov_note(self, key: str, value) -> None:
         """Record one fact about how the current reply is being produced."""

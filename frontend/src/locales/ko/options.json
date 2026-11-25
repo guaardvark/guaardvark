@@ -365,7 +365,7 @@
     "logs": "Guaardvark 로그 확인 (선택적 파일명 및 grep)",
     "sysmap": "System Mapper의 분석 결과를 보고하거나 코드에 대해 질문하세요: /sysmap 시드 박스 위치, /sysmap 모듈 backend/app.py, /sysmap 영향도 backend/services/agent_tools.py",
     "swarm": "Swarm 오케스트레이터 상태 (플러그인이 실행 중이어야 함)",
-    "outreach": "아웃리치 상태, 짧은 동사 또는 자연어 스카우트/초안 (예: YouTube 주제)",
+    "outreach": "아웃리치란: Reddit이나 YouTube 게시물에 답글 달기, 동영상 댓글에 답변하기, 링크 붙여넣기 또는 상태 확인하기",
     "plan": "계획 모드: 먼저 검토하고, 승인한 계획에 대해서만 실행합니다.",
     "orchestrate": "요청을 여러 에이전트로 분할",
     "training": "에이전트를 학습 모드로 실행 — 1000회 반복 루프 전체 실행, 채팅 LLM 분해 건너뛰기",

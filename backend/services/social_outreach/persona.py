@@ -141,21 +141,49 @@ schema to return — follow that schema, not a generic one.
 """
 
 
+# Framing for a post of the account's own that carries an infographic.
+_POST_FRAMING = """This is a new post of your own in a community, NOT a reply. An image is
+attached to it: an infographic. Readers see the image, so the words with it
+do not repeat it line for line. They say, the way this person would, what it
+is and why someone in this community would care.
+
+The pitch sheet below is the source of truth: claim nothing beyond what it
+and the image state, and don't fabricate URLs.
+
+Self-grade the draft 0.0-1.0 on "would a member of this community read this
+as one of them sharing something they built, not as an advert?". 0.7+ is
+post-worthy. The user prompt specifies the exact JSON schema to return.
+"""
+
+
 # Framing for REPLIES on the account's OWN YouTube videos. Different audience
 # (already engaged, watched the video) so different posture (no pitch,
 # no link, no marketing gate). Same factual ground from the pitch sheet.
 _REPLY_FRAMING = """The viewer already watched and engaged — you
-are NOT pitching to a stranger. Be human about it. Don't paste the link,
-don't recap the video, don't sell. Answer questions if asked, take critique
-on the merits, acknowledge kindness briefly without overselling gratitude.
+are NOT pitching to a stranger. Be human about it. Answer questions if asked,
+take critique on the merits, acknowledge kindness briefly without overselling
+gratitude.
 
-The pitch sheet below is for factual reference only — use specifics from it
-if the viewer asked about a feature, otherwise it stays out of the reply.
+No link, no "check out", no invitation to try or download anything, no
+disclosure line, no recap of the video. The one exception: the viewer asked
+how it was made or where to get it; then say so plainly, and name the tool
+or give one link only if they asked for it.
+
+The reference sheet is for facts only: use a specific from it when the
+viewer asked about a feature. Its voice rules, its disclosure line and its
+links are written for comments on other people's threads and do not apply to
+a reply on your own video.
+
+Plain praise with nothing to answer (a few emoji, "cool", "this is so good")
+gets a thank-you: one short line, twelve words at most, in the plain way a
+person thanks a viewer. Pick up on what they said or on the video if there is
+anything to pick up on; no exclamation-mark pile-up, no question tacked on
+to drive engagement, and nothing after the thanks.
 
 Self-grade 0.0-1.0 on "does this read like a real creator actually engaging
 with their viewer, or like a templated auto-response?". 0.6+ means post.
-If the incoming comment doesn't merit a substantive reply (spam, hostile,
-off-topic, wholly generic praise), return draft="" and grade=0.0.
+If the incoming comment should get no reply at all (spam, hostile,
+off-topic), return draft="" and grade=0.0.
 
 Return JSON: {"draft": "<reply text>", "grade": 0.0-1.0, "reason": "<one line>"}.
 """
@@ -170,23 +198,107 @@ def _pitch_sheet() -> str:
     return profile.load().pitch_sheet()
 
 
-def _compose_outward_facing_system() -> str:
+def _compose_outward_facing_system(platform: Optional[str] = None) -> str:
     """Build the system message: framing + pitch sheet. Both are re-read on
     every call (mtime-cached), so edits propagate without restarting the worker."""
     framing = f"You are writing a comment or post under {_account_ref()}.\n{_OUTWARD_FACING_FRAMING}"
     pitch = _pitch_sheet()
     if not pitch:
-        return framing
-    return f"{framing}\n\n--- PITCH SHEET ---\n{pitch}\n"
+        return _voiced_system(framing, platform)
+    return _voiced_system(f"{framing}\n\n--- PITCH SHEET ---\n{pitch}\n", platform)
 
 
-def _compose_reply_system() -> str:
+def _voiced_system(system: str, platform: Optional[str] = None) -> str:
+    """``system`` with the account owner's voice sheet after it, when they keep one."""
+    from backend.services.social_outreach import voice
+
+    block = voice.block(platform=platform)
+    return f"{system}\n\n{block}" if block else system
+
+
+def _draft_in_voice(
+    llm, system: str, prompt: str, keys: tuple, platform: Optional[str] = None,
+) -> tuple[dict, str]:
+    """Call the drafter and return (result, draft text). A draft that uses
+    something the voice sheet lists under Never is written once more with
+    those named; the version with fewer of them is kept."""
+    from backend.services.social_outreach import voice
+
+    def text_of(result: dict) -> str:
+        return next((result.get(k) for k in keys if result.get(k)), "") or ""
+
+    result = llm(system, prompt)
+    draft = text_of(result)
+    found = voice.hits(draft, platform)
+    if not found:
+        return result, draft
+    shown = ", ".join(repr(f[3:].strip() if f.startswith("re:") else f) for f in found)
+    again = llm(system, (
+        f"{prompt}\n\nYour previous draft was:\n{draft}\n\n"
+        f"It used {shown}, which this person never writes. Write it again in their voice "
+        "without those, saying the same things."
+    ))
+    second = text_of(again)
+    if second and len(voice.hits(second, platform)) < len(found):
+        return again, second
+    return result, draft
+
+
+def _compose_reply_system(platform: Optional[str] = None) -> str:
     """Same idea as _compose_outward_facing_system but for replies-on-own-video."""
     framing = f"You are writing a REPLY to a comment left on one of {_video_owner_ref()}.\n{_REPLY_FRAMING}"
     pitch = _pitch_sheet()
     if not pitch:
         return framing
-    return f"{framing}\n\n--- PITCH SHEET (factual reference only) ---\n{pitch}\n"
+    # The sheet goes first and the reply rules last: a long sheet of sales
+    # voice rules after the framing was followed instead of it (measured
+    # 2026-11-11: every reply to plain praise carried a link).
+    return _voiced_system(
+        "--- REFERENCE SHEET (facts only; its voice rules and links are not for this reply) ---\n"
+        f"{pitch}\n--- END OF REFERENCE SHEET ---\n\n{framing}",
+        platform,
+    )
+
+
+def _compose_post_system(platform: Optional[str] = None) -> str:
+    """The system message for a post of the account's own with an infographic."""
+    framing = f"You are writing a post under {_account_ref()}.\n{_POST_FRAMING}"
+    pitch = _pitch_sheet()
+    if not pitch:
+        return _voiced_system(framing, platform)
+    return _voiced_system(f"{framing}\n\n--- PITCH SHEET ---\n{pitch}\n", platform)
+
+
+def _build_post_prompt(platform: str, community: str, infographic: dict, link_url: str) -> str:
+    """User-side prompt for a post with an infographic: where it goes, what the
+    image says, and the shape the words take on that platform."""
+    said = [str(infographic.get("headline") or "").strip()]
+    said += [str(line).strip() for line in infographic.get("lines") or []]
+    image_text = "\n".join(f"  {line}" for line in said if line) or "  (its text is not recorded)"
+    if platform == "reddit":
+        shape = (
+            "Write the post's TITLE: one line of at most 150 characters, plain words, "
+            "no link, no hashtags, no emoji. It says what the image shows."
+        )
+    else:
+        shape = (
+            "Write one to three short sentences to go above the image"
+            + (f", ending with this link on the same line: {link_url}" if link_url else "")
+            + ". No hashtags."
+        )
+    return f"""\
+PLATFORM: {platform}
+COMMUNITY: {community}
+
+THE ATTACHED INFOGRAPHIC SAYS:
+{image_text}
+
+INSTRUCTIONS:
+{shape}
+Do not copy the infographic's lines; the reader has them in front of them.
+
+Respond with JSON: {{"draft": "...", "grade": 0.0-1.0, "reason": "..."}}
+"""
 
 
 def _compose_share_system() -> str:
@@ -322,12 +434,15 @@ def _build_reply_prompt(
     tone_line = f"\nTONE: {tone_guide}\n" if tone_guide else ""
     author_line = f" by @{incoming_author}" if incoming_author else ""
     video_line = f"VIDEO: {video_title}\n" if video_title else ""
+    if (parent_text or "").strip():
+        exchange = (
+            f"YOUR EARLIER COMMENT (the one they replied to):\n{parent_text}\n\n"
+            f"THEIR REPLY{author_line}:\n{incoming_text}"
+        )
+    else:
+        exchange = f"THEIR COMMENT ON YOUR VIDEO{author_line}:\n{incoming_text}"
     return f"""\
-{video_line}YOUR EARLIER COMMENT (the one they replied to):
-{parent_text}
-
-THEIR REPLY{author_line}:
-{incoming_text}
+{video_line}{exchange}
 {tone_line}
 Draft a reply to them. Follow the voice rules from the system message.
 Return JSON: {{"draft": "<reply text>", "grade": 0.0-1.0, "reason": "<one line>"}}.
@@ -521,8 +636,10 @@ def draft_outreach_text(
         context: dict with keys depending on mode:
             - comment mode: {"url", "title", "body", "thread_context"}
             - share mode: {"target", "link_url"}
+            - post mode: {"community", "infographic": {"headline", "lines"}}
         tone: optional tone preset from TONE_GUIDES
-        mode: "comment" or "share"
+        mode: "comment", "share", "reply", or "post" (the account's own post
+            with an infographic attached)
         feature_hint: accepted from callers that label a thread with a
             feature key; it is not put in the prompt — the drafter chooses
             its angle from the pitch sheet.
@@ -541,8 +658,34 @@ def draft_outreach_text(
     if llm is None:
         llm = _ollama_json_chat
 
-    if mode in ("share", "comment") and not _pitch_sheet():
+    if mode in ("share", "comment", "post") and not _pitch_sheet():
         return _not_drafted(profile.no_product_reason())
+
+    if mode == "post":
+        # A title carries no link; elsewhere the profile's link closes the post.
+        cta = "" if platform == "reddit" else (
+            (link_url or context.get("link_url") or "").strip() or profile.cta_url(platform)
+        )
+        prompt = _build_post_prompt(
+            platform, context.get("community") or "(unspecified)", context.get("infographic") or {}, cta,
+        )
+        result, draft_text = _draft_in_voice(
+            llm, _compose_post_system(platform), prompt, ("draft", "title", "body"), platform,
+        )
+        draft_text = (draft_text or "").strip()
+        if platform == "reddit":
+            draft_text = " ".join(draft_text.split())
+        elif draft_text and cta and not _draft_already_has_cta(draft_text, cta):
+            draft_text = f"{draft_text} {cta}"
+        draft_text = apply_utm_tags(draft_text, platform=platform, campaign=campaign)
+        reason = result.get("reason", "") or result.get("rationale", "")
+        return {
+            "comment": draft_text,
+            "draft": draft_text,
+            "grade": float(result.get("grade", 0.0) or 0.0),
+            "rationale": reason,
+            "reason": reason,
+        }
 
     if mode == "share":
         target = context.get("target", "(unspecified)")
@@ -575,8 +718,9 @@ def draft_outreach_text(
             video_title=context.get("video_title", ""),
             tone=tone,
         )
-        result = llm(_compose_reply_system(), prompt)
-        draft_text = result.get("draft", "") or result.get("reply", "")
+        result, draft_text = _draft_in_voice(
+            llm, _compose_reply_system(platform), prompt, ("draft", "reply"), platform,
+        )
         # Replies skip the UTM-tag pass entirely — we're not handing out
         # links here. Return early so the apply_utm_tags call below is
         # bypassed (it would no-op on text with no profile links anyway,
@@ -609,8 +753,9 @@ def draft_outreach_text(
             link_url=cta,
             requested_feature=requested_feature,
         )
-        result = llm(_compose_outward_facing_system(), prompt)
-        draft_text = result.get("draft", "") or result.get("comment", "")
+        result, draft_text = _draft_in_voice(
+            llm, _compose_outward_facing_system(platform), prompt, ("draft", "comment"), platform,
+        )
 
         # When the caller asked for a link but the model omitted it, append
         # the URL on a new line. The model's grade still reflects its honest
@@ -631,6 +776,42 @@ def draft_outreach_text(
         "rationale": result.get("reason", "") or result.get("rationale", ""),
         "reason": result.get("reason", "") or result.get("rationale", ""),
     }
+
+
+def revise_draft(
+    action: str, source: Optional[dict], current_text: str, note: str, platform: Optional[str] = None,
+) -> dict:
+    """Rewrite an existing draft the way its approver asked ("shorter",
+    "less salesy"). The system message is the one the draft was written
+    under, so the rewrite keeps the same rules. Returns {"draft", "reason"};
+    draft is "" when the model gave nothing usable."""
+    kind = (action or "").lower()
+    if kind == "reply":
+        system = _compose_reply_system(platform)
+    elif kind == "post":
+        system = _compose_post_system(platform)
+    else:
+        system = _compose_outward_facing_system(platform)
+    source = source or {}
+    answered = "\n".join(
+        part for part in (
+            f"TITLE: {source['title']}" if source.get("title") else "",
+            source.get("text") or "",
+        ) if part
+    ) or "(not recorded)"
+    user = (
+        f"WHAT THE DRAFT ANSWERS:\n{answered}\n\n"
+        f"CURRENT DRAFT:\n{current_text}\n\n"
+        f"THE APPROVER ASKED FOR THIS CHANGE: {note}\n\n"
+        "Rewrite the draft with that change and nothing else changed in what it claims. "
+        + ("It is a post TITLE: keep it to one line with no link. " if kind == "post" and platform == "reddit" else "")
+        + 'Respond with JSON: {"draft": "...", "reason": "what you changed"}'
+    )
+    result = _ollama_json_chat(system, user)
+    draft = str(result.get("draft") or "").strip()
+    if kind == "post" and platform == "reddit":
+        draft = " ".join(draft.split())
+    return {"draft": draft, "reason": str(result.get("reason") or "")}
 
 
 def apply_utm_tags(

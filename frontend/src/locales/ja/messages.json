@@ -413,7 +413,7 @@
       "noCadence": "ケイデンスデータなし。",
       "statusFailed": "アウトリーチのステータスに失敗しました: {{reason}}",
       "refused": "アウトリーチ: リクエストが拒否されました。",
-      "intentFailed": "アウトリーチの意図の解析に失敗しました: {{reason}}",
+      "intentFailed": "アウトリーチ: {{reason}}",
       "queued": "アウトリーチジョブがタスク #{{taskId}} としてキューに追加されました。",
       "commandFailed": "アウトリーチコマンドに失敗しました: {{reason}}"
     },

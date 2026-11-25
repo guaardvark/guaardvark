@@ -62,7 +62,7 @@ With the GPU free, the call returns when the PNG is saved (`image_url`, also fil
 under Images › Infographics). If another job holds the GPU (a video render, training), it answers
 202 with `queued: true`, `batch_id` and `status_url` instead; follow `GET $B/api/batch-image/status/<batch_id>`,
 and the image is filed under Images › <batch id> when it finishes. `"queue_if_busy": false` waits in
-the call instead (up to 10 minutes, then 503). `model` is optional: Krea 2 Turbo when installed, else Z-Image Turbo;
+the call instead (up to 10 minutes, then 503). `model` is optional: Krea 2 Turbo when installed, else MOSS-Image, else Z-Image Turbo;
 `qwen-image-21` is non-commercial. `GET $B/api/infographic/status` lists the models and which is installed.
 
 ## Rules

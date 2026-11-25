@@ -12,6 +12,8 @@ GET  /api/social-outreach/audit?limit=200     — recent log rows
 GET  /api/social-outreach/queue               — drafts waiting for a person's approval
 POST /api/social-outreach/drafts              — create a draft manually from the UI
 PATCH /api/social-outreach/drafts/<id>        — save edits to a draft (status='drafted' only)
+GET  /api/social-outreach/drafts?ids=1,2      — those rows as a person reads them (text = the words that would post)
+GET  /api/social-outreach/run-result          — where a run started by /intent stands: tasks, plain notes, its drafts
 POST /api/social-outreach/approve/<id>        — approve a queued draft (409 with the reason for X and LinkedIn)
 POST /api/social-outreach/reject/<id>         — reject and mark won't-post (409 once the post is being submitted)
 GET  /api/social-outreach/post-now            — Agent Screen presence, the watched post running, approved drafts waiting for one
@@ -22,6 +24,10 @@ POST /api/social-outreach/thread-fit          — internal: ask the thread-fit j
 POST /api/social-outreach/draft-comment       — internal: draft a reply via the LLM, with grade
 POST /api/social-outreach/scout-url           — agent fetches OP + comments for a URL so the human doesn't paste them
 POST /api/social-outreach/run-pass            — fire a Reddit / self-share pass on demand instead of waiting for the cron
+GET  /api/social-outreach/infographics        — the infographics a post may carry ({items}); ?keepers=1 for keepers only
+POST /api/social-outreach/infographics/<id>/keep      — mark or unmark a keeper; a new keeper's text is read back
+POST /api/social-outreach/infographics/<id>/readback  — read the image's text back again
+GET  /api/social-outreach/infographics/<id>/image     — the image file
 
 The draft-comment endpoint is the LLM call site for both the Discord cog and
 the Reddit browser loop. It uses Ollama directly with the persona block — no
@@ -99,7 +105,9 @@ def get_audit():
         .limit(limit)
         .all()
     )
-    return jsonify([r.to_dict() for r in rows])
+    from backend.services.social_outreach import run_result
+
+    return jsonify([run_result.presentable(r) for r in rows])
 
 
 @social_outreach_bp.get("/queue")
@@ -113,7 +121,9 @@ def get_queue():
         .limit(200)
         .all()
     )
-    return jsonify([r.to_dict() for r in rows])
+    from backend.services.social_outreach import run_result
+
+    return jsonify([run_result.presentable(r) for r in rows])
 
 
 @social_outreach_bp.get("/approved")
@@ -128,7 +138,9 @@ def get_approved():
         .limit(50)
         .all()
     )
-    return jsonify([r.to_dict() for r in rows])
+    from backend.services.social_outreach import run_result
+
+    return jsonify([run_result.presentable(r) for r in rows])
 
 
 @social_outreach_bp.post("/drafts")
@@ -204,7 +216,11 @@ def update_draft(event_id: int):
     if refusal:
         return jsonify({"error": refusal}), 400
     if "draft_text" in body:
-        row.draft_text = body["draft_text"] or ""
+        from backend.services.social_outreach import transitions
+
+        edited = transitions.edited_fields(event_id, body["draft_text"] or "")
+        for field, value in edited.items():
+            setattr(row, field, value)
     if "target_url" in body:
         row.target_url = body["target_url"] or None
     if "target_thread_id" in body:
@@ -215,6 +231,201 @@ def update_draft(event_id: int):
         row.action = body["action"]
     db.session.commit()
     return jsonify(row.to_dict())
+
+
+@social_outreach_bp.get("/drafts")
+def drafts_by_id():
+    """The outreach rows named in ``?ids=1,2,3``, as a person reads them
+    (``text`` is the words that would post). Unknown ids are left out."""
+    from backend.models import SocialOutreachLog
+    from backend.services.social_outreach import run_result
+
+    try:
+        ids = [int(part) for part in (request.args.get("ids") or "").split(",") if part.strip()][:50]
+    except ValueError:
+        return jsonify({"error": "ids must be integers"}), 400
+    if not ids:
+        return jsonify([])
+    rows = SocialOutreachLog.query.filter(SocialOutreachLog.id.in_(ids)).order_by(SocialOutreachLog.id.asc()).all()
+    return jsonify([run_result.presentable(r) for r in rows])
+
+
+@social_outreach_bp.get("/run-result")
+def outreach_run_result():
+    """Where a run started by /intent stands: ``{done, tasks, notes, drafts,
+    older_waiting}`` for its ``task_ids`` and ``after_id`` (the ``follow``
+    values /intent returned)."""
+    from backend.services.social_outreach import run_result
+
+    try:
+        task_ids = [int(part) for part in (request.args.get("task_ids") or "").split(",") if part.strip()][:20]
+        after_id = int(request.args.get("after_id") or 0)
+    except ValueError:
+        return jsonify({"error": "task_ids and after_id must be integers"}), 400
+    platform = (request.args.get("platform") or "").strip().lower() or None
+    return jsonify(run_result.run_result(task_ids, after_id, platform))
+
+
+# --- Infographics a post may carry ---------------------------------------
+
+@social_outreach_bp.get("/infographics")
+def infographics_list():
+    """``{items}``: every infographic in the Library, newest first, with its
+    keeper mark and read-back; ``?keepers=1`` lists keepers only."""
+    from backend.services.social_outreach import infographics
+
+    keepers = (request.args.get("keepers") or "").strip().lower() in ("1", "true", "yes")
+    return jsonify({"items": infographics.items(keepers_only=keepers)})
+
+
+@social_outreach_bp.post("/infographics/<int:document_id>/keep")
+def infographic_keep(document_id: int):
+    """Mark (``{keep: true}``) or unmark a keeper; ``topics`` (a list of
+    strings) is saved when sent. A new keeper that was never read back comes
+    back with its read-back "reading". Returns the item."""
+    from backend.services.social_outreach import infographics
+
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body.get("keep"), bool):
+        return jsonify({"error": "keep must be true or false"}), 400
+    topics = body.get("topics")
+    if topics is not None and not isinstance(topics, list):
+        return jsonify({"error": "topics must be a list"}), 400
+    try:
+        return jsonify(infographics.mark(document_id, body["keep"], topics))
+    except infographics.InfographicNotFound:
+        return jsonify({"error": "not found"}), 404
+
+
+@social_outreach_bp.post("/infographics/<int:document_id>/readback")
+def infographic_readback(document_id: int):
+    """Queue a read-back of the image's text, replacing any earlier result.
+    Returns the item at once with its read-back "reading"."""
+    from backend.services.social_outreach import infographics
+
+    try:
+        return jsonify(infographics.queue_readback(document_id)), 202
+    except infographics.InfographicNotFound:
+        return jsonify({"error": "not found"}), 404
+
+
+@social_outreach_bp.get("/infographics/<int:document_id>/image")
+def infographic_image(document_id: int):
+    """The image of an infographic document, from the uploads folder."""
+    from flask import send_file
+
+    from backend.services.social_outreach import infographics
+
+    try:
+        path = infographics.file_path(document_id)
+    except (infographics.InfographicNotFound, infographics.InfographicFileMissing):
+        return jsonify({"error": "not found"}), 404
+    return send_file(path)
+
+
+# --- Typing rhythm: how a watched post is typed --------------------------------
+
+@social_outreach_bp.get("/typing-rhythm")
+def typing_rhythm_status():
+    """The rhythm watched posts are typed with: {recorded, recorded_at, keys,
+    median_letter_ms, min_keys}. ``recorded`` false means the built-in default."""
+    from backend.services.social_outreach import typing_rhythm
+
+    return jsonify(typing_rhythm.summary())
+
+
+@social_outreach_bp.post("/typing-rhythm")
+def typing_rhythm_record():
+    """Learn the rhythm from a recording of a person typing.
+
+    Body: {events: [{c: "letter"|"space"|"punct"|"newline"|"other", t: ms}]},
+    the class and time of each key in order. What was typed is not sent or
+    kept. 400 when the recording is too short to learn from.
+    """
+    from backend.services.social_outreach import typing_rhythm
+
+    events = (request.get_json(silent=True) or {}).get("events")
+    profile = typing_rhythm.from_keystrokes(events) if isinstance(events, list) else None
+    if profile is None:
+        return jsonify({
+            "error": f"Too short to learn from; type at least {typing_rhythm.MIN_KEYS} keys.",
+        }), 400
+    typing_rhythm.save(profile)
+    return jsonify(typing_rhythm.summary())
+
+
+@social_outreach_bp.delete("/typing-rhythm")
+def typing_rhythm_clear():
+    """Forget the recorded rhythm and go back to the built-in default."""
+    from backend.services.social_outreach import typing_rhythm
+
+    typing_rhythm.clear()
+    return jsonify(typing_rhythm.summary())
+
+
+# --- Review in chat: one draft at a time, answered in words -------------------
+
+@social_outreach_bp.post("/review/start")
+def review_start():
+    """Open a one-at-a-time review for a chat session.
+
+    Body: {session_id, follow?: {task_ids, after_id, platform} (from /intent),
+    draft_ids?: [..], waiting?: true, platform?}. Answers with the review's
+    view (see GET /review).
+    """
+    from backend.services.social_outreach import review
+
+    body = request.get_json(silent=True) or {}
+    out = review.start(
+        str(body.get("session_id") or ""),
+        follow=body.get("follow") if isinstance(body.get("follow"), dict) else None,
+        draft_ids=body.get("draft_ids") if isinstance(body.get("draft_ids"), list) else None,
+        waiting=bool(body.get("waiting")),
+        platform=body.get("platform"),
+    )
+    return jsonify(out), (400 if out.get("error") else 200)
+
+
+@social_outreach_bp.get("/review")
+def review_view():
+    """Where a chat's review stands: {open, waiting, tasks, posting, pending,
+    current, remaining, last}. ``current`` is the draft to answer, with the
+    post or comment it answers in ``source``."""
+    from backend.services.social_outreach import review
+
+    return jsonify(review.view(request.args.get("session_id") or ""))
+
+
+@social_outreach_bp.post("/review/answer")
+def review_answer():
+    """Read a chat message as the answer to the draft on show.
+
+    Body: {session_id, text, spoken?}. ``handled`` false means no review is
+    open and the message is the chat's. A "yes" answers with ``post`` ({id,
+    delay_ms, needs_screen}); nothing is approved or posted until
+    POST /review/post is called for that draft.
+    """
+    from backend.services.social_outreach import review
+
+    body = request.get_json(silent=True) or {}
+    return jsonify(review.answer(
+        str(body.get("session_id") or ""), str(body.get("text") or ""), spoken=bool(body.get("spoken")),
+    ))
+
+
+@social_outreach_bp.post("/review/post")
+def review_post():
+    """Approve and post the draft the last "yes" marked. Body: {session_id,
+    draft_id}. Posts nothing unless that draft is the one a "yes" marked in
+    this chat; a "stop" in between takes the yes back."""
+    from backend.services.social_outreach import review
+
+    body = request.get_json(silent=True) or {}
+    try:
+        draft_id = int(body.get("draft_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "draft_id must be an integer"}), 400
+    return jsonify(review.post(str(body.get("session_id") or ""), draft_id))
 
 
 @social_outreach_bp.post("/approve/<int:event_id>")
@@ -280,7 +491,9 @@ def watched_post_status():
         .limit(50)
         .all()
     )
-    waiting = [r.to_dict() for r in rows if platforms.posts(r.platform, r.action)]
+    from backend.services.social_outreach import run_result
+
+    waiting = [run_result.presentable(r) for r in rows if platforms.posts(r.platform, r.action)]
     return jsonify({**watched_post.status(), "waiting": waiting, "api_platforms": api_post.ready_platforms()})
 
 
@@ -731,7 +944,8 @@ def _reddit_thread_path(url: str) -> Optional[str]:
 
 
 def _scout_reddit_url(url: str) -> Optional[Dict[str, Any]]:
-    """For a Reddit thread URL, pull OP + top-5 comments via the public JSON API.
+    """For a Reddit thread URL, pull OP + top-5 comments from Reddit's JSON
+    (through the agent browser where Reddit refuses a direct request).
 
     Reuses fetch_thread_comments-style parsing so the agent ends up with the
     same context the cron loop already gets — no humans pasting OPs into the
@@ -745,14 +959,12 @@ def _scout_reddit_url(url: str) -> Optional[Dict[str, Any]]:
     path = _reddit_thread_path(url)
     if path is None:
         return None
-    json_url = "https://www.reddit.com" + path.rstrip("/") + ".json?limit=10&depth=1"
-    headers = {"User-Agent": "guaardvark-outreach/0.1 scout"}
+    from backend.services.social_outreach import reddit_outreach
+
+    json_url = reddit_outreach.REDDIT_BASE + path.rstrip("/") + ".json?limit=10&depth=1"
     try:
-        resp = requests.get(json_url, headers=headers, timeout=10, allow_redirects=False)
-        if not resp.ok:
-            return None
-        data = resp.json()
-    except Exception as e:  # network/JSON failure — caller falls back to generic scrape
+        data = reddit_outreach.read_json(json_url)
+    except Exception as e:  # the caller falls back to the generic scrape
         logger.warning("reddit scout failed for %s: %s", url, e)
         return None
 
@@ -988,9 +1200,15 @@ def execute_intent():
     }
 
     Freeform text is LLM-classified (status / list_queue / approve / reject /
-    scout_and_draft / refuse). Scout jobs are queued only for scout_and_draft
-    with real topics + confidence. Refuse and status answers do not queue.
-    Explicit platform+topics skip the classifier (structured override).
+    post / scout_and_draft / reply_comments / refuse); a link in the text and
+    "post draft N" are read without the model. A scout names the person's
+    topics, or the outreach profile's keywords when they named none. Refuse
+    and status answers do not queue. Explicit platform+topics skip the
+    classifier (structured override).
+
+    A queued run answers with ``follow`` ({task_ids, after_id, platform}),
+    which GET /run-result takes to show its drafts once the tasks end; a
+    request that drafts at once answers with ``draft_ids``.
     """
     body = request.get_json(silent=True) or {}
     from backend.services.social_outreach.intent import execute_outreach_intent

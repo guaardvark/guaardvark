@@ -413,7 +413,7 @@
       "noCadence": "无频率数据。",
       "statusFailed": "外联状态失败：{{reason}}",
       "refused": "外联：请求被拒绝。",
-      "intentFailed": "外联意图失败：{{reason}}",
+      "intentFailed": "外联：{{reason}}",
       "queued": "外联任务已排入队列，任务编号为 #{{taskId}}。",
       "commandFailed": "外联命令失败：{{reason}}"
     },

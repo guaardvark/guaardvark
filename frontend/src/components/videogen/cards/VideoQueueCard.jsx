@@ -448,6 +448,11 @@ function VideoQueueCard({
                       <QualityFlagsPill quality={res.metadata?.quality} />
                     </Stack>
                     {!res.success && <RenderFailureNote failure={res.failure} error={res.error} />}
+                    {!res.success && ["pending", "queued", "running"].includes(batchStatus?.status) && (
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                        {t("videoGenerator.results.batchContinues")}
+                      </Typography>
+                    )}
                     {res.success && (
                       <ClipReviewHold
                         review={res.review}

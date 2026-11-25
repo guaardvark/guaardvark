@@ -125,6 +125,8 @@
     "readyHeading": "Genehmigt: bereit zum Posten ({{count}})",
     "waitingHeading": "Wartet auf Genehmigung ({{count}})",
     "postNowNote": "„Jetzt posten“ steuert den Browser des Agenten auf dem Agentenbildschirm: Es öffnet die oben angezeigte Seite, gibt diesen Text ein und sendet ihn ab – ein Post pro Klick. Halte den Agentenbildschirm offen und beobachte ihn, bis er fertig ist; wenn der Bildschirm vor dem Abschicken geschlossen wird, wird nichts gepostet.",
+    "postNowApiNote": "„Post now“ sendet diesen einen Kommentar über die offizielle YouTube-API als deinen verbundenen Kanal. YouTube kann ihn zur Überprüfung zurückhalten.",
+    "postNowApi": "Jetzt posten",
     "openAgentScreen": "Agentenbildschirm öffnen",
     "screenClosed": "Der Agentenbildschirm ist nicht geöffnet.",
     "postingNow": "Wird jetzt gepostet. Beobachte den Agentenbildschirm.",
@@ -137,6 +139,27 @@
     "textLabel": "Was gepostet wird",
     "approve": "Freigeben",
     "outreachPage": "Kontaktaufnahme-Seite",
-    "approveNote": "Freigabe von Posts bewirkt nichts. Ein Reddit-, YouTube- oder Facebook-Entwurf wartet hier auf „Jetzt posten“; der Discord-Bot sendet einen Discord-Entwurf."
+    "approveNote": "Freigabe von Posts bewirkt nichts. Ein Reddit-, YouTube- oder Facebook-Entwurf wartet hier auf „Jetzt posten“; der Discord-Bot sendet einen Discord-Entwurf.",
+    "chat": {
+      "running": "Suche nach Posts und erstelle Entwürfe (Aufgabe {{tasks}}) …",
+      "readFailed": "Der Verlauf dieses Durchlaufs konnte nicht gelesen werden: {{reason}}",
+      "noDrafts": "Aus diesem Durchlauf wurden keine Entwürfe erstellt.",
+      "replyingTo": "Antwortet auf",
+      "replyingToAuthor": "Antwortet auf {{author}}",
+      "olderWaiting": "{{count}} ältere Entwürfe warten ebenfalls.",
+      "approvalsPage": "Freigaben-Seite",
+      "answering": "Beantwortet",
+      "answeringAuthor": "Beantwortet von {{author}}",
+      "answeringIn": "in r/{{community}}",
+      "pickedBecause": "Ausgewählt, weil: {{why}}",
+      "reviewHint": "Sag „ja“, um es zu posten, „überspringen“, „ablehnen“, „zu ... ändern“, „kürzer machen“ oder „stoppen“.",
+      "reviewItem": "Entwurf #{{id}} für {{platform}}. Dies ist der letzte.",
+      "reviewItemMore_one": "Entwurf #{{id}} für {{platform}}. Noch {{count}} nach diesem.",
+      "reviewItemMore_other": "Entwurf #{{id}} für {{platform}}. Noch {{count}} nach diesem.",
+      "reviewDone": "Das war der letzte. Die Überprüfung ist abgeschlossen.",
+      "reviewNothing": "Keine Entwürfe warten auf Genehmigung.",
+      "reviewNeedsChat": "Eine Überprüfung benötigt eine Chat-Sitzung; sende zuerst eine Nachricht und versuche es dann erneut.",
+      "reviewFailed": "Die Überprüfung konnte nicht erreicht werden: {{reason}}"
+    }
   }
 }

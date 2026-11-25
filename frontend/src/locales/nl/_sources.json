@@ -1116,6 +1116,14 @@
       "en": "d09afb71dc6a",
       "out": "2aefe02df0f3"
     },
+    "outreach.postNowApiNote": {
+      "en": "fb22f0ad35c3",
+      "out": "a2f6b932baca"
+    },
+    "outreach.postNowApi": {
+      "en": "2d55a384ec9e",
+      "out": "1b6456cfb1f1"
+    },
     "outreach.openAgentScreen": {
       "en": "41da9ab9ad56",
       "out": "90051c8c35f6"
@@ -1167,6 +1175,82 @@
     "outreach.approveNote": {
       "en": "db0713ade016",
       "out": "e141d0ceb13a"
+    },
+    "outreach.chat.running": {
+      "en": "f553c6ad9eba",
+      "out": "ba24a965ba18"
+    },
+    "outreach.chat.readFailed": {
+      "en": "b05394b81537",
+      "out": "3d7e82b4388f"
+    },
+    "outreach.chat.noDrafts": {
+      "en": "fa7092e815b7",
+      "out": "c01a0e7f0fb5"
+    },
+    "outreach.chat.replyingTo": {
+      "en": "dc7ded472d3f",
+      "out": "fbcdf37bbc16"
+    },
+    "outreach.chat.replyingToAuthor": {
+      "en": "d31b34374d82",
+      "out": "60c29c70442d"
+    },
+    "outreach.chat.olderWaiting": {
+      "en": "17f66ba65b69",
+      "out": "7c9b3478de0b"
+    },
+    "outreach.chat.approvalsPage": {
+      "en": "c511aac7d7c0",
+      "out": "ce2920dc4858"
+    },
+    "outreach.chat.answering": {
+      "en": "75b1c024bccf",
+      "out": "c96bd8478fd9"
+    },
+    "outreach.chat.answeringAuthor": {
+      "en": "08464474b89a",
+      "out": "7f2900a22f95"
+    },
+    "outreach.chat.answeringIn": {
+      "en": "1fd2c9735d5b",
+      "out": "1fd2c9735d5b"
+    },
+    "outreach.chat.pickedBecause": {
+      "en": "e13cee8f7a82",
+      "out": "929e5bdd35e3"
+    },
+    "outreach.chat.reviewHint": {
+      "en": "5380cef1526c",
+      "out": "6e4870ef6a39"
+    },
+    "outreach.chat.reviewItem": {
+      "en": "66a49ebc910c",
+      "out": "a084f27003b1"
+    },
+    "outreach.chat.reviewItemMore_one": {
+      "en": "17c6a9bf8bd4",
+      "out": "2606b48dd2f0"
+    },
+    "outreach.chat.reviewItemMore_other": {
+      "en": "17c6a9bf8bd4",
+      "out": "2606b48dd2f0"
+    },
+    "outreach.chat.reviewDone": {
+      "en": "5e607daed6d2",
+      "out": "96c952fb18eb"
+    },
+    "outreach.chat.reviewNothing": {
+      "en": "61684d8e5fd7",
+      "out": "fced8d7c01e4"
+    },
+    "outreach.chat.reviewNeedsChat": {
+      "en": "2a4722f53ed1",
+      "out": "f9ac357e923e"
+    },
+    "outreach.chat.reviewFailed": {
+      "en": "1a76d58a2da1",
+      "out": "d1a2c3ae9900"
     }
   },
   "audio": {
@@ -21189,8 +21273,8 @@
       "out": "6d758c6fb29b"
     },
     "slash.outreach.intentFailed": {
-      "en": "6795ee9f7bfe",
-      "out": "20d5cb656393"
+      "en": "4193eeea9c14",
+      "out": "4193eeea9c14"
     },
     "slash.outreach.queued": {
       "en": "e91f44a45e6d",
@@ -24629,8 +24713,8 @@
       "out": "45cad7d3d808"
     },
     "slashCommands.outreach": {
-      "en": "56a87e0cf1c7",
-      "out": "d2468a52e88a"
+      "en": "def9c944fa5b",
+      "out": "b7e789e72914"
     },
     "slashCommands.plan": {
       "en": "41af7cffaa50",
@@ -25549,6 +25633,42 @@
     "enableDialog.enable": {
       "en": "20063ad90532",
       "out": "c6d767afe754"
+    },
+    "typing.title": {
+      "en": "110df7b9c88b",
+      "out": "e4222d0c6179"
+    },
+    "typing.explain": {
+      "en": "7ecf025cd08d",
+      "out": "d54e2a4f0fd9"
+    },
+    "typing.recorded": {
+      "en": "12e849b3b4fd",
+      "out": "2f3a1a12ff41"
+    },
+    "typing.notRecorded": {
+      "en": "2e475354a374",
+      "out": "669954ffac83"
+    },
+    "typing.boxLabel": {
+      "en": "d2c87462cd5d",
+      "out": "830b0bed5b6f"
+    },
+    "typing.placeholder": {
+      "en": "63befc8d49e3",
+      "out": "8511f5146901"
+    },
+    "typing.save": {
+      "en": "1137ba23e96d",
+      "out": "4c5075826146"
+    },
+    "typing.clear": {
+      "en": "2d5f5b0553b6",
+      "out": "aa7af349679e"
+    },
+    "typing.progress": {
+      "en": "c7520796f907",
+      "out": "51a7a7fe834c"
     }
   },
   "plugins": {

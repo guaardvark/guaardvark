@@ -7,6 +7,7 @@ import PropTypes from "prop-types";
 import { Box, Paper, Avatar, CardMedia, Chip, CircularProgress, Typography } from "@mui/material";
 import ReactMarkdown from "react-markdown";
 import PlanCard from "./PlanCard";
+import OutreachDraftCards from "./OutreachDraftCards";
 import SelfAnalysisSources from "./SelfAnalysisSources";
 import { usePlanActions } from "./planActions";
 import remarkGfm from "remark-gfm";
@@ -785,6 +786,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
             onPlanChanged={planActions?.onPlanChanged}
           />
         )}
+        {message.outreach && <OutreachDraftCards run={message.outreach} />}
         {isUser && message.agentNote && (
           <Typography
             variant="caption"

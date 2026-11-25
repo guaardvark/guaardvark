@@ -9,6 +9,7 @@ so they never leak to the user's real screen.
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -363,14 +364,22 @@ class LocalScreenBackend(ScreenInterface):
             logger.error(f"Paste failed: {e}")
             return {"success": False, "error": str(e)}
 
-    def type_text(self, text: str, interval: float = 0.08) -> Dict[str, Any]:
+    def type_text(
+        self, text: str, interval: float = 0.08, key_delays: Optional[List[float]] = None,
+    ) -> Dict[str, Any]:
         """Type text on the virtual display.
 
         Long text takes the clipboard-paste path when xclip is available
         (sub-second, robust to rich editors). Otherwise, splits into chunks
         small enough to fit under the xdotool subprocess timeout.
+
+        ``key_delays`` (seconds to wait before each character, one per
+        character) types one key at a time at that rhythm instead, never by
+        paste: a caller that must look like a person typing passes it.
         """
         try:
+            if key_delays is not None and len(key_delays) == len(text):
+                return self._type_keys(text, key_delays)
             if len(text) >= self._PASTE_THRESHOLD and shutil.which("xclip"):
                 return self._paste_text(text)
 
@@ -382,23 +391,49 @@ class LocalScreenBackend(ScreenInterface):
             for chunk in chunks:
                 if not chunk:
                     continue
-                # `--` ends xdotool's option parsing so chunks starting with `-`
-                # (markdown bullets, hyphenated leads) don't get eaten as flags.
-                if wid:
-                    r = self._xdotool("type", "--window", wid, "--clearmodifiers", "--delay", delay_ms, "--", chunk)
-                else:
-                    r = self._xdotool("type", "--clearmodifiers", "--delay", delay_ms, "--", chunk)
-                if r.returncode != 0:
-                    err = r.stderr.strip() or f"xdotool type exited with code {r.returncode}"
-                    logger.error(f"Type failed at {typed}/{len(text)}: {err}")
-                    return {"success": False, "error": err, "typed": typed}
-                typed += len(chunk)
+                # A line break is pressed as Return: `xdotool type` does not
+                # deliver "\n" to Firefox's rich editors, which ran paragraphs
+                # together (measured 2026-11-11 in Reddit's comment box).
+                for piece in re.split(r"(\n)", chunk):
+                    if not piece:
+                        continue
+                    if piece == "\n":
+                        r = self._xdotool("key", "--clearmodifiers", "Return")
+                    # `--` ends xdotool's option parsing so pieces starting with `-`
+                    # (markdown bullets, hyphenated leads) don't get eaten as flags.
+                    elif wid:
+                        r = self._xdotool("type", "--window", wid, "--clearmodifiers", "--delay", delay_ms, "--", piece)
+                    else:
+                        r = self._xdotool("type", "--clearmodifiers", "--delay", delay_ms, "--", piece)
+                    if r.returncode != 0:
+                        err = r.stderr.strip() or f"xdotool type exited with code {r.returncode}"
+                        logger.error(f"Type failed at {typed}/{len(text)}: {err}")
+                        return {"success": False, "error": err, "typed": typed}
+                    typed += len(piece)
                 if len(chunks) > 1:
                     time.sleep(0.05)  # brief settle so rich editors digest each chunk
             return {"success": True, "action": "type", "length": len(text), "chunks": len(chunks)}
         except Exception as e:
             logger.error(f"Type failed: {e}")
             return {"success": False, "error": str(e)}
+
+    def _type_keys(self, text: str, key_delays: List[float]) -> Dict[str, Any]:
+        """Type ``text`` one key at a time, waiting ``key_delays[i]`` before key i."""
+        wid = self._get_window_id()
+        for typed, (char, wait) in enumerate(zip(text, key_delays)):
+            if wait > 0:
+                time.sleep(wait)
+            if char == "\n":
+                r = self._xdotool("key", "--clearmodifiers", "Return")
+            elif wid:
+                r = self._xdotool("type", "--window", wid, "--clearmodifiers", "--delay", "0", "--", char)
+            else:
+                r = self._xdotool("type", "--clearmodifiers", "--delay", "0", "--", char)
+            if r.returncode != 0:
+                err = r.stderr.strip() or f"xdotool exited with code {r.returncode}"
+                logger.error(f"Type failed at {typed}/{len(text)}: {err}")
+                return {"success": False, "error": err, "typed": typed}
+        return {"success": True, "action": "type", "length": len(text), "rhythm": True}
 
     def wait_until_settled(
         self,

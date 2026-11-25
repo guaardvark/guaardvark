@@ -421,7 +421,7 @@
       "noCadence": "Нет данных о частоте.",
       "statusFailed": "Ошибка статуса охвата: {{reason}}",
       "refused": "Охват: запрос отклонен.",
-      "intentFailed": "Ошибка намерения охвата: {{reason}}",
+      "intentFailed": "Охват: {{reason}}",
       "queued": "Задача охвата поставлена в очередь как задача №{{taskId}}.",
       "commandFailed": "Ошибка команды охвата: {{reason}}"
     },

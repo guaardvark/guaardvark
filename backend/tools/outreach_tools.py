@@ -3,17 +3,20 @@
 Social Outreach Tools — chat-callable wrappers around the social_outreach
 services. Each tool maps to a verb the user might say in chat:
 
-  outreach_status         — "what's outreach doing right now?"
-  outreach_list_queue     — "show me pending drafts"
-  outreach_draft_post     — "draft a comment for <url>"
-  outreach_approve_draft  — "approve draft 42"
-  outreach_reject_draft   — "kill draft 42"
-  outreach_run_pass       — "run a Reddit outreach pass" / "scout for candidates"
+  outreach_status          — "what's outreach doing right now?"
+  outreach_list_queue      — "show me pending drafts"
+  outreach_draft_post      — "draft a comment for <url>"
+  outreach_approve_draft   — "approve draft 42"
+  outreach_reject_draft    — "kill draft 42"
+  outreach_post_draft      — "post draft 42 now"
+  outreach_execute_intent  — "reply to some posts on Reddit about ComfyUI"
 
 These call the same module functions the HTTP API does, so behavior matches
 the OutreachPage button-for-button. Every draft waits for a person's approval,
-and cadence and the kill switch apply downstream — none of these tools bypass
-them, and none of them starts a post.
+and cadence and the posting stop apply downstream — none of these tools bypass
+them. Only outreach_post_draft starts a post: one approved draft per call,
+confirmed by the person in chat. The chat offers these tools on a message that
+starts with /outreach and on no other (unified_chat_engine).
 """
 
 from __future__ import annotations
@@ -40,9 +43,6 @@ logger = logging.getLogger(__name__)
 # Shared platform vocabulary so the LLM doesn't invent values like "x.com".
 # X and LinkedIn are not here: outreach never posts to them (platforms.REFUSED).
 _KNOWN_PLATFORMS = ("reddit", "discord", "facebook", "youtube")
-_KNOWN_RUN_PLATFORMS = (
-    "reddit", "self_share", "recon", "draft", "youtube", "youtube_recon",
-)
 # Statuses outreach_list_queue lists oldest first: approved rows wait in
 # created_at order, so the oldest has waited longest.
 _OLDEST_FIRST_STATUSES = ("approved",)
@@ -663,150 +663,125 @@ class OutreachRejectDraftTool(BaseTool):
             return ToolResult(success=False, error=str(e))
 
 
-class OutreachRunPassTool(BaseTool):
-    """Trigger a Task-backed outreach pass on demand."""
+class OutreachPostDraftTool(BaseTool):
+    """Start the one post for an approved draft, as "Post now" does."""
 
-    name = "outreach_run_pass"
+    name = "outreach_post_draft"
     read_only = False
+    # A public post cannot be taken back from here.
+    destructive = True
     description = (
-        "Queue an outreach pass without waiting for the cron. platform options: "
-        "'reddit', 'self_share', 'recon', 'draft', 'youtube' / 'youtube_recon' "
-        "(pass topics or keyword_profile for YouTube scout). For freeform requests "
-        "like 'comment on YouTube videos about Offline AI', prefer "
-        "outreach_execute_intent instead. Cadence + kill switch still apply; "
-        "a YouTube scout also needs web access on in Settings (off by default). "
-        "Never posts."
+        "Post one approved outreach draft now, by id: the same step as pressing Post now "
+        "on the Approvals page. The draft must already be approved. One call posts one "
+        "draft; the cadence limits and the posting stop still apply. A YouTube draft goes "
+        "through the connected account; a Reddit or Facebook draft is typed by the agent "
+        "browser and needs the Agent Screen open, and the call says so when it is not."
     )
     requires_approval = True
     parameters = {
-        "platform": ToolParameter(
-            name="platform", type="string", required=True,
-            description=f"One of: {', '.join(_KNOWN_RUN_PLATFORMS)}",
-        ),
-        "subreddit": ToolParameter(
-            name="subreddit", type="string", required=False,
-            description="Target subreddit name (without r/) for platform='reddit'",
-        ),
-        "topics": ToolParameter(
-            name="topics", type="string", required=False,
-            description="Comma-separated YouTube keyword topics, e.g. 'Offline AI, ComfyUI'",
-        ),
-        "keyword_profile": ToolParameter(
-            name="keyword_profile", type="string", required=False,
-            description="Single YouTube keyword profile (alias for one topic)",
-        ),
-        "chain_draft": ToolParameter(
-            name="chain_draft", type="bool", required=False,
-            description="After YouTube recon, also draft candidates (default true for youtube)",
-            default=True,
+        "id": ToolParameter(
+            name="id", type="int", required=True,
+            description="SocialOutreachLog row id of an approved draft",
         ),
     }
 
     def execute(self, **kwargs) -> ToolResult:
-        platform = (kwargs.get("platform") or "").strip().lower()
-        if platform not in _KNOWN_RUN_PLATFORMS:
-            return ToolResult(
-                success=False,
-                error=f"platform must be one of {_KNOWN_RUN_PLATFORMS}, got '{platform}'",
-            )
-        if not kill_switch.is_enabled():
-            return ToolResult(
-                success=False,
-                error="outreach is disabled (kill switch is off). Flip it on from /outreach first.",
-            )
-
-        subreddit = (kwargs.get("subreddit") or "").strip() or None
-        profiles: list[str] = []
-        topics_raw = kwargs.get("topics")
-        if isinstance(topics_raw, list):
-            profiles.extend(str(t).strip() for t in topics_raw if t)
-        elif isinstance(topics_raw, str) and topics_raw.strip():
-            profiles.extend(p.strip() for p in topics_raw.split(",") if p.strip())
-        kp = (kwargs.get("keyword_profile") or "").strip()
-        if kp:
-            profiles.append(kp)
-        chain_draft = kwargs.get("chain_draft")
-        if chain_draft is None:
-            chain_draft = platform in ("youtube", "youtube_recon")
-
         try:
-            from backend.services.social_outreach.job_service import queue_outreach_run
+            event_id = int(kwargs.get("id"))
+        except (TypeError, ValueError):
+            return ToolResult(success=False, error="id must be an integer")
+        try:
+            from backend.services.social_outreach import watched_post
 
-            queued = queue_outreach_run(
-                platform,
-                subreddit=subreddit,
-                keyword_profiles=profiles or None,
-                chain_draft=bool(chain_draft),
-                created_by="chat_tool",
-            )
-
-            return ToolResult(
-                success=True,
-                output=queued,
-                metadata={
-                    "task_id": queued.get("task_id"),
-                    "job_id": queued.get("job_id"),
-                    "platform": platform,
-                },
-            )
+            outcome = watched_post.start(event_id)
         except Exception as e:
-            logger.exception("outreach_run_pass failed")
+            logger.exception("outreach_post_draft failed")
             return ToolResult(success=False, error=str(e))
+        if outcome.status is None:
+            return ToolResult(success=False, error=f"draft {event_id} not found")
+        if not outcome.started:
+            return ToolResult(
+                success=False, error=outcome.message,
+                metadata={"id": event_id, "status": outcome.status},
+            )
+        return ToolResult(
+            success=True,
+            output={"id": event_id, "status": outcome.status, "message": outcome.message},
+            metadata={"id": event_id, "status": outcome.status},
+        )
 
 
 class OutreachExecuteIntentTool(BaseTool):
-    """Classify natural-language outreach, then dispatch to real tools/ops."""
+    """Find posts to reply to and draft the replies; or act on a plain request."""
 
     name = "outreach_execute_intent"
     read_only = False
     description = (
-        "Classify a natural-language outreach request and act: answer status, list the "
-        "draft queue, approve/reject a draft id, or (only when clearly asked) queue a "
-        "scout→draft job with real topics. Never invent YouTube scout jobs for status "
-        "questions or off-topic chat. Examples that scout: 'comment on youtube videos "
-        "regarding Offline AI or ComfyUI'. Examples that do NOT scout: 'what's the "
-        "status of youtube outreach?', jokes. Never posts. "
-        "Prefer structured platform+topics when you already know them."
+        "Find posts to reply to and draft the replies. Give platform (reddit, youtube, "
+        "facebook or discord), and topics if the user named any; with no topics the search "
+        "uses the outreach profile's own keywords. On facebook the posts come from the "
+        "groups the signed-in account is in. count is how many posts to look for. "
+        "action='reply_comments' instead reads the unanswered comments on the user's own "
+        "YouTube videos and drafts a reply to each. A link in text is drafted for directly. "
+        "Without platform, text is classified and can also answer status, list the queue, "
+        "or approve, reject or post a draft the user named by number. Every draft waits "
+        "for the user's approval; this never posts on its own."
     )
     requires_approval = True
     parameters = {
         "text": ToolParameter(
-            name="text", type="string", required=True,
-            description="The user's natural-language outreach request",
+            name="text", type="string", required=False,
+            description="The user's outreach request in their own words",
         ),
         "platform": ToolParameter(
             name="platform", type="string", required=False,
-            description="Optional override: youtube|reddit|discord (with topics skips LLM)",
+            description="Where to look: reddit, youtube, facebook or discord",
+            enum=["reddit", "youtube", "facebook", "discord"],
         ),
         "action": ToolParameter(
             name="action", type="string", required=False,
-            description="Optional override: comment|recon|draft|share|reply",
+            description=(
+                "comment (find posts and draft replies, the default), reply_comments "
+                "(answer comments on the user's own YouTube videos), share (a Reddit link post)"
+            ),
+            enum=["comment", "reply_comments", "share"],
         ),
         "topics": ToolParameter(
             name="topics", type="string", required=False,
-            description="Optional comma-separated topics override (with platform skips LLM)",
+            description="Comma-separated topics the user named; leave out when they named none",
+        ),
+        "count": ToolParameter(
+            name="count", type="int", required=False,
+            description="How many posts to look for (1-10, default 3)",
         ),
     }
 
     def execute(self, **kwargs) -> ToolResult:
         text = (kwargs.get("text") or "").strip()
-        if not text and not (kwargs.get("platform") and kwargs.get("topics")):
-            return ToolResult(success=False, error="text is required (or platform+topics)")
-        topics = None
+        platform = (kwargs.get("platform") or "").strip().lower() or None
+        action = (kwargs.get("action") or "").strip().lower() or None
+        if not text and not platform and action != "reply_comments":
+            return ToolResult(success=False, error="give text, or a platform to look on")
+        topics: List[str] = []
         topics_raw = kwargs.get("topics")
         if isinstance(topics_raw, list):
-            topics = [str(t).strip() for t in topics_raw if t]
+            topics = [str(t).strip() for t in topics_raw if str(t).strip()]
         elif isinstance(topics_raw, str) and topics_raw.strip():
             topics = [p.strip() for p in topics_raw.split(",") if p.strip()]
+        try:
+            count = int(kwargs.get("count")) if kwargs.get("count") is not None else None
+        except (TypeError, ValueError):
+            count = None
 
         try:
             from backend.services.social_outreach.intent import execute_outreach_intent
 
             result = execute_outreach_intent(
                 text=text,
-                platform=kwargs.get("platform"),
-                action=kwargs.get("action"),
-                topics=topics,
+                platform=platform,
+                action=action,
+                topics=topics or None,
+                max_candidates=count,
                 created_by="chat_tool",
             )
             # Refuse is a successful classification with no work — not a tool crash.
@@ -820,6 +795,8 @@ class OutreachExecuteIntentTool(BaseTool):
                     "intent": result.get("intent"),
                     "refused": bool(result.get("refused")),
                     "plan": result.get("plan"),
+                    "follow": result.get("follow"),
+                    "draft_ids": result.get("draft_ids") or [],
                 },
             )
         except Exception as e:
@@ -833,6 +810,6 @@ __all__ = [
     "OutreachDraftPostTool",
     "OutreachApproveDraftTool",
     "OutreachRejectDraftTool",
-    "OutreachRunPassTool",
+    "OutreachPostDraftTool",
     "OutreachExecuteIntentTool",
 ]

@@ -5,7 +5,9 @@ user's logged-in Reddit session cookies).
 
 Hybrid architecture:
   • READ via Reddit's JSON API, authenticated with cookies from the agent
-    Firefox profile when present (bare datacenter IPs often get 403).
+    Firefox profile when present. Where Reddit refuses the direct request
+    (403), a read inside ``reddit_reading()`` goes through the agent Firefox
+    instead, as a fetch from a reddit.com page.
   • WRITE via BiDi + LocalScreenBackend on the real Firefox profile
     (the only path with the user's login cookies for posting).
 
@@ -14,6 +16,8 @@ If write fails twice we abort the whole pass — better to skip than thrash.
 
 from __future__ import annotations
 
+import contextlib
+import json
 import logging
 import os
 import random
@@ -21,10 +25,11 @@ import re
 import shutil
 import sqlite3
 import tempfile
+import threading
 import time
 from dataclasses import dataclass
 from typing import Callable, Optional
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import requests
 
@@ -257,9 +262,12 @@ def _bidi_navigate(url: str, settle_seconds: float = 2.0, nav_timeout: float = 1
             pass
 
 
-def bidi_evaluate_json(expression: str) -> tuple[Optional[dict], str]:
+def bidi_evaluate_json(
+    expression: str, await_promise: bool = False, timeout: float = 3.0,
+) -> tuple[Optional[dict], str]:
     """Run ``expression`` in the agent Firefox's first tab and parse the JSON
-    string it returns.
+    string it returns. ``await_promise`` waits for an async expression, up to
+    ``timeout`` seconds.
 
     Returns ``(data, "")``, or ``(None, why)`` when the browser cannot be
     reached or the script returns nothing usable. The posters use it to read
@@ -289,9 +297,10 @@ def bidi_evaluate_json(expression: str) -> tuple[Optional[dict], str]:
             "params": {
                 "expression": expression,
                 "target": {"context": contexts[0]["context"]},
-                "awaitPromise": False,
+                "awaitPromise": bool(await_promise),
             },
         }))
+        ws.settimeout(timeout)
         raw = _json.loads(ws.recv())
         if raw.get("type") == "error":
             return None, f"evaluate error: {raw.get('message', '')[:200]}"
@@ -314,6 +323,64 @@ def bidi_evaluate_json(expression: str) -> tuple[Optional[dict], str]:
         except Exception:
             pass
 
+
+
+def bidi_set_files(element_expression: str, paths: list[str], timeout: float = 15.0) -> str:
+    """Give ``paths`` to the file input ``element_expression`` evaluates to in
+    the agent Firefox's first tab, the way choosing them in the file dialog
+    would. Returns "" on success, else why not.
+
+    The files must be readable by the browser: a packaged Firefox has its own
+    ``/tmp``, so they are passed by a path under the user's home.
+    """
+    import json as _json
+    import websocket as _ws
+
+    try:
+        ws = _ws.create_connection(
+            f"ws://localhost:{BIDI_PORT}/session", timeout=3, suppress_origin=True,
+        )
+    except Exception as e:
+        return f"connect failed: {e}"
+
+    def call(ident: int, method: str, params: dict) -> dict:
+        ws.send(_json.dumps({"id": ident, "method": method, "params": params}))
+        while True:
+            message = _json.loads(ws.recv())
+            if message.get("id") == ident:
+                return message
+
+    try:
+        if call(1, "session.new", {"capabilities": {}}).get("type") != "success":
+            return "session.new failed"
+        contexts = call(2, "browsingContext.getTree", {}).get("result", {}).get("contexts", [])
+        if not contexts:
+            return "no browsing context"
+        context = contexts[0]["context"]
+        ws.settimeout(timeout)
+        found = call(3, "script.evaluate", {
+            "expression": element_expression, "target": {"context": context}, "awaitPromise": False,
+        })
+        node = found.get("result", {}).get("result", {})
+        if found.get("type") == "error" or node.get("type") != "node" or not node.get("sharedId"):
+            return "no file input on the page"
+        done = call(4, "input.setFiles", {
+            "context": context, "element": {"sharedId": node["sharedId"]}, "files": [str(p) for p in paths],
+        })
+        if done.get("type") != "success":
+            return f"setFiles refused: {str(done.get('message') or '')[:200]}"
+        return ""
+    except Exception as e:
+        return f"exception: {e}"
+    finally:
+        try:
+            ws.send(_json.dumps({"id": 99, "method": "session.end", "params": {}}))
+        except Exception:
+            pass
+        try:
+            ws.close()
+        except Exception:
+            pass
 
 
 # Reason a poster gives when it refuses because the page could not be read back.
@@ -448,11 +515,189 @@ def _load_reddit_cookies_from_firefox() -> Optional[requests.cookies.RequestsCoo
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def _http_get_json(url: str, retries: int = 1) -> Optional[dict]:
-    """GET Reddit JSON. Prefer agent-Firefox session cookies when available —
+# How long one read through the agent browser may take.
+BROWSER_FETCH_TIMEOUT_S = 20.0
+# Reddit's own page the browser sits on while it fetches: small, and the same
+# origin as every JSON address read here.
+_BROWSER_READ_PAGE = f"{REDDIT_BASE}/robots.txt"
 
-    bare datacenter IPs often get a 403 interstitial; the logged-in cookie jar
-    from DISPLAY=:99's profile clears that for discovery (hot/rules/comments).
+# A thread link in Reddit's pages: /r/<subreddit>/comments/<id>/. JavaScript
+# source, run in the browser against the search page.
+_THREAD_LINK_JS = r"/\/r\/([A-Za-z0-9_]{2,21})\/comments\/([a-z0-9]{4,12})\//g"
+SEARCH_RESULT_LIMIT = 10
+# How far back a search looks: Reddit's own "t" values.
+SEARCH_WINDOW = "week"
+
+_reading = threading.local()
+# When Reddit last refused a direct request in this process. Reads that can
+# use the browser go straight to it for a while afterwards, instead of
+# sending two more requests Reddit will refuse.
+_direct_refused_at = float("-inf")
+DIRECT_RETRY_AFTER_S = 3600.0
+
+
+class _BrowserReads:
+    """Reddit reads through the agent Firefox for one ``reddit_reading()`` body.
+
+    The browser is opened with its control port on the first read Reddit
+    refuses, and put back when the body ends.
+    """
+
+    def __init__(self) -> None:
+        self.use_browser = False
+        self.problem: Optional[str] = None
+        self._stack: Optional[contextlib.ExitStack] = None
+        self._ready = False
+        # A thread's JSON carries both the post and its comments; one read
+        # serves fetch_thread and fetch_thread_comments.
+        self._answers: dict[str, object] = {}
+
+    def _open(self) -> None:
+        from backend.utils.agent_browser_control import agent_browser_control
+
+        self._stack = contextlib.ExitStack()
+        refusal = self._stack.enter_context(agent_browser_control())
+        if refusal:
+            self.problem = f"the agent browser is in use ({refusal})"
+            return
+        ok, why = bidi_reachable(wait_s=0)
+        if not ok:
+            self.problem = f"the agent browser did not open ({why})"
+            return
+        if not _bidi_navigate(_BROWSER_READ_PAGE):
+            self.problem = "the agent browser could not open reddit.com"
+            return
+        self._ready = True
+
+    def _evaluate(self, expression: str) -> Optional[dict]:
+        self.use_browser = True
+        if self._stack is None:
+            self._open()
+        if not self._ready:
+            return None
+        _human_pause(0.3, 1.2)
+        answer, why = bidi_evaluate_json(
+            expression, await_promise=True, timeout=BROWSER_FETCH_TIMEOUT_S,
+        )
+        if answer is None:
+            self.problem = f"the agent browser did not answer ({why})"
+        return answer
+
+    def search_links(self, url: str) -> list[tuple[str, str]]:
+        """(subreddit, thread id) for each thread Reddit's search page at
+        ``url`` lists, in page order."""
+        expression = (
+            "(async () => { try {"
+            f" const r = await fetch({json.dumps(url)}, {{credentials: 'include'}});"
+            " const page = await r.text(); const seen = new Set(); const found = [];"
+            " for (const m of page.matchAll(" + _THREAD_LINK_JS + ")) {"
+            "   if (!seen.has(m[2])) { seen.add(m[2]); found.push([m[1], m[2]]); } }"
+            " return JSON.stringify({status: r.status, found});"
+            " } catch (e) { return JSON.stringify({status: 0, found: []}); } })()"
+        )
+        answer = self._evaluate(expression)
+        if answer is None:
+            return []
+        if answer.get("status") != 200:
+            self.problem = f"Reddit answered {answer.get('status')} to the search in the agent browser"
+            return []
+        self.problem = None
+        return [(str(sub), str(tid)) for sub, tid in answer.get("found") or []]
+
+    def get_json(self, url: str) -> Optional[dict]:
+        if url in self._answers:
+            return self._answers[url]
+        expression = (
+            "(async () => { try {"
+            f" const r = await fetch({json.dumps(url)}, "
+            "{credentials: 'include', headers: {Accept: 'application/json'}});"
+            " return JSON.stringify({status: r.status, body: await r.text()});"
+            " } catch (e) { return JSON.stringify({status: 0, body: String(e)}); } })()"
+        )
+        answer = self._evaluate(expression)
+        if answer is None:
+            return None
+        if answer.get("status") != 200:
+            self.problem = f"Reddit answered {answer.get('status')} in the agent browser"
+            logger.warning("reddit browser read of %s: status %s", url, answer.get("status"))
+            return None
+        try:
+            data = json.loads(answer.get("body") or "")
+        except ValueError:
+            self.problem = "Reddit answered the agent browser with a page instead of data"
+            return None
+        self.problem = None
+        self._answers[url] = data
+        return data
+
+    def close(self) -> None:
+        if self._stack is not None:
+            self._stack.close()
+
+
+@contextlib.contextmanager
+def reddit_reading():
+    """Let the Reddit reads in the body go through the agent browser when
+    Reddit refuses the direct request.
+
+    The browser is restarted with its control port only if a read is refused,
+    and is left alone while the agent runs a task
+    (``agent_browser_control``). ``reading_problem()`` then says why a read
+    came back empty. Nested use shares the outer body's browser.
+    """
+    if getattr(_reading, "session", None) is not None:
+        yield
+        return
+    session = _BrowserReads()
+    _reading.session = session
+    _reading.problem = None
+    try:
+        yield
+    finally:
+        _reading.problem = session.problem
+        _reading.session = None
+        session.close()
+
+
+def reading_problem() -> Optional[str]:
+    """Why the agent browser could not read Reddit in the current or the last
+    ``reddit_reading()`` body on this thread, or None."""
+    session = getattr(_reading, "session", None)
+    if session is not None:
+        return session.problem
+    return getattr(_reading, "problem", None)
+
+
+def _http_get_json(url: str, retries: int = 1) -> Optional[dict]:
+    """GET Reddit JSON: directly, or through the agent browser inside
+    ``reddit_reading()`` once Reddit has refused a direct request."""
+    global _direct_refused_at
+    session = getattr(_reading, "session", None)
+    if session is not None and (
+        session.use_browser or time.monotonic() - _direct_refused_at < DIRECT_RETRY_AFTER_S
+    ):
+        return session.get_json(url)
+    data, refused = _direct_get_json(url, retries)
+    if refused:
+        _direct_refused_at = time.monotonic()
+    if data is None and refused and session is not None:
+        return session.get_json(url)
+    return data
+
+
+def read_json(url: str):
+    """One Reddit JSON address, read through the agent browser when Reddit
+    refuses the direct request. None when it could not be read."""
+    with reddit_reading():
+        return _http_get_json(url)
+
+
+def _direct_get_json(url: str, retries: int = 1) -> tuple[Optional[dict], bool]:
+    """GET Reddit JSON with ``requests``; ``(data, refused)``.
+
+    The agent Firefox's session cookies are sent when its profile has them.
+    ``refused`` is True when Reddit answered 403, which it does to requests
+    that do not come from a browser, with or without the cookies.
     """
     cookie_jar = _load_reddit_cookies_from_firefox()
     headers = {
@@ -471,20 +716,22 @@ def _http_get_json(url: str, retries: int = 1) -> Optional[dict]:
                 retry_after = int(resp.headers.get("Retry-After", 5))
                 logger.warning("reddit JSON 429 on %s — backing off for %ds", url, retry_after)
                 time.sleep(retry_after)
-                return _http_get_json(url, retries=retries - 1)
+                return _direct_get_json(url, retries=retries - 1)
             logger.warning("reddit JSON 429 on %s — out of retries", url)
-            return None
-        # 403 with cookies: invalidate cache once and retry bare (or vice versa)
-        if resp.status_code == 403 and cookie_jar is not None and retries > 0:
-            logger.warning("reddit JSON 403 with session cookies on %s — refreshing jar once", url)
-            _REDDIT_COOKIE_CACHE["jar"] = None
-            _REDDIT_COOKIE_CACHE["loaded_at"] = 0.0
-            return _http_get_json(url, retries=retries - 1)
+            return None, False
+        if resp.status_code == 403:
+            if cookie_jar is not None and retries > 0:
+                logger.warning("reddit JSON 403 with session cookies on %s — refreshing jar once", url)
+                _REDDIT_COOKIE_CACHE["jar"] = None
+                _REDDIT_COOKIE_CACHE["loaded_at"] = 0.0
+                return _direct_get_json(url, retries=retries - 1)
+            logger.warning("reddit JSON fetch refused (403) for %s", url)
+            return None, True
         resp.raise_for_status()
-        return resp.json()
+        return resp.json(), False
     except Exception as e:
         logger.warning("reddit JSON fetch failed for %s: %s", url, e)
-        return None
+        return None, False
 
 
 def fetch_subreddit_rules(subreddit: str) -> Optional[list[str]]:
@@ -516,7 +763,10 @@ def is_self_promo_banned(rules_text: str) -> Optional[str]:
 
 
 def fetch_hot_threads(subreddit: str, limit: int = SUBREDDIT_HOT_LIMIT) -> list[RedditThread]:
-    data = _http_get_json(f"{REDDIT_BASE}/r/{subreddit}/hot.json?limit={limit}")
+    # The community's front listing, which Reddit sorts by hot. Measured
+    # 2026-11-11 from a signed-in browser: this address answers 200 where
+    # /hot.json and /new.json answer 403.
+    data = _http_get_json(f"{REDDIT_BASE}/r/{subreddit}/.json?limit={limit}")
     if not data:
         return []
     out = []
@@ -540,11 +790,65 @@ def fetch_hot_threads(subreddit: str, limit: int = SUBREDDIT_HOT_LIMIT) -> list[
     return out
 
 
+def _thread_json_url(permalink: str, limit: int = THREAD_COMMENT_LIMIT) -> str:
+    return f"{permalink.rstrip('/')}.json?limit={limit}&depth=1"
+
+
+def search_thread_refs(
+    query: str,
+    subreddit: Optional[str] = None,
+    limit: int = SEARCH_RESULT_LIMIT,
+) -> list[tuple[str, str, str]]:
+    """(subreddit, thread id, permalink) for the threads Reddit's search lists
+    for ``query``, newest first; within ``subreddit`` when one is given.
+
+    Read from the search page in the agent browser, so it answers only inside
+    ``reddit_reading()``: Reddit serves search to nothing but a browser
+    (measured 2026-11-11: search.json and search.rss answer 403 even there).
+    """
+    session = getattr(_reading, "session", None)
+    if session is None:
+        return []
+    params = {"q": query, "sort": "new", "t": SEARCH_WINDOW}
+    if subreddit:
+        base = f"{REDDIT_BASE}/r/{subreddit}/search/"
+        params["restrict_sr"] = "1"
+    else:
+        base = f"{REDDIT_BASE}/search/"
+        params["type"] = "posts"
+    found = session.search_links(f"{base}?{urlencode(params)}")
+    return [
+        (sub, tid, f"{REDDIT_BASE}/r/{sub}/comments/{tid}/")
+        for sub, tid in found[:limit]
+    ]
+
+
+def fetch_thread(permalink: str) -> Optional[RedditThread]:
+    """The post at ``permalink``, or None when it cannot be read or is one the
+    scout leaves alone (stickied, over 18)."""
+    data = _http_get_json(_thread_json_url(permalink))
+    try:
+        d = data[0]["data"]["children"][0]["data"]
+    except (KeyError, IndexError, TypeError):
+        return None
+    if d.get("stickied") or d.get("is_pinned") or d.get("over_18"):
+        return None
+    return RedditThread(
+        id=d.get("id", ""),
+        url=d.get("url", ""),
+        permalink=f"{REDDIT_BASE}{d.get('permalink', '')}",
+        subreddit=d.get("subreddit", ""),
+        title=(d.get("title") or "").strip(),
+        selftext=(d.get("selftext") or "").strip(),
+        score=int(d.get("score") or 0),
+        num_comments=int(d.get("num_comments") or 0),
+        created_utc=float(d.get("created_utc") or 0),
+    )
+
+
 def fetch_thread_comments(permalink: str, limit: int = THREAD_COMMENT_LIMIT) -> list[str]:
     """Returns flat list of comment bodies in display order, top-level first."""
-    if not permalink.endswith("/"):
-        permalink = permalink + "/"
-    data = _http_get_json(f"{permalink.rstrip('/')}.json?limit={limit}&depth=1")
+    data = _http_get_json(_thread_json_url(permalink, limit))
     if not isinstance(data, list) or len(data) < 2:
         return []
     out = []
@@ -576,6 +880,15 @@ def backend_url() -> str:
 
 # Backwards-compat alias so any in-flight callers still work.
 _backend_url = backend_url
+
+
+def backend_headers() -> dict:
+    """The headers a worker sends to this machine's backend: its API key,
+    which the backend asks of every caller."""
+    from backend.utils.backend_http import API_KEY_HEADER, backend_api_key
+
+    key = backend_api_key(own_backend=True)
+    return {API_KEY_HEADER: key} if key else {}
 
 
 def draft_via_backend(
@@ -610,6 +923,7 @@ def draft_via_backend(
                 "mode": "comment",
                 "relevance_unchecked": relevance_unchecked,
             },
+            headers=backend_headers(),
             timeout=120,
         )
         resp.raise_for_status()
@@ -638,6 +952,7 @@ def record_post_via_backend(
                 "target_thread_id": thread_id,
                 "task_id": task_id,
             },
+            headers=backend_headers(),
             timeout=10,
         )
     except Exception as e:
@@ -658,6 +973,66 @@ _FOCUSED_EDITABLE_JS = (
     "})())"
 )
 _FOCUS_WAIT_S = 3.0
+
+
+# The comment box keeps its toolbar, and the file input behind the Image
+# button, inside nested shadow roots.
+_COMPOSER_JS = r"""
+  const all = (root, sel, out = []) => {
+    if (root.shadowRoot) all(root.shadowRoot, sel, out);
+    out.push(...root.querySelectorAll(sel));
+    for (const el of root.querySelectorAll('*')) if (el.shadowRoot) all(el.shadowRoot, sel, out);
+    return out;
+  };
+  const composer = all(document, 'shreddit-composer').find((c) => {
+    const r = c.getBoundingClientRect(); return r.width > 30 && r.height > 20;
+  }) || null;
+  const imageInput = composer ? all(composer, 'input[type="file"]').find((i) => /image\//.test(i.accept || '')) : null;
+"""
+_COMMENT_IMAGE_INPUT_JS = "(() => {" + _COMPOSER_JS + " return imageInput || null; })()"
+_COMMENT_IMAGES_JS = "(() => {" + _COMPOSER_JS + r"""
+  const images = composer ? all(composer, 'rte-image') : [];
+  return JSON.stringify({
+    input: !!imageInput,
+    images: images.length,
+    uploaded: images.filter((i) => i.getAttribute('media-id')).length,
+  });
+})()"""
+_IMAGE_UPLOAD_WAIT_S = 30.0
+
+
+def comments_take_images(subreddit: str) -> Optional[bool]:
+    """Whether r/``subreddit`` lets a comment carry a still image, from the
+    subreddit's own settings; None when they could not be read."""
+    data = read_json(f"{REDDIT_BASE}/r/{quote(subreddit)}/about.json")
+    about = (data or {}).get("data") if isinstance(data, dict) else None
+    if not isinstance(about, dict) or "allowed_media_in_comments" not in about:
+        return None
+    return "static" in (about.get("allowed_media_in_comments") or [])
+
+
+def _comment_images() -> dict:
+    data, _why = bidi_evaluate_json(_COMMENT_IMAGES_JS)
+    return data or {}
+
+
+def _attach_comment_image(image_path: str) -> str:
+    """Hand ``image_path`` to the comment box's Image input and wait for
+    Reddit to finish uploading it. Returns "" once the box holds exactly that
+    one image, else why not."""
+    if not os.path.isfile(image_path):
+        return f"the image file is missing ({os.path.basename(image_path)})"
+    why = bidi_set_files(_COMMENT_IMAGE_INPUT_JS, [image_path])
+    if why:
+        return why
+    deadline = time.monotonic() + _IMAGE_UPLOAD_WAIT_S
+    held: dict = {}
+    while time.monotonic() < deadline:
+        held = _comment_images()
+        if held.get("images") == 1 and held.get("uploaded") == 1:
+            return ""
+        time.sleep(0.5)
+    return f"the comment box shows {held.get('images', 0)} images ({held.get('uploaded', 0)} uploaded) after choosing one"
 
 
 def _focused_editable() -> Optional[dict]:
@@ -697,11 +1072,16 @@ def post_comment_via_servo(
     permalink: str,
     comment_text: str,
     *,
+    image_path: Optional[str] = None,
     before_submit: Optional[Callable[[], bool]] = None,
 ) -> tuple[bool, str]:
     """
     Drive Firefox on DISPLAY=:99 to land the comment.
     Returns (success, reason).
+
+    With ``image_path`` the image is attached after the text is typed; when
+    the subreddit's comment box takes no image, or it cannot be attached,
+    nothing is posted.
 
     Strategy: navigate to the thread on www.reddit.com (modern UI matches
     vision model training distribution), then hand the see-think-act loop a
@@ -800,10 +1180,20 @@ def post_comment_via_servo(
         held = _focused_editable()
         if held is None or (held.get("text") or "").strip():
             return False, "composer_not_empty: nothing was posted; the comment box held earlier text"
+    if image_path:
+        held_images = _comment_images()
+        if not held_images.get("input"):
+            return False, (
+                "comment_image_unsupported: nothing was posted; this subreddit's comment box offers no image"
+            )
+        if held_images.get("images"):
+            return False, "composer_not_empty: nothing was posted; the comment box already held an image"
     _human_pause(0.5, 1.0)
 
     logger.warning("typing comment (%s chars)", len(comment_text))
-    screen.type_text(comment_text)
+    from backend.services.social_outreach import typing_rhythm
+
+    screen.type_text(comment_text, key_delays=typing_rhythm.delays(comment_text))
     time.sleep(1.0)
     _human_pause()
 
@@ -820,6 +1210,20 @@ def post_comment_via_servo(
             if held is not None else
             "typed_text_unreadable: nothing was posted; the comment box could not be read back"
         )
+
+    if image_path:
+        problem = _attach_comment_image(image_path)
+        held = _focused_editable()
+        if not problem and (held is None or not held.get("editable")):
+            problem = "the comment box lost focus when the image went in"
+        if not problem and not _same_text(held.get("text", ""), comment_text):
+            problem = "the text changed when the image went in"
+        if problem:
+            if held is not None and held.get("editable"):
+                screen.hotkey("ctrl", "a")
+                screen.hotkey("BackSpace")
+            return False, f"comment_image_not_attached: nothing was posted; {problem}"
+        _human_pause()
 
     # Submit via Reddit's standard Ctrl+Enter shortcut. The textarea is
     # already focused from the click and type, so this keystroke routes to
@@ -928,6 +1332,10 @@ class RedditOutreachLoop:
     """One pass = visit one subreddit, find up to MAX_THREADS_PER_PASS candidates, draft + maybe post."""
 
     def run_one_pass(self, subreddit: str, task_id: Optional[int] = None) -> dict:
+        with reddit_reading():
+            return self._run_one_pass(subreddit, task_id)
+
+    def _run_one_pass(self, subreddit: str, task_id: Optional[int] = None) -> dict:
         # recon imports this module, so its judge rule is read here, not at import.
         from backend.services.social_outreach.recon import judged_unfit
 
@@ -949,6 +1357,10 @@ class RedditOutreachLoop:
                 status="aborted", abort_reason="kill_switch_off",
                 task_id=task_id,
             )
+            return report
+        backlog = kill_switch.review_backlog_reason("reddit")
+        if backlog:
+            report["reason"] = backlog
             return report
         if web_access_refused(subreddit, report, task_id):
             return report

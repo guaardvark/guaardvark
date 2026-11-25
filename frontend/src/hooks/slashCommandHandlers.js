@@ -736,7 +736,7 @@ function handleSwarmSlash(args, { onSendMessage }) {
 // /outreach [status|reddit|…| freeform NL]
 // ============================================================
 
-async function handleOutreach(args, { addMessage }) {
+async function handleOutreach(args, { addMessage, chatState }) {
   const {
     fetchStatus,
     runPass,
@@ -787,6 +787,27 @@ async function handleOutreach(args, { addMessage }) {
     return { handled: true };
   }
 
+  // "/outreach review [reddit|youtube]": go through the drafts that wait for
+  // approval one at a time, answered in words in this chat.
+  const sessionId = chatState?.sessionId;
+  if (verb === "review") {
+    const say = (content) =>
+      addMessage({ role: "system", content, tempId: `outreach-review-${Date.now()}`, type: "command" });
+    if (!sessionId) {
+      say(translate("approvals.outreach.chat.reviewNeedsChat"));
+      return { handled: true };
+    }
+    try {
+      const { beginReview } = await import("../components/chat/outreachReview");
+      const reviewPlatform = (rest[0] || "").toLowerCase() || undefined;
+      const any = await beginReview(sessionId, { waiting: true, platform: reviewPlatform }, { addMessage });
+      if (!any) say(translate("approvals.outreach.chat.reviewNothing"));
+    } catch (err) {
+      say(translate("approvals.outreach.chat.reviewFailed", { reason: err.message }));
+    }
+    return { handled: true };
+  }
+
   const platformAliases = {
     reddit: "reddit",
     self_share: "self_share",
@@ -796,7 +817,9 @@ async function handleOutreach(args, { addMessage }) {
     draft: "draft",
     youtube: "youtube",
   };
-  const platform = platformAliases[verb];
+  // A request that opens with "reddit" or "youtube" is a sentence about that
+  // platform, so only the pass names below run as short verbs.
+  const platform = ["reddit", "youtube"].includes(verb) ? undefined : platformAliases[verb];
 
   // Known short verbs → run-pass; anything else is classify-then-dispatch.
   if (!platform) {
@@ -814,12 +837,43 @@ async function handleOutreach(args, { addMessage }) {
       } else if (!data.ok) {
         content = data.message || data.error || content;
       }
+      // A queued scout or a fresh draft is reviewed in this chat one draft
+      // at a time, answered in words (outreachReview.js); the scout's
+      // progress shows under this message. Without a chat session the drafts
+      // show here as cards instead.
+      const found = data.ok && data.follow?.task_ids?.length
+        ? { follow: data.follow }
+        : data.ok && data.draft_ids?.length
+          ? { draftIds: data.draft_ids }
+          : undefined;
+      const inReview = Boolean(found && sessionId);
+      const outreach = !found
+        ? undefined
+        : !inReview
+          ? found
+          : found.follow
+            ? { follow: found.follow, review: true }
+            : undefined;
       addMessage({
         role: "system",
         content,
         tempId: `outreach-intent-${Date.now()}`,
         type: "command",
+        ...(outreach ? { outreach } : {}),
       });
+      if (inReview) {
+        const { beginReview } = await import("../components/chat/outreachReview");
+        const body = found.follow ? { follow: found.follow } : { draft_ids: found.draftIds };
+        // Not awaited: a scout takes a while and the chat stays usable.
+        beginReview(sessionId, body, { addMessage }).catch((err) =>
+          addMessage({
+            role: "system",
+            content: translate("approvals.outreach.chat.reviewFailed", { reason: err.message }),
+            tempId: `outreach-review-err-${Date.now()}`,
+            type: "command",
+          })
+        );
+      }
     } catch (err) {
       addMessage({
         role: "system",

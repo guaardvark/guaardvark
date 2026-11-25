@@ -18,9 +18,73 @@ def test_detect_returns_expected_schema():
 def test_gpu_probe_none_when_no_tools():
     d = HardwareDetector()
     with patch("subprocess.run", side_effect=FileNotFoundError()), \
-         patch("shutil.which", return_value=None):
+         patch("shutil.which", return_value=None), \
+         patch("backend.services.hardware_detector.display_vendors", return_value=set()):
         gpu = d._probe_gpu()
     assert gpu == {"vendor": "none"}
+
+
+def _drm_tree(root, cards):
+    """A fake /sys/class/drm: cards maps 'card0' -> PCI vendor id."""
+    for name, vendor_id in cards.items():
+        dev = root / name / "device"
+        dev.mkdir(parents=True)
+        (dev / "vendor").write_text(vendor_id + "\n")
+    (root / "renderD128").mkdir()
+    (root / "card0-eDP-1").mkdir()  # connector, no device/vendor
+    return str(root)
+
+
+def test_display_vendors_reads_pci_ids(tmp_path):
+    from backend.services.hardware_detector import display_vendors
+    root = _drm_tree(tmp_path, {"card0": "0x8086", "card1": "0x10de"})
+    assert display_vendors(root) == {"intel", "nvidia"}
+
+
+def test_display_vendors_empty_without_sysfs(tmp_path):
+    from backend.services.hardware_detector import display_vendors
+    assert display_vendors(str(tmp_path / "missing")) == set()
+
+
+def test_intel_vulkan_driver_finds_mesa_icd(tmp_path):
+    from backend.services.hardware_detector import intel_vulkan_driver
+    icd = tmp_path / "icd.d"
+    icd.mkdir()
+    (icd / "nvidia_icd.json").write_text("{}")
+    assert intel_vulkan_driver((str(icd),)) is False
+    (icd / "intel_icd.json").write_text("{}")
+    assert intel_vulkan_driver((str(icd), str(tmp_path / "missing"))) is True
+
+
+def test_integrated_intel_only_when_intel_is_the_only_gpu(tmp_path):
+    d = HardwareDetector()
+    intel_only = _drm_tree(tmp_path / "a", {"card0": "0x8086"})
+    with patch("backend.services.hardware_detector.intel_vulkan_driver", return_value=True):
+        assert d._probe_integrated_intel(intel_only) == {"vendor": "intel", "vulkan": True}
+    beside_nvidia = _drm_tree(tmp_path / "b", {"card0": "0x8086", "card1": "0x10de"})
+    assert d._probe_integrated_intel(beside_nvidia) is None
+
+
+def test_gpu_probe_notes_intel_igpu_on_a_cpu_only_result():
+    d = HardwareDetector()
+    with patch("subprocess.run", side_effect=FileNotFoundError()), \
+         patch("shutil.which", return_value=None), \
+         patch("backend.services.hardware_detector.display_vendors", return_value={"intel"}), \
+         patch("backend.services.hardware_detector.intel_vulkan_driver", return_value=True):
+        gpu = d._probe_gpu()
+    # vendor stays "none": routing must not treat integrated graphics as a GPU node.
+    assert gpu == {"vendor": "none", "integrated": {"vendor": "intel", "vulkan": True}}
+
+
+def test_gpu_probe_nvidia_carries_no_integrated_entry():
+    smi_out = "NVIDIA GeForce RTX 5060 Ti, 16311, 595.84, 12.0\n"
+    mock_run = MagicMock(return_value=MagicMock(returncode=0, stdout=smi_out, stderr=""))
+    d = HardwareDetector()
+    with patch("subprocess.run", mock_run), \
+         patch("backend.services.hardware_detector.display_vendors", return_value={"intel", "nvidia"}):
+        gpu = d._probe_gpu()
+    assert gpu["vendor"] == "nvidia"
+    assert "integrated" not in gpu
 
 
 def test_gpu_probe_nvidia_parses_smi_output():

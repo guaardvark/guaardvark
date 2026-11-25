@@ -29,6 +29,7 @@ import FloatingChatMessage from "./FloatingChatMessage";
 import { useUnifiedProgressActions } from "../../contexts/UnifiedProgressContext";
 import GlobalMicButton from "../voice/GlobalMicButton";
 import { useAppStore } from "../../stores/useAppStore";
+import { answerInReview, resumeReview, reviewOpen } from "./outreachReview";
 import { useVoice } from "../../contexts/VoiceContext";
 import { useVoiceSession, useVoiceSessionState } from "../../contexts/VoiceSessionContext";
 import extractSpeakableText from "../../utils/extractSpeakableText";
@@ -428,12 +429,39 @@ const FloatingChatCard = () => {
   // Arguments follow ChatPage's (text, file, options) so slash commands can call either.
   // A document notice (sendOptions.documentNotice) leaves the attached image and
   // the typed-message history alone.
+  // Messages an outreach review adds to this chat (outreachReview.js).
+  const addReviewMessage = useCallback(
+    (msg) => addMessage({ ...msg, id: msg.tempId }),
+    [addMessage]
+  );
+  // A review left open in this chat is picked up again; its current draft
+  // shows unless the saved thread already has it.
+  useEffect(() => {
+    resumeReview(sessionId, {
+      addMessage: addReviewMessage,
+      hasItem: (draftId) =>
+        useFloatingChatStore.getState().messages.some((m) => m.outreach?.draftIds?.includes(draftId)),
+    });
+  }, [sessionId, addReviewMessage]);
+
   const handleSendMessage = useCallback(async (overrideText, _file, sendOptions) => {
     const isVoice = Boolean(sendOptions?.isVoiceMessage);
     const isNotice = Boolean(sendOptions?.documentNotice);
     const text = overrideText || inputText;
     const pending = isVoice || isNotice ? null : attachment;
     if ((!text.trim() && !pending) || isSending) return;
+
+    // An open outreach review reads the message as its answer ("yes",
+    // "skip", "change it to ..."); the model does not see it.
+    if (!pending && !isNotice && reviewOpen(sessionId)) {
+      const taken = await answerInReview(sessionId, text, { spoken: isVoice }, { addMessage: addReviewMessage });
+      if (taken) {
+        if (!overrideText) setInputText("");
+        // No reply will stream: the mic is free again for a "stop".
+        if (isVoice) voiceSession.replyFinished();
+        return;
+      }
+    }
 
     if (pending && attachmentExceedsLimit(pending.byteLength, attachmentMaxBytes)) {
       setError(refuseAttachmentMessage(pending.byteLength, attachmentMaxBytes));

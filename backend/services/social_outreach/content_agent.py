@@ -71,15 +71,22 @@ def _build_thread_context(payload: dict) -> str:
     selftext = payload.get("selftext_preview", "") or "(link-only post)"
     comments = payload.get("top_comments", []) or []
     subreddit = payload.get("subreddit", "")
-    age = _format_age(payload.get("created_utc", 0))
+    community = payload.get("community", "")
     header_lines = []
     if subreddit:
         header_lines.append(f"SUBREDDIT: r/{subreddit}")
-    header_lines.append(f"THREAD AGE: {age}")
+    elif community:
+        header_lines.append(f"COMMUNITY: {community}")
+    if payload.get("created_utc") or not community:
+        header_lines.append(f"THREAD AGE: {_format_age(payload.get('created_utc', 0))}")
+    if payload.get("author"):
+        header_lines.append(f"POSTED BY: {payload['author']}")
     header = "\n".join(header_lines)
+    # A post with no title of its own (a Facebook group post) is all body.
+    title_part = f"TITLE: {title}\n\n" if title else ""
     return (
         f"{header}\n\n"
-        f"TITLE: {title}\n\n"
+        f"{title_part}"
         f"OP BODY:\n{selftext}\n\n"
         f"TOP COMMENTS:\n" + "\n---\n".join(comments[:5])
     )
@@ -90,6 +97,11 @@ def _build_reply_context(payload: dict) -> str:
     title, our earlier comment and the viewer's reply to it."""
     title = payload.get("title") or "(not recorded)"
     author = payload.get("incoming_author") or "a viewer"
+    if not (payload.get("parent_text") or "").strip():
+        return (
+            f"VIDEO TITLE: {title}\n\n"
+            f"THEIR COMMENT ON OUR VIDEO ({author}):\n{payload.get('incoming_text', '')}"
+        )
     return (
         f"VIDEO TITLE: {title}\n\n"
         f"OUR EARLIER COMMENT:\n{payload.get('parent_text', '')}\n\n"
@@ -126,7 +138,7 @@ class ContentAgent:
         # Defense in depth — Recon emits action="comment" / "share" / "reply".
         # An unknown action shouldn't silently be drafted; fail loud now,
         # better than a phantom row with garbage text.
-        if row.action not in ("comment", "share", "reply"):
+        if row.action not in ("comment", "share", "reply", "post"):
             audit.mark_rejected(audit_id, f"unsupported action: {row.action!r}")
             return {"status": "rejected", "grade": None, "reason": "unsupported_action"}
 
@@ -152,6 +164,15 @@ class ContentAgent:
                         "video_title": payload.get("title", ""),
                     },
                     mode="reply",
+                )
+            elif row.action == "post":
+                result = persona.draft_outreach_text(
+                    platform=row.platform,
+                    context={
+                        "community": payload.get("community") or row.target_url or "",
+                        "infographic": payload.get("infographic") or {},
+                    },
+                    mode="post",
                 )
             elif row.action == "share":
                 result = persona.draft_outreach_text(
@@ -199,14 +220,14 @@ class ContentAgent:
 
         grade_threshold = MIN_REPLY_GRADE if row.action == "reply" else MIN_GRADE
         if grade < grade_threshold:
-            audit.mark_rejected(audit_id, f"grade_too_low:{grade:.2f}")
+            audit.mark_rejected(audit_id, f"grade_too_low:{grade:.2f}", draft=draft_text)
             return {"status": "rejected", "grade": grade, "reason": "grade_too_low"}
 
         # A share has no thread for the rubric at all. A reply on the
         # account's own video answers one viewer, so it is asked only whether
         # it answers them and whether the tone fits (the "reply" rubric), not
         # whether it engages a thread.
-        if row.action == "share":
+        if row.action in ("share", "post"):
             ext = {"checked": False, "skipped": True, "reason": "share_not_graded"}
         elif row.action == "reply":
             ext = external_grader.grade_draft_externally(
@@ -223,7 +244,7 @@ class ContentAgent:
             asked = ext.get("questions") or external_grader.RUBRIC_QUESTIONS
             missed = ",".join(q for q in asked if not ext.get(q))
             reason = f"external_check_failed:{missed or 'not_passed'} ({ext.get('reason', '')[:120]})"
-            audit.mark_rejected(audit_id, reason)
+            audit.mark_rejected(audit_id, reason, draft=draft_text)
             return {
                 "status": "rejected",
                 "grade": grade,
@@ -330,8 +351,12 @@ class ContentAgent:
             "hold_reason": hold_reason,
         }
 
-    def draft_batch(self, batch_size: int = DEFAULT_BATCH_SIZE) -> dict:
+    def draft_batch(self, batch_size: int = DEFAULT_BATCH_SIZE, after_id: Optional[int] = None) -> dict:
         """Walk the oldest N candidate rows and draft each. Returns a summary.
+
+        ``after_id`` limits the walk to rows with a higher id: the candidates
+        one scout pass just added, when a person's request chains the draft
+        step onto it.
 
         Stops at batch_size to keep individual ticks bounded — a celery beat
         every few minutes will drain the queue eventually.
@@ -343,10 +368,12 @@ class ContentAgent:
         """
         from backend.models import SocialOutreachLog, db
         from backend.services.social_outreach import transitions
+        candidates = SocialOutreachLog.query.filter(SocialOutreachLog.status == "candidate")
+        if after_id is not None:
+            candidates = candidates.filter(SocialOutreachLog.id > after_id)
         row_ids = [
             row.id for row in (
-                SocialOutreachLog.query
-                .filter(SocialOutreachLog.status == "candidate")
+                candidates
                 .order_by(SocialOutreachLog.created_at.asc())
                 .limit(batch_size)
                 .all()

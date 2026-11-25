@@ -36,7 +36,7 @@ def events(monkeypatch):
         def click(self, x, y):
             log.append("click")
 
-        def type_text(self, text):
+        def type_text(self, text, key_delays=None):
             log.append(f"type {text}")
 
         def hotkey(self, *keys):

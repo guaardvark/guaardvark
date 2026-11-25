@@ -367,7 +367,7 @@
     "logs": "Acompanhe um log do Guaardvark (nome de arquivo e grep opcionais)",
     "sysmap": "Relate os achados do Mapeador de Sistema, ou pergunte sobre o Código: /sysmap onde está a caixa de sementes, /sysmap módulo backend/app.py, /sysmap impacto em backend/services/agent_tools.py",
     "swarm": "Status do orquestrador Swarm (o plugin deve estar em execução)",
-    "outreach": "Status do Alcance, verbos curtos ou busca/rascunho em linguagem natural (ex: tópicos do YouTube)",
+    "outreach": "Alcance em palavras simples: responda a posts no Reddit ou YouTube, responda a comentários nos seus vídeos, cole um link ou peça o status",
     "plan": "Modo de planejamento: analise primeiro, aja apenas em um plano que você aprovar",
     "orchestrate": "Divida uma solicitação entre vários Agentes",
     "training": "Execute o agente em modo de Treinamento — loop completo de 1000 iterações, ignora a decomposição do LLM de chat",

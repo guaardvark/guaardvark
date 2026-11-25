@@ -101,6 +101,84 @@ export function postNow(id) {
   return request(`/post-now/${id}`, { method: "POST", body: "{}" });
 }
 
+// The rows with these ids as a person reads them: `text` is what would post.
+export function fetchDraftsByIds(ids) {
+  return request(`/drafts?ids=${(ids || []).join(",")}`);
+}
+
+// Where a run started by executeIntent stands; `follow` is the value that
+// answer carried ({ task_ids, after_id, platform }).
+export function fetchRunResult(follow) {
+  const params = new URLSearchParams({
+    task_ids: (follow.task_ids || []).join(","),
+    after_id: String(follow.after_id ?? 0),
+  });
+  if (follow.platform) params.set("platform", follow.platform);
+  return request(`/run-result?${params.toString()}`);
+}
+
+// A one-at-a-time review in a chat (see components/chat/outreachReview.js).
+// `body` is { session_id, follow | draft_ids | waiting, platform }.
+export function startReview(body) {
+  return request("/review/start", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function fetchReview(sessionId) {
+  return request(`/review?session_id=${encodeURIComponent(sessionId)}`);
+}
+
+// Reads a chat message as the answer to the draft on show. Posts nothing:
+// a "yes" answers with `post`, which postReview then carries out.
+export function answerReview(body) {
+  return request("/review/answer", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function postReview(body) {
+  return request("/review/post", { method: "POST", body: JSON.stringify(body) });
+}
+
+// The rhythm watched posts are typed with, and learning it from a recording
+// of key classes and times (TypingRhythmCard).
+export function fetchTypingRhythm() {
+  return request("/typing-rhythm");
+}
+
+export function saveTypingRhythm(events) {
+  return request("/typing-rhythm", { method: "POST", body: JSON.stringify({ events }) });
+}
+
+export function clearTypingRhythm() {
+  return request("/typing-rhythm", { method: "DELETE" });
+}
+
+// Infographics outreach may attach to a post (InfographicKeepersCard). An
+// item is usable only when it is a keeper and the text read back from the
+// rendered image matched what was asked for.
+export async function fetchOutreachInfographics({ keepers = false } = {}) {
+  const out = await request(`/infographics${keepers ? "?keepers=1" : ""}`);
+  if (Array.isArray(out)) return out;
+  return out?.items || out?.data?.items || [];
+}
+
+export function setInfographicKeeper(documentId, keep) {
+  return request(`/infographics/${documentId}/keep`, {
+    method: "POST",
+    body: JSON.stringify({ keep: Boolean(keep) }),
+  });
+}
+
+// Starts a new read-back; the item may answer with status "reading".
+export function rereadInfographic(documentId) {
+  return request(`/infographics/${documentId}/readback`, { method: "POST", body: "{}" });
+}
+
+// The API sends image paths as "/api/..."; this puts them on the base URL the
+// rest of the client calls.
+export function outreachMediaUrl(path) {
+  if (!path || typeof path !== "string") return "";
+  return path.startsWith("/api/") ? `${BASE_URL}${path.slice(4)}` : path;
+}
+
 export function patchDraft(id, payload) {
   return request(`/drafts/${id}`, {
     method: "PATCH",
@@ -167,6 +245,10 @@ export default {
   rejectDraft,
   fetchWatchedPost,
   postNow,
+  fetchOutreachInfographics,
+  setInfographicKeeper,
+  rereadInfographic,
+  outreachMediaUrl,
   patchDraft,
   createDraft,
   draftComment,
