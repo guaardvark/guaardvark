@@ -7,6 +7,9 @@ Usage:
     python consolidated_selftest.py --quick --output results.json --quiet
     python consolidated_selftest.py --all --output results.json --quiet
     python consolidated_selftest.py --category database --output results.json --quiet
+
+With --progress each check is also printed as one JSON line when it starts
+and when it ends, so a caller can show the run while it is going.
 """
 
 import argparse
@@ -24,29 +27,54 @@ sys.path.insert(0, PROJECT_ROOT)
 os.environ.setdefault("GUAARDVARK_ROOT", PROJECT_ROOT)
 
 
+PROGRESS = False
+
+
+def _progress(event):
+    if PROGRESS:
+        print(json.dumps(event), flush=True)
+
+
 def run_test(name, fn):
     """Run a single test function and return result dict."""
+    _progress({"event": "test_start", "name": name})
     start = time.time()
     try:
         result = fn()
         duration = time.time() - start
         if isinstance(result, dict):
-            return {
+            outcome = {
                 "name": name,
                 "status": result.get("status", "pass"),
                 "duration": duration,
                 "details": result.get("details", "OK"),
                 "error_message": result.get("error_message"),
             }
-        return {"name": name, "status": "pass", "duration": duration, "details": str(result) if result else "OK"}
+        else:
+            outcome = {"name": name, "status": "pass", "duration": duration,
+                       "details": str(result) if result else "OK"}
     except Exception as e:
-        return {
+        outcome = {
             "name": name,
             "status": "fail",
             "duration": time.time() - start,
             "details": "Exception",
             "error_message": str(e),
         }
+    _progress({"event": "test", **outcome})
+    return outcome
+
+
+def _ollama_url():
+    from backend.config import OLLAMA_BASE_URL
+    return OLLAMA_BASE_URL.rstrip("/")
+
+
+def _redis():
+    import redis
+    url = (os.environ.get("REDIS_URL") or os.environ.get("CELERY_BROKER_URL")
+           or "redis://localhost:6379/0")
+    return redis.Redis.from_url(url, socket_timeout=3)
 
 
 # ---------------------------------------------------------------------------
@@ -98,22 +126,20 @@ def test_services():
     tests = []
 
     def redis_connection():
-        import redis
-        r = redis.Redis(host="localhost", port=6379, db=0, socket_timeout=3)
-        r.ping()
+        import backend.config  # noqa: F401 - loads .env, where the Redis address lives
+        _redis().ping()
         return {"status": "pass", "details": "Redis responding"}
 
     def ollama_connection():
         import urllib.request
-        req = urllib.request.Request("http://127.0.0.1:11434/api/tags", method="GET")
+        req = urllib.request.Request(f"{_ollama_url()}/api/tags", method="GET")
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
             model_count = len(data.get("models", []))
             return {"status": "pass", "details": f"{model_count} models available"}
 
     def celery_broker():
-        import redis
-        r = redis.Redis(host="localhost", port=6379, db=0, socket_timeout=3)
+        r = _redis()
         queues = r.keys("celery*") + r.keys("_kombu*")
         return {"status": "pass", "details": f"{len(queues)} Celery queue keys"}
 
@@ -139,6 +165,25 @@ def test_filesystem():
         if missing:
             return {"status": "fail", "details": f"Missing: {', '.join(missing)}", "error_message": str(missing)}
         return {"status": "pass", "details": f"All {len(dirs)} directories accessible"}
+
+    def vector_backend():
+        return os.environ.get("GUAARDVARK_VECTOR_STORE", "pgvector").lower()
+
+    def vector_tables():
+        # pgvector, the default store: the vectors are rows in data_guaardvark_* tables.
+        from sqlalchemy import create_engine, text
+        from backend.config import DATABASE_URL
+        engine = create_engine(DATABASE_URL)
+        with engine.connect() as conn:
+            names = [r[0] for r in conn.execute(text(
+                "SELECT tablename FROM pg_tables WHERE tablename LIKE 'data\\_guaardvark\\_%' "
+                "AND tablename NOT LIKE 'data\\_guaardvark\\_test\\_%'"))]
+            if not names:
+                return {"status": "warning", "details": "No vector table yet: nothing has been indexed"}
+            rows = sum(conn.execute(text(f'SELECT COUNT(*) FROM "{n}"')).scalar() for n in names)
+        if rows == 0:
+            return {"status": "warning", "details": f"{len(names)} vector table(s), no rows: nothing has been indexed"}
+        return {"status": "pass", "details": f"{rows} vectors in {len(names)} table(s)"}
 
     def index_files():
         from backend.config import INDEX_ROOT
@@ -171,8 +216,11 @@ def test_filesystem():
         return {"status": "pass", "details": f"{free_gb:.1f} GB free"}
 
     tests.append(run_test("storage_directories", storage_dirs))
-    tests.append(run_test("index_files", index_files))
-    tests.append(run_test("vector_store", vector_store))
+    if vector_backend() == "pgvector":
+        tests.append(run_test("vector_tables", vector_tables))
+    else:
+        tests.append(run_test("index_files", index_files))
+        tests.append(run_test("vector_store", vector_store))
     tests.append(run_test("disk_space", disk_space))
     return tests
 
@@ -237,7 +285,7 @@ def test_llm():
 
     def ollama_models():
         import urllib.request
-        req = urllib.request.Request("http://127.0.0.1:11434/api/tags", method="GET")
+        req = urllib.request.Request(f"{_ollama_url()}/api/tags", method="GET")
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
             models = [m["name"] for m in data.get("models", [])]
@@ -250,7 +298,7 @@ def test_llm():
         import urllib.request
         payload = json.dumps({"model": model, "input": "test"}).encode()
         req = urllib.request.Request(
-            "http://127.0.0.1:11434/api/embed",
+            f"{_ollama_url()}/api/embed",
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST",
@@ -265,22 +313,32 @@ def test_llm():
 
     def llm_basic_response():
         import urllib.request
+        from backend.config import get_default_llm
+        model = get_default_llm()
+        if not model:
+            return {"status": "warning", "details": "No chat model is installed"}
         payload = json.dumps({
-            "model": "llama3:latest",
-            "prompt": "Say OK",
+            "model": model,
+            "messages": [{"role": "user", "content": "Say OK"}],
             "stream": False,
-            "options": {"num_predict": 10},
+            "options": {"num_predict": 20},
         }).encode()
         req = urllib.request.Request(
-            "http://127.0.0.1:11434/api/generate",
+            f"{_ollama_url()}/api/chat",
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        # The model may have to load first.
+        with urllib.request.urlopen(req, timeout=120) as resp:
             data = json.loads(resp.read())
-            response_text = data.get("response", "")[:50]
-            return {"status": "pass", "details": f"Response: {response_text}"}
+            message = data.get("message") or {}
+            # A reasoning model can spend this short budget thinking; that is a reply too.
+            response_text = (message.get("content") or message.get("thinking") or "").strip()[:50]
+            if not response_text:
+                return {"status": "fail", "details": f"{model} returned an empty reply",
+                        "error_message": "empty reply"}
+            return {"status": "pass", "details": f"{model}: {response_text}"}
 
     tests.append(run_test("ollama_models", ollama_models))
     tests.append(run_test("embedding_model", embedding_model))
@@ -330,6 +388,7 @@ def run_categories(category_keys):
         if key not in CATEGORIES:
             continue
         name, fn = CATEGORIES[key]
+        _progress({"event": "category_start", "key": key, "name": name})
         cat_start = time.time()
         tests = fn()
         cat_duration = time.time() - cat_start
@@ -351,6 +410,9 @@ def run_categories(category_keys):
             "tests": tests,
         }
 
+        _progress({"event": "category", "key": key, "status": cat_status,
+                   "duration": cat_duration, "summary": results["categories"][key]["summary"]})
+
         if cat_status == "fail":
             results["overall_status"] = "fail"
         elif cat_status == "warning" and results["overall_status"] == "pass":
@@ -366,7 +428,12 @@ def main():
     parser.add_argument("--category", type=str, help="Run a specific category")
     parser.add_argument("--output", type=str, help="Output JSON file path")
     parser.add_argument("--quiet", action="store_true", help="Suppress stdout output")
+    parser.add_argument("--progress", action="store_true",
+                        help="Print each check as a JSON line while the run is going")
     args = parser.parse_args()
+
+    global PROGRESS
+    PROGRESS = args.progress
 
     if args.category:
         keys = [args.category]
@@ -375,6 +442,8 @@ def main():
     else:
         keys = list(CATEGORIES.keys())
 
+    _progress({"event": "plan", "categories": [
+        {"key": k, "name": CATEGORIES[k][0]} for k in keys if k in CATEGORIES]})
     results = run_categories(keys)
 
     if args.output:

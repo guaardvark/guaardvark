@@ -30,7 +30,7 @@ def _ensure_llama_index() -> None:
         import llama_index
     except Exception:
         print(
-            "Codex environment setup failure; please re-run or contact OpenAI support."
+            "llama_index could not be installed; install backend/requirements.txt and run again."
         )
         sys.exit(1)
 
@@ -102,16 +102,20 @@ def _print_summary(result: dict) -> None:
         print("\nTests failed. Review output above and fix failing cases.")
 
 
+_SUMMARY_COUNT = re.compile(r"(\d+) (passed|failed|errors?|skipped)\b")
+
+
 def _parse_pytest_output(output: str) -> dict:
     lines = output.splitlines()
-    summary_match = re.search(r"(\d+\s+passed).*", lines[-1]) if lines else None
     counts = {"passed": 0, "failed": 0, "errors": 0, "skipped": 0}
-    if summary_match:
-        summary_line = summary_match.group(0)
-        for key in counts:
-            m = re.search(rf"(\d+)\s+{key}", summary_line)
-            if m:
-                counts[key] = int(m.group(1))
+    # The summary is pytest's last line that counts outcomes ("3 failed, 40
+    # passed in 2.1s"); a run with no passes still has one.
+    for line in reversed(lines):
+        found = _SUMMARY_COUNT.findall(line)
+        if found and " in " in line:
+            for number, key in found:
+                counts["errors" if key.startswith("error") else key] = int(number)
+            break
     failures = []
     current = []
     collecting = False
@@ -141,6 +145,22 @@ QUICK_FILTER = (
 )
 
 
+PROGRESS_ENV = "GUAARDVARK_TEST_PROGRESS"
+
+
+def _progress(event: dict) -> None:
+    """Append one event to the progress file a caller asked for (see
+    backend/utils/pytest_progress.py, which writes the per-test events)."""
+    path = os.environ.get(PROGRESS_ENV)
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(event) + "\n")
+    except OSError:
+        pass
+
+
 def run_all(quick: bool = False, extra_args: list = None):
     if extra_args is None:
         extra_args = []
@@ -150,6 +170,7 @@ def run_all(quick: bool = False, extra_args: list = None):
     is_collect = any(arg in extra_args for arg in ("--collect-only", "--co"))
 
     if not is_collect:
+        _progress({"event": "phase", "key": "preflight"})
         _ensure_llama_index()
         install_requirements(repo_root)
         phases["install"].append("requirements installed")
@@ -163,6 +184,8 @@ def run_all(quick: bool = False, extra_args: list = None):
     # An isolated run (Diagnostics → Run tests) has no database on purpose; the
     # check cannot tell that from a schema that needs stamping.
     no_live_state = os.environ.get("GUAARDVARK_NO_LIVE_STATE") == "1"
+    if not is_collect:
+        _progress({"event": "phase", "key": "schema", "skipped": no_live_state})
     if no_live_state and not is_collect:
         phases["config"].append("schema check skipped: this run has no database")
     elif not is_collect:
@@ -179,6 +202,9 @@ def run_all(quick: bool = False, extra_args: list = None):
             )
 
     cmd = [sys.executable, "-m", "pytest"]
+    if os.environ.get(PROGRESS_ENV):
+        cmd.extend(["-p", "backend.utils.pytest_progress"])
+        _progress({"event": "phase", "key": "collect"})
     if quick:
         cmd.extend(["-k", QUICK_FILTER])
     if extra_args:

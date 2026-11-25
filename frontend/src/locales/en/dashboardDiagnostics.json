@@ -61,7 +61,7 @@
   "checkError": "System Check Error: {{message}}",
   "couldNotRun": "Could not run system checks.",
   "runFailed": "Failed to run system checks: {{message}}",
-  "runningSuite": "Running full test suite...",
+  "runningSuite": "Running the test suite...",
   "suiteFinished": "Test suite finished.",
   "invalidResponse": "Invalid response",
   "suiteError": "Test suite error: {{message}}",
@@ -84,5 +84,60 @@
   "runDiagnostics": "Run diagnostics",
   "depthChip": "Depth: {{depth}}",
   "testSuite": "Test suite",
-  "runTests": "Run Tests"
+  "runTests": "Run Tests",
+  "suiteStopped": "Test suite stopped.",
+  "suite": {
+    "quick": "Quick",
+    "full": "Full",
+    "aria": "Test suite size",
+    "quickHelp": "Quick runs the agent core tests: routing, step budgets, memory and control.",
+    "fullHelp": "Full runs every test that needs no live service or GPU. It takes a long time; you can stop it at any point."
+  },
+  "progress": {
+    "testsOf": "{{done}} of {{total}} tests",
+    "stepsOf": "Step {{done}} of {{total}}",
+    "filesOf": "{{done}} of {{total}} files",
+    "elapsed": "{{time}} elapsed",
+    "stop": "Stop",
+    "now": "Now testing",
+    "recentFiles": "Files just finished",
+    "filePassed": "{{total}} passed",
+    "fileFailed": "{{failed}} of {{total}} failed",
+    "failures": "Failures ({{count}})",
+    "failuresTruncated": "Showing the first {{shown}}. The log has the rest."
+  },
+  "runStatus": {
+    "running": "Running",
+    "passed": "Passed",
+    "failed": "Failed",
+    "warning": "Warning",
+    "error": "Error",
+    "cancelled": "Stopped"
+  },
+  "groups": {
+    "System": "System checks",
+    "Self-test": "Self-test"
+  },
+  "steps": {
+    "ollama": "Ollama service",
+    "model": "Chat model reply",
+    "database": "Database, indexing queue and rules",
+    "folders": "Storage, upload and output folders",
+    "prompt": "Question-answering prompt",
+    "chat": "Chat round trip",
+    "log": "Backend log",
+    "pip_check": "Package conflicts (pip check)",
+    "pip_outdated": "Newer package versions",
+    "cat_database": "Database",
+    "cat_services": "External services",
+    "cat_filesystem": "File system and storage",
+    "cat_backend": "Backend API",
+    "cat_llm": "LLM and embeddings",
+    "cat_imports": "Python dependencies",
+    "prepare": "Preparing a run with no live data",
+    "schema": "Checking the database schema",
+    "collect": "Finding the tests",
+    "run": "Running the tests",
+    "summary": "Writing the summary"
+  }
 }

@@ -1,5 +1,4 @@
 import { BASE_URL, handleResponse } from "./apiClient";
-import { API_TIMEOUT_GENERATION } from "../config/constants";
 import { translate } from "../i18n";
 
 export const getVersion = async () => {
@@ -395,31 +394,38 @@ export const testLLM = async () => {
   }
 };
 
-export const runAllTests = async () => {
-  const endpoint = `${BASE_URL}/meta/run-tests`;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_GENERATION);
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    const data = await handleResponse(response);
-    if (typeof data === "object" && data !== null && data.error)
-      throw new Error(data.error);
-    return data;
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      throw new Error(translate('messages.settings.testSuiteTimeout'));
-    }
-    console.error("settingsService: Error running test suite:", err.message);
-    throw err;
-  }
+const diagnosticsCall = async (path, { method = "GET", body } = {}) => {
+  const response = await fetch(`${BASE_URL}/meta/${path}`, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await handleResponse(response);
+  if (typeof data === "object" && data !== null && data.error)
+    throw new Error(data.error);
+  return data?.run ?? null;
 };
+
+// Diagnostics and the test suite run in the background. Each call below
+// returns the run's snapshot: its steps, the check or test in hand, counts
+// and failures. Poll getDiagnosticRun(id) while `running` is true.
+export const startSelfTest = (options = {}) =>
+  diagnosticsCall("selftest/start", {
+    method: "POST",
+    body: { mode: options.mode || "basic", include_legacy: options.include_legacy ?? true },
+  });
+
+export const startTestSuite = (scope = "quick") =>
+  diagnosticsCall("run-tests", { method: "POST", body: { scope } });
+
+export const getDiagnosticRun = (runId) => diagnosticsCall(`runs/${encodeURIComponent(runId)}`);
+
+/** The newest run of a kind ("diagnostics" or "tests"), or null. */
+export const getLatestDiagnosticRun = (kind) =>
+  diagnosticsCall(`runs/latest?kind=${encodeURIComponent(kind)}`);
+
+export const cancelDiagnosticRun = (runId) =>
+  diagnosticsCall(`runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" });
 
 export const getWebAccess = async () => {
   try {

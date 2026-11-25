@@ -371,9 +371,65 @@ def get_system_metrics():
     return jsonify(metrics), 200
 
 
-def _gather_diagnostics() -> dict:
+# The stages of _gather_diagnostics, in the order they run.
+LEGACY_STEPS = (
+    ("ollama", "Ollama service"),
+    ("model", "Chat model reply"),
+    ("database", "Database, indexing queue and rules"),
+    ("folders", "Storage, upload and output folders"),
+    ("prompt", "Question-answering prompt"),
+    ("chat", "Chat round trip"),
+    ("log", "Backend log"),
+)
+
+
+def _app_version() -> str:
+    try:
+        from backend.utils.update_state import STARTUP_VERSION
+        return STARTUP_VERSION or "N/A"
+    except Exception:
+        return "N/A"
+
+
+def _legacy_step_outcome(key: str, r: dict) -> tuple:
+    """(status, detail) for one finished stage of _gather_diagnostics."""
+    if key == "ollama":
+        if r.get("ollama_reachable"):
+            return "passed", f"{r.get('model_count', 0)} models"
+        return "failed", "Not reachable"
+    if key == "model":
+        name = r.get("active_model_name") or "No chat model"
+        status = r.get("active_model_status", "Unknown")
+        return ("passed" if r.get("llm_basic_response") else "failed"), f"{name}: {status}"
+    if key == "database":
+        if not r.get("db_connection"):
+            return "failed", "Not connected"
+        return "passed", f"{r.get('document_count_db', 0)} documents; {r.get('indexing_queue_status')}"
+    if key == "folders":
+        closed = [n for n in ("storage", "upload", "output") if not r.get(f"{n}_dir_accessible")]
+        return ("failed", "Not writable: " + ", ".join(closed)) if closed else ("passed", "All writable")
+    if key == "prompt":
+        return ("passed", "Loadable") if r.get("qa_prompt_loadable") else ("warning", "Not found")
+    if key == "chat":
+        reply = str(r.get("qa_hello_response") or "")
+        if not reply or reply.startswith("[Error"):
+            return "failed", reply[:120] or "No reply"
+        return "passed", reply[:80]
+    if key == "log":
+        text = str(r.get("backend_log_errors") or "")
+        return ("passed" if text.startswith("No ") else "warning"), text
+    return "passed", ""
+
+
+def _gather_diagnostics(on_step=None) -> dict:
+    """Run the basic checks. ``on_step(key, results)`` is called as each stage
+    of LEGACY_STEPS begins, with the results gathered so far."""
     global rule_utils, db, Document, Setting, Rule, Project
-    
+
+    def _stage(key):
+        if on_step is not None:
+            on_step(key, results)
+
     results = {
         "ollama_reachable": False,
         "active_model_name": None,
@@ -397,7 +453,7 @@ def _gather_diagnostics() -> dict:
         "qa_default_rule_id": None,
         "system_prompt_source": None,
         "timestamp": datetime.now().timestamp(),
-        "version": current_app.config.get("APP_VERSION", "N/A"),
+        "version": current_app.config.get("APP_VERSION") or _app_version(),
     }
 
     results["rule_details"] = []
@@ -405,7 +461,7 @@ def _gather_diagnostics() -> dict:
     results["qa_hello_response"] = None
 
     try:
-
+        _stage("ollama")
         ollama_models_res = get_available_ollama_models()
         if isinstance(ollama_models_res, list):
             results["ollama_reachable"] = True
@@ -453,6 +509,7 @@ def _gather_diagnostics() -> dict:
                 "SelfTest: Error fetching system prompt info: %s", e, exc_info=True
             )
 
+        _stage("model")
         if results["active_model_name"]:
             results["active_model_status"] = "Configured"
             try:
@@ -493,6 +550,7 @@ def _gather_diagnostics() -> dict:
         else:
             results["active_model_status"] = "Not configured"
 
+        _stage("database")
         if db and Setting and Document and Rule:
             try:
                 db.session.query(Setting.key).first()
@@ -563,6 +621,7 @@ def _gather_diagnostics() -> dict:
                     "SelfTest: DB and Rule checks failed: %s", e, exc_info=True
                 )
 
+        _stage("folders")
         storage_dir_path_val = current_app.config.get("STORAGE_DIR")
         results["storage_dir_path"] = storage_dir_path_val
         if storage_dir_path_val and os.path.exists(
@@ -599,6 +658,7 @@ def _gather_diagnostics() -> dict:
                     config_key,
                 )
 
+        _stage("prompt")
         if prompt_utils and results["active_model_name"]:
             try:
                 from backend import rule_utils
@@ -623,6 +683,7 @@ def _gather_diagnostics() -> dict:
             except Exception as e:
                 logger.error("SelfTest: QA prompt load error: %s", e, exc_info=True)
 
+        _stage("chat")
         try:
             from backend.utils.llm_service import run_llm_chat_prompt
 
@@ -630,6 +691,7 @@ def _gather_diagnostics() -> dict:
         except Exception as e:
             results["qa_hello_response"] = f"[Error running LLM: {e}]"
 
+        _stage("log")
         log_file_path = current_app.config.get(
             "LOG_FILE_PATH",
             os.path.join(current_app.root_path, "..", "logs", "backend.log"),
@@ -656,58 +718,87 @@ def _gather_diagnostics() -> dict:
     return results
 
 
-@diagnostics_bp.route("/selftest", methods=["POST"])
-def run_selftest():
-    logger.info("API: Received POST /api/meta/selftest request")
-    if not local_imports_ok or not llama_index_available:
-        return jsonify({"error": "Core components unavailable for self-test."}), 503
+def _pip_check(legacy_results: dict) -> None:
+    try:
+        pip_check = subprocess.run(
+            [sys.executable, "-m", "pip", "check"],
+            capture_output=True, text=True, timeout=30
+        )
+        if pip_check.returncode == 0:
+            legacy_results["pip_check"] = pip_check.stdout.strip()
+        else:
+            # pip lists the conflicts on stdout.
+            conflicts = (pip_check.stdout or pip_check.stderr or "").strip()
+            legacy_results["pip_check"] = (
+                f"Error (code {pip_check.returncode}): {conflicts or 'no detail given'}")
+    except subprocess.TimeoutExpired:
+        legacy_results["pip_check"] = "Timeout after 30 seconds"
+    except Exception as e:
+        legacy_results["pip_check"] = f"Error running pip check: {e}"
 
-    data = request.get_json() or {}
-    test_mode = data.get("mode", "basic")
-    category_arg = data.get("category", None)
-    # Only an allow-listed key reaches the subprocess argument list.
-    test_category = _SELFTEST_CATEGORIES.get(str(category_arg)) if category_arg is not None else None
-    if category_arg is not None and test_category is None:
-        return jsonify({"error": "Unknown self-test category"}), 400
-    include_legacy = data.get("include_legacy", True)
 
+def _pip_outdated(legacy_results: dict) -> None:
+    # Listing outdated packages asks PyPI about every installed package.
+    from backend.utils.settings_utils import web_access_block_reason
+    if web_access_block_reason("check PyPI for newer packages"):
+        legacy_results["pip_outdated"] = "Skipped: it asks PyPI, and web access is off"
+        return
+    try:
+        outdated = subprocess.run(
+            [sys.executable, "-m", "pip", "list", "--outdated"],
+            capture_output=True, text=True, timeout=30
+        )
+        legacy_results["pip_outdated"] = outdated.stdout.strip() if outdated.returncode == 0 else f"Error (code {outdated.returncode})"
+    except subprocess.TimeoutExpired:
+        legacy_results["pip_outdated"] = "Timeout after 30 seconds"
+    except Exception as e:
+        legacy_results["pip_outdated"] = f"Error listing outdated packages: {e}"
+
+
+def _pip_step_outcome(text: str) -> tuple:
+    text = str(text or "")
+    if text.startswith("Skipped"):
+        return "skipped", text
+    if text.startswith(("Error", "Timeout")):
+        return "warning", text.splitlines()[0][:160]
+    lines = text.splitlines()
+    return "passed", (lines[0][:160] if len(lines) == 1 else f"{max(0, len(lines) - 2)} newer versions available")
+
+
+def _selftest_results(test_mode: str, test_category: Optional[str], include_legacy: bool,
+                      run=None) -> dict:
+    """Run a self-test and return its results. ``run`` (a diagnostic_runs.Run)
+    is told each step as it starts and ends."""
     results = {}
 
     if include_legacy:
-        legacy_results = _gather_diagnostics()
-
-        try:
-            pip_check = subprocess.run(
-                [sys.executable, "-m", "pip", "check"],
-                capture_output=True, text=True, timeout=30
-            )
-            legacy_results["pip_check"] = pip_check.stdout.strip() if pip_check.returncode == 0 else f"Error (code {pip_check.returncode}): {pip_check.stderr.strip()}"
-        except subprocess.TimeoutExpired:
-            legacy_results["pip_check"] = "Timeout after 30 seconds"
-        except Exception as e:
-            legacy_results["pip_check"] = f"Error running pip check: {e}"
-
-        # Listing outdated packages asks PyPI about every installed package.
-        from backend.utils.settings_utils import web_access_block_reason
-        if web_access_block_reason("check PyPI for newer packages"):
-            legacy_results["pip_outdated"] = "Skipped: it asks PyPI, and web access is off"
+        if run is None:
+            legacy_results = _gather_diagnostics()
         else:
-            try:
-                outdated = subprocess.run(
-                    [sys.executable, "-m", "pip", "list", "--outdated"],
-                    capture_output=True, text=True, timeout=30
-                )
-                legacy_results["pip_outdated"] = outdated.stdout.strip() if outdated.returncode == 0 else f"Error (code {outdated.returncode})"
-            except subprocess.TimeoutExpired:
-                legacy_results["pip_outdated"] = "Timeout after 30 seconds"
-            except Exception as e:
-                legacy_results["pip_outdated"] = f"Error listing outdated packages: {e}"
+            state = {"key": None}
+
+            def on_step(key, partial):
+                if state["key"]:
+                    run.finish_step(state["key"], *_legacy_step_outcome(state["key"], partial))
+                state["key"] = key
+                run.start_step(key)
+
+            legacy_results = _gather_diagnostics(on_step)
+            if state["key"]:
+                run.finish_step(state["key"], *_legacy_step_outcome(state["key"], legacy_results))
+
+        for key, check in (("pip_check", _pip_check), ("pip_outdated", _pip_outdated)):
+            if run is not None:
+                run.start_step(key)
+            check(legacy_results)
+            if run is not None:
+                run.finish_step(key, *_pip_step_outcome(legacy_results.get(key)))
 
         results["legacy_diagnostics"] = legacy_results
 
     if test_mode in ["comprehensive", "quick"] or test_category:
         comprehensive_results = _run_comprehensive_selftest(
-            test_mode, test_category)
+            test_mode, test_category, on_event=_selftest_event_sink(run))
         results.update(comprehensive_results)
 
     advanced_debug_enabled = False
@@ -738,12 +829,120 @@ def run_selftest():
         "categories": list(results.get("categories", {}).keys())
         if "categories" in results else []
     })
+    return results
 
+
+def _selftest_request():
+    """(mode, category, include_legacy) from the request body, or an error response."""
+    data = request.get_json(silent=True) or {}
+    test_mode = data.get("mode", "basic")
+    if test_mode not in ("basic", "quick", "comprehensive"):
+        return None, (jsonify({"error": "Unknown self-test mode"}), 400)
+    category_arg = data.get("category", None)
+    # Only an allow-listed key reaches the subprocess argument list.
+    test_category = _SELFTEST_CATEGORIES.get(str(category_arg)) if category_arg is not None else None
+    if category_arg is not None and test_category is None:
+        return None, (jsonify({"error": "Unknown self-test category"}), 400)
+    return (test_mode, test_category, data.get("include_legacy", True)), None
+
+
+@diagnostics_bp.route("/selftest", methods=["POST"])
+def run_selftest():
+    logger.info("API: Received POST /api/meta/selftest request")
+    if not local_imports_ok or not llama_index_available:
+        return jsonify({"error": "Core components unavailable for self-test."}), 503
+
+    parsed, error = _selftest_request()
+    if error:
+        return error
+    results = _selftest_results(*parsed)
     return jsonify({"message": "Self-test complete.", "results": results}), 200
 
 
+# Step labels for the categories of scripts/consolidated_selftest.py.
+_SELFTEST_QUICK = ("database", "services", "backend")
+_SELFTEST_LABELS = {
+    "database": "Database", "services": "External services", "filesystem": "File system and storage",
+    "backend": "Backend API", "llm": "LLM and embeddings", "imports": "Python dependencies",
+}
+_RUN_STATUS = {"pass": "passed", "fail": "failed", "warning": "warning"}
+
+
+def _selftest_event_sink(run):
+    """Turn the self-test script's progress lines into steps on ``run``."""
+    if run is None:
+        return None
+    state = {"category": None, "done": 0}
+
+    def on_event(event):
+        kind = event.get("event")
+        if kind == "category_start":
+            state["category"], state["done"] = event.get("key"), 0
+            run.start_step(f"cat_{state['category']}")
+        elif kind == "test_start" and state["category"]:
+            run.step_detail(f"cat_{state['category']}", str(event.get("name", "")))
+        elif kind == "category":
+            run.finish_step(f"cat_{event.get('key')}", _RUN_STATUS.get(event.get("status"), "failed"),
+                            str(event.get("summary", "")), event.get("duration"))
+    return on_event
+
+
+def _diagnostics_worker(app, parsed):
+    test_mode, test_category, include_legacy = parsed
+
+    def work(run):
+        steps = []
+        if include_legacy:
+            steps += [(key, label, "System") for key, label in LEGACY_STEPS]
+            steps += [("pip_check", "Package conflicts (pip check)", "System"),
+                      ("pip_outdated", "Newer package versions", "System")]
+        if test_category:
+            categories = (test_category,)
+        elif test_mode == "quick":
+            categories = _SELFTEST_QUICK
+        elif test_mode == "comprehensive":
+            categories = tuple(_SELFTEST_LABELS)
+        else:
+            categories = ()
+        steps += [(f"cat_{c}", _SELFTEST_LABELS[c], "Self-test") for c in categories]
+        run.plan(steps)
+        with app.app_context():
+            try:
+                results = _selftest_results(test_mode, test_category, include_legacy, run=run)
+            finally:
+                if db is not None:
+                    db.session.remove()  # this thread's session, not a request's
+        overall = results.get("overall_status")
+        with run.lock:
+            run.result = results
+            run.current = None
+            run.status = {"PASS": "passed", "WARNING": "warning"}.get(overall, "failed")
+            if run.status == "failed":
+                run.error = f"Diagnostics finished: {overall}"
+    return work
+
+
+@diagnostics_bp.route("/selftest/start", methods=["POST"])
+def start_selftest():
+    """Start a self-test in the background; poll /api/meta/runs/<id> for it."""
+    if not local_imports_ok or not llama_index_available:
+        return jsonify({"error": "Core components unavailable for self-test."}), 503
+    parsed, error = _selftest_request()
+    if error:
+        return error
+    from backend.services import diagnostic_runs
+    try:
+        run = diagnostic_runs.start(
+            "diagnostics", parsed[0],
+            _diagnostics_worker(current_app._get_current_object(), parsed),
+            title="Diagnostics")
+    except diagnostic_runs.AlreadyRunning as busy:
+        return jsonify({"run": busy.run.snapshot(), "already_running": True}), 200
+    return jsonify({"run": run.snapshot()}), 202
+
+
 def _run_comprehensive_selftest(
-        test_mode: str, test_category: Optional[str] = None) -> dict:
+        test_mode: str, test_category: Optional[str] = None, on_event=None) -> dict:
     try:
         script_path = os.path.abspath(os.path.join(
             current_app.root_path, "..", "scripts", "consolidated_selftest.py"))
@@ -767,15 +966,11 @@ def _run_comprehensive_selftest(
             cmd.append("--all")
 
         cmd.extend(["--output", output_path, "--quiet"])
+        if on_event is not None:
+            cmd.append("--progress")
 
         start_time = time.time()
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,
-            cwd=os.path.join(current_app.root_path, "..")
-        )
+        proc = _run_reporting(cmd, os.path.join(current_app.root_path, ".."), 300, on_event)
         duration = time.time() - start_time
 
         results = {
@@ -802,7 +997,7 @@ def _run_comprehensive_selftest(
             results["categories"] = {}
             results["error"] = f"Could not read test results: {str(e)}"
 
-        if proc.stdout:
+        if proc.stdout and on_event is None:
             results["stdout_summary"] = proc.stdout[-500:]
         if proc.stderr:
             results["stderr"] = proc.stderr[-500:]
@@ -826,23 +1021,63 @@ def _run_comprehensive_selftest(
         }
 
 
+def _run_reporting(cmd, cwd, timeout, on_event):
+    """subprocess.run with captured text output; with ``on_event`` each JSON
+    line the child prints is passed to it as it arrives."""
+    if on_event is None:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd)
+    import threading
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=cwd)
+    timed_out = threading.Event()
+
+    def _expire():
+        timed_out.set()
+        proc.kill()
+
+    timer = threading.Timer(timeout, _expire)
+    timer.start()
+    stderr_chunks = []
+    drain = threading.Thread(target=lambda: stderr_chunks.append(proc.stderr.read()), daemon=True)
+    drain.start()
+    stdout_lines = []
+    try:
+        for line in proc.stdout:
+            stdout_lines.append(line)
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(event, dict):
+                on_event(event)
+        proc.wait()
+        drain.join(timeout=5)
+    finally:
+        timer.cancel()
+    if timed_out.is_set():
+        raise subprocess.TimeoutExpired(cmd, timeout)
+    return subprocess.CompletedProcess(cmd, proc.returncode, "".join(stdout_lines), "".join(stderr_chunks))
+
+
 def _determine_overall_status(results: dict) -> str:
-    legacy = results.get("legacy_diagnostics", {})
-    if legacy.get("llm_basic_response") is False:
-        return "CRITICAL"
-    if legacy.get("database_health") != "Connected":
-        return "WARNING"
+    legacy = results.get("legacy_diagnostics")
+    if legacy:
+        if legacy.get("llm_basic_response") is False:
+            return "CRITICAL"
+        if legacy.get("db_connection") is False:
+            return "FAIL"
+    legacy = legacy or {}
 
     categories = results.get("categories", {})
     if categories:
+        # The self-test script writes its statuses in lower case.
         category_statuses = [
-            cat.get("status", "ERROR") for cat in categories.values()]
+            str(cat.get("status", "ERROR")).upper() for cat in categories.values()]
 
         if any(status == "FAIL" for status in category_statuses):
             return "FAIL"
         elif any(status == "ERROR" for status in category_statuses):
             return "ERROR"
-        elif any(status == "PARTIAL" for status in category_statuses):
+        elif any(status in ("PARTIAL", "WARNING") for status in category_statuses):
             return "WARNING"
         elif all(status == "PASS" for status in category_statuses):
             return "PASS"
@@ -958,44 +1193,55 @@ def export_diagnostics():
 
 @diagnostics_bp.route("/run-tests", methods=["POST"])
 def run_tests_endpoint():
+    """Start the test suite in the background; poll /api/meta/runs/<id> for it.
+
+    ``scope`` is "quick" (run_tests.py --quick) or "full". The full suite runs
+    for about nine minutes on a fast workstation, past any request timeout.
+    """
     logger.info("API: Received POST /api/meta/run-tests request")
-    from backend.utils.isolated_env import isolated_env
+    from backend.services import diagnostic_runs
+    scope = (request.get_json(silent=True) or {}).get("scope", "quick")
+    if scope not in ("quick", "full"):
+        return jsonify({"error": "Unknown test scope"}), 400
+    repo_root = os.path.abspath(os.path.join(current_app.root_path, ".."))
+    if not os.path.exists(os.path.join(repo_root, "run_tests.py")):
+        return jsonify({"error": f"Test script not found at {repo_root}/run_tests.py"}), 404
     try:
-        script_path = os.path.abspath(
-            os.path.join(current_app.root_path, "..", "run_tests.py")
-        )
+        run = diagnostic_runs.start(
+            "tests", scope,
+            lambda run: diagnostic_runs.run_test_suite(run, repo_root),
+            title="Test suite")
+    except diagnostic_runs.AlreadyRunning as busy:
+        return jsonify({"run": busy.run.snapshot(), "already_running": True}), 200
+    return jsonify({"run": run.snapshot()}), 202
 
-        if not os.path.exists(script_path):
-            logger.error(f"Test script not found: {script_path}")
-            return jsonify({"error": f"Test script not found at {script_path}"}), 404
 
-        proc = subprocess.run(
-            [sys.executable, script_path],
-            capture_output=True,
-            text=True,
-            timeout=300,
-            # No live database, task queue or Redis: the tests run in a child of
-            # the live backend and would otherwise write into all three.
-            env=isolated_env(
-                SKIP_PREFIGHT="1",  # suppress noisy pip "already satisfied" + starlette conflict spam in GUI runs; makes test suites from GUI useful
-                GUAARDVARK_TEST_QUIET="1",
-            ),
-        )
-        stdout = proc.stdout.strip()
-        stderr = proc.stderr.strip()
-        try:
-            parsed = json.loads(stdout) if stdout else {}
-        except json.JSONDecodeError:
-            parsed = {"stdout": stdout}
-        parsed.setdefault("stderr", stderr)
-        parsed.setdefault("returncode", proc.returncode)
-        return jsonify({"results": parsed}), 200
-    except subprocess.TimeoutExpired:
-        logger.error("Test suite timed out after 5 minutes")
-        return jsonify({"error": "Test execution timeout (5 minutes)"}), 504
-    except Exception as e:
-        logger.error(f"Error running tests: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+@diagnostics_bp.route("/runs/latest", methods=["GET"])
+def latest_run():
+    """The newest run of ``kind`` (diagnostics or tests), so a reloaded page
+    can pick a running one back up. ``run`` is null when there has been none."""
+    from backend.services import diagnostic_runs
+    run = diagnostic_runs.latest(request.args.get("kind", "tests"))
+    return jsonify({"run": run.snapshot() if run else None}), 200
+
+
+@diagnostics_bp.route("/runs/<run_id>", methods=["GET"])
+def get_run(run_id):
+    from backend.services import diagnostic_runs
+    run = diagnostic_runs.get(run_id)
+    if run is None:
+        return jsonify({"error": "No such run. Runs are forgotten when the backend restarts."}), 404
+    return jsonify({"run": run.snapshot()}), 200
+
+
+@diagnostics_bp.route("/runs/<run_id>/cancel", methods=["POST"])
+def cancel_run(run_id):
+    from backend.services import diagnostic_runs
+    run = diagnostic_runs.get(run_id)
+    if run is None:
+        return jsonify({"error": "No such run."}), 404
+    diagnostic_runs.cancel(run_id)
+    return jsonify({"run": run.snapshot()}), 200
 
 
 @diagnostics_bp.route("/diagnostics/restore", methods=["POST"])

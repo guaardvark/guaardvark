@@ -10,7 +10,6 @@ import {
   Box,
   Button,
   Chip,
-  Collapse,
   Divider,
   Paper,
   Stack,
@@ -38,7 +37,8 @@ import SyncProblemIcon from "@mui/icons-material/SyncProblem";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import WarningIcon from "@mui/icons-material/Warning";
 
-import { runAllTests, runSelfTest } from "../../api/settingsService";
+import { startSelfTest, startTestSuite } from "../../api/settingsService";
+import DiagnosticRunProgress, { useDiagnosticRun } from "./DiagnosticRunProgress";
 import { translate, useUiTranslation } from "../../i18n";
 
 // Diagnostics depth is one choice; "Full" is the API's "comprehensive" mode.
@@ -46,6 +46,12 @@ const depthOptions = () => [
   { value: "basic", label: translate("dashboardDiagnostics.depths.basic"), running: translate("dashboardDiagnostics.running.basic") },
   { value: "quick", label: translate("dashboardDiagnostics.depths.quick"), running: translate("dashboardDiagnostics.running.quick") },
   { value: "comprehensive", label: translate("dashboardDiagnostics.depths.comprehensive"), running: translate("dashboardDiagnostics.running.comprehensive") },
+];
+
+// The test suite's two sizes; the API calls them scopes.
+const suiteOptions = () => [
+  { value: "quick", label: translate("dashboardDiagnostics.suite.quick") },
+  { value: "full", label: translate("dashboardDiagnostics.suite.full") },
 ];
 
 const depthLabel = (value) =>
@@ -383,93 +389,67 @@ const renderLegacyDiagnosticsCards = (ds) => (
 const DiagnosticsPanel = ({ showMessage }) => {
   const { t } = useUiTranslation();
   const [depth, setDepth] = useState("basic");
-  const [isTesting, setIsTesting] = useState(false);
-  const [testResults, setTestResults] = useState(null);
-  const [testMode, setTestMode] = useState(null); // depth that produced testResults
+  const [testError, setTestError] = useState(null);
   const [expandedCategories, setExpandedCategories] = useState({});
-  const [isRunningTests, setIsRunningTests] = useState(false);
-  const [testSuiteResults, setTestSuiteResults] = useState(null);
-  const [testSuiteOutputOpen, setTestSuiteOutputOpen] = useState(false);
+  const [suiteScope, setSuiteScope] = useState("quick");
+  const [suiteError, setSuiteError] = useState(null);
 
   const notify = (message, severity) => {
     if (typeof showMessage === "function") showMessage(message, severity);
   };
 
-  // Enhanced test runner with mode selection
+  const diagnostics = useDiagnosticRun("diagnostics", (run) => {
+    const results = run.result;
+    if (!results) {
+      notify(t("dashboardDiagnostics.checkError", { message: run.error || t("dashboardDiagnostics.couldNotRun") }), "error");
+      return;
+    }
+    const overallStatus = results.overall_status || "UNKNOWN";
+    const statusDisplay = getStatusDisplay(overallStatus);
+    const msg = results.categories
+      ? t("dashboardDiagnostics.checkCompleteCategories", { status: statusDisplay.label, count: Object.keys(results.categories).length })
+      : t("dashboardDiagnostics.checkComplete", { status: statusDisplay.label });
+    notify(msg, overallStatus === "PASS" ? "success" : overallStatus === "WARNING" ? "warning" : "error");
+  });
+
+  const suite = useDiagnosticRun("tests", (run) => {
+    if (run.status === "cancelled") {
+      notify(t("dashboardDiagnostics.suiteStopped"), "info");
+    } else if (run.status === "passed") {
+      notify(t("dashboardDiagnostics.suiteFinished"), "success");
+    } else {
+      notify(t("dashboardDiagnostics.suiteError", { message: run.error || run.status }), "error");
+    }
+  });
+
+  const isTesting = diagnostics.running;
+  const isRunningTests = suite.running;
+  const testResults = !isTesting && diagnostics.run?.result ? diagnostics.run.result : null;
+  const testMode = diagnostics.run?.mode || null;
+
   const handleRunSystemCheck = async (mode = "basic") => {
-    // Validate mode parameter
     const validModes = ["basic", "quick", "comprehensive"];
     const validatedMode = validModes.includes(mode) ? mode : "basic";
-
-    setIsTesting(true);
-    setTestResults(null);
-    setTestMode(validatedMode);
-    setExpandedCategories({}); // Reset expanded categories
-
-    const running = depthOptions().find((o) => o.value === validatedMode)?.running;
-    notify(running || t("dashboardDiagnostics.running.default"), "info");
-
+    setTestError(null);
+    setExpandedCategories({});
     try {
-      // Call enhanced API with mode parameter
-      const response = await runSelfTest({
-        mode: validatedMode,
-        include_legacy: true
-      });
-
-      if (response?.error && typeof response.error === "string")
-        throw new Error(response.error);
-      if (response?.results && typeof response.results === "object") {
-        setTestResults(response.results);
-
-        // Enhanced success message with status
-        const overallStatus = response.results.overall_status || "UNKNOWN";
-        const statusDisplay = getStatusDisplay(overallStatus);
-        let msg = t("dashboardDiagnostics.checkComplete", { status: statusDisplay.label });
-
-        if (response.results.categories) {
-          const categoryCount = Object.keys(response.results.categories).length;
-          msg = t("dashboardDiagnostics.checkCompleteCategories", { status: statusDisplay.label, count: categoryCount });
-        }
-
-        const severity = overallStatus === "PASS" ? "success" :
-          overallStatus === "WARNING" ? "warning" : "error";
-        notify(msg, severity);
-      } else {
-        throw new Error(t("dashboardDiagnostics.invalidResults"));
-      }
+      await diagnostics.begin(() => startSelfTest({ mode: validatedMode, include_legacy: true }));
     } catch (error) {
       notify(
         t("dashboardDiagnostics.checkError", { message: error.message || t("dashboardDiagnostics.couldNotRun") }),
         "error",
       );
-      setTestResults({
-        error: t("dashboardDiagnostics.runFailed", { message: error.message }),
-      });
-    } finally {
-      setIsTesting(false);
+      setTestError(t("dashboardDiagnostics.runFailed", { message: error.message }));
     }
   };
 
   const handleRunAllTests = async () => {
-    setIsRunningTests(true);
-    setTestSuiteResults(null);
-    setTestSuiteOutputOpen(false);
-    notify(t("dashboardDiagnostics.runningSuite"), "info");
+    setSuiteError(null);
     try {
-      const response = await runAllTests();
-      if (response?.results) {
-        setTestSuiteResults(response.results);
-        const rc = response.results.returncode;
-        const sev = rc === 0 || rc === 4 || rc === 5 ? "success" : "error";
-        notify(t("dashboardDiagnostics.suiteFinished"), sev);
-      } else {
-        throw new Error(t("dashboardDiagnostics.invalidResponse"));
-      }
+      await suite.begin(() => startTestSuite(suiteScope));
     } catch (err) {
       notify(t("dashboardDiagnostics.suiteError", { message: err.message }), "error");
-      setTestSuiteResults({ error: err.message });
-    } finally {
-      setIsRunningTests(false);
+      setSuiteError(err.message);
     }
   };
 
@@ -664,164 +644,6 @@ const DiagnosticsPanel = ({ showMessage }) => {
     );
   };
 
-  const renderTestSuitePanel = (suite) => {
-    if (!suite || typeof suite !== "object") return null;
-    const rc = suite.returncode;
-    const passed = rc === 0 || rc === 4 || rc === 5;
-    const summary = suite.summary || {};
-    const counts = summary.counts || {};
-    const failures = Array.isArray(summary.failures) ? summary.failures : [];
-    const stdout = typeof suite.stdout === "string" ? suite.stdout : "";
-    const stderr = typeof suite.stderr === "string" ? suite.stderr : "";
-
-    return (
-      <Box
-        sx={{
-          mt: 2,
-          width: "100%",
-          minWidth: 0,
-          p: 1.5,
-          borderRadius: 1,
-          border: 1,
-          borderColor: "divider",
-          bgcolor: (theme) => alpha(theme.palette.action.hover, theme.palette.mode === "dark" ? 0.35 : 0.6)
-        }}
-      >
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}>
-          <Chip label={passed ? t("dashboardDiagnostics.suitePassed") : t("dashboardDiagnostics.suiteFailed")} color={passed ? "success" : "error"} size="small" variant="outlined" />
-          <Chip label={t("dashboardDiagnostics.exitCode", { code: rc ?? "?" })} size="small" variant="outlined" />
-          {typeof counts.passed === "number" && (
-            <Chip label={t("dashboardDiagnostics.passedCount", { count: counts.passed })} size="small" variant="outlined" />
-          )}
-          {typeof counts.failed === "number" && counts.failed > 0 && (
-            <Chip label={t("dashboardDiagnostics.failedCount", { count: counts.failed })} size="small" color="error" variant="outlined" />
-          )}
-          {typeof counts.errors === "number" && counts.errors > 0 && (
-            <Chip label={t("dashboardDiagnostics.errorCount", { count: counts.errors })} size="small" color="warning" variant="outlined" />
-          )}
-          {typeof counts.skipped === "number" && counts.skipped > 0 && (
-            <Chip label={t("dashboardDiagnostics.skippedCount", { count: counts.skipped })} size="small" variant="outlined" />
-          )}
-        </Box>
-
-        {suite.log_path && (
-          <Typography
-            variant="caption"
-            sx={{ color: "text.secondary", display: "block", mt: 1, wordBreak: "break-all" }}
-          >
-            {t("dashboardDiagnostics.log", { path: suite.log_path })}
-          </Typography>
-        )}
-
-        {failures.length > 0 && (
-          <Box sx={{ mt: 1.5 }}>
-            <Typography
-              variant="caption"
-              sx={{ color: "text.secondary", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}
-            >
-              {t("dashboardDiagnostics.failureDetails")}
-            </Typography>
-            <Stack spacing={1} sx={{ mt: 1 }}>
-              {failures.map((block, i) => (
-                <Paper
-                  key={i}
-                  variant="outlined"
-                  sx={{
-                    p: 1,
-                    borderRadius: 1,
-                    bgcolor: "background.paper",
-                    borderColor: "error.dark",
-                    maxHeight: 220,
-                    overflow: "auto",
-                  }}
-                >
-                  <Typography
-                    component="pre"
-                    variant="caption"
-                    sx={{
-                      m: 0,
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                      fontSize: "0.7rem",
-                    }}
-                  >
-                    {block}
-                  </Typography>
-                </Paper>
-              ))}
-            </Stack>
-          </Box>
-        )}
-
-        {(stdout || stderr) && (
-          <>
-            <Divider sx={{ my: 1.5 }} />
-            <Button size="small" variant="text" onClick={() => setTestSuiteOutputOpen((o) => !o)} sx={{ textTransform: "none", p: 0, minWidth: 0 }}>
-              {testSuiteOutputOpen ? t("dashboardDiagnostics.hideRawOutput") : t("dashboardDiagnostics.showRawOutput")}
-            </Button>
-            <Collapse in={testSuiteOutputOpen}>
-              {stderr ? (
-                <Box sx={{ mt: 1 }}>
-                  <Typography variant="caption" color="error" sx={{ fontWeight: 600 }}>
-                    stderr
-                  </Typography>
-                  <Typography
-                    component="pre"
-                    variant="caption"
-                    sx={{
-                      display: "block",
-                      mt: 0.5,
-                      p: 1,
-                      borderRadius: 1,
-                      bgcolor: "action.hover",
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                      overflowWrap: "anywhere",
-                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                      fontSize: "0.7rem",
-                      maxHeight: 240,
-                      overflow: "auto",
-                    }}
-                  >
-                    {stderr}
-                  </Typography>
-                </Box>
-              ) : null}
-              {stdout ? (
-                <Box sx={{ mt: stderr ? 1.5 : 1 }}>
-                  <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>
-                    stdout
-                  </Typography>
-                  <Typography
-                    component="pre"
-                    variant="caption"
-                    sx={{
-                      display: "block",
-                      mt: 0.5,
-                      p: 1,
-                      borderRadius: 1,
-                      bgcolor: "action.hover",
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                      overflowWrap: "anywhere",
-                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                      fontSize: "0.7rem",
-                      maxHeight: 280,
-                      overflow: "auto",
-                    }}
-                  >
-                    {stdout}
-                  </Typography>
-                </Box>
-              ) : null}
-            </Collapse>
-          </>
-        )}
-      </Box>
-    );
-  };
-
   return (
     <Stack spacing={3} sx={{ width: "100%", minWidth: 0 }}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", minWidth: 0 }}>
@@ -857,6 +679,10 @@ const DiagnosticsPanel = ({ showMessage }) => {
             <Chip label={t("dashboardDiagnostics.depthChip", { depth: depthLabel(testMode) })} size="small" variant="outlined" />
           )}
         </Box>
+        {testError && <MuiAlert severity="error">{testError}</MuiAlert>}
+        {diagnostics.run && (
+          <DiagnosticRunProgress run={diagnostics.run} onStop={null} />
+        )}
         {testResults && (
           <Box
             sx={{
@@ -890,18 +716,32 @@ const DiagnosticsPanel = ({ showMessage }) => {
         <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>
           {t("dashboardDiagnostics.testSuite")}
         </Typography>
-        <Button variant="outlined" size="small" onClick={handleRunAllTests} disabled={isRunningTests} sx={{ alignSelf: "flex-start" }}>
-          {isRunningTests ? t("dashboardDiagnostics.runningButton") : t("dashboardDiagnostics.runTests")}
-        </Button>
-        {testSuiteResults && (
-          <Box sx={{ width: "100%", minWidth: 0 }}>
-            {testSuiteResults.error ? (
-              <MuiAlert severity="error">{testSuiteResults.error}</MuiAlert>
-            ) : (
-              renderTestSuitePanel(testSuiteResults)
-            )}
-          </Box>
-        )}
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={suiteScope}
+            onChange={(_e, value) => {
+              if (value) setSuiteScope(value);
+            }}
+            disabled={isRunningTests}
+            aria-label={t("dashboardDiagnostics.suite.aria")}
+          >
+            {suiteOptions().map((option) => (
+              <ToggleButton key={option.value} value={option.value}>
+                {option.label}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+          <Button variant="outlined" size="small" onClick={handleRunAllTests} disabled={isRunningTests}>
+            {isRunningTests ? t("dashboardDiagnostics.runningButton") : t("dashboardDiagnostics.runTests")}
+          </Button>
+        </Box>
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          {t(`dashboardDiagnostics.suite.${suiteScope}Help`)}
+        </Typography>
+        {suiteError && <MuiAlert severity="error">{suiteError}</MuiAlert>}
+        {suite.run && <DiagnosticRunProgress run={suite.run} onStop={suite.stop} />}
       </Box>
     </Stack>
   );
