@@ -18,6 +18,7 @@ import requests
 from flask import Blueprint, abort, has_request_context, request as flask_request
 
 from backend.services.guarded_code_service import default_repo_root
+from backend.utils.display_paths import display_path, display_text
 from backend.utils.response_utils import success_response, error_response
 
 logger = logging.getLogger(__name__)
@@ -287,10 +288,12 @@ def prepare_launch(body: dict):
     repo_path_str = body.get("repo_path")
     if repo_path_str:
         try:
-            repo_path = Path(repo_path_str).resolve()
+            repo_path = Path(str(repo_path_str)).expanduser().resolve()
             is_targeting_self = (repo_path == default_repo_root())
         except Exception as e:
             return None, (f"Invalid repo_path: {e}", 400, None)
+        # The sidecar gets the path that was checked here, "~" expanded.
+        body["repo_path"] = str(repo_path)
     else:
         is_targeting_self = True
         repo_path = default_repo_root()
@@ -325,11 +328,21 @@ def launch():
         return error_response(message, status, code) if code else error_response(message, status)
     data, status = _proxy_post("/swarm/launch", body, timeout=30)
     if status >= 400:
-        return error_response(_extract_error(data, "Launch failed"), status)
+        # A refusal names the repository or plan it is about; the page shows it.
+        return error_response(display_text(_extract_error(data, "Launch failed")), status)
     return success_response(data=data, message=data.get("message", "Swarm launched"))
 
 
 # --- Status ---
+
+def _with_repo_display(swarm):
+    """Add ``repo_display`` to a swarm that runs on another repository: its
+    path as the page shows it, without the home directory."""
+    repo = swarm.get("repo_path") if isinstance(swarm, dict) else None
+    if repo and Path(repo) != default_repo_root():
+        swarm["repo_display"] = display_path(repo)
+    return swarm
+
 
 @swarm_bp.route("/status", methods=["GET"])
 def all_status():
@@ -342,6 +355,8 @@ def all_status():
         return _status_read_failed(data, status, "Swarm status unavailable")
     if isinstance(data, dict):
         data["service_online"] = True
+        for swarm in data.get("swarms") or []:
+            _with_repo_display(swarm)
     return success_response(data=data, message="Status retrieved")
 
 
@@ -354,7 +369,7 @@ def swarm_status(swarm_id):
         return error_response("Swarm service not running", 503, "SWARM_OFFLINE")
     if status >= 400:
         return _status_read_failed(data, status, "Swarm status unavailable")
-    return success_response(data=data.get("data", data), message="Status retrieved")
+    return success_response(data=_with_repo_display(data.get("data", data)), message="Status retrieved")
 
 
 # --- Logs ---

@@ -155,6 +155,7 @@ const SwarmPage = () => {
 
   // launch form
   const [planPath, setPlanPath] = useState("");
+  const [repoPath, setRepoPath] = useState("");
   const [flightMode, setFlightMode] = useState(false);
   const [maxAgents, setMaxAgents] = useState(5);
   const [autoMerge, setAutoMerge] = useState(false);
@@ -272,6 +273,7 @@ const SwarmPage = () => {
     try {
       const res = await launchSwarm({
         planPath: path,
+        repoPath: repoPath.trim(),
         flightMode,
         maxAgents,
         autoMerge,
@@ -282,6 +284,7 @@ const SwarmPage = () => {
         showMessage(t("swarm.messages.launched", { id: data.swarm_id }), "success");
         setLaunchOpen(false);
         setPlanPath("");
+        setRepoPath("");
         setSelectedTemplate("");
         setDirtyTreeSeen(false);
         await fetchStatus();
@@ -784,6 +787,16 @@ const SwarmPage = () => {
             />
 
             <TextField
+              label={t("swarm.launchDialog.repoPath")}
+              value={repoPath}
+              onChange={(e) => setRepoPath(e.target.value)}
+              fullWidth
+              size="small"
+              placeholder={t("swarm.launchDialog.repoPathPlaceholder")}
+              helperText={t("swarm.launchDialog.repoPathHelp")}
+            />
+
+            <TextField
               label={t("swarm.launchDialog.maxAgents")}
               type="number"
               value={maxAgents}
@@ -847,6 +860,7 @@ const SwarmPage = () => {
               name: t("swarm.launchDialog.scheduledName", { plan: planPath.trim().split("/").pop() }),
               request: {
                 plan_path: planPath.trim(),
+                repo_path: repoPath.trim() || undefined,
                 flight_mode: flightMode,
                 max_agents: maxAgents,
                 auto_merge: autoMerge,
@@ -1139,6 +1153,11 @@ const SwarmCard = ({
                 color="info"
                 variant="outlined"
               />
+            )}
+            {swarm.repo_display && (
+              <Tooltip title={t("swarm.card.repository")}>
+                <Chip icon={<BranchIcon />} label={swarm.repo_display} size="small" variant="outlined" />
+              </Tooltip>
             )}
             {isRunning && swarm.waiting_on && (
               <Chip label={t("swarm.card.waitingOn", { reason: swarm.waiting_on })}
