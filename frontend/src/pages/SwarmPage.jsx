@@ -170,7 +170,8 @@ const SwarmPage = () => {
       if (res.success !== false) {
         const data = res.data || res;
         setSwarms(data.swarms || []);
-        setServiceOnline(true);
+        // A stopped service still answers 200, with an empty list.
+        setServiceOnline(data.service_online !== false);
         setError(null);
       }
     } catch {

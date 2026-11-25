@@ -333,11 +333,15 @@ def launch():
 
 @swarm_bp.route("/status", methods=["GET"])
 def all_status():
+    # service_online tells an empty list from a stopped service: both answer 200.
     data, status = _proxy_get("/swarm/status")
     if status == 503:
-        return success_response(data={"swarms": [], "count": 0}, message="Swarm service offline")
+        return success_response(data={"swarms": [], "count": 0, "service_online": False},
+                                message="Swarm service offline")
     if status >= 400:
         return _status_read_failed(data, status, "Swarm status unavailable")
+    if isinstance(data, dict):
+        data["service_online"] = True
     return success_response(data=data, message="Status retrieved")
 
 
