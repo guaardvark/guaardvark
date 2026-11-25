@@ -150,9 +150,8 @@ class UpscaleSupervisor:
     def resolve(self, model: Optional[str]) -> tuple[Optional[str], int, Optional[str]]:
         """(model the service will use, VRAM to book, refusal) for a request.
 
-        Mirrors the service's own default (configured default when installed,
-        else the first installed model). The refusal names a model that is not
-        installed, as the service would.
+        A request that names no model gets the service's ``request_default``.
+        The refusal names a model that is not installed, as the service would.
         """
         try:
             models = self._models()
@@ -162,7 +161,9 @@ class UpscaleSupervisor:
         name = model
         if not name:
             default = models.get("default_model")
-            name = default if default in downloaded else next(iter(downloaded), default)
+            # The second rule is the service's own, for one that does not report its pick.
+            name = models.get("request_default") or (
+                default if default in downloaded else next(iter(downloaded), default))
         if models and name not in downloaded:
             return name, FALLBACK_VRAM_MB, (
                 f"The upscaling model {name} is not installed. Install it on the Upscaling page."

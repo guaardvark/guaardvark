@@ -21,7 +21,7 @@ from starlette.background import BackgroundTask
 from pydantic import BaseModel, Field
 
 from service.auth import TOKEN_NAME, auth_token, guard, verify_token
-from service.config import UpscalingConfig, load_config
+from service.config import UpscalingConfig, load_config, resolve_default_model
 from service.health import get_health_status
 from service.jobs import JobManager
 from service.model_manager import ModelManager
@@ -231,14 +231,12 @@ def _target_size(img, target_width: Optional[int]):
 
 
 def _default_model() -> str:
-    """The model a request that names none uses: the configured default when it
-    is installed, else the first installed model (the one the Upscaling page
-    preselects), else the default, so the refusal names what to install."""
+    """The model a request that names none uses (config.resolve_default_model)."""
     name = _config.default_model
     if _model_manager.is_downloaded(name):
         return name
     downloaded = _model_manager.list_models()["downloaded"]
-    return downloaded[0]["name"] if downloaded else name
+    return resolve_default_model(name, [m["name"] for m in downloaded])
 
 
 def _ensure_model(model_name: Optional[str] = None) -> str:
@@ -735,9 +733,15 @@ def health():
 def list_models():
     if not _model_manager:
         raise HTTPException(503, "Service not initialized")
-    # default_model: what a request without a model uses, so the page can
-    # offer Install for it when nothing is installed.
-    return {**_model_manager.list_models(), "default_model": _config.default_model if _config else None}
+    # default_model: the configured default, so the page can offer Install for
+    # it when nothing is installed. request_default: the installed model a
+    # request without a model runs on, which the page preselects and the
+    # backend books VRAM for; None when nothing is installed.
+    listing = _model_manager.list_models()
+    configured = _config.default_model if _config else None
+    installed = [m["name"] for m in listing["downloaded"]]
+    request_default = resolve_default_model(configured, installed) if installed else None
+    return {**listing, "default_model": configured, "request_default": request_default}
 
 
 @app.post("/models/download")

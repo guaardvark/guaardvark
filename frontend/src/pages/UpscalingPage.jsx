@@ -259,7 +259,8 @@ const UpscalingPage = ({ embedded = false }) => {
         if (selectModel) {
           setSelectedModel(selectModel);
         } else if (data.downloaded?.length > 0) {
-          setSelectedModel((current) => current || data.downloaded[0].name);
+          // The service's own pick for a request that names no model.
+          setSelectedModel((current) => current || data.request_default || data.downloaded[0].name);
         }
       } catch (e) {
         // Without the list the model picker is empty; say why.

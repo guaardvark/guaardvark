@@ -196,6 +196,17 @@ def test_a_request_without_a_model_uses_an_installed_one_when_the_default_is_mis
         f.truncate(66961958)
     assert app_module._default_model() == "4x-UltraSharp"
     assert app_module._require_installed(None) == "4x-UltraSharp"
+    listed = client.get("/models", headers=AUTH_HEADER).json()
+    assert listed["default_model"] == app_module._config.default_model
+    assert listed["request_default"] == "4x-UltraSharp"
+
+
+def test_resolve_default_model_prefers_the_configured_one():
+    from service.config import resolve_default_model
+
+    assert resolve_default_model("HAT-L_SRx4", ["4x-UltraSharp", "HAT-L_SRx4"]) == "HAT-L_SRx4"
+    assert resolve_default_model("HAT-L_SRx4", ["realesr-general-x4v3", "4x-UltraSharp"]) == "realesr-general-x4v3"
+    assert resolve_default_model("HAT-L_SRx4", []) == "HAT-L_SRx4"
 
 
 def test_a_queued_job_records_the_refusal_as_its_error(client, monkeypatch, tmp_path):

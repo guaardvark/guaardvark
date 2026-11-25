@@ -6,6 +6,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
+from typing import Sequence
 
 logger = logging.getLogger("upscaling.config")
 
@@ -32,6 +33,15 @@ class UpscalingConfig:
     target_width: int = 3840
     # Callback
     callback_url: str = ""
+
+
+def resolve_default_model(configured: str, installed: Sequence[str]) -> str:
+    """The model a request that names none runs on: the configured default when
+    it is installed, else the first installed model, else the configured
+    default, so the refusal names what to install."""
+    if configured in installed or not installed:
+        return configured
+    return installed[0]
 
 
 def load_config(plugin_root: str) -> UpscalingConfig:
