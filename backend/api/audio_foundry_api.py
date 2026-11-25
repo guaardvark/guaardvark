@@ -360,10 +360,11 @@ def text_usage():
 @audio_foundry_bp.route("/generate/music", methods=["POST"])
 def generate_music():
     """Music generation. ``model`` picks the backend: the sidecar's ACE-Step v1
-    (default, or "ace-step"), the sidecar's optional ACE-Step 1.5
-    ("ace-step-1.5"), or MiniMax Music 3 through ComfyUI, which returns a job id
-    to poll at /generate/music/status/<id> like the sidecar's own jobs. Any other
-    value is refused rather than answered by a different model."""
+    ("ace-step"), the sidecar's optional ACE-Step 1.5 ("ace-step-1.5"), or
+    MiniMax Music 3 through ComfyUI, which returns a job id to poll at
+    /generate/music/status/<id> like the sidecar's own jobs. Without one it is
+    the first installed model in MUSIC_DEFAULT_ORDER. Any other value is
+    refused rather than answered by a different model."""
     return start_music(flask_request.get_json(silent=True) or {})
 
 
@@ -371,6 +372,13 @@ def start_music(payload: dict):
     """(response, status) for a music request; shared by the route and the
     Media page's Regenerate (media_recipe_api), so both take the same checks."""
     model = str(payload.get("model") or "").strip()
+    if not model:
+        from backend.services.audio_foundry_models import MUSIC_CATALOG_DEFAULT, installed_default_music_model
+        default = installed_default_music_model()
+        # The catalog default is what the sidecar runs when no model is named.
+        if default != MUSIC_CATALOG_DEFAULT:
+            model = default
+            payload = {**payload, "model": model}
     # Verbatim Prompts covers a song no one arranged on purpose, such as a chat request.
     if model == "ace-step-1.5" and not payload.get("arrangement_accepted") and "direct" not in payload:
         from backend.services.media_director import verbatim_prompts_enabled

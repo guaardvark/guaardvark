@@ -232,7 +232,22 @@ def test_15_is_refused_until_installed_then_forwarded(client, monkeypatch):
     assert forwarded == [("/generate/music", {"style_prompt": "x", "model": "ace-step-1.5"})]
 
 
-def test_no_model_still_goes_straight_to_the_sidecar(client):
+def test_no_model_is_the_installed_default(client, monkeypatch):
     c, forwarded = client
+    # v1 installed alone, or nothing installed: the sidecar's own default, no model sent.
+    monkeypatch.setattr(afm, "installed_default_music_model", lambda: "ace-step")
     res = c.post("/api/audio-foundry/generate/music", json={"style_prompt": "x"})
     assert res.status_code == 202 and forwarded == [("/generate/music", {"style_prompt": "x"})]
+
+    monkeypatch.setattr(afm, "installed_default_music_model", lambda: "ace-step-1.5")
+    monkeypatch.setattr(afm, "missing_parts", lambda model_id: [])
+    res = c.post("/api/audio-foundry/generate/music", json={"style_prompt": "x", "direct": True})
+    assert res.status_code == 202
+    assert forwarded[-1] == ("/generate/music", {"style_prompt": "x", "direct": True, "model": "ace-step-1.5"})
+
+
+def test_default_music_model_prefers_installed_in_order():
+    assert afm.default_music_model([]) == "ace-step"
+    assert afm.default_music_model(["ace-step", "ace-step-1.5", afm.MINIMAX_MUSIC3_ID]) == "ace-step-1.5"
+    assert afm.default_music_model(["ace-step", afm.MINIMAX_MUSIC3_ID]) == "ace-step"
+    assert afm.default_music_model([afm.MINIMAX_MUSIC3_ID, "kokoro"]) == afm.MINIMAX_MUSIC3_ID

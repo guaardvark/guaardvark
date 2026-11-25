@@ -350,11 +350,14 @@ const AudioFoundryPage = () => {
   const [musicInstruments, setMusicInstruments] = useState([]);
   const [musicExtra, setMusicExtra] = useState("");
   const [musicInstrumental, setMusicInstrumental] = useState(false);
-  // Music backend: the sidecar's ACE-Step v1 (default), the sidecar's optional
+  // Music backend: the sidecar's ACE-Step v1, the sidecar's optional
   // ACE-Step 1.5, or MiniMax Music 3 through ComfyUI, which sings tagged lyrics.
   // The optional ones are offered only when installed (the registry says),
-  // otherwise the option names the modal.
+  // otherwise the option names the modal. The page opens on the catalog's
+  // default (an installed model when there is one) until a model is picked
+  // here or a retry fills one in.
   const [musicModel, setMusicModel] = useState("ace-step");
+  const musicModelPicked = useRef(false);
   const [musicLyrics, setMusicLyrics] = useState("");
   const [catalog, setCatalog] = useState([]);
   const [pluginInfo, setPluginInfo] = useState({ running: false, enabled: false, status: "unknown" });
@@ -369,6 +372,7 @@ const AudioFoundryPage = () => {
       .then(({ data }) => {
         if (!data?.success) return;
         setCatalog(data.models || []);
+        if (!musicModelPicked.current && data.defaults?.music) setMusicModel(data.defaults.music);
         setPluginInfo(data.plugin || { running: false, enabled: false, status: "unknown" });
       })
       .catch(() => {});
@@ -479,6 +483,7 @@ const AudioFoundryPage = () => {
   useEffect(() => {
     const docId = searchParams.get("retry_doc");
     if (!docId) return;
+    musicModelPicked.current = true;
     const next = new URLSearchParams(searchParams);
     next.delete("retry_doc");
     setSearchParams(next, { replace: true });
@@ -1113,7 +1118,7 @@ const AudioFoundryPage = () => {
       }
     } else {
       if (!instrumental && musicLyrics.trim()) payload.lyrics = musicLyrics.trim();
-      if (musicModel !== "ace-step") payload.model = musicModel;
+      payload.model = musicModel;
     }
     return payload;
   };
@@ -1508,6 +1513,7 @@ const AudioFoundryPage = () => {
                       label={t("audio.music.model")}
                       value={musicModel}
                       onChange={(e) => {
+                        musicModelPicked.current = true;
                         setMusicModel(e.target.value);
                         setMusicPreview(null);
                         setArrangement(null);

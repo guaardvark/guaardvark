@@ -124,7 +124,7 @@ AUDIO_FOUNDRY_MODELS: List[Dict[str, Any]] = [
         "name": "ACE-Step 1.5",
         "description": (
             "Songs and instrumentals at 48 kHz from a 2B turbo model with a 1.7B planner. "
-            "Optional: ACE-Step v1 stays the default. Install downloads 9.4 GB of weights "
+            "Optional, and the default once installed. Install downloads 9.4 GB of weights "
             "and builds its own Python environment (about 8 GB more, Linux x86_64 only)."
         ),
         "group": "music",
@@ -156,6 +156,18 @@ AUDIO_FOUNDRY_MODELS: List[Dict[str, Any]] = [
         "terms_url": "https://huggingface.co/stabilityai/stable-audio-open-1.0",
     },
 ]
+
+# The music model a request that names none gets, and the one the Audio page
+# opens on: the first of these that is installed. With none installed it is
+# MUSIC_CATALOG_DEFAULT, so a new machine is offered that model's Install.
+MUSIC_DEFAULT_ORDER = ("ace-step-1.5", "ace-step", MINIMAX_MUSIC3_ID)
+MUSIC_CATALOG_DEFAULT = "ace-step"
+
+
+def default_music_model(installed_ids) -> str:
+    """The default music model given the ids of the installed ones."""
+    installed = set(installed_ids)
+    return next((m for m in MUSIC_DEFAULT_ORDER if m in installed), MUSIC_CATALOG_DEFAULT)
 
 
 
@@ -652,7 +664,22 @@ def list_models() -> Dict[str, Any]:
         models.append(_minimax_row())
     except Exception as e:
         logger.warning("MiniMax Music 3 row failed: %s", e)
-    return {"plugin": plugin_snapshot(), "models": models}
+    defaults = {"music": default_music_model(m["id"] for m in models if m["installed"])}
+    return {"plugin": plugin_snapshot(), "models": models, "defaults": defaults}
+
+
+def installed_default_music_model() -> str:
+    """default_music_model() for this machine, checking no further than it has to."""
+    def _installed(model_id: str) -> bool:
+        if model_id != MINIMAX_MUSIC3_ID:
+            return not missing_parts(model_id)
+        try:
+            return bool(_minimax_row()["installed"])
+        except Exception as e:
+            logger.warning("MiniMax Music 3 install check failed: %s", e)
+            return False
+
+    return next((m for m in MUSIC_DEFAULT_ORDER if _installed(m)), MUSIC_CATALOG_DEFAULT)
 
 
 def download_status() -> Dict[str, Any]:
