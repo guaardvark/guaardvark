@@ -655,34 +655,56 @@ def run_storyboard_artist(prod_id: int, image_generator=None):
             require_fit=True,
             cross_process=True,
         ):
-            for i, shot in enumerate(shots):
-                lora_paths, prompt = _shot_loras_and_prompt(shot)
-                output_path = _storyboard_path(
-                    prod_id,
-                    shot.scene_number or 1,
-                    shot.shot_number or (i + 1),
-                )
-                subjects = _shot_identity_subjects(shot)
-                if lora_paths or image_generator is None:
-                    still = render_character_still(
-                        prompt,
-                        subjects=subjects,
-                        include_bible=True,
-                        source="filmcrew",
-                        output_path=output_path,
-                        keep_pipeline=True,
-                        **_still_canvas(ctx.production),
+            kept_pipeline = False
+            try:
+                for i, shot in enumerate(shots):
+                    lora_paths, prompt = _shot_loras_and_prompt(shot)
+                    output_path = _storyboard_path(
+                        prod_id,
+                        shot.scene_number or 1,
+                        shot.shot_number or (i + 1),
                     )
-                    if not still.success:
-                        raise RuntimeError(still.error or f"storyboard still failed for shot {shot.shot_number}")
-                    shot.storyboard_image_path = still.image_path
-                else:
-                    # Injected test double (legacy Comfy generator).
-                    shot.storyboard_image_path = image_generator.generate_image(
-                        prompt=prompt, loras=lora_paths, output_path=output_path,
-                    )
+                    subjects = _shot_identity_subjects(shot)
+                    if lora_paths or image_generator is None:
+                        kept_pipeline = True
+                        still = render_character_still(
+                            prompt,
+                            subjects=subjects,
+                            include_bible=True,
+                            source="filmcrew",
+                            output_path=output_path,
+                            keep_pipeline=True,
+                            **_still_canvas(ctx.production),
+                        )
+                        if not still.success:
+                            raise RuntimeError(still.error or f"storyboard still failed for shot {shot.shot_number}")
+                        shot.storyboard_image_path = still.image_path
+                    else:
+                        # Injected test double (legacy Comfy generator).
+                        shot.storyboard_image_path = image_generator.generate_image(
+                            prompt=prompt, loras=lora_paths, output_path=output_path,
+                        )
+            finally:
+                # The stills keep the pipeline loaded from shot to shot; nothing
+                # later in a production uses it, and its weights are system RAM.
+                if kept_pipeline:
+                    _unload_still_pipeline()
 
             db.session.commit()
+
+
+def _unload_still_pipeline() -> None:
+    """Unload this process's image pipeline after a run of stills that kept it loaded."""
+    try:
+        from backend.services import offline_image_generator
+        # The generator this process already made, if any; never make one to unload it.
+        generator = offline_image_generator._generator_instance
+        if generator is not None and getattr(generator, "_pipeline", None) is not None:
+            generator._unload_pipeline()
+    except Exception as e:  # noqa: BLE001 - freeing memory must not fail the stage
+        import logging
+        logging.getLogger(__name__).warning("storyboard image pipeline not unloaded: %s", e)
+
 
 def run_curator(prod_id: int) -> dict:
     """Storyboard curation, advice only: the vision model judges each frame and
