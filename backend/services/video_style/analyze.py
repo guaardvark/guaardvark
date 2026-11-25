@@ -48,7 +48,7 @@ SHOT_DETECTION = {
 
 # Keyframes per shot: first, middle, last. 448 px on the long edge is what
 # the video reviewer already samples at, enough for look statistics.
-KEYFRAMES = {"per_shot": 3, "long_edge": 448, "edge_margin_s": 0.04}
+KEYFRAMES = {"per_shot": 3, "long_edge": 448, "edge_margin_s": 0.04, "retry_back_s": 0.125}
 
 # Camera motion is read from an affine fit between consecutive frames at this
 # rate and width. Magnitudes are fractions of the frame width per second, so
@@ -259,12 +259,19 @@ def sample_keyframes(video_path: str | os.PathLike, shots: List[Dict[str, Any]],
         keyframes = []
         for k, t in enumerate(times):
             out = frames_dir / f"shot{shot['i']:04d}_{k}.jpg"
-            proc = _run([
-                "ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-ss", f"{t:.3f}", "-i", str(video_path),
-                "-frames:v", "1", "-vf", _scale_expr(KEYFRAMES["long_edge"]), "-q:v", "3", str(out),
-            ], timeout=120)
-            if proc.returncode == 0 and out.exists():
-                keyframes.append({"t": t, "path": str(out)})
+            # A seek that lands after the last frame's timestamp decodes nothing,
+            # which is where "just before the end" falls at 24 fps and below, so
+            # an empty grab is retried once a little earlier in the same shot.
+            earlier = round(max(t0, t - KEYFRAMES["retry_back_s"]), 3)
+            for at in (t, earlier) if earlier < t else (t,):
+                out.unlink(missing_ok=True)
+                proc = _run([
+                    "ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-ss", f"{at:.3f}", "-i", str(video_path),
+                    "-frames:v", "1", "-vf", _scale_expr(KEYFRAMES["long_edge"]), "-q:v", "3", str(out),
+                ], timeout=120)
+                if proc.returncode == 0 and out.exists():
+                    keyframes.append({"t": at, "path": str(out)})
+                    break
         shot["keyframes"] = keyframes
         if progress and n % 10 == 0:
             progress("measure", int(5 + 25 * n / total), f"keyframes {n + 1}/{total}")
