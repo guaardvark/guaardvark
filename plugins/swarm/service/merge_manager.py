@@ -187,11 +187,12 @@ class MergeManager:
             # on a large repository, which read as "tests failed" every time.
             touched = self._git("diff", "--name-only", f"{self.base_branch}...{task.branch_name}",
                                 check=False).stdout.splitlines()
-            targets = self._test_targets(touched)
-            if targets and not self._run_tests(task.worktree_path, test_command, targets):
+            targets = self._test_targets(touched, root=task.worktree_path)
+            problem = self._run_tests(task.worktree_path, test_command, targets) if targets else None
+            if problem:
                 return MergeResult(
                     task_id=task.id, success=False,
-                    error=f"Tests failed in the worktree ({' '.join(targets)}); not merged",
+                    error=f"{problem} in the worktree ({' '.join(targets)}); not merged",
                 )
             if not targets:
                 logger.info(f"No tests cover the files {task.id} changed; merging without a test run")
@@ -296,16 +297,23 @@ class MergeManager:
         if not targets:
             return ("No tests cover the files this merge touches, so the "
                     "MergerAgent's resolution was not committed untested")
-        if not self._run_tests(str(self.repo_path), test_command, targets):
-            return f"Tests failed on the resolved merge: {' '.join(targets)}"
+        problem = self._run_tests(str(self.repo_path), test_command, targets)
+        if problem:
+            return f"{problem} on the resolved merge: {' '.join(targets)}"
         return None
 
-    def _test_targets(self, touched: list[str]) -> list[str]:
+    def _test_targets(self, touched: list[str], root: str | Path | None = None) -> list[str]:
         """Test files for ``touched`` paths: the test files among them, and
         test_<name>.py / <name>_test.py anywhere in the repo for each touched
-        Python module."""
+        Python module.
+
+        ``root`` is the checkout the tests will run in, the main one by
+        default. A task's worktree holds the test files its branch adds; the
+        main checkout does not have them until the merge.
+        """
+        root = Path(root) if root else self.repo_path
         by_name: dict[str, list[str]] = {}
-        for path in self._git("ls-files", check=False).stdout.splitlines():
+        for path in self._git("-C", str(root), "ls-files", check=False).stdout.splitlines():
             by_name.setdefault(PurePosixPath(path).name, []).append(path)
 
         targets: list[str] = []
@@ -319,7 +327,7 @@ class MergeManager:
                 stem = name[:-3]
                 candidates = by_name.get(f"test_{stem}.py", []) + by_name.get(f"{stem}_test.py", [])
             for candidate in candidates:
-                if candidate not in targets and (self.repo_path / candidate).is_file():
+                if candidate not in targets and (root / candidate).is_file():
                     targets.append(candidate)
         return targets
 
@@ -437,8 +445,13 @@ class MergeManager:
             return result.stdout.strip().split("\n")
         return []
 
-    def _run_tests(self, worktree_path: str, test_command: str, targets: list[str] | None = None) -> bool:
-        """Run tests in a worktree, limited to ``targets`` when given. Returns True if they pass."""
+    def _run_tests(self, worktree_path: str, test_command: str, targets: list[str] | None = None) -> str | None:
+        """Run tests in a worktree, limited to ``targets`` when given.
+
+        Returns None when they pass, else what went wrong: "Tests failed",
+        "Tests timed out", or "Tests could not run (<reason>)" when the test
+        command never got as far as running a test. None of these is a pass.
+        """
         command = test_command.split() + list(targets or [])
         logger.info(f"Running tests in {worktree_path}: {' '.join(command)}")
         try:
@@ -452,13 +465,19 @@ class MergeManager:
             )
             if result.returncode == 0:
                 logger.info(f"Tests passed in {worktree_path}")
-                return True
-            else:
-                logger.warning(f"Tests failed in {worktree_path}: {result.stdout[-500:]}")
-                return False
+                return None
+            # A test runner reports its results on stdout. Only an error and
+            # no report means the command itself did not start, such as an
+            # interpreter that has no pytest installed.
+            if not result.stdout.strip() and result.stderr.strip():
+                reason = result.stderr.strip().splitlines()[-1][:300]
+                logger.warning(f"Tests could not run in {worktree_path}: {reason}")
+                return f"Tests could not run ({reason})"
+            logger.warning(f"Tests failed in {worktree_path}: {result.stdout[-500:]}")
+            return "Tests failed"
         except subprocess.TimeoutExpired:
             logger.warning(f"Tests timed out in {worktree_path}")
-            return False
+            return "Tests timed out"
         except Exception as e:
-            logger.warning(f"Could not run tests in {worktree_path}: {e}")
-            return False
+            logger.warning(f"Tests could not run in {worktree_path}: {e}")
+            return f"Tests could not run ({e})"
