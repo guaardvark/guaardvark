@@ -162,6 +162,35 @@ def test_the_plugin_runner_is_a_stand_in_that_runs_nothing(guard, tmp_path):
     assert guard._LOOP_GATE.held[held_before:] == ["plugin runner"]
 
 
+def _display_command(action):
+    return ["bash", str(REPO_ROOT / "scripts" / "start_agent_display.sh"), action]
+
+
+@pytest.mark.parametrize("action", ["start", "stop", "restart"])
+def test_the_agent_display_is_never_started_or_stopped(guard, action):
+    assert guard._is_display_command(_display_command(action))
+
+    done = subprocess.run(_display_command(action), capture_output=True, text=True, timeout=30)
+
+    assert done.returncode == 1
+    assert "not started or stopped under pytest" in done.stderr
+
+
+def test_the_display_script_is_where_the_guard_looks(guard):
+    assert (REPO_ROOT / "scripts" / "start_agent_display.sh").is_file()
+    assert not guard._is_display_command(_display_command("status"))
+    assert not guard._is_display_command(["bash", "-c", "echo start_agent_display.sh start"])
+    assert not guard._is_display_command("bash scripts/start_agent_display.sh start")
+
+
+def test_code_that_asks_for_the_display_gets_a_refusal(guard):
+    from backend.utils import agent_display_utils
+
+    result = agent_display_utils.run_display_script("start")
+
+    assert result["success"] is False and result["returncode"] == 1
+
+
 def test_other_commands_start_as_given(guard):
     assert not guard._is_sidecar_command([sys.executable, "-c", "pass"])
     assert not guard._is_sidecar_command("plugin_runner.py --sidecar")

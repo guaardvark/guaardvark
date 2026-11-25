@@ -6,8 +6,9 @@ skip flags for its own tree; tests under extensions/<id>/tests/ are outside
 that tree and get the same here.
 
 A run does not reach the services of a local install (see
-LOCAL_SERVICE_PORTS), and the backend's plugin runner and the background
-loops named in GATED_LOOPS do not run under pytest (see _LOOP_GATE).
+LOCAL_SERVICE_PORTS), the backend's plugin runner and the background loops
+named in GATED_LOOPS do not run under pytest (see _LOOP_GATE), and the agent
+display is never started or stopped (see _is_display_command).
 """
 import errno
 import json
@@ -20,6 +21,9 @@ from urllib.parse import urlsplit
 
 _REPO_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(_REPO_ROOT))
+# The CLI package under test is this checkout's, not whichever copy is
+# installed in the environment (a second checkout or a worktree shares one).
+sys.path.insert(0, str(_REPO_ROOT / "cli"))
 os.environ.setdefault("PYTEST_SKIP_MIGRATION_CHECK", "1")
 os.environ.setdefault("PYTEST_SKIP_LLAMA_CHECK", "1")
 os.environ.setdefault("GUAARDVARK_MODE", "test")
@@ -117,10 +121,40 @@ def _is_sidecar_command(args) -> bool:
 _real_popen_init = subprocess.Popen.__init__
 
 
+# ---- The agent display ----
+#
+# The agent's virtual desktop (Xvfb plus a desktop session) is started on
+# demand by scripts/start_agent_display.sh, and code under test reaches that
+# through several routes. A test run must not start a desktop on the machine,
+# or stop the one a person's agent is using, so under pytest the script is
+# replaced by a stand-in that fails and says why. `status` only reads and runs
+# as given.
+
+_DISPLAY_SCRIPT = ("scripts", "start_agent_display.sh")
+_DISPLAY_STAND_IN = (
+    "import sys\n"
+    "sys.stderr.write('the agent display is not started or stopped under pytest\\n')\n"
+    "sys.exit(1)\n"
+)
+
+
+def _is_display_command(args) -> bool:
+    if not isinstance(args, (list, tuple)):
+        return False
+    words = [str(a) for a in args]
+    for index, word in enumerate(words):
+        if Path(word).parts[-2:] == _DISPLAY_SCRIPT:
+            return words[index + 1:index + 2] != ["status"]
+    return False
+
+
 def _gated_popen_init(self, args, *rest, **kwargs):
     if _is_sidecar_command(args) and not _LOOP_GATE.allowed:
         _LOOP_GATE.held.append("plugin runner")
         args = [args[0], "-c", _SIDECAR_STAND_IN]
+    elif _is_display_command(args):
+        _LOOP_GATE.held.append("agent display")
+        args = [sys.executable, "-c", _DISPLAY_STAND_IN]
     return _real_popen_init(self, args, *rest, **kwargs)
 
 
