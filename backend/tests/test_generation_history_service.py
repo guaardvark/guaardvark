@@ -85,6 +85,22 @@ def comfy(tmp_path, monkeypatch):
     return root
 
 
+@pytest.fixture(autouse=True)
+def outputs(tmp_path, monkeypatch):
+    """Outputs and cache trees the service resolves by default, and a ComfyUI
+    history call that goes nowhere, so no test can reach the real ones."""
+    out = tmp_path / "outputs"
+    cache = tmp_path / "cache"
+    out.mkdir()
+    cache.mkdir()
+    cleared = []
+    monkeypatch.setattr(svc, "_output_roots", lambda d=None: [Path(d) if d is not None else out])
+    monkeypatch.setattr(svc, "_cache_dir", lambda d=None: Path(d) if d is not None else cache)
+    monkeypatch.setattr(svc, "_comfyui_clear_history", lambda: cleared.append(True))
+    monkeypatch.setattr(svc, "_upscales_running", lambda: 0)
+    return {"out": out, "cache": cache, "history_cleared": cleared}
+
+
 def _seed_comfy_scratch(root):
     (root / "output" / "wan22_i2v_00001.mp4").write_bytes(b"o" * 300)
     (root / "output" / "wan22_i2v_00001.png").write_bytes(b"p" * 30)
@@ -477,3 +493,117 @@ def test_moved_batches_single_renders_and_infographics_are_history(seeded, no_ge
     }
     kinds = {r.kind for r in RetentionAudit.query.all()}
     assert {"generation_history_loose", "generation_history_infographics"} <= kinds
+
+
+def _names(path):
+    return sorted(p.relative_to(path).as_posix() for p in path.rglob("*") if p.is_file())
+
+
+def _seed_outputs(out, cache):
+    gen = out / "generated_images"
+    gen.mkdir()
+    (gen / "gen_20261101_120000_0a1b2c3d.png").write_bytes(b"g" * 10)
+    (gen / "edit_20261101_120001_0a1b2c3d.png").write_bytes(b"e" * 20)
+    (gen / "girl1_take1_lastframe.png").write_bytes(b"keep")
+    src = out / "edit_inputs"
+    src.mkdir()
+    (src / "page_src_0123456789ab.png").write_bytes(b"s" * 5)
+    (src / "page_src_0123456789ab.png.consent").write_text("{}")
+    (out / "consent").mkdir()
+    (out / "consent" / ("a" * 64 + ".consent")).write_text("{}")
+    (out / "narrations").mkdir()
+    (out / "narrations" / "narration_20261101_120000.wav").write_bytes(b"n" * 40)
+    up = out / "upscaling"
+    (up / "input" / "images").mkdir(parents=True)
+    (up / "output").mkdir()
+    (up / "input" / "images" / "a_0a1b2c3d.png").write_bytes(b"u" * 7)
+    (up / "output" / "a_upscaled.mp4").write_bytes(b"U" * 70)
+    (out / "productions" / "p1").mkdir(parents=True)
+    (out / "productions" / "p1" / "final.mp4").write_bytes(b"keep")
+    thumbs = cache / "thumbnails" / "ab"
+    thumbs.mkdir(parents=True)
+    (thumbs / ("ab" + "0" * 38 + ".webp")).write_bytes(b"t" * 3)
+    staging = cache / "generated_videos" / "h3_refs"
+    staging.mkdir(parents=True)
+    (staging / (HEX_A + ".mp4")).write_bytes(b"r" * 9)
+    (cache / "nltk_data").mkdir()
+    (cache / "nltk_data" / "punkt.zip").write_bytes(b"keep")
+
+
+def test_tool_outputs_narrations_upscales_and_previews_are_history(
+    app, tmp_path, outputs, no_generators, sidecar_down
+):
+    out, cache = outputs["out"], outputs["cache"]
+    _seed_outputs(out, cache)
+    upload = tmp_path / "uploads"
+    upload.mkdir()
+
+    counts = svc.count_generation_history(upload_dir=upload)
+    assert counts["tool_outputs"] == {"files": 4, "bytes": 37}
+    assert counts["narrations"] == {"files": 1, "bytes": 40}
+    assert counts["upscales"] == {"files": 2, "bytes": 77, "running": 0}
+    assert counts["previews"] == {"files": 1, "bytes": 3}
+    assert counts["comfyui"]["staging"] == {"files": 1, "bytes": 9}
+
+    result = svc.delete_generation_history(upload_dir=upload)
+    assert result["success"], result["errors"]
+    assert result["deleted"]["tool_outputs"]["files"] == 4
+    assert result["deleted"]["upscales"]["files"] == 2
+    assert outputs["history_cleared"] == [True]
+    assert _names(out) == sorted([
+        "consent/" + "a" * 64 + ".consent",
+        "generated_images/girl1_take1_lastframe.png",
+        "productions/p1/final.mp4",
+    ])
+    assert (out / "upscaling" / "input").is_dir() and not (out / "upscaling" / "input" / "images").exists()
+    assert _names(cache) == ["nltk_data/punkt.zip"]
+
+
+def test_upscales_are_left_alone_while_one_runs(app, tmp_path, outputs, no_generators, sidecar_down, monkeypatch):
+    _seed_outputs(outputs["out"], outputs["cache"])
+    monkeypatch.setattr(svc, "_upscales_running", lambda: 1)
+    upload = tmp_path / "uploads"
+    upload.mkdir()
+    result = svc.delete_generation_history(upload_dir=upload)
+    assert result["skipped"]["upscales"] == 1
+    assert result["deleted"]["upscales"] == {"files": 0, "bytes": 0}
+    assert (outputs["out"] / "upscaling" / "output" / "a_upscaled.mp4").exists()
+
+
+def test_library_rows_for_folders_already_gone_are_removed(app, tmp_path, no_generators, sidecar_down):
+    upload = tmp_path / "uploads"
+    (upload / "Images" / "Kept").mkdir(parents=True)
+    (upload / "Images" / "Kept" / "mine.png").write_bytes(b"k")
+    root = Folder(name="Images", path="Images")
+    db.session.add(root)
+    db.session.flush()
+    gone = Folder(name="ImageBatch_gone", path="Images/ImageBatch_gone", parent_id=root.id)
+    kept = Folder(name="Kept", path="Images/Kept", parent_id=root.id)
+    elsewhere = Folder(name="Elsewhere", path="Images/Elsewhere", parent_id=root.id)
+    db.session.add_all([gone, kept, elsewhere])
+    db.session.flush()
+    db.session.add_all([
+        Document(filename="a.png", path="Images/ImageBatch_gone/images/a.png", folder_id=gone.id),
+        Document(filename="mine.png", path="Images/Kept/mine.png", folder_id=kept.id),
+        # Filed in a folder with no directory, but its file exists somewhere else.
+        Document(filename="mine2.png", path=str(upload / "Images" / "Kept" / "mine.png"), folder_id=elsewhere.id),
+    ])
+    db.session.commit()
+
+    result = svc.delete_generation_history(upload_dir=upload)
+    assert result["success"], result["errors"]
+    assert result["deleted"]["folders"] == 1 and result["deleted"]["documents"] == 1
+    assert {f.path for f in Folder.query.all()} == {"Images", "Images/Kept", "Images/Elsewhere"}
+    assert {d.filename for d in Document.query.all()} == {"mine.png", "mine2.png"}
+
+
+def test_minimax_music_and_library_upscales_are_history(seeded, no_generators, sidecar_down):
+    upload = seeded
+    (upload / "Audio" / "minimax_music3_0a1b2c3d_00001.flac").write_bytes(b"m" * 11)
+    (upload / "Images" / "wan22_i2v_00007__upscaled.png").write_bytes(b"u" * 13)
+    result = svc.delete_generation_history(upload_dir=upload)
+    assert not (upload / "Audio" / "minimax_music3_0a1b2c3d_00001.flac").exists()
+    assert not (upload / "Images" / "wan22_i2v_00007__upscaled.png").exists()
+    assert (upload / "Audio" / "NARRATOR.wav").exists()
+    assert result["deleted"]["loose"]["files"] >= 1
+

@@ -1646,8 +1646,16 @@ const SettingsPage = () => {
         parts.push(
           t("settings.history.audio", { files: d.audio.files || 0, jobs: d.audio.jobs || 0 }),
         );
+      const otherFiles =
+        (d.tool_outputs?.files || 0) +
+        (d.narrations?.files || 0) +
+        (d.upscales?.files || 0) +
+        (d.previews?.files || 0);
+      if (otherFiles) parts.push(t("settings.history.otherFiles", { count: otherFiles }));
       const comfyFiles =
-        (d.comfyui?.output?.files || 0) + (d.comfyui?.input?.files || 0);
+        (d.comfyui?.output?.files || 0) +
+        (d.comfyui?.input?.files || 0) +
+        (d.comfyui?.staging?.files || 0);
       if (comfyFiles) parts.push(t("settings.history.comfyFiles", { count: comfyFiles }));
       const dbRows =
         (d.documents || 0) + (d.folders || 0) + (d.job_history || 0);
@@ -1659,7 +1667,8 @@ const SettingsPage = () => {
       const skippedCount =
         (skipped.images?.length || 0) +
         (skipped.videos?.length || 0) +
-        (skipped.audio?.length || 0);
+        (skipped.audio?.length || 0) +
+        (skipped.upscales || 0);
       if (skippedCount) message += ` ${t("settings.history.skipped", { count: skippedCount })}`;
       if (skipped.comfyui?.length)
         message += ` ${t("settings.history.comfyRendering", { count: skipped.comfyui.length })}`;
@@ -1715,6 +1724,9 @@ const SettingsPage = () => {
 
         if (stats.pyc_files_deleted > 0) {
           details.push(t("settings.pycache.pycFiles", { count: stats.pyc_files_deleted }));
+        }
+        if (stats.cache_files_deleted > 0) {
+          details.push(t("settings.pycache.cacheFiles", { count: stats.cache_files_deleted }));
         }
 
         if (stats.size_formatted) {
@@ -4114,6 +4126,18 @@ const SettingsPage = () => {
             size: formatByteSize(deleteHistoryCounts.infographics?.bytes),
           }),
         },
+        ...[
+          ["toolOutputs", "tool_outputs"],
+          ["narrations", "narrations"],
+          ["upscales", "upscales"],
+          ["previews", "previews"],
+        ].map(([label, key]) => ({
+          label: t(`settings.deleteHistory.${label}`),
+          value: t("settings.deleteHistory.filesValue", {
+            files: deleteHistoryCounts[key]?.files || 0,
+            size: formatByteSize(deleteHistoryCounts[key]?.bytes),
+          }),
+        })),
         {
           label: t("settings.deleteHistory.audio"),
           value: t("settings.deleteHistory.audioValue", {
@@ -4126,7 +4150,9 @@ const SettingsPage = () => {
           label: t("settings.deleteHistory.comfy"),
           value: t("settings.deleteHistory.comfyValue", {
             output: deleteHistoryCounts.comfyui?.output?.files || 0,
-            input: deleteHistoryCounts.comfyui?.input?.files || 0,
+            input:
+              (deleteHistoryCounts.comfyui?.input?.files || 0) +
+              (deleteHistoryCounts.comfyui?.staging?.files || 0),
             size: formatByteSize(deleteHistoryCounts.comfyui?.bytes),
           }),
         },
@@ -4318,6 +4344,9 @@ const SettingsPage = () => {
               : ""}
             {deleteHistoryCounts?.comfyui?.running?.length
               ? ` ${t("settings.deleteHistory.comfyRendering")}`
+              : ""}
+            {deleteHistoryCounts?.upscales?.running
+              ? ` ${t("settings.deleteHistory.upscaleRunning")}`
               : ""}
             {!deleteHistoryCounts
               ? ` ${t("settings.deleteHistory.countsUnavailable")}`
