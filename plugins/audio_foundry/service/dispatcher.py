@@ -43,6 +43,11 @@ _SLOT_PREFIX = "audio_foundry"
 _DEFAULT_PRIORITY = 70
 # Room left above a backend's estimate before this plugin unloads its own others.
 _HEADROOM_MB = 512
+# How long a cold load waits for memory it asked other services to give up:
+# this many looks at the card, one a second. Ollama's runner and ComfyUI were
+# seen to leave within 30 s of a request that failed for lack of them.
+_ROOM_WAIT_LOOKS = 30
+_ROOM_WAIT_POLL_S = 1.0
 # How often a job waiting for the GPU asks again who holds it.
 _GPU_WAIT_POLL_S = 5.0
 # A call with no progress callback answers an open HTTP request, so it waits
@@ -421,6 +426,33 @@ class Dispatcher:
                     other.value, intent.value, free, vram_req,
                 )
 
+    @staticmethod
+    def _wait_for_room(intent: Intent, vram_req: int) -> None:
+        """Give the evictions asked for just now time to hand their memory back.
+
+        A model another service was told to unload leaves the card a few
+        seconds later (Ollama's runner, ComfyUI after a render). Loading in
+        that gap fails with CUDA out of memory, where the same request a
+        moment later works. The wait is a fixed number of looks, so it ends
+        whatever the clock does; if the card is still short the load goes
+        ahead as before and reports its own error.
+        """
+        import time
+
+        for look in range(_ROOM_WAIT_LOOKS):
+            free = _free_vram_mb()
+            if free is None or free >= vram_req + _HEADROOM_MB:
+                if look:
+                    logger.info("%s has its room after %d s (%d MB free)", intent.value, look, free or 0)
+                return
+            if look == 0:
+                logger.info(
+                    "%s waits for evicted models to leave the card (%d MB free, %d MB wanted)",
+                    intent.value, free, vram_req,
+                )
+            time.sleep(_ROOM_WAIT_POLL_S)
+        logger.warning("%s loads with the card still short of %d MB", intent.value, vram_req)
+
     def _claim_card_again(self, intent: Intent, backend: AudioBackend) -> None:
         """For a loaded backend that needs the whole card (ACE-Step): ask for it
         again before running. A chat model loaded between two songs would
@@ -567,6 +599,7 @@ class Dispatcher:
         self._claimed.add(intent)
         self._orch.request_vram(slot_id, vram_req, _DEFAULT_PRIORITY, exclusive=exclusive)
         self._make_room(intent, vram_req)
+        self._wait_for_room(intent, vram_req)
 
         try:
             import torch
