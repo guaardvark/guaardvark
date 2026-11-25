@@ -199,6 +199,7 @@ def _stop_stub(tmp_path):
         _kill_by_port=lambda port: None,
         _gate=SimpleNamespace(try_acquire=lambda pid: (True, 0.0, ""), release=lambda pid: None),
     )
+    stub._clear_start_warnings = lambda pid: PluginManager._clear_start_warnings(stub, pid)
     return stub
 
 

@@ -3,6 +3,7 @@ with GPU / plugin / plugin-HTTP all mocked. The real GPU generation + melt
 assembly are exercised separately on a short song (Phase 4/5)."""
 import contextlib
 import os
+import traceback
 from pathlib import Path
 
 import pytest
@@ -50,13 +51,24 @@ def stage_plugins(monkeypatch):
     return calls
 
 
+@pytest.fixture(autouse=True)
+def _keyframe_default(monkeypatch):
+    """A new project's keyframe model without probing this machine.
+
+    The real default asks the image generator which weights are installed,
+    which reads ComfyUI's version through the PluginManager."""
+    monkeypatch.setattr("backend.services.music_video_service.default_keyframe_model",
+                        lambda: "flux-schnell")
+
+
 @pytest.fixture
 def no_plugin_manager(monkeypatch):
     """Records, and refuses, any reach for the PluginManager itself."""
     reached = []
 
     def refuse(*args, **kwargs):
-        reached.append(True)
+        # The callers, so a failing "== []" says who reached for it.
+        reached.append("".join(traceback.format_stack(limit=14)))
         raise AssertionError("the PluginManager was reached from a unit test")
 
     monkeypatch.setattr("backend.plugins.plugin_manager.get_plugin_manager", refuse)
@@ -135,7 +147,7 @@ def test_analyzer_seeds_cut_plan_and_gates(app, sent, monkeypatch, tmp_path, sta
     db.session.refresh(mv)
     assert mv.status != "failed_analyzing", mv.error_blob
     assert stage_plugins == [("music-video", "analyzing")]
-    assert no_plugin_manager == []
+    assert no_plugin_manager == [], "".join(no_plugin_manager)
     assert mv.cut_plan and len(mv.cut_plan) >= 1
     assert mv.clips and all(c["status"] == "pending" for c in mv.clips)
     # Director prompts are seeded per cut (distinct, not the global style).
@@ -188,7 +200,7 @@ def test_analyzer_stores_the_guarded_prompts_not_the_raw_shot_text(
     assert mv.status != "failed_analyzing", mv.error_blob
     assert mv.current_stage == "awaiting_approval"
     assert stage_plugins == [("music-video", "analyzing")]
-    assert no_plugin_manager == []
+    assert no_plugin_manager == [], "".join(no_plugin_manager)
 
     expected = director._ensure_distinct_and_energy_aware(
         [f"a lone crow on a wire, {style}"] * 3, cut_plan, style,
@@ -337,7 +349,9 @@ def test_assembler_sets_output_and_completes(app, sent, monkeypatch, tmp_path):
 
     def fake_post(url, json=None, timeout=None, **k):
         captured["body"] = json
-        return _Resp({"rendered_mp4": "/out/final.mp4", "documents": [{"id": 77}]})
+        # The editor registers the project file and the render; the render is the output.
+        return _Resp({"rendered_mp4": "/out/final.mp4", "documents": [
+            {"id": 76, "path": "/out/final.mlt"}, {"id": 77, "path": "/out/final.mp4"}]})
     monkeypatch.setattr(mvt.requests, "post", fake_post, raising=False)
 
     mvt.run_assembler(mv.id)

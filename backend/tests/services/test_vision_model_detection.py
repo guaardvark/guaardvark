@@ -23,9 +23,23 @@ def test_known_vision_names_look_vision():
 
 
 def test_unknown_text_model_config_has_no_vision():
-    cfg = get_vision_config("jaahas/qwen3.5-uncensored:latest")
+    """A model with no config row follows what Ollama reports for it."""
+    from backend.services import model_capability_resolver as R
+
+    with patch.object(R, "_info", return_value={"capabilities": ["completion", "tools"]}):
+        cfg = get_vision_config("jaahas/qwen3.5-uncensored:latest")
     assert cfg["has_vision"] is False
     assert cfg.get("vision_model")  # external eyes
+
+
+def test_unknown_model_ollama_reports_as_sighted_uses_its_own_eyes():
+    from backend.services import model_capability_resolver as R
+
+    with patch.object(R, "_info", return_value={"capabilities": ["completion", "vision"]}):
+        cfg = get_vision_config("jaahas/qwen3.5-uncensored:latest")
+    assert cfg["has_vision"] is True
+    assert cfg["vision_model"] is None
+    assert cfg["source"] == "resolver_api_show_capabilities"
 
 
 def test_detect_skips_text_only_active_and_picks_a_real_vision_model():

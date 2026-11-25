@@ -1,6 +1,8 @@
 """The frontend's MODEL_OPTIONS must agree with the registry it mirrors.
 
-videoGeneratorPresets.js has no imports, so node can import it directly.
+videoGeneratorPresets.js imports only the interface's translate(), which is
+built by Vite and cannot load in plain node; a resolve hook stands a
+key-returning translate() in for it, so node reads the model data itself.
 Every generation entry the registry declares must appear in MODEL_OPTIONS
 with the same type, alignment, pixel cap, aspect ratios, step floor and
 default, native rate, longest clip and speed profile ids; every MODEL_OPTIONS
@@ -23,18 +25,34 @@ PRESETS = ROOT / "frontend" / "src" / "constants" / "videoGeneratorPresets.js"
 FRONTEND_EXEMPT = set()
 
 
+# Node module hooks: the presets' `../i18n` import resolves to a module whose
+# translate() returns its key. Labels are the only thing that calls it, and
+# nothing here compares labels.
+_I18N_STAND_IN = """
+const stub = 'data:text/javascript,' + encodeURIComponent('export const translate = (key) => key;');
+export async function resolve(specifier, context, nextResolve) {
+  if (/(^|\\/)i18n$/.test(specifier)) return { url: stub, shortCircuit: true };
+  return nextResolve(specifier, context);
+}
+"""
+
+
 @pytest.fixture(scope="module")
 def model_options():
     node = shutil.which("node")
     if not node:
         pytest.skip("node is not installed")
     script = (
-        f"import('file://{PRESETS.as_posix()}').then(m => "
-        "console.log(JSON.stringify(m.MODEL_OPTIONS)))"
+        "import { register } from 'node:module';\n"
+        f"register('data:text/javascript,' + encodeURIComponent({json.dumps(_I18N_STAND_IN)}));\n"
+        f"const m = await import({json.dumps(PRESETS.as_uri())});\n"
+        "console.log(JSON.stringify(m.MODEL_OPTIONS));\n"
     )
     out = subprocess.run([node, "--input-type=module", "-e", script], capture_output=True, text=True, timeout=60)
     assert out.returncode == 0, out.stderr
-    return json.loads(out.stdout)
+    options = json.loads(out.stdout)
+    assert options, "MODEL_OPTIONS came back empty"
+    return options
 
 
 def _generation_ids():

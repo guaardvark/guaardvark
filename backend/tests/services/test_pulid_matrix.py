@@ -86,6 +86,12 @@ def test_generate_with_identity_passes_the_switches_through(monkeypatch, tmp_pat
     monkeypatch.setattr(gen, "_available", lambda: True)
     monkeypatch.setattr(gen, "pulid_installed", lambda: True)
     monkeypatch.setattr(gen, "_upload_image_to_comfyui", lambda p: "face.png")
+    # The reference is checked for a face before anything is uploaded; one
+    # face means the photo goes through as it is, with no detector weights read.
+    monkeypatch.setattr(
+        "backend.services.face_reference.find_faces",
+        lambda path: {"count": 1, "faces": [{"box": [0, 0, 8, 8], "score": 0.9}], "width": 8, "height": 8},
+    )
 
     def _run(workflow, output_path, **kw):
         seen["workflow"] = workflow

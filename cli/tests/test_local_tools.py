@@ -1,5 +1,7 @@
 """Basic tests for the new local agentic tools."""
 
+import shlex
+import sys
 import tempfile
 from pathlib import Path
 
@@ -52,7 +54,8 @@ def test_make_diff():
 
 
 def test_run_command():
-    res = run_command("python -c 'print(2+2)'")
+    # The running interpreter: a bare `python` is not on every PATH.
+    res = run_command(f"{shlex.quote(sys.executable)} -c 'print(2+2)'")
     assert res["success"]
     out = (res.get("output") or "") + (res.get("stdout") or "")
     assert "4" in out

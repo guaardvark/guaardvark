@@ -16,6 +16,16 @@ from backend.utils.agent_output_parser import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _no_saved_memories(monkeypatch):
+    # The executor recalls saved memories first. Outside an app context
+    # that imports backend.app, which boots the whole app inside the test
+    # (and against DATABASE_URL, would count recalls in that database) and
+    # leaves it running for every test after this file.
+    # test_agent_memory_hints.py covers the recall itself.
+    monkeypatch.setattr("backend.api.memory_api.search_memories", lambda *a, **k: [])
+
+
 def _make_code_tool_registry(project_root):
     """Create a minimal tool registry with code tools pointed at sandbox."""
     from backend.services.agent_tools import ToolRegistry, BaseTool, ToolParameter, ToolResult
@@ -370,14 +380,6 @@ class TestFinalAnswerFactsCheck:
 @requires_llm
 class TestAgentExecutor:
     """Tests for AgentExecutor — backend/services/agent_executor.py:262"""
-
-    @pytest.fixture(autouse=True)
-    def _no_saved_memories(self, monkeypatch):
-        # The executor recalls saved memories first. Outside an app context
-        # that imports backend.app, which boots the whole app inside the test
-        # (and against DATABASE_URL, would count recalls in that database).
-        # test_agent_memory_hints.py covers the recall itself.
-        monkeypatch.setattr("backend.api.memory_api.search_memories", lambda *a, **k: [])
 
     @pytest.mark.timeout(120)
     def test_agent_reads_file(self, sandbox_dir):

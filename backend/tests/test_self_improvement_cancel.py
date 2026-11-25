@@ -34,6 +34,14 @@ def app():
         db.drop_all()
 
 
+@pytest.fixture(autouse=True)
+def _own_cancel_flags(monkeypatch):
+    """The cancelled-run ids are class-level and each test's database numbers
+    its runs from 1, so every test gets its own set and leaves none behind."""
+    from backend.services.self_improvement_service import SelfImprovementService
+    monkeypatch.setattr(SelfImprovementService, "_cancel_requested_ids", set())
+
+
 def _fresh_service():
     """A service instance that is not the process singleton, with a clean flag set."""
     from backend.services.self_improvement_service import SelfImprovementService

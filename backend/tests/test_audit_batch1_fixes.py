@@ -33,27 +33,38 @@ def test_self_improvement_interval_zero_does_not_crash_beat():
 
 
 def test_backup_cleanup_iterates_dict_entries():
-    """list_backups() yields dicts; the cleanup must read entry['name'] and prune
-    old auto backups (pre-fix: str method on a dict → AttributeError, swallowed,
-    nothing pruned)."""
-    old = (datetime.now() - timedelta(days=60)).strftime("%Y%m%d_%H%M%S")
-    new = datetime.now().strftime("%Y%m%d_%H%M%S")
-    listing = [
-        {"name": f"auto_daily_{old}.zip", "size": 1, "type": "auto"},
-        {"name": f"auto_daily_{new}.zip", "size": 1, "type": "auto"},
-        {"name": "code_release_20200101.zip", "size": 1, "type": "code"},  # not auto → skipped
+    """list_backups() yields dicts; the daily task's pruning must read each entry
+    by key and remove the automatic backups past the retention settings, leaving
+    the newest ones and every non-automatic backup alone."""
+    now = datetime.now()
+    old_at = now - timedelta(days=60)
+    old = old_at.strftime("%Y%m%d_%H%M%S")
+    new = now.strftime("%Y%m%d_%H%M%S")
+    listing = [  # newest first, as list_backups() returns them
+        {"name": f"auto_daily_{new}.zip", "size": 1, "type": "auto", "modified": now.timestamp()},
+        {"name": f"auto_daily_{old}.zip", "size": 1, "type": "auto", "modified": old_at.timestamp()},
+        {"name": "code_release_20200101.zip", "size": 1, "type": "code",
+         "modified": old_at.timestamp()},  # not auto → skipped
     ]
-    delete_spy = MagicMock()
-    with patch("backend.services.backup_service.create_data_backup", return_value="/tmp/x.zip"), \
+    settings = {"daily_enabled": True, "keep_last": 1, "max_age_days": 30,
+                "max_total_gb": 0, "min_free_gb": 5}
+    room = {"ok": True, "free": 10, "needed": 1, "expected_backup_size": 1}
+    delete_spy = MagicMock(return_value=True)
+    with patch("backend.tasks.backup_tasks.retention_settings", return_value=settings), \
+         patch("backend.services.backup_service.backup_disk_check", return_value=room), \
+         patch("backend.services.backup_service.create_data_backup", return_value="/tmp/x.zip"), \
          patch("backend.services.backup_service.list_backups", return_value=listing), \
+         patch("backend.services.backup_service.list_pinned", return_value=set()), \
          patch("backend.services.backup_service.delete_backup", delete_spy):
         from backend.tasks.backup_tasks import daily_backup
-        daily_backup.apply()  # eager, synchronous
+        result = daily_backup.apply().get()  # eager, synchronous
 
     deleted = [c.args[0] for c in delete_spy.call_args_list]
     assert f"auto_daily_{old}.zip" in deleted          # old one pruned
     assert f"auto_daily_{new}.zip" not in deleted       # recent kept
     assert "code_release_20200101.zip" not in deleted   # non-auto untouched
+    assert result["status"] == "ok"
+    assert result["removed"] == [f"auto_daily_{old}.zip"]
 
 
 def test_executor_success_emits_progress_before_completed_write():

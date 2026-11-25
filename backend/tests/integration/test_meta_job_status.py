@@ -1,3 +1,5 @@
+import types
+
 import pytest
 
 try:
@@ -21,6 +23,9 @@ def client(tmp_path):
         }
     )
     db.init_app(app)
+    # Progress events go to the app's own SocketIO; without one the progress
+    # system imports backend.app, which starts the real application.
+    app.extensions["socketio"] = types.SimpleNamespace(emit=lambda *a, **k: None)
     if jobs_bp.name not in app.blueprints:
         app.register_blueprint(jobs_bp)
     with app.app_context():
@@ -69,4 +74,9 @@ def test_update_job_status_marks_complete(client, tmp_path):
 
     meta = progress_manager.get_job_metadata(output_dir, job_id)
     assert meta["is_complete"] is True
-    assert meta["job_status"] == "FINISHED"
+    # job_status is the unified progress system's state; the caller's text is
+    # carried as the process message.
+    assert meta["job_status"] == "COMPLETE"
+    assert meta["progress_percent"] == 100
+    process = progress_manager.get_unified_progress().get_process(job_id)
+    assert process.message == "FINISHED"

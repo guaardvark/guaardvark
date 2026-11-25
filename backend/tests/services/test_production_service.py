@@ -254,20 +254,48 @@ def test_gpu_stage_no_gate_just_runs():
     assert result == 42
 
 
-# gpu_stage now delegates to the REAL JobOperationGate.gpu_exclusive contract
-# (try_claim_gpu_exclusive / release_gpu_exclusive), not the fictional
-# acquire(op_id)/release(op_id) the old FakeGate asserted. These tests exercise
-# a fresh real gate instance.
+# gpu_stage claims the process-wide JobOperationGate through gpu_session, with
+# the cross-process lease; the service's own ``gate`` only switches the claim
+# on. These tests stand a fresh real gate in for the process-wide one and an
+# in-memory lease in for the lock file.
 
 
-def _fresh_gate():
-    from backend.services.job_operation_gate import JobOperationGate
-    return JobOperationGate()
+class _MemoryLease:
+    def __init__(self):
+        self.held = []
+        self.events = []
+
+    def acquire_generic(self, label, lease_seconds=None):
+        self.held.append(label)
+        self.events.append(("acquire", label))
+        return {"success": True}
+
+    def renew_generic(self, label, lease_seconds=None):
+        return True
+
+    def release_generic(self, label):
+        self.held.remove(label)
+        self.events.append(("release", label))
+        return {"success": True}
 
 
-def test_gpu_stage_acquires_and_releases_real_gate():
+@pytest.fixture
+def process_gate(monkeypatch):
+    import backend.services.gpu_resource_coordinator as coord
+    import backend.services.gpu_resource_policy as grp
+    import backend.services.job_operation_gate as jog
+
+    gate = jog.JobOperationGate()
+    gate.lease = _MemoryLease()
+    monkeypatch.setattr(jog, "get_gate", lambda: gate)
+    monkeypatch.setattr(coord, "get_gpu_coordinator", lambda: gate.lease)
+    monkeypatch.setattr(grp, "release_kept_image_pipeline", lambda image_model=None: False)
+    return gate
+
+
+def test_gpu_stage_acquires_and_releases_real_gate(process_gate):
     from backend.services.job_types import JobKind
-    gate = _fresh_gate()
+    gate = process_gate
     svc = ProductionService(session=None, gate=gate)
 
     def work():
@@ -275,16 +303,18 @@ def test_gpu_stage_acquires_and_releases_real_gate():
         snap = gate.snapshot()
         assert snap["gpu_busy"] is True
         assert snap["gpu_holder"]["native_id"] == "storyboard:42"
+        assert gate.lease.held == ["video_render:storyboard:42"]
         return "done"
 
     result = svc.gpu_stage("storyboard:42", work, kind=JobKind.VIDEO_RENDER)
     assert result == "done"
     # Released after the stage — holder cleared.
     assert gate.snapshot()["gpu_busy"] is False
+    assert gate.lease.held == []
 
 
-def test_gpu_stage_releases_real_gate_on_exception():
-    gate = _fresh_gate()
+def test_gpu_stage_releases_real_gate_on_exception(process_gate):
+    gate = process_gate
     svc = ProductionService(session=None, gate=gate)
 
     def boom():
@@ -294,12 +324,15 @@ def test_gpu_stage_releases_real_gate_on_exception():
         svc.gpu_stage("op-1", boom)
     # Released even after exception.
     assert gate.snapshot()["gpu_busy"] is False
+    assert gate.lease.events == [
+        ("acquire", "video_render:op-1"), ("release", "video_render:op-1"),
+    ]
 
 
-def test_gpu_stage_raises_gpu_busy_when_slot_held():
+def test_gpu_stage_raises_gpu_busy_when_slot_held(process_gate):
     from backend.services.job_operation_gate import GpuBusyError
     from backend.services.job_types import JobKind
-    gate = _fresh_gate()
+    gate = process_gate
     # Someone else already holds the exclusive slot.
     acquired, _ = gate.try_claim_gpu_exclusive(JobKind.VIDEO_RENDER, "other")
     assert acquired

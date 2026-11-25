@@ -45,6 +45,8 @@ def machine(monkeypatch, tmp_path):
     folder = tmp_path / "data" / "training" / "gguf_converter"
     monkeypatch.setattr(gc, "install_dir", lambda: folder)
     monkeypatch.setattr(gc, "FILES", _declared(CONTENT))
+    # The total is summed from FILES once, at import.
+    monkeypatch.setattr(gc, "DOWNLOAD_BYTES", sum(len(data) for data in CONTENT.values()))
     monkeypatch.setattr(gc, "_run", gc._idle_run())
     monkeypatch.setattr(gc, "_verified", {"key": None, "at": 0.0, "state": None})
     monkeypatch.setattr(gc, "_spawn", lambda target, *args, name: target(*args))

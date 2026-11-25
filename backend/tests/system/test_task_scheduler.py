@@ -2,6 +2,7 @@ import datetime
 import os
 import sys
 import time
+import types
 
 import pytest
 
@@ -13,24 +14,33 @@ try:
 
     from backend.api.tasks_api import tasks_bp
     from backend.models import Task, db
+    from backend.services import task_scheduler
     from backend.services.task_scheduler import init_task_scheduler
-    from backend.utils import llm_service
+    from backend.utils import llm_service, ollama_resource_manager
 except Exception:
     pytest.skip("Flask or backend modules not available", allow_module_level=True)
 
 
 @pytest.fixture
-def sched_client(tmp_path):
+def sched_client(tmp_path, monkeypatch):
     app = Flask(__name__)
+    # A file database: the scheduler thread and the request thread each get
+    # their own connection to it.
     app.config.update(
-        {"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"}
+        {
+            "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'scheduler.db'}",
+        }
     )
+    # Progress events go to the app's own SocketIO; without one the progress
+    # system imports backend.app, which starts the real application.
+    app.extensions["socketio"] = types.SimpleNamespace(emit=lambda *a, **k: None)
 
     class BaseLLM:
         def chat(self, messages):
             raise NotImplementedError
 
-    llm_service.LLM = BaseLLM
+    monkeypatch.setattr(llm_service, "LLM", BaseLLM)
 
     class DummyLLM(BaseLLM):
         def chat(self, messages):
@@ -43,6 +53,10 @@ def sched_client(tmp_path):
             return Resp()
 
     app.config["LLAMA_INDEX_LLM"] = make_mock_llm("done")
+    # The scheduler checks a task's model against Ollama and builds its own
+    # client for it; both are stood in for so no Ollama is asked.
+    monkeypatch.setattr(task_scheduler, "_installed_ollama_models", lambda: ["task-model:latest"])
+    monkeypatch.setattr(ollama_resource_manager, "build_ollama", lambda *a, **k: DummyLLM())
     db.init_app(app)
     if tasks_bp.name not in app.blueprints:
         app.register_blueprint(tasks_bp)
@@ -52,7 +66,7 @@ def sched_client(tmp_path):
         try:
             yield app.test_client()
         finally:
-            scheduler.shutdown(wait=False)
+            scheduler.shutdown(wait=True)
             db.session.remove()
             db.drop_all()
 

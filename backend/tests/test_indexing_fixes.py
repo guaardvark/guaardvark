@@ -61,6 +61,7 @@ def _fake_chunker(nodes):
 def test_add_text_to_index_returns_none_when_no_nodes(monkeypatch):
     monkeypatch.setattr(ix, "index", MagicMock())
     monkeypatch.setattr(ix, "storage_context", MagicMock())
+    monkeypatch.setattr(ix, "vector_store_fallback_reason", lambda: None)
     monkeypatch.setattr(ix, "_lazy_load_llamaindex", lambda: None)
     monkeypatch.setattr(ix, "LlamaDocument", lambda **kw: object())
     with patch("backend.utils.enhanced_rag_chunking.get_shared_chunker", _fake_chunker([])):
@@ -70,6 +71,7 @@ def test_add_text_to_index_returns_none_when_no_nodes(monkeypatch):
 def test_add_text_to_index_returns_none_when_all_nodes_empty(monkeypatch):
     monkeypatch.setattr(ix, "index", MagicMock())
     monkeypatch.setattr(ix, "storage_context", MagicMock())
+    monkeypatch.setattr(ix, "vector_store_fallback_reason", lambda: None)
     monkeypatch.setattr(ix, "_lazy_load_llamaindex", lambda: None)
     monkeypatch.setattr(ix, "LlamaDocument", lambda **kw: object())
     empty_node = SimpleNamespace(text="", metadata={})  # has attrs but empty text -> invalid

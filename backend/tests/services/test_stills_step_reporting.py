@@ -44,7 +44,8 @@ def test_pipeline_reports_renderer_steps(monkeypatch, explicit, requested, actua
             success=True, image_path="image.png", metadata={"steps": request.num_inference_steps},
         )
 
-    monkeypatch.setattr(offline, "get_image_generator", lambda: SimpleNamespace(generate_image=render))
+    monkeypatch.setattr(offline, "get_image_generator", lambda: SimpleNamespace(
+        generate_image=render, missing_model_message=lambda model: None))
     result = stills_pipeline.run_stills_pipeline(
         ["a brass key"], model="zimage-turbo", steps=requested, steps_explicit=explicit,
         verbatim=True, hold_gpu=False, keep_pipeline=True,

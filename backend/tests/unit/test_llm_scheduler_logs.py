@@ -37,6 +37,23 @@ class DummyLLM(BaseLLM):
         return Response()
 
 
+class _RecordingProgress:
+    """Stands in for the unified progress system and keeps what it was told."""
+
+    def __init__(self):
+        self.calls = []
+
+    def create_process(self, process_type, description, process_id=None, **_kw):
+        self.calls.append(("create_process", process_id))
+        return process_id
+
+    def update_process(self, process_id, *args, **_kw):
+        self.calls.append(("update_process", process_id))
+
+    def complete_process(self, process_id, *args, **_kw):
+        self.calls.append(("complete_process", process_id))
+
+
 @pytest.fixture
 def app(tmp_path):
     app = Flask(__name__)
@@ -89,9 +106,27 @@ def test_scheduler_logs_empty_output(app, caplog, monkeypatch):
         db.session.add(task)
         db.session.commit()
         monkeypatch.setattr(llm_service, "current_app", app)
-        monkeypatch.setattr(task_scheduler, "get_active_model_name", lambda: "m")
+        # The task names no model, so the scheduler takes the active one and
+        # checks it against what Ollama lists; the model it builds answers empty.
+        monkeypatch.setattr("backend.api.tasks_api.get_default_task_model", lambda: None)
+        monkeypatch.setattr("backend.models.get_active_model_name", lambda: "m")
+        monkeypatch.setattr(task_scheduler, "_installed_ollama_models", lambda: ["m"])
+        built = []
+        monkeypatch.setattr(
+            "backend.utils.ollama_resource_manager.build_ollama",
+            lambda model_name, **_kw: built.append(model_name) or DummyLLM(),
+        )
+        # The real progress system emits over the app's socket, which imports
+        # backend.app and boots the whole app inside the test.
+        progress = _RecordingProgress()
+        monkeypatch.setattr(task_scheduler, "get_unified_progress", lambda: progress)
         caplog.set_level(logging.WARNING, logger="backend.services.task_scheduler")
         task_scheduler._execute_task(app, task.id)
+        assert built == ["m"]
+        assert [name for name, _ in progress.calls] == ["create_process", "update_process", "complete_process"]
+        # The scheduler worked in its own session; read the row again.
+        db.session.refresh(task)
+        assert task.status == "failed"
 
     # Check for the warning message in the captured logs
     warning_messages = [record.message for record in caplog.records if record.levelno >= logging.WARNING]

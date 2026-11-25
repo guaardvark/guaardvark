@@ -79,11 +79,25 @@ def test_resolve_entry_dir(dest, expected_tail):
     assert tuple(path.parts[-len(expected_tail):]) == expected_tail
 
 
-def test_hf_cache_entry_checks_the_cache(monkeypatch):
+def test_hf_cache_entry_checks_the_cache(monkeypatch, tmp_path):
     from backend.services import local_weights
 
     entry = vmr.VIDEO_MODEL_REGISTRY["eva02-clip"]
-    monkeypatch.setattr(local_weights, "is_cached", lambda repo, f, cache_dir=None: True)
-    assert vmr.entry_files_present(entry) is True
-    monkeypatch.setattr(local_weights, "is_cached", lambda repo, f, cache_dir=None: False)
+    name = entry["files"][0]["src"]
+    cached = tmp_path / name
+    cached.write_bytes(b"legacy pickle bytes")
+    asked = []
+
+    def in_cache(repo, filename, cache_dir=None):
+        asked.append((repo, filename))
+        return str(cached)
+
+    monkeypatch.setattr(local_weights, "cached_path", in_cache)
+    # Whole at the size the entry publishes for it.
+    whole = dict(entry, file_bytes={name: cached.stat().st_size})
+    assert vmr.entry_files_present(whole) is True
+    assert asked == [(entry["hf_repo"], name)]
+    # In the cache but far short of the registry's published size.
     assert vmr.entry_files_present(entry) is False
+    monkeypatch.setattr(local_weights, "cached_path", lambda repo, filename, cache_dir=None: None)
+    assert vmr.entry_files_present(whole) is False

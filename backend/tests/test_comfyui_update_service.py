@@ -696,7 +696,8 @@ def test_status_shape(world):
                          "started_at", "finished_at", "message", "log_tail"}
     assert idle["state"] == "idle"
     done = world.svc.start(background=False)
-    assert set(done) == set(idle)
+    assert set(done) == set(idle) | {"kind"}
+    assert done["kind"] == "update"
     assert done["phase"] == "done" and done["phase_label"] == "Done"
     assert done["started_at"] and done["finished_at"]
     assert len(done["log_tail"]) <= cus.LOG_TAIL_LINES

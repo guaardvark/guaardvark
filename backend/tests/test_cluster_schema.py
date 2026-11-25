@@ -50,6 +50,24 @@ def test_interconnector_node_has_hardware_profile_and_online(app):
 # here deliberately, with a reason.
 UNRELATED_CAPABILITIES_OWNERS = ("backend/services/connections/",)
 
+# Other unrelated `capabilities`, each excused only as the named receiver in the
+# named file, so a new `node.capabilities` in the same file still fails:
+#   spec_for(...)  the Connection provider spec above, read from outside its package
+#   rec            a ModelRecord from model_capabilities.capabilities_for (what
+#                  Ollama reports a model can do)
+#   rt             an MCP ServerRuntime (what a connected MCP server advertises)
+_SPEC = r"spec_for\(.*?\)\.capabilities\b"
+_MODEL_RECORD = r"\brec\.capabilities\b"
+_MCP_RUNTIME = r"\brt\.capabilities\b"
+UNRELATED_CAPABILITIES_RECEIVERS = {
+    "backend/api/connections_api.py": _SPEC,
+    "backend/tools/connection_tools.py": _SPEC,
+    "backend/api/model_api.py": _MODEL_RECORD,
+    "backend/utils/ollama_resource_manager.py": _MODEL_RECORD,
+    "backend/utils/vision_analyzer.py": _MODEL_RECORD,
+    "backend/services/mcp_client_service.py": _MCP_RUNTIME,
+}
+
 SKIPPED_DIRS = {"venv", "__pycache__", "tests", "mcp", "node_modules", ".git"}
 
 
@@ -76,11 +94,22 @@ def test_no_capabilities_references_in_backend():
             continue
         if rel.startswith(UNRELATED_CAPABILITIES_OWNERS):
             continue
+        excused = UNRELATED_CAPABILITIES_RECEIVERS.get(rel)
         for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
-            if pattern.search(line):
+            checked = re.sub(excused, "", line) if excused else line
+            if pattern.search(checked):
                 offending.append(f"{rel}:{lineno}: {line.strip()}")
 
     assert not offending, (
         "Lingering .capabilities references in production backend code:\n"
         + "\n".join(offending)
     )
+
+
+def test_capabilities_guard_still_catches_a_node_reference_in_an_excused_file():
+    import re
+
+    pattern = re.compile(r"\.capabilities\b")
+    for excused in set(UNRELATED_CAPABILITIES_RECEIVERS.values()):
+        for line in ("caps = node.capabilities", "x = rec.capabilities or node.capabilities"):
+            assert pattern.search(re.sub(excused, "", line)), (excused, line)

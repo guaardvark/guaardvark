@@ -253,7 +253,9 @@ def test_engine_call_site_is_exception_safe(monkeypatch):
     marker = "# 5. Save user message to DB"
     idx = text.find(marker)
     assert idx != -1
-    window = text[idx : idx + 900]
+    step_end = text.find("# 6. ReACT loop", idx)
+    assert step_end != -1
+    window = text[idx:step_end]
     assert "self._save_message" in window
     save_at = window.find("self._save_message")
     capture_at = window.find("capture_from_message")

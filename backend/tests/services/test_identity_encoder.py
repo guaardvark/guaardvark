@@ -20,9 +20,12 @@ from flask import Flask
 
 from backend.services import identity_encoder as ie
 from backend.services.identity_method_data import IMAGE_ENCODERS
+from backend.tests.fixtures.model_files import safetensors_bytes
 
 REPO = "facebook/dinov2-base"
-WEIGHTS = b"stand-in weights"
+# A whole safetensors file: an install counts only when its weights pass the
+# format check as well as the pinned sha256.
+WEIGHTS = safetensors_bytes(16)
 
 
 @pytest.fixture
@@ -104,7 +107,7 @@ def test_install_fetches_the_declared_files_at_the_pinned_commit(root, pinned_to
 
 
 def test_weights_that_do_not_match_the_pin_are_deleted(root, monkeypatch):
-    monkeypatch.setattr("huggingface_hub.snapshot_download", _Hub(weights=b"something else"))
+    monkeypatch.setattr("huggingface_hub.snapshot_download", _Hub(weights=safetensors_bytes(8)))
     ie.start_install()
     status = _wait()
 

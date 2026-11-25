@@ -22,7 +22,8 @@ def renders(monkeypatch):
         return offline.ImageGenerationResult(success=True, image_path="image.png", metadata={})
 
     monkeypatch.setattr(offline, "get_image_generator",
-                        lambda: SimpleNamespace(generate_image=render, style_configs={}))
+                        lambda: SimpleNamespace(generate_image=render, style_configs={},
+                                                missing_model_message=lambda model: None))
     return calls
 
 

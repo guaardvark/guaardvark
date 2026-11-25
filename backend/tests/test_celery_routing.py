@@ -10,6 +10,64 @@ After: Both processes share the singleton from backend.celery_app.
 import sys
 import importlib
 
+import pytest
+
+
+def _replayed(name):
+    return name == "backend.celery_app" or name == "backend.tasks" or name.startswith("backend.tasks.")
+
+
+@pytest.fixture(autouse=True)
+def first_import_put_back():
+    """Several tests here drop backend.celery_app and backend.tasks from
+    sys.modules to replay a fresh process's import order. That builds a second
+    Celery app and a second copy of every task module, and @shared_task
+    proxies resolve through whichever app is current. Afterwards the modules
+    and the app that were there before go back, so a test elsewhere that
+    patches a task module is patching the one its tasks run from.
+
+    The app already imported is finalized first: an app finalized later takes,
+    for each task name, whichever copy's @shared_task hook happens to run
+    first, and a finalized app keeps the tasks it has. The hooks of the copies
+    dropped afterwards are dropped with them, for the apps built later."""
+    from celery import _state
+
+    before = {name: module for name, module in sys.modules.items() if _replayed(name)}
+    if "backend.celery_app" in before:
+        before["backend.celery_app"].celery.finalize()
+    default_app = _state.default_app
+    current_app = getattr(_state._tls, "current_app", None)
+    hooks = set(_state._on_app_finalizers)
+    # A fresh process has no current app. Any Celery() built by an earlier test
+    # made itself current, and a current app outranks the default one these
+    # tests are about.
+    _state._tls.current_app = None
+    yield
+    for name in [n for n in sys.modules if _replayed(n)]:
+        module = sys.modules[name]
+        if before.get(name) is module:
+            continue
+        del sys.modules[name]
+        parent, _, child = name.rpartition(".")
+        if getattr(sys.modules.get(parent), child, None) is module:
+            delattr(sys.modules[parent], child)
+    for name, module in before.items():
+        sys.modules[name] = module
+        parent, _, child = name.rpartition(".")
+        if parent in sys.modules:
+            setattr(sys.modules[parent], child, module)
+    for hook in set(_state._on_app_finalizers) - hooks:
+        for cell in hook.__closure__ or ():
+            fun = cell.cell_contents
+            module = getattr(fun, "__module__", None)
+            if (isinstance(module, str) and _replayed(module) and hasattr(fun, "__globals__")
+                    and fun.__globals__ is not getattr(sys.modules.get(module), "__dict__", None)):
+                _state._on_app_finalizers.discard(hook)
+                break
+    _state.default_app = default_app
+    _state._tls.current_app = current_app
+
+
 def test_api_task_routes_to_default_queue():
     """Tasks queued from Flask MUST land in the same queue workers consume.
 

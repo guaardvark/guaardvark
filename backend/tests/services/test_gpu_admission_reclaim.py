@@ -181,6 +181,7 @@ def test_session_reclaims_in_process_even_without_the_http_evict_flags(fresh_gat
     monkeypatch.setattr(grp, "reclaim_in_process_vram", lambda n=0: seen.append(n) or 0)
     monkeypatch.setattr(grp, "evict_ollama_models", lambda: seen.append("ollama") or True)
     monkeypatch.setattr(grp, "free_comfyui_vram", lambda **k: seen.append("comfy") or True)
+    monkeypatch.setattr(grp.time, "sleep", lambda s: None)
 
     with pytest.raises(GpuBusyError):
         with grp.gpu_session(

@@ -5,8 +5,6 @@ skipped the LLM rewrite, but offline_image_generator still stuffed style
 suffixes and hard-clipped to 75 words — so detailed user tails never reached
 the model. These tests pin the real end-to-end contract.
 """
-from unittest.mock import patch
-
 import pytest
 
 import backend.services.offline_image_generator as oig
@@ -59,8 +57,7 @@ def test_enhance_for_quality_appends_suffixes_when_on(gen):
     assert detection.get("enhancements_applied")
 
 
-@patch("backend.services.media_director.verbatim_prompts_enabled", return_value=True)
-def test_generate_image_verbatim_keeps_long_prompt(_mock_verbatim, gen, monkeypatch):
+def test_generate_image_verbatim_keeps_long_prompt(gen, monkeypatch):
     """When verbatim is ON, generate_image must not style-stuff or 75-word-clip."""
     long_tail = " ".join(f"tail_detail_{i}" for i in range(100))
     user_prompt = f"hero subject in dramatic light {long_tail}"

@@ -86,7 +86,7 @@ def chosen_model(monkeypatch):
 def test_every_outcome_returns_the_rate_limit_slot(fresh_limiter, transcribe, status):
     import numpy as np
 
-    with patch("faster_whisper.audio.decode_audio", return_value=np.zeros(16000)), \
+    with patch.object(fw, "decode_audio", return_value=np.zeros(16000)), \
          patch.object(fw, "transcribe_audio_faster", side_effect=transcribe):
         response = _post(_client())
     assert response.status_code == status
@@ -106,7 +106,7 @@ def test_overloaded_answer_returns_the_slot(fresh_limiter, monkeypatch):
 def test_speech_reaches_the_client_and_ogg_is_accepted(fresh_limiter):
     import numpy as np
 
-    with patch("faster_whisper.audio.decode_audio", return_value=np.zeros(32000)), \
+    with patch.object(fw, "decode_audio", return_value=np.zeros(32000)), \
          patch.object(fw, "transcribe_audio_faster", return_value=("hello there", 0.2)) as stt:
         response = _post(_client(), filename="utterance.ogg")
     assert response.status_code == 200
@@ -120,7 +120,7 @@ def _stt_model(fresh_limiter, seconds=2, **form):
     """The model size one /speech-to-text request transcribed with."""
     import numpy as np
 
-    with patch("faster_whisper.audio.decode_audio", return_value=np.zeros(int(16000 * seconds))), \
+    with patch.object(fw, "decode_audio", return_value=np.zeros(int(16000 * seconds))), \
          patch.object(fw, "transcribe_audio_faster", return_value=("hello", 0.1)) as stt:
         response = _client().post(
             "/api/voice/speech-to-text",
@@ -162,7 +162,7 @@ def test_a_deleted_choice_without_tiny_en_answers_409_naming_it(fresh_limiter, c
     import numpy as np
 
     chosen_model("small", installed=set())
-    with patch("faster_whisper.audio.decode_audio", return_value=np.zeros(16000)), \
+    with patch.object(fw, "decode_audio", return_value=np.zeros(16000)), \
          patch.object(fw, "transcribe_audio_faster", side_effect=fw.SpeechModelMissing("small")) as stt:
         response = _post(_client())
     assert stt.call_args.kwargs["model_size"] == "small"
@@ -193,7 +193,7 @@ def test_stream_end_answers_with_its_own_id_and_leaves_the_room(socket_calls):
     sio.handle_voice_stream_chunk({"session_id": "floating_1_a", "audio": b"\x01" * 2000})
     # A second stream begins before the first has been answered.
     sio.handle_voice_stream_start({"session_id": "floating_1_b"})
-    with patch("faster_whisper.audio.decode_audio", return_value=np.zeros(16000)), \
+    with patch.object(fw, "decode_audio", return_value=np.zeros(16000)), \
          patch.object(fw, "transcribe_audio_faster", return_value=("first words", 0.1)):
         sio.handle_voice_stream_end({"session_id": "floating_1_a"})
 
@@ -217,7 +217,7 @@ def test_empty_stream_end_still_leaves_the_room(socket_calls):
 def test_failed_stream_end_reports_the_stream_and_leaves_the_room(socket_calls):
     sio.handle_voice_stream_start({"session_id": "s_bad"})
     sio.handle_voice_stream_chunk({"session_id": "s_bad", "audio": b"\x01" * 100})
-    with patch("faster_whisper.audio.decode_audio", side_effect=ValueError("not audio")):
+    with patch.object(fw, "decode_audio", side_effect=ValueError("not audio")):
         sio.handle_voice_stream_end({"session_id": "s_bad"})
     errors = [p for e, p, _kw in socket_calls["emit"] if e == "voice:error"]
     assert errors == [{"message": "not audio", "session_id": "s_bad"}]
@@ -231,7 +231,7 @@ def test_stream_end_transcribes_with_the_chosen_model(socket_calls, chosen_model
     chosen_model("base")
     sio.handle_voice_stream_start({"session_id": "s_model"})
     sio.handle_voice_stream_chunk({"session_id": "s_model", "audio": b"\x01" * 2000})
-    with patch("faster_whisper.audio.decode_audio", return_value=np.zeros(16000)), \
+    with patch.object(fw, "decode_audio", return_value=np.zeros(16000)), \
          patch.object(fw, "transcribe_audio_faster", return_value=("hello", 0.1)) as stt:
         sio.handle_voice_stream_end({"session_id": "s_model"})
     assert stt.call_args.kwargs["model_size"] == "base"

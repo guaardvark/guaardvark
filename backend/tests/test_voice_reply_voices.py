@@ -85,7 +85,7 @@ def test_a_kokoro_voice_id_is_spoken_by_piper_when_audio_foundry_is_down(client,
     assert resp.status_code == 200, resp.get_json()
     body = resp.get_json()
     assert body["voice"] == "libritts"
-    assert body["engine"] == "piper-tts"
+    assert body["engine"] == "piper-tts-stream"
     assert body["audio_url"].startswith("/api/voice/stream-tts/")
 
 

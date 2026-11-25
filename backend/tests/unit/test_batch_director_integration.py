@@ -152,6 +152,11 @@ def _image_req(prompts, model="sd-xl", **kw):
     return BatchImageRequest(batch_id="img1", prompts=rows, output_dir="/tmp/x", **kw)
 
 
+def _image_self():
+    # The pass only reaches ``self`` for the helper that records the typed prompt.
+    return SimpleNamespace(_remember_typed_prompt=BatchImageGenerator._remember_typed_prompt)
+
+
 def _image_director_stub(monkeypatch, rewrite):
     calls = []
 
@@ -168,7 +173,7 @@ def test_image_director_fallback_is_called_once_and_keeps_enhancer(monkeypatch):
     calls = _image_director_stub(monkeypatch, lambda prompts: prompts)
     req = _image_req(["a red fox", "a quiet harbour"], director_mode=True)
 
-    BatchImageGenerator._apply_director(SimpleNamespace(), req)
+    BatchImageGenerator._apply_director(_image_self(), req)
 
     assert len(calls) == 1
     assert [bp.prompt for bp in req.prompts] == ["a red fox", "a quiet harbour"]
@@ -182,7 +187,7 @@ def test_image_director_turns_enhancer_off_only_where_it_rewrote(monkeypatch):
     )
     req = _image_req(["a red fox", "a quiet harbour"], director_mode=True)
 
-    BatchImageGenerator._apply_director(SimpleNamespace(), req)
+    BatchImageGenerator._apply_director(_image_self(), req)
 
     assert len(calls) == 1
     first, second = req.prompts
@@ -197,7 +202,7 @@ def test_image_director_natural_family_fallback_keeps_enhancer(monkeypatch):
     calls = _image_director_stub(monkeypatch, lambda prompts: prompts)
     req = _image_req(["a red fox"], model="zimage-turbo")
 
-    BatchImageGenerator._apply_director(SimpleNamespace(), req)
+    BatchImageGenerator._apply_director(_image_self(), req)
 
     assert len(calls) == 1
     assert req.prompts[0].auto_enhance is True
@@ -210,7 +215,7 @@ def test_image_director_keeps_the_typed_prompt_for_the_image_name(monkeypatch):
     _image_director_stub(monkeypatch, lambda prompts: ["DIR:" + prompts[0]] + prompts[1:])
     req = _image_req(["a red fox", "a quiet harbour"], director_mode=True)
 
-    BatchImageGenerator._apply_director(SimpleNamespace(), req)
+    BatchImageGenerator._apply_director(_image_self(), req)
 
     first, second = req.prompts
     assert first.prompt == "DIR:a red fox"
@@ -230,7 +235,7 @@ def test_image_storyboard_keeps_the_typed_prompt_for_the_image_name(monkeypatch)
     req = _image_req(["placeholder one", "placeholder two"],
                      storyboard_concept="a lighthouse at dawn")
 
-    BatchImageGenerator._apply_director(SimpleNamespace(), req)
+    BatchImageGenerator._apply_director(_image_self(), req)
 
     assert [bp.metadata["typed_prompt"] for bp in req.prompts] == ["placeholder one", "placeholder two"]
     assert BatchImageGenerator._prompt_record(req.prompts[0])["rewritten_prompt"] == "wide shot of the lighthouse"
@@ -243,7 +248,7 @@ def test_image_storyboard_concept_fallback_keeps_enhancer(monkeypatch):
     req = _image_req(["placeholder one", "placeholder two"],
                      storyboard_concept="a lighthouse at dawn")
 
-    BatchImageGenerator._apply_director(SimpleNamespace(), req)
+    BatchImageGenerator._apply_director(_image_self(), req)
 
     assert [bp.prompt for bp in req.prompts] == ["a lighthouse at dawn"] * 2
     assert all(bp.auto_enhance is True for bp in req.prompts)
@@ -257,7 +262,7 @@ def test_image_storyboard_turns_enhancer_off_only_on_real_shots(monkeypatch):
     req = _image_req(["placeholder one", "placeholder two"],
                      storyboard_concept="a lighthouse at dawn")
 
-    BatchImageGenerator._apply_director(SimpleNamespace(), req)
+    BatchImageGenerator._apply_director(_image_self(), req)
 
     first, second = req.prompts
     assert (first.prompt, first.auto_enhance) == ("wide shot of the lighthouse", False)

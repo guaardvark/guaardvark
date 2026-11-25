@@ -72,6 +72,7 @@ def test_reload_never_kills(plugins_dir, answering, kills):
 
 def test_reload_picks_up_a_new_plugin_and_drops_a_removed_one(plugins_dir, answering, kills):
     manager = PluginManager(registry=PluginRegistry(plugins_dir=plugins_dir))
+    kills.clear()  # boot's own orphan cleanup
     added = plugins_dir / "newcomer"
     added.mkdir()
     (added / "plugin.json").write_text(json.dumps({

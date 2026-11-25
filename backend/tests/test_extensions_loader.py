@@ -161,7 +161,18 @@ def test_extension_api_modules_named_config_are_not_dropped(root, app):
     assert app.test_client().get("/api/template/config").status_code == 200
 
 
-def test_tasks_register_and_beat_merges(root):
+@pytest.fixture
+def current_celery_app_put_back():
+    """A test that makes its own Celery app current hands the thread back the
+    app that was current before, so @shared_task proxies elsewhere keep
+    resolving through the configured one."""
+    from celery import _state
+    before = getattr(_state._tls, "current_app", None)
+    yield
+    _state._tls.current_app = before
+
+
+def test_tasks_register_and_beat_merges(root, current_celery_app_put_back):
     from celery import Celery
     _install(root, "acme")
     exts = X.discover(root, environ={})

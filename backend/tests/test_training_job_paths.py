@@ -282,14 +282,20 @@ def export_steps(monkeypatch):
     plus the Ollama unload the pipeline does first."""
     seen = {}
 
-    def export_gguf(job_id, model_dir, quantization):
+    def export_gguf(job_id, model_dir, quantization, in_pipeline=False):
+        seen["export_in_pipeline"] = in_pipeline
         row = _row(job_id)
         seen["at_export"] = (row.status, row.completed_at, row.celery_task_id, row.progress,
                              json.loads(row.config_json))
         return {"gguf_path": f"{model_dir}/model.gguf"}
 
     monkeypatch.setattr(tt, "export_gguf_task", export_gguf)
-    monkeypatch.setattr(tt, "import_ollama_task", lambda job_id, model_dir, name: {"ollama_model_name": name})
+
+    def import_ollama(job_id, model_dir, name, in_pipeline=False):
+        seen["import_in_pipeline"] = in_pipeline
+        return {"ollama_model_name": name}
+
+    monkeypatch.setattr(tt, "import_ollama_task", import_ollama)
     monkeypatch.setattr("backend.services.gpu_resource_coordinator.get_available_vram", lambda: {})
     monkeypatch.setattr("backend.services.gpu_resource_coordinator.unload_ollama_models",
                         lambda *a, **k: {"success": True, "models_unloaded": []})
@@ -310,6 +316,9 @@ def test_the_pipeline_job_stays_running_from_parsing_through_training(
     assert pct == tt.PIPELINE_TRAIN_PROGRESS[1]
     assert config["parse_report"]["pairs_count"] == 60
     assert config["eval"]["gate"]["export_allowed"] is True
+    # Export and import are told the pipeline owns the job's status.
+    assert export_steps["export_in_pipeline"] is True
+    assert export_steps["import_in_pipeline"] is True
     # Only the pipeline itself announces completion.
     completes = [message for _, message, status in progress if status == "complete"]
     assert len(completes) == 1 and completes[0].startswith("Full pipeline complete")
@@ -345,7 +354,11 @@ def vision_script(monkeypatch, tmp_path):
         spec.loader.exec_module(module)
         return module
 
-    monkeypatch.setitem(sys.modules, "finetune_model", load("finetune_model"))
+    model_script = load("finetune_model")
+    # The trainer's libraries are stand-ins here, so no GPU is needed to follow
+    # its checkpoint logic; the check has its own tests.
+    monkeypatch.setattr(model_script, "require_cuda", lambda: None)
+    monkeypatch.setitem(sys.modules, "finetune_model", model_script)
     script = load("finetune_vision")
     monkeypatch.setattr(script, "MODELS_DIR", tmp_path / "models")
     monkeypatch.setattr(script.torch.cuda, "empty_cache", lambda: None)

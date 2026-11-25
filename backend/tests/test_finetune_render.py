@@ -284,7 +284,10 @@ def test_check_report_never_imports_unsloth_without_a_gpu(script, monkeypatch):
 
     class Watched(types.ModuleType):
         def __getattr__(self, name):
-            touched.append(f"{self.__name__}.{name}")
+            # inspect looks for __file__ on every loaded module when some other
+            # library reads a source line; that is not a use of Unsloth.
+            if not (name.startswith("__") and name.endswith("__")):
+                touched.append(f"{self.__name__}.{name}")
             raise AttributeError(name)
 
     for name in ("unsloth", "unsloth.chat_templates"):

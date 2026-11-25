@@ -37,7 +37,9 @@ def test_register_rejects_bad_arguments():
 
 
 def test_blocks_render_in_registration_order_separated_by_blank_lines():
-    cp.unregister_context_provider("page")
+    # Start from an empty registry: every built-in registered at import goes.
+    for name in cp.list_context_providers():
+        cp.unregister_context_provider(name)
     cp.register_context_provider("first", lambda pc, o: "one")
     cp.register_context_provider("second", lambda pc, o: "two")
     cp.register_context_provider("third", lambda pc, o: "three")

@@ -68,6 +68,15 @@ def test_match_text_scores_filters_and_counts_only_what_it_returns(app):
     assert not miss.access_count
 
 
+@pytest.fixture
+def no_brain_state(monkeypatch):
+    """The executor looks memories up itself only while BrainState is not
+    initialized (its system prompt carries the memory block otherwise), so
+    these tests start from a process where nothing has booted it."""
+    from backend.services.brain_state import BrainState
+    monkeypatch.setattr(BrainState, "_instance", None)
+
+
 class _ScriptedLLM:
     """Answers at once and keeps every message it was sent."""
     model = ""
@@ -81,7 +90,7 @@ class _ScriptedLLM:
         return SimpleNamespace(message=SimpleNamespace(content=reply))
 
 
-def test_agent_executor_puts_a_matching_memory_in_the_prompt(app):
+def test_agent_executor_puts_a_matching_memory_in_the_prompt(app, no_brain_state):
     _mem("m1", NOTES_FACT)
     _mem("m2", "The team meeting is on Tuesday at noon")
 
@@ -100,7 +109,7 @@ def test_agent_executor_puts_a_matching_memory_in_the_prompt(app):
     assert "team meeting" not in first_turn
 
 
-def test_agent_executor_adds_no_memory_block_when_nothing_matches(app):
+def test_agent_executor_adds_no_memory_block_when_nothing_matches(app, no_brain_state):
     _mem("m2", "The team meeting is on Tuesday at noon")
 
     from backend.services.agent_executor import AgentExecutor

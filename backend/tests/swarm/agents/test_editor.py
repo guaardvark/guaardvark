@@ -59,7 +59,8 @@ def test_render_skips_vo_when_no_dialogue(tmp_path):
     assert audio.tts.call_count == 1
     audio.tts.assert_called_with(
         text="Hello", voice="default",
-        output_path=str(Path(tmp_path) / "audio" / "shot_2_vo.wav"),
+        # Voiceover files are named by scene and shot; a shot with no scene is in scene 1.
+        output_path=str(Path(tmp_path) / "audio" / "shot_1_2_vo.wav"),
     )
     assert result.voiceover_paths[0] is None
     assert result.voiceover_paths[1] is not None
@@ -115,7 +116,7 @@ def test_render_calls_ffmpeg_concat_at_end(tmp_path):
     ffmpeg.concat_with_audio.assert_called_once()
     kwargs = ffmpeg.concat_with_audio.call_args.kwargs
     assert len(kwargs["video_clips"]) == 1
-    assert kwargs["voiceovers"] == [str(Path(tmp_path) / "audio" / "shot_1_vo.wav")]
+    assert kwargs["voiceovers"] == [str(Path(tmp_path) / "audio" / "shot_1_1_vo.wav")]
     assert kwargs["music_track"] == str(Path(tmp_path) / "audio" / "score.wav")
     assert result.final_mp4_path == str(Path(tmp_path) / "final.mp4")
 

@@ -158,6 +158,10 @@ def test_start_plugin_waits_the_manifest_timeout_before_giving_up(tmp_path, monk
         _gate=SimpleNamespace(try_acquire=lambda pid: (True, 0.0, ""), release=lambda pid: None),
         state_store=SimpleNamespace(reset_plugin_health_counters=lambda pid: None),
     )
+    stub._clear_start_warnings = lambda pid: PluginManager._clear_start_warnings(stub, pid)
+    stub._WARNING_LINE = PluginManager._WARNING_LINE
+    stub._LASTING_WARNING = PluginManager._LASTING_WARNING
+    stub._note_start_warnings = lambda pid, out: PluginManager._note_start_warnings(stub, pid, out)
 
     result = PluginManager.start_plugin(stub, "comfyui")
 
@@ -174,6 +178,7 @@ def _refresh_stub(before, answering, running_recorded):
         _check_service_running=lambda meta: answering,
         state_store=SimpleNamespace(get_running=lambda: list(running_recorded), set_running=saved.append),
     )
+    stub._persist_running_additions = lambda: PluginManager._persist_running_additions(stub)
     return stub, saved
 
 

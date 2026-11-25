@@ -1,6 +1,7 @@
 """The lesson reconciler's dry run previews exactly what a real run stages:
-active rows only, editable Markdown sources only, no group a settled proposal
-already answers, no line that is already hedged."""
+active rows only, editable knowledge files only, no group a settled proposal
+already answers, no line that is already hedged, no recipe claim that no single
+recipe's click step names."""
 import importlib.util
 import json
 import os
@@ -63,7 +64,7 @@ def _seed(root):
     # Two active rows are below the threshold; the archived ones are retired evidence.
     _belief("files icon", "self_knowledge_compact.md:20", 2)
     _belief("files icon", "self_knowledge_compact.md:20", 2, status="archived")
-    # JSON has no comments, and model_belief rows have no file line.
+    # No recipe's click step names the icon, and model_belief rows have no file line.
     _belief("firefox icon", "recipes.json:2", 5)
     _belief("purple unicorn", "model_belief", 3)
     # A person already rejected this one.
@@ -86,7 +87,7 @@ def test_plan_applies_every_filter_and_says_why(app):
         ("shortcuts panel", 50), ("dock", 10),
     }
     assert {(s.element, s.reason) for s in plan.skipped} == {
-        ("firefox icon", "not an editable knowledge file"),
+        ("firefox icon", "no single recipe clicks it, or it already has a note"),
         ("purple unicorn", "not an editable knowledge file"),
         ("settings gear", "already proposed, applied or rejected"),
         ("terminal", "line unreadable, blank or already hedged"),
@@ -159,6 +160,6 @@ def test_cli_dry_run_and_real_run_list_the_same_candidates(app, monkeypatch, cap
         "  - 4x: 'dock' @ self_knowledge_compact.md:10",
         "  - 3x: 'shortcuts panel' @ self_knowledge_compact.md:50",
     ]
-    assert "  - 5x: 'firefox icon' @ recipes.json:2 (not an editable knowledge file)" in dry
+    assert "  - 5x: 'firefox icon' @ recipes.json (no single recipe clicks it, or it already has a note)" in dry
     assert "  - 3x: 'purple unicorn' @ model_belief (not an editable knowledge file)" in dry
     assert "files icon" not in dry

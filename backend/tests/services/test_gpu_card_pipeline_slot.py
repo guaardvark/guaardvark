@@ -51,6 +51,8 @@ def _card_rows(o):
 def _generator(released):
     gen = oig.OfflineImageGenerator.__new__(oig.OfflineImageGenerator)
     gen._generation_lock = threading.RLock()
+    gen._pipeline = object()
+    gen._current_model = "zimage-turbo"
 
     def _unload():
         released.append("pipeline")

@@ -105,13 +105,46 @@ def test_run_storyboard_artist_uses_gpu_gate(monkeypatch):
     """run_storyboard_artist must claim the GPU exclusive slot around the
     generate loop and release it afterwards. The injected image_generator
     asserts the gate is held mid-generation; we assert it's free after."""
+    import backend.services.gpu_resource_coordinator as coord
+    import backend.services.gpu_resource_policy as grp
+    import backend.services.job_operation_gate as jog
     import backend.tasks.production_swarm_tasks as pst
-    from backend.services.job_operation_gate import get_gate
-    from backend.services.job_types import JobKind
 
-    gate = get_gate()
-    gate.release_gpu_exclusive(JobKind.VIDEO_RENDER, "storyboard_555")
-    assert gate.snapshot()["gpu_busy"] is False
+    # The session behind the storyboard claim also takes the cross-process
+    # lease, evicts residents, checks free VRAM and books the orchestrator.
+    # Those get an idle 16 GB card and in-memory stand-ins; the gate is real.
+    gate = _fresh_gate()
+    monkeypatch.setattr(jog, "get_gate", lambda: gate)
+    session_calls = []
+
+    class _IdleCard:
+        def get_available_vram(self):
+            return {"success": True, "available_mb": 15500, "total_mb": 16376}
+
+        def acquire_generic(self, label, lease_seconds=None):
+            session_calls.append(("lease", label))
+            return {"success": True}
+
+        def renew_generic(self, label, lease_seconds=None):
+            return True
+
+        def release_generic(self, label):
+            session_calls.append(("unlease", label))
+            return {"success": True}
+
+    monkeypatch.setattr(coord, "get_gpu_coordinator", lambda: _IdleCard())
+    monkeypatch.setattr(grp, "release_kept_image_pipeline", lambda image_model=None: False)
+    monkeypatch.setattr(grp, "reclaim_gpu", lambda **kw: session_calls.append(("reclaim", kw)))
+    monkeypatch.setattr(grp, "free_comfyui_vram", lambda **kw: True)
+    monkeypatch.setattr(grp, "_wait_until_fits", lambda *a, **kw: None)
+    monkeypatch.setattr(grp, "_load_admit_or_busy", lambda slot, ram_gb=2.0: None)
+    monkeypatch.setattr(
+        grp, "_orchestrator_request",
+        lambda slot, mb, **kw: session_calls.append(("book", slot)),
+    )
+    monkeypatch.setattr(
+        grp, "_orchestrator_release", lambda slot: session_calls.append(("unbook", slot)),
+    )
 
     seen = {}
 
@@ -164,6 +197,10 @@ def test_run_storyboard_artist_uses_gpu_gate(monkeypatch):
 
     assert seen.get("held_during_gen") is True, "gate must be held during generation"
     assert gate.snapshot()["gpu_busy"] is False, "gate must be released after generation"
+    slot = "video_render:storyboard_555"
+    assert [c for c in session_calls if c[0] != "reclaim"] == [
+        ("lease", slot), ("book", slot), ("unbook", slot), ("unlease", slot),
+    ]
 
 
 # ----------------------------------------------------------------------------

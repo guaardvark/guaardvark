@@ -239,8 +239,11 @@ def test_nothing_but_the_routes_starts_a_run():
     calls start_install or start_remove is the route behind the modal. The
     base-model Download (training_base_models) and the GGUF converter
     (training_gguf_converter) define their own pairs, called from the same
-    routes file; the search reranker (utils/reranker.py) defines its own
-    start_install, called from its Settings route in api/index_mgmt_api.py."""
+    routes file. Other installs define a start_install of their own, each
+    called from its own route: the search reranker (utils/reranker.py) and
+    Docling's PDF models (utils/docling_loader.py) from api/index_mgmt_api.py,
+    the identity encoder (services/identity_encoder.py) and the Cast training
+    adapter (services/cast_train_adapter.py) from api/cast_library_api.py."""
     backend = Path(tl.__file__).resolve().parents[1]
     skip = {"tests", "venv", ".venv", "node_modules", "__pycache__"}
     callers = set()
@@ -255,14 +258,18 @@ def test_nothing_but_the_routes_starts_a_run():
                 callers.add(path.relative_to(backend).as_posix())
     assert callers == {"api/training/routes.py", "services/training_libraries.py",
                        "services/training_base_models.py", "services/training_gguf_converter.py",
-                       "api/index_mgmt_api.py", "utils/reranker.py"}
+                       "api/index_mgmt_api.py", "utils/reranker.py", "utils/docling_loader.py",
+                       "api/cast_library_api.py", "services/identity_encoder.py",
+                       "services/cast_train_adapter.py"}
 
 
 def test_start_up_requirements_keep_what_an_install_moves():
     """start.sh, heal_backend_venv.sh and the dependency reconciler run
     `pip install -r` on these files, which reinstalls a package whose version
     falls outside its line. A package the install moves must stay inside it,
-    or the next start-up undoes the install and fine-tuning fails at step 1."""
+    or the next start-up undoes the install and fine-tuning fails at step 1.
+    A line and the range the install needs agree when some version at an
+    inclusive bound of either one satisfies both."""
     backend = Path(tl.__file__).resolve().parents[1]
     declared = []
     for name in ("requirements-base.txt", "requirements.txt"):
@@ -272,12 +279,14 @@ def test_start_up_requirements_keep_what_an_install_moves():
                 declared.append((name, Requirement(line)))
     checked = 0
     for package, (spec, _why) in tl.MAY_CHANGE.items():
-        edges = [Version(s.version) for s in SpecifierSet(spec) if s.operator in (">=", "<=", "==")]
+        needed = SpecifierSet(spec)
         for source, req in declared:
             if canonicalize_name(req.name) != package:
                 continue
             checked += 1
-            assert any(req.specifier.contains(v) for v in edges), (
+            edges = [Version(s.version) for s in (*needed, *req.specifier)
+                     if s.operator in (">=", "<=", "==") and not s.version.endswith(".*")]
+            assert any(needed.contains(v) and req.specifier.contains(v) for v in edges), (
                 f"{source} declares {req}, which start-up would hold outside {package}{spec}")
     assert checked, "no package the install moves is declared; this test checks nothing"
 

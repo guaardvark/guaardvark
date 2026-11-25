@@ -111,13 +111,17 @@ def test_hardware_fallback_takes_the_largest_model_that_fits(monkeypatch):
 def test_hardware_fallback_skips_models_that_do_not_fit(monkeypatch):
     _always_ready(monkeypatch)
     monkeypatch.setattr(vmr, "_video_setting", lambda k: "")
-    installed = {"hunyuan-t2v", "ltx23-distilled-fp8"}
+    installed = {"hunyuan-t2v", "minimax-h3-int8-full"}
     monkeypatch.setattr(vmr, "is_model_installed", lambda m: m in installed)
     small = min(vmr.vram_mb_for_model(m) for m in installed)
-    monkeypatch.setattr(vmr, "_probe_total_vram_mb", lambda: small + 1024)
+    # A card at the smaller model's declared floor: it holds that model and is
+    # both under the larger one's floor and too small for its booking.
+    card = vmr.model_capabilities("hunyuan-t2v")["min_vram_gb"] * 1024
+    assert small + 1024 <= card < max(vmr.vram_mb_for_model(m) for m in installed)
+    monkeypatch.setattr(vmr, "_probe_total_vram_mb", lambda: card)
     mid, err = vmr.resolve_active_video_model("t2v")
     assert err is None
-    assert vmr.vram_mb_for_model(mid) == small
+    assert mid == "hunyuan-t2v" and vmr.vram_mb_for_model(mid) == small
 
 
 @pytest.mark.parametrize("model,frames,expect_down,expect_up", [

@@ -140,8 +140,11 @@ def test_flags_follow_the_engine(tmp_path):
     turn = _route(tmp_path, "explain how transformers work, without any tools", dry=True)
     assert turn.route is tr.Route.CHAT and turn.flags["skip_tools"] is True
     assert "declines_tools" in turn.triggers
-    turn = _route(tmp_path, "my code is throwing an error", dry=True)
+    turn = _route(tmp_path, "my favourite colour is green", dry=True)
     assert turn.flags["memory_candidate"] is True and "memory" in turn.triggers
+    # A problem report is not filed as a fact.
+    turn = _route(tmp_path, "my code is throwing an error", dry=True)
+    assert turn.flags["memory_candidate"] is False and "memory" not in turn.triggers
 
 
 def test_direct_turn_records_an_entry_point_shortcut(telemetry_file):

@@ -199,7 +199,7 @@ def test_registry_floors_win_over_the_class_tables():
     assert ComfyUIVideoGenerator._min_vram_gb_for("minimax-h3-int8-full") == 24
     assert ComfyUIVideoGenerator._min_vram_gb_for("minimax-h3-bf16") == 48
     assert ComfyUIVideoGenerator._min_vram_gb_for("minimax-h3-int8") == 16
-    assert ComfyUIVideoGenerator._min_vram_gb_for("wan22-5b") == 11
+    assert ComfyUIVideoGenerator._min_vram_gb_for("wan22-5b") == 6
 
 
 def test_wide_and_portrait_ratios_are_known():

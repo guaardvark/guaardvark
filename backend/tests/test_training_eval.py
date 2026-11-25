@@ -287,11 +287,11 @@ def export_steps(monkeypatch):
     behind the second one, plus the Ollama unload the pipeline does first."""
     calls = SimpleNamespace(export=[], register=[])
 
-    def export_gguf(job_id, model_dir, quantization):
+    def export_gguf(job_id, model_dir, quantization, in_pipeline=False):
         calls.export.append(model_dir)
         return {"gguf_path": f"{model_dir}/model.gguf"}
 
-    def import_ollama(job_id, model_dir, model_name):
+    def import_ollama(job_id, model_dir, model_name, in_pipeline=False):
         calls.register.append(model_name)
         return {"ollama_model_name": model_name}
 

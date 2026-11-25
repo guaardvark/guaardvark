@@ -37,6 +37,7 @@ def test_url_helpers():
 def test_platform_detection_rejects_lookalikes():
     from backend.api.social_outreach_api import _suggest_platform_from_host
     from backend.services import dom_metadata_extractor as dme
+    from backend.services.social_outreach import platforms
 
     owner = next(c for c in vars(dme).values() if isinstance(c, type) and hasattr(c, "detect_platform"))
     detect_platform = owner.detect_platform
@@ -44,7 +45,15 @@ def test_platform_detection_rejects_lookalikes():
     assert _suggest_platform_from_host("old.reddit.com") == "reddit"
     assert _suggest_platform_from_host("reddit.com.evil.tld") is None
     assert _suggest_platform_from_host("box.com") is None
-    assert _suggest_platform_from_host("x.com") == "twitter"
+    assert _suggest_platform_from_host("fb.com") == "facebook"
+    assert _suggest_platform_from_host("discord.gg.evil.tld") is None
+    # X is a refused platform: its hosts are never suggested as one to draft
+    # for, and its URLs carry the refusal, look-alikes excepted.
+    assert _suggest_platform_from_host("x.com") is None
+    assert platforms.refusal_for_url("https://x.com/someone/status/1")
+    assert platforms.refusal_for_url("https://mobile.twitter.com/someone")
+    assert platforms.refusal_for_url("https://box.com/x") is None
+    assert platforms.refusal_for_url("https://x.com.evil.tld/") is None
     assert detect_platform("https://discord.gg/abc") == "discord"
     assert detect_platform("https://www.facebook.com/groups/1") == "facebook"
     assert detect_platform("https://facebook.com.evil.tld/") is None

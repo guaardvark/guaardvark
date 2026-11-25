@@ -238,6 +238,7 @@ def test_gpu_session_fit_refusal_after_claim_skips_cooldown(fresh_gate, monkeypa
     """A require_fit refusal never touched the card: the gate is released with
     no post-release cooldown, while a completed session still starts one."""
     _patch_vram(monkeypatch, free_mb=5000, total_mb=16376)
+    monkeypatch.setattr(grp.time, "sleep", lambda s: None)
     with pytest.raises(GpuBusyError, match="another model/render may be resident"):
         with grp.gpu_session(JobKind.VIDEO_RENDER, "fit", vram_estimate_mb=14000, require_fit=True):
             pass

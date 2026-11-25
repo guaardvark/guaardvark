@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -75,8 +76,19 @@ def health_server():
 
 @pytest.fixture
 def sleeps(monkeypatch):
+    """Record the launch module's sleeps instead of waiting. Only that module's
+    view of `time` is replaced: patching `time.sleep` itself would also take the
+    wait out of every background thread in the process."""
     slept: list[float] = []
-    monkeypatch.setattr("llx.commands.launch.time.sleep", slept.append)
+    from llx.commands import launch
+
+    class _Time:
+        sleep = staticmethod(slept.append)
+
+        def __getattr__(self, name):
+            return getattr(time, name)
+
+    monkeypatch.setattr(launch, "time", _Time())
     return slept
 
 

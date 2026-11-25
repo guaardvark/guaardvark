@@ -259,7 +259,7 @@ def test_an_admitted_comfy_still_releases_its_gpu_claim_when_stopped(comfy, monk
 
     queued = []
     monkeypatch.setattr(comfy, "_edit_gpu_session", session)
-    monkeypatch.setattr(comfy, "_queue", lambda wf: queued.append(wf) or "p-2")
+    monkeypatch.setattr(comfy, "_queue", lambda wf, client_id=None: queued.append(wf) or "p-2")
     with pytest.raises(RenderStopped):
         comfy._run_edit_graph({}, str(tmp_path / "o.png"), job="stills_comfy", vram_mb=1000,
                               timeout=300, should_stop=lambda: bool(queued))

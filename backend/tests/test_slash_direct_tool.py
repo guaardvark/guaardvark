@@ -210,12 +210,12 @@ class TestDirectToolIntercept:
 
 class TestParamRecovery:
     def test_literal_prompt_placeholder_rejected(self):
-        from backend.services.agent_tools import ToolRegistry
+        from backend.services.agent_tools import ToolParameter, ToolRegistry
 
         class FakeTool:
             name = "generate_image"
             parameters = {
-                "prompt": type("P", (), {"required": True, "type": "string", "default": None})(),
+                "prompt": ToolParameter(name="prompt", type="string", required=True),
             }
             requires_approval = False
 
