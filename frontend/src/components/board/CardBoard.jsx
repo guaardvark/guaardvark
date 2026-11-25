@@ -188,7 +188,7 @@ const CardBoard = ({
               key={cardId}
               data-card-id={cardId}
               style={{
-                transition: "transform 0.2s ease-out, box-shadow 0.2s ease-out",
+                transition: "transform 0.2s ease-out, box-shadow 0.2s ease-out, rotate 0.15s ease-out, scale 0.15s ease-out",
                 height: isMinimized ? "auto" : "100%",
                 maxHeight: "100%",
                 overflow: "hidden",
