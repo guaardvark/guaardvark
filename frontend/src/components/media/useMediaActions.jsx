@@ -36,6 +36,7 @@ const documentTarget = (file) => ({
   kind: "document",
   documentId: file.id,
   name: file.title || file.filename || file.name,
+  filename: file.filename || file.name,
   url: downloadUrl(file),
 });
 
