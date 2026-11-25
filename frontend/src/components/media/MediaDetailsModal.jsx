@@ -39,6 +39,7 @@ import {
   Tune as AdjustIcon,
 } from '@mui/icons-material';
 import { getClipRecipe, getDocumentRecipe, regenerateMedia } from '../../api/mediaRecipeService';
+import { isAudioFile, isVideoFile } from '../documents/fileUtils.jsx';
 import { useUiTranslation } from '../../i18n';
 import copyText from '../../utils/copyText';
 
@@ -100,7 +101,10 @@ const MediaDetailsModal = ({ open, target, onClose, onPrev, onNext, hasPrev = fa
 
   const previewUrl = isClip ? clip?.url : (target?.url || recipe?.url);
   const name = isClip ? (clip?.name || recipe?.title) : (target?.name || recipe?.title);
-  const media = recipe?.media || (isClip ? 'video' : 'image');
+  // Until the recipe answers (or when a file has none), the file name says what it is.
+  const fileName = target?.filename || name || '';
+  const byName = isVideoFile(fileName) ? 'video' : isAudioFile(fileName) ? 'audio' : 'image';
+  const media = recipe?.media || (isClip ? 'video' : byName);
 
   const handleRegenerate = useCallback(async (sameSeed) => {
     setBusy(sameSeed ? 'same' : 'new');
