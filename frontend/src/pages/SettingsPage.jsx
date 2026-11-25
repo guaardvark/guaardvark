@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Typography,
   Box,
+  Checkbox,
+  FormControlLabel,
   Select,
   MenuItem,
   FormControl,
@@ -358,6 +360,7 @@ const SettingsPage = () => {
   const [rebootDialogOpen, setRebootDialogOpen] = useState(false);
   const [deleteHistoryDialogOpen, setDeleteHistoryDialogOpen] = useState(false);
   const [deleteHistoryCounts, setDeleteHistoryCounts] = useState(null);
+  const [deleteHistoryInclude, setDeleteHistoryInclude] = useState([]);
   const [deleteHistoryInProgress, setDeleteHistoryInProgress] = useState(false);
   const [rebootInProgress, setRebootInProgress] = useState(false);
   const [rebootProgressModalOpen, setRebootProgressModalOpen] = useState(false);
@@ -1610,6 +1613,7 @@ const SettingsPage = () => {
     try {
       const counts = await apiService.getGenerationHistoryCounts();
       setDeleteHistoryCounts(counts && !counts.error ? counts : null);
+      setDeleteHistoryInclude([]);
       setDeleteHistoryDialogOpen(true);
     } finally {
       setIsLoading(false);
@@ -1626,7 +1630,7 @@ const SettingsPage = () => {
     setIsLoading(true);
     showMessage(t("settings.history.deleting"), "info");
     try {
-      const result = await apiService.deleteGenerationHistory();
+      const result = await apiService.deleteGenerationHistory(deleteHistoryInclude);
       const d = result?.deleted || {};
       const parts = [];
       if (d.images?.batches) parts.push(t("settings.history.imageBatches", { count: d.images.batches }));
@@ -1643,6 +1647,11 @@ const SettingsPage = () => {
         (d.upscales?.files || 0) +
         (d.previews?.files || 0);
       if (otherFiles) parts.push(t("settings.history.otherFiles", { count: otherFiles }));
+      const projectItems = Object.values(d.optional || {}).reduce(
+        (sum, kind) => sum + (kind.items || 0),
+        0,
+      );
+      if (projectItems) parts.push(t("settings.history.projects", { count: projectItems }));
       const comfyFiles =
         (d.comfyui?.output?.files || 0) +
         (d.comfyui?.input?.files || 0) +
@@ -1659,7 +1668,8 @@ const SettingsPage = () => {
         (skipped.images?.length || 0) +
         (skipped.videos?.length || 0) +
         (skipped.audio?.length || 0) +
-        (skipped.upscales || 0);
+        (skipped.upscales || 0) +
+        Object.values(d.optional || {}).reduce((sum, kind) => sum + (kind.skipped || 0), 0);
       if (skippedCount) message += ` ${t("settings.history.skipped", { count: skippedCount })}`;
       if (skipped.comfyui?.length)
         message += ` ${t("settings.history.comfyRendering", { count: skipped.comfyui.length })}`;
@@ -4160,6 +4170,55 @@ const SettingsPage = () => {
         },
       ]
     : [];
+  const deleteHistoryOptions = [
+    ["productions", "optionalProductions"],
+    ["music_videos", "optionalMusicVideos"],
+    ["cast_samples", "optionalCastSamples"],
+  ];
+  const deleteHistoryExtra = (
+    <Box>
+      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+        {t("settings.deleteHistory.optionalTitle")}
+      </Typography>
+      {deleteHistoryOptions.map(([kind, label]) => {
+        const count = deleteHistoryCounts?.optional?.[kind];
+        return (
+          <FormControlLabel
+            key={kind}
+            sx={{ display: "flex", ml: 0, alignItems: "flex-start" }}
+            control={
+              <Checkbox
+                size="small"
+                sx={{ py: 0.25 }}
+                checked={deleteHistoryInclude.includes(kind)}
+                disabled={deleteHistoryInProgress}
+                onChange={(e) =>
+                  setDeleteHistoryInclude((prev) =>
+                    e.target.checked ? [...prev, kind] : prev.filter((k) => k !== kind),
+                  )
+                }
+              />
+            }
+            label={
+              <Typography variant="body2">
+                {t(`settings.deleteHistory.${label}`)}
+                {count
+                  ? ` · ${t("settings.deleteHistory.optionalValue", {
+                      items: count.items || 0,
+                      files: count.files || 0,
+                      size: formatByteSize(count.bytes),
+                    })}`
+                  : ""}
+                {count?.running
+                  ? ` · ${t("settings.deleteHistory.optionalRunning", { count: count.running })}`
+                  : ""}
+              </Typography>
+            }
+          />
+        );
+      })}
+    </Box>
+  );
   const deleteHistoryRunning =
     deleteHistoryCounts?.images?.running?.length ||
     deleteHistoryCounts?.videos?.running?.length ||
@@ -4348,6 +4407,7 @@ const SettingsPage = () => {
           </>
         }
         facts={deleteHistoryFacts}
+        extra={deleteHistoryExtra}
         keeps={t("settings.deleteHistory.keeps")}
         confirmLabel={t("settings.deleteHistory.confirm")}
         busy={deleteHistoryInProgress}

@@ -316,11 +316,15 @@ def generation_history_counts():
 
 @cache_bp.route("/generation-history", methods=["DELETE"])
 def delete_generation_history_endpoint():
-    """Delete all batch-image, batch-video and audio generation history,
-    plus ComfyUI's output/ and input/ scratch."""
+    """Delete generation history. A JSON body ``{"include": [...]}`` names the
+    optional project kinds (productions, music_videos, cast_samples) to delete too."""
     try:
         from backend.services.generation_history_service import delete_generation_history
-        result = delete_generation_history(triggered_by=request.remote_addr or "settings_ui")
+        body = request.get_json(silent=True) or {}
+        include = [k for k in (body.get("include") or []) if isinstance(k, str)]
+        result = delete_generation_history(
+            include=include, triggered_by=request.remote_addr or "settings_ui"
+        )
         # Same convention as clear-pycache: partial failure is 207, never 500.
         return jsonify(result), (200 if result.get("success") else 207)
     except Exception as e:

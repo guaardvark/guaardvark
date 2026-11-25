@@ -317,6 +317,7 @@ def test_comfyui_scratch_is_counted_and_purged_except_example(seeded, comfy, no_
     assert counts["comfyui"] == {
         "output": {"files": 2, "bytes": 330},
         "input": {"files": 2, "bytes": 90},
+        "staging": {"files": 0, "bytes": 0},
         "files": 4, "bytes": 420, "running": [],
     }
     img_bytes = _tree(seeded / "Images" / "ImageBatch_x")[1]
@@ -326,7 +327,9 @@ def test_comfyui_scratch_is_counted_and_purged_except_example(seeded, comfy, no_
     result = svc.delete_generation_history(upload_dir=seeded, triggered_by="test")
     assert result["success"], result["errors"]
     assert result["skipped"]["comfyui"] == []
-    assert result["deleted"]["comfyui"] == {"output": {"files": 2, "bytes": 330}, "input": {"files": 2, "bytes": 90}}
+    assert result["deleted"]["comfyui"] == {
+        "output": {"files": 2, "bytes": 330}, "input": {"files": 2, "bytes": 90}, "staging": {"files": 0, "bytes": 0},
+    }
     assert result["bytes_freed"] == img_bytes + vid_bytes + 52 + 420
     assert sorted(p.name for p in (comfy / "output").iterdir()) == []
     assert sorted(p.name for p in (comfy / "input").iterdir()) == ["example.png"]
@@ -359,7 +362,9 @@ def test_comfyui_in_flight_defers_both_scratch_folders(seeded, comfy, no_generat
     result = svc.delete_generation_history(upload_dir=seeded)
     assert result["success"], result["errors"]
     assert result["skipped"]["comfyui"] == ["prompt-a", "prompt-b"]
-    assert result["deleted"]["comfyui"] == {"output": {"files": 0, "bytes": 0}, "input": {"files": 0, "bytes": 0}}
+    assert result["deleted"]["comfyui"] == {
+        "output": {"files": 0, "bytes": 0}, "input": {"files": 0, "bytes": 0}, "staging": {"files": 0, "bytes": 0},
+    }
     assert (comfy / "output" / "wan22_i2v_00001.mp4").exists()
     assert (comfy / "input" / "3d" / "model.glb").exists()
     # Batch history still went.
@@ -394,7 +399,9 @@ def test_comfyui_queue_error_leaves_scratch_alone_and_is_reported(seeded, comfy,
 def test_comfyui_dir_without_scratch_folders_is_a_no_op(app, tmp_path, no_generators, sidecar_down):
     result = svc.delete_generation_history(upload_dir=tmp_path, comfyui_dir=tmp_path / "nowhere")
     assert result["success"] and result["bytes_freed"] == 0
-    assert result["deleted"]["comfyui"] == {"output": {"files": 0, "bytes": 0}, "input": {"files": 0, "bytes": 0}}
+    assert result["deleted"]["comfyui"] == {
+        "output": {"files": 0, "bytes": 0}, "input": {"files": 0, "bytes": 0}, "staging": {"files": 0, "bytes": 0},
+    }
 
 
 def test_spoken_clips_in_the_voice_subfolder_are_history(seeded, no_generators, sidecar_down):
@@ -606,4 +613,119 @@ def test_minimax_music_and_library_upscales_are_history(seeded, no_generators, s
     assert not (upload / "Images" / "wan22_i2v_00007__upscaled.png").exists()
     assert (upload / "Audio" / "NARRATOR.wav").exists()
     assert result["deleted"]["loose"]["files"] >= 1
+
+
+def _seed_projects(out):
+    from backend.models import MusicVideo, Production, Subject, SubjectSample
+
+    done = Production(name="done", script_text="x", status="complete", current_stage="complete")
+    busy = Production(name="busy", script_text="x", status="rendering", current_stage="rendering")
+    db.session.add_all([done, busy])
+    db.session.flush()
+    for prod in (done, busy):
+        for sub in ("productions", "storyboards"):
+            d = out / sub / str(prod.id)
+            d.mkdir(parents=True)
+            (d / "shot.png").write_bytes(b"p" * 10)
+    root = Folder(name="orphan", path="orphan")
+    db.session.add(root)
+    db.session.flush()
+    leaf = Folder(name="final", path=f"orphan/productions/{done.id}/final", parent_id=root.id)
+    db.session.add(leaf)
+    db.session.flush()
+    film = out / "productions" / str(done.id) / "final.mp4"
+    film.write_bytes(b"f" * 30)
+    db.session.add(Document(filename="final.mp4", path=str(film), folder_id=leaf.id))
+
+    renders = out / "videos" / "editor-renders"
+    renders.mkdir(parents=True)
+    (renders / "arrangement_aa.mp4").write_bytes(b"m" * 50)
+    (renders / "mine.mp4").write_bytes(b"keep")
+    output = Document(filename="arrangement_aa.mp4", path="Videos/arrangement_aa.mp4")
+    db.session.add(output)
+    db.session.flush()
+    mv = MusicVideo(name="mv", style_prompt="x", status="complete", current_stage="complete",
+                    output_document_id=output.id)
+    db.session.add(mv)
+    db.session.flush()
+    clips = out / "videos" / f"music_video_{mv.id}" / "clips"
+    clips.mkdir(parents=True)
+    (clips / "clip_0_ab.mp4").write_bytes(b"c" * 20)
+
+    samples = out / "character_samples" / "1"
+    samples.mkdir(parents=True)
+    for i in range(2):
+        (samples / f"sample_{i}.png").write_bytes(b"s" * 5)
+        (samples / f"sample_{i}.txt").write_text("cap")
+    subject = Subject(kind="character", name="Sage", ref_image_paths=[str(samples / "sample_0.png")])
+    db.session.add(subject)
+    db.session.flush()
+    db.session.add_all([
+        SubjectSample(subject_id=subject.id, index=0, image_path=str(samples / "sample_0.png"),
+                      status="done", promoted_to_training=True),
+        SubjectSample(subject_id=subject.id, index=1, image_path=str(samples / "sample_1.png"), status="done"),
+    ])
+    db.session.commit()
+    return {"done": done.id, "busy": busy.id, "mv": mv.id}
+
+
+def test_projects_are_kept_unless_named(app, tmp_path, outputs, no_generators, sidecar_down):
+    from backend.models import MusicVideo, Production, SubjectSample
+
+    out = outputs["out"]
+    ids = _seed_projects(out)
+    upload = tmp_path / "uploads"
+    upload.mkdir()
+    before = _names(out)
+
+    counts = svc.count_generation_history(upload_dir=upload)["optional"]
+    assert counts["productions"]["items"] == 1 and counts["productions"]["running"] == 1
+    assert counts["music_videos"] == {"items": 1, "files": 2, "bytes": 70, "running": 0}
+    assert counts["cast_samples"]["items"] == 1 and counts["cast_samples"]["files"] == 2
+
+    result = svc.delete_generation_history(upload_dir=upload)
+    assert result["success"], result["errors"]
+    assert result["deleted"]["optional"] == {}
+    assert _names(out) == before
+    assert Production.query.count() == 2 and MusicVideo.query.count() == 1 and SubjectSample.query.count() == 2
+
+    result = svc.delete_generation_history(upload_dir=upload, include=list(svc.OPTIONAL_KINDS))
+    assert result["success"], result["errors"]
+    assert result["deleted"]["optional"]["productions"]["skipped"] == 1
+    # The production an agent is rendering, the sample that became training
+    # data, and the editor render no music video owns are all still there.
+    assert _names(out) == sorted([
+        "character_samples/1/sample_0.png",
+        "character_samples/1/sample_0.txt",
+        f"productions/{ids['busy']}/shot.png",
+        f"storyboards/{ids['busy']}/shot.png",
+        "videos/editor-renders/mine.mp4",
+    ])
+    assert [p.id for p in Production.query.all()] == [ids["busy"]]
+    assert MusicVideo.query.count() == 0
+    assert [s.index for s in SubjectSample.query.all()] == [0]
+    assert Document.query.count() == 0
+    assert {f.path for f in Folder.query.all()} == {"orphan"}
+
+
+def test_render_records_whose_file_is_gone_are_removed(app, tmp_path, no_generators, sidecar_down):
+    upload = tmp_path / "uploads"
+    (upload / "Videos" / "clips").mkdir(parents=True)
+    (upload / "Videos" / "clips" / "here.mp4").write_bytes(b"v")
+    root = Folder(name="Videos", path="Videos")
+    db.session.add(root)
+    db.session.flush()
+    clips = Folder(name="clips", path="Videos/clips", parent_id=root.id)
+    db.session.add(clips)
+    db.session.flush()
+    meta = json.dumps({"source": "comfyui", "prompt": "a horse"})
+    db.session.add_all([
+        Document(filename="wan22_i2v_00001.mp4", path="Videos/clips/wan22_i2v_00001.mp4",
+                 folder_id=clips.id, file_metadata=meta),
+        Document(filename="here.mp4", path="Videos/clips/here.mp4", folder_id=clips.id, file_metadata=meta),
+        Document(filename="arrangement.mp4", path="Videos/arrangement.mp4", folder_id=root.id),
+    ])
+    db.session.commit()
+    svc.delete_generation_history(upload_dir=upload)
+    assert {d.filename for d in Document.query.all()} == {"here.mp4", "arrangement.mp4"}
 
