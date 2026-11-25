@@ -2272,7 +2272,9 @@ def _check_celery() -> tuple[dict, int]:
         error_msg = str(exc)
 
         # Ping timeout with registered workers = backlog on solo-pool worker, not dead.
-        if "timeout" in error_msg.lower():
+        # Celery's own timeout reads "The operation timed out.", so go by its type.
+        from celery.exceptions import TimeoutError as PingTimeout
+        if isinstance(exc, PingTimeout) or "timeout" in error_msg.lower():
             try:
                 from backend.celery_app import celery
                 snap = _celery_worker_snapshot(celery)
