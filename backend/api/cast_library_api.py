@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 
 from backend.config import STORAGE_DIR
 from backend.utils.path_guard import contained_path
+from backend.utils.display_paths import display_path, display_text
 from backend.celery_dispatch import TaskNotStarted, mark_progress_not_started
 from backend.models import db, Subject, SubjectSample
 from backend.services.cast_lora_selection import (
@@ -131,6 +132,12 @@ def _effective_training_settings(s: Subject) -> dict:
         return {}
 
 
+def _shown_path(path):
+    """A stored path as a page prints it (checkout-relative or ``~/...``).
+    The sibling field keeps the real path for anything sent back."""
+    return display_path(path) if path else path
+
+
 def _serialize(s: Subject) -> dict:
     try:
         from backend.services.media_model_registry import (
@@ -142,6 +149,7 @@ def _serialize(s: Subject) -> dict:
     except Exception:
         base_id = "zimage-turbo"
         base_prof = {}
+    training_error = getattr(s, 'training_error', None)
     return {
         "id": s.id, "kind": s.kind, "name": s.name,
         "description": s.description,
@@ -153,11 +161,16 @@ def _serialize(s: Subject) -> dict:
         # Every LoRA this member holds, one row per import/train per base; the
         # Versions tab groups these by base. Newest version of each base first.
         "lora_versions": sorted(
-            (r.to_dict() for r in (s.lora_versions or [])),
+            ({**r.to_dict(), "display": {"lora_path": _shown_path(r.lora_path)}}
+             for r in (s.lora_versions or [])),
             key=lambda r: (r["base_model_id"], -r["version"]),
         ),
         "training_status": s.training_status,
-        "training_error": getattr(s, 'training_error', None),
+        "training_error": training_error,
+        "display": {
+            "lora_path": _shown_path(s.lora_path),
+            "training_error": display_text(training_error) if training_error else training_error,
+        },
         "current_training_job_id": getattr(s, 'current_training_job_id', None),
         "last_trained_image_paths": getattr(s, 'last_trained_image_paths', None) or [],
         "last_trained_at": getattr(s, 'last_trained_at', None).isoformat() if getattr(s, 'last_trained_at', None) else None,

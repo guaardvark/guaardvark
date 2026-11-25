@@ -33,7 +33,7 @@ export const TrainingOutcomeNotice = ({ subject }) => {
             mb: 0.5,
           }}
         >
-          {subject.training_error}
+          {subject.display?.training_error ?? subject.training_error}
         </Typography>
         <Typography variant="caption">
           {t('cast.trainingData.failedHelp')}

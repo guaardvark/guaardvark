@@ -248,6 +248,7 @@ const CastMemberPage = () => {
           source: subject.training_settings_json?.imported ? 'imported' : 'trained',
           trigger_word: subject.trigger_word,
           lora_path: subject.lora_path,
+          display: { lora_path: subject.display?.lora_path },
         },
         isDefault: true,
       });
@@ -1377,7 +1378,7 @@ const CastMemberPage = () => {
           <Typography variant="body2"><Trans i18nKey="cast.versions.status" components={{ bold: <b /> }} values={{ status: subject.training_status }} /></Typography>
           <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
             {subject.lora_path
-              ? t('cast.versions.defaultPath', { path: subject.lora_path })
+              ? t('cast.versions.defaultPath', { path: subject.display?.lora_path ?? subject.lora_path })
               : <Trans i18nKey="cast.versions.defaultPathNone" components={{ italic: <em /> }} />}
           </Typography>
           <Box sx={{ mt: 1.5 }}>
@@ -1434,7 +1435,7 @@ const CastMemberPage = () => {
                     variant="caption"
                     sx={{ color: "text.secondary", display: "block", wordBreak: 'break-all' }}
                   >
-                    {current.lora_path}
+                    {current.display?.lora_path ?? current.lora_path}
                   </Typography>
                 </Box>
               ))
