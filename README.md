@@ -53,7 +53,7 @@ https://github.com/user-attachments/assets/6ee72d6a-3a25-4380-92a9-a4b66e8b7e05
 
 ## Quick start
 
-**Linux with an NVIDIA GPU** (16 GB for video, 12 GB for the Wan 2.2 5B; chat, RAG and agents run on less, see the [hardware tiers](docs/HARDWARE.md)). A fresh Ubuntu desktop has no `curl` or `git`; run `sudo apt install -y curl git` first.
+**Linux with an NVIDIA GPU** (16 GB for video, 8 GB for the Wan 2.2 5B; chat, RAG and agents run on less, see the [hardware tiers](docs/HARDWARE.md)). A fresh Ubuntu desktop has no `curl` or `git`; run `sudo apt install -y curl git` first.
 
 ```bash
 curl -fsSL https://guaardvark.com/install.sh | bash
@@ -177,7 +177,7 @@ All generation runs on your GPU. No cloud APIs, no per-minute billing.
 
 | Model | Type | Max duration | Native resolution | VRAM |
 |-------|------|-------------|-------------------|------|
-| **Wan 2.2 TI2V-5B** (default) | Text + image to video | ~5 s (up to 121 frames @ 24 fps) | 1280x704 | ~11 GB |
+| **Wan 2.2 TI2V-5B** (default) | Text + image to video | ~5 s (up to 121 frames @ 24 fps) | 1280x704 | 8 GB |
 | **Wan 2.2 14B MoE** | Text to video | 5 s (81 frames @ 16 fps) | 832x480 | 16 GB |
 | **Wan 2.2 14B I2V** | Image to video | 5 s (81 frames @ 16 fps) | 832x480 | 16 GB |
 | **CogVideoX-5B** | Text to video | 6 s (49 frames @ 8 fps) | 720x480 | 16 GB |
