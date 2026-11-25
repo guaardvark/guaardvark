@@ -2195,17 +2195,31 @@ def health_frontend():
     )
 
 
+# The last Celery check as (payload, HTTP status), and when it was made.
 _celery_health_cache = {"data": None, "timestamp": 0}
 _HEALTH_CACHE_DURATION = 30
+# A "down" answer is renewed sooner, so a worker that has just started shows as up.
+_HEALTH_CACHE_DURATION_DOWN = 5
+# Held while a check runs, so there is one at a time.
+_celery_health_lock = threading.Lock()
+
+
+def _celery_health_is_fresh() -> bool:
+    cached = _celery_health_cache["data"]
+    if cached is None:
+        return False
+    keep = _HEALTH_CACHE_DURATION_DOWN if cached[0].get("status") == "down" else _HEALTH_CACHE_DURATION
+    return time.time() - _celery_health_cache["timestamp"] < keep
 
 
 def _celery_worker_snapshot(celery, timeout: float = 2.0) -> dict:
     """Best-effort worker state for health/busy reporting."""
-    insp = celery.control.inspect(timeout=timeout)
-    stats = insp.stats() or {}
-    active = insp.active() or {}
-    scheduled = insp.scheduled() or {}
-    reserved = insp.reserved() or {}
+    from backend.utils.celery_inspect import inspect_workers
+
+    stats = inspect_workers(celery, "stats", timeout)
+    active = inspect_workers(celery, "active", timeout)
+    scheduled = inspect_workers(celery, "scheduled", timeout)
+    reserved = inspect_workers(celery, "reserved", timeout)
     active_count = sum(len(v or []) for v in active.values())
     queued_count = sum(
         len(v or []) for v in list(scheduled.values()) + list(reserved.values())
@@ -2230,57 +2244,30 @@ def _celery_workers_registered(celery) -> bool:
         return False
 
 
-@app.route("/api/health/celery")
-def health_celery():
-    import time
-
-    current_time = time.time()
-    if (_celery_health_cache["data"] is not None and
-        current_time - _celery_health_cache["timestamp"] < _HEALTH_CACHE_DURATION):
-        return _celery_health_cache["data"]
-
-    previous_status = None
-    if _celery_health_cache["data"] is not None:
-        try:
-            previous_status = _celery_health_cache["data"][0].get_json().get("status")
-        except Exception:
-            app.logger.warning("Failed to read previous celery health status (non-fatal)", exc_info=True)  # noqa: BLE001
-
-    def _cache_and_return(response_tuple, status_key: str):
-        if previous_status != status_key:
-            try:
-                from backend.socketio_events import emit_health_status_change
-                payload = response_tuple[0].get_json()
-                emit_health_status_change("celery", status_key, payload)
-            except Exception as e:
-                app.logger.warning(f"Failed to emit health status change: {e}")
-        _celery_health_cache["data"] = response_tuple
-        _celery_health_cache["timestamp"] = current_time
-        return response_tuple
-
+def _check_celery() -> tuple[dict, int]:
+    """Ping the worker through its queue and describe it: (payload, HTTP status)."""
     try:
         from backend.celery_app import celery
         result = celery.send_task('backend.celery_tasks_isolated.ping', queue='health')
-        # Short timeout: if the worker is busy with a long task (LoRA train etc.) we don't want
-        # the health check itself to block the UI for 15s. We detect "busy" below.
+        # Short timeout: a worker busy with a long task (LoRA train etc.) answers
+        # the ping late; that case is reported as "busy" below.
         status = result.get(timeout=3)
 
         snap = _celery_worker_snapshot(celery)
-        worker_info = {
+        return {
+            "status": "up",
             "active_tasks": snap["active_tasks"],
             "queued_tasks": snap["queued_tasks"],
             "workers": snap["workers"],
             "result": status,
-        }
-
-        return _cache_and_return((jsonify({"status": "up", **worker_info}), 200), "up")
+        }, 200
     except TaskNotStarted as exc:
         # Redis itself did not answer; asking the workers would go through it too.
-        return _cache_and_return((jsonify({
+        return {
             "status": "down",
             "error": str(exc),
             "suggestion": "Start Redis and the Celery worker (./start.sh starts both).",
-        }), 503), "down")
+        }, 503
     except Exception as exc:
         error_msg = str(exc)
 
@@ -2290,37 +2277,67 @@ def health_celery():
                 from backend.celery_app import celery
                 snap = _celery_worker_snapshot(celery)
                 if snap.get("workers") or _celery_workers_registered(celery):
-                    worker_info = {
+                    return {
+                        "status": "busy",
                         "active_tasks": snap.get("active_tasks", 0),
                         "queued_tasks": snap.get("queued_tasks", 0),
                         "workers": snap.get("workers", []),
                         "message": "Worker backlog — health ping queued behind long task(s)",
-                    }
-                    return _cache_and_return(
-                        (jsonify({"status": "busy", **worker_info}), 200), "busy"
-                    )
+                    }, 200
                 # Fallback: any visible queue work
-                has_work = snap.get("active_tasks", 0) > 0 or snap.get("queued_tasks", 0) > 0
-                if has_work:
-                    worker_info = {
+                if snap.get("active_tasks", 0) > 0 or snap.get("queued_tasks", 0) > 0:
+                    return {
+                        "status": "busy",
                         "active_tasks": snap.get("active_tasks", 0),
                         "queued_tasks": snap.get("queued_tasks", 0),
                         "message": "Worker processing long-running task",
-                    }
-                    return _cache_and_return(
-                        (jsonify({"status": "busy", **worker_info}), 200), "busy"
-                    )
+                    }, 200
             except Exception:
                 pass
             error_msg = f"Worker busy or overloaded: {error_msg}"
 
-        error_response = jsonify({
+        return {
             "status": "down",
             "error": error_msg,
             "suggestion": "Worker may be processing large tasks. Check /api/celery/tasks for details."
-        }), 503
+        }, 503
 
-        return _cache_and_return(error_response, "down")
+
+def _refresh_celery_health() -> tuple[dict, int]:
+    """Run the check unless another caller just did, store it, announce a change of status."""
+    with _celery_health_lock:
+        cached = _celery_health_cache["data"]
+        if _celery_health_is_fresh():
+            return cached
+        previous_status = cached[0].get("status") if cached else None
+        try:
+            checked = _check_celery()
+        except Exception as exc:
+            app.logger.warning("Celery health check failed: %s", exc)
+            checked = ({"status": "down", "error": str(exc)}, 503)
+        _celery_health_cache["data"] = checked
+        _celery_health_cache["timestamp"] = time.time()
+    if previous_status != checked[0]["status"]:
+        try:
+            from backend.socketio_events import emit_health_status_change
+            emit_health_status_change("celery", checked[0]["status"], checked[0])
+        except Exception as e:
+            app.logger.warning(f"Failed to emit health status change: {e}")
+    return checked
+
+
+@app.route("/api/health/celery")
+def health_celery():
+    """The last Celery check. The check itself waits up to 3 s on the worker's
+    queue, so it runs here only the first time; after that an answer past its
+    keep time is returned as it is and renewed in the background."""
+    cached = _celery_health_cache["data"]
+    if cached is None:
+        cached = _refresh_celery_health()
+    elif not _celery_health_is_fresh() and not _celery_health_lock.locked():
+        threading.Thread(target=_refresh_celery_health, name="celery-health", daemon=True).start()
+    payload, status_code = cached
+    return jsonify(payload), status_code
 
 
 @app.route("/api/version")
