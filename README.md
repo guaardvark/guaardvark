@@ -38,6 +38,17 @@ https://github.com/user-attachments/assets/6ee72d6a-3a25-4380-92a9-a4b66e8b7e05
 - **Your coding agent can drive it.** A built-in MCP server, sixteen [agent skills](.agents/skills/README.md) and plugins for Claude Code, Grok Build and Antigravity let Claude Code, Grok, Antigravity, Cursor, Codex, Gemini CLI and other agents run every flow: "make a music video from this song", "film this script", "train a LoRA of this character", "swarm this refactor".
 - **You approve what matters.** Nothing posts and no voice is cloned without an explicit yes from you, and fixes Guaardvark writes for its own code wait for your review. The MCP server hides desktop, shell and browser tools unless you allowlist them.
 
+<table>
+<tr>
+<td width="50%" valign="top"><a href="#features"><img src="docs/media/readme/cards.gif" alt="Cards on the Guaardvark dashboard being dragged, recoloured, folded and rearranged by the Layout button"></a><br><b>Card workspaces.</b> Drag a card, give it a colour, fold it to its bar, and switch between four layouts with one button.</td>
+<td width="50%" valign="top"><a href="#chat-with-your-own-files-local-rag"><img src="docs/media/readme/chat.gif" alt="A question about a service agreement answered in Guaardvark chat, naming the document it came from"></a><br><b>Chat with your files.</b> Answers come from your own index, from a model on your own machine, and name the document they used.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="#video-generation"><img src="docs/media/readme/video.gif" alt="A prompt typed into Video Gen, then finished dance clips opened one after another with their model, seed and settings"></a><br><b>Video Gen.</b> Wan 2.2 on your GPU. Every clip opens with the prompt, model, seed and settings that made it.</td>
+<td width="50%" valign="top"><a href="#directors-film-crew-music-videos-and-the-editor"><img src="docs/media/readme/film.gif" alt="A finished Film Crew short playing, then its pipeline and approved storyboard"></a><br><b>Film Crew.</b> A logline becomes a script, a cast, a storyboard you approve shot by shot, and a finished short.</td>
+</tr>
+</table>
+
 ## Quick start
 
 **Linux with an NVIDIA GPU** (16 GB for video, 12 GB for the Wan 2.2 5B; chat, RAG and agents run on less, see the [hardware tiers](docs/HARDWARE.md)). A fresh Ubuntu desktop has no `curl` or `git`; run `sudo apt install -y curl git` first.
