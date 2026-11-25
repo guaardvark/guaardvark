@@ -25,6 +25,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship  # Ensure relationship is imported
 
 from backend.utils.clock import iso_local, iso_utc, utcnow
+from backend.utils.display_paths import display_path, display_text
 
 logger = logging.getLogger(__name__)
 db = SQLAlchemy()
@@ -1148,6 +1149,12 @@ class SymbolHit(db.Model):
         }
 
 
+def _shown_path(path):
+    """A stored path as a page prints it (checkout-relative or ``~/...``).
+    The sibling field keeps the real path for anything sent back."""
+    return display_path(path) if path else path
+
+
 class TrainingDataset(db.Model):
     __tablename__ = "training_datasets"
     id = db.Column(db.Integer, primary_key=True)
@@ -1170,6 +1177,7 @@ class TrainingDataset(db.Model):
             "name": self.name,
             "description": self.description,
             "path": self.path,
+            "display": {"path": _shown_path(self.path)},
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -1299,6 +1307,11 @@ class TrainingJob(db.Model):
             "checkpoint_path": self.checkpoint_path,
             "pid": self.pid,
             "is_resumable": self.is_resumable,
+            "display": {
+                "input_path": _shown_path(config.get("input_path")) if isinstance(config, dict) else None,
+                "gguf_path": _shown_path(self.gguf_path),
+                "error_message": display_text(self.error_message) if self.error_message else self.error_message,
+            },
         }
 
 

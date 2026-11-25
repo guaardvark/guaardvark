@@ -635,7 +635,7 @@ const TrainingPage = () => {
   // explicit choice; the backend records it, then the usual export dialog opens.
   const handleExportAnyway = async (job) => {
     if (exportBlocked(job)) return;
-    const ok = window.confirm(t("training.jobs.exportAnywayConfirm", { reason: job.error_message || "" }));
+    const ok = window.confirm(t("training.jobs.exportAnywayConfirm", { reason: (job.display?.error_message ?? job.error_message) || "" }));
     if (!ok) return;
     try {
       const released = await exportTrainingJobAnyway(job.id, { by: "person", via: "training_page" });
@@ -1003,9 +1003,9 @@ const TrainingPage = () => {
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Tooltip title={ds.path || "-"}>
+                            <Tooltip title={ds.display?.path ?? ds.path ?? "-"}>
                               <Typography variant="body2" sx={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                                {ds.path || "-"}
+                                {(ds.display?.path ?? ds.path) || "-"}
                               </Typography>
                             </Tooltip>
                           </TableCell>
@@ -1075,7 +1075,7 @@ const TrainingPage = () => {
                             <Typography variant="caption" sx={{ color: "text.secondary" }}>
                               {job.base_model
                                 ? `${job.base_model} → ${job.output_model_name || t("training.common.notAvailable")}`
-                                : job.config?.input_path || ""}
+                                : (job.display?.input_path ?? job.config?.input_path) || ""}
                             </Typography>
                           </Box>
                           <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
@@ -1219,7 +1219,7 @@ const TrainingPage = () => {
                         )}
                         {job.error_message && (
                           <Typography variant="caption" color="error" sx={{ mt: 1, display: "block" }}>
-                            {t("training.jobs.error", { error: job.error_message })}
+                            {t("training.jobs.error", { error: job.display?.error_message ?? job.error_message })}
                           </Typography>
                         )}
                         {job.config?.export_override && (
@@ -1243,7 +1243,7 @@ const TrainingPage = () => {
                                 variant="caption"
                                 sx={{ display: "block", fontFamily: "monospace" }}
                               >
-                                GGUF: {job.gguf_path}
+                                GGUF: {job.display?.gguf_path ?? job.gguf_path}
                               </Typography>
                             )}
                             {job.ollama_model_name && (
