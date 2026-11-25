@@ -38,19 +38,6 @@ https://github.com/user-attachments/assets/6ee72d6a-3a25-4380-92a9-a4b66e8b7e05
 - **Your coding agent can drive it.** A built-in MCP server, sixteen [agent skills](.agents/skills/README.md) and plugins for Claude Code, Grok Build and Antigravity let Claude Code, Grok, Antigravity, Cursor, Codex, Gemini CLI and other agents run every flow: "make a music video from this song", "film this script", "train a LoRA of this character", "swarm this refactor".
 - **You approve what matters.** Nothing posts and no voice is cloned without an explicit yes from you, and fixes Guaardvark writes for its own code wait for your review. The MCP server hides desktop, shell and browser tools unless you allowlist them.
 
-<table>
-<tr>
-<td width="50%" valign="top"><a href="#features"><img src="docs/media/readme/cards.gif" alt="Cards on the Guaardvark dashboard being dragged, recoloured, folded and rearranged by the Layout button"></a><br><b>Card workspaces.</b> Drag a card, give it a colour, fold it to its bar, and switch between four layouts with one button.</td>
-<td width="50%" valign="top"><a href="#chat-with-your-own-files-local-rag"><img src="docs/media/readme/chat.gif" alt="A question about a service agreement answered in Guaardvark chat, naming the document it came from"></a><br><b>Chat with your files.</b> Answers come from your own index, from a model on your own machine, and name the document they used.</td>
-</tr>
-<tr>
-<td width="50%" valign="top"><a href="#video-generation"><img src="docs/media/readme/video.gif" alt="A prompt typed into Video Gen, then finished dance clips opened one after another with their model, seed and settings"></a><br><b>Video Gen.</b> Wan 2.2 on your GPU. Every clip opens with the prompt, model, seed and settings that made it.</td>
-<td width="50%" valign="top"><a href="#directors-film-crew-music-videos-and-the-editor"><img src="docs/media/readme/film.gif" alt="A finished Film Crew short playing, then its pipeline and approved storyboard"></a><br><b>Film Crew.</b> A logline becomes a script, a cast, a storyboard you approve shot by shot, and a finished short.</td>
-</tr>
-</table>
-
-[All four in one 43-second cut, with music](https://www.youtube.com/watch?v=uzMIYsmd9Fg)
-
 ## Quick start
 
 **Linux with an NVIDIA GPU** (16 GB for video, 8 GB for the Wan 2.2 5B; chat, RAG and agents run on less, see the [hardware tiers](docs/HARDWARE.md)). A fresh Ubuntu desktop has no `curl` or `git`; run `sudo apt install -y curl git` first.
@@ -72,6 +59,10 @@ Other ways in: [Windows 11 through WSL2](INSTALL.md#install-windows-11-through-w
 
 ## Features
 
+<p align="center"><img src="docs/media/readme/cards.gif" width="100%" alt="Cards on the Guaardvark dashboard being dragged, recoloured, folded and rearranged by the Layout button"></p>
+
+**Card workspaces on every page.** Drag a card, give it a colour, fold it to its bar, and switch between four layouts with one button.
+
 - **Chat with your own files.** Local RAG on pgvector: keyword and vector search fused per query, cross-encoder reranking, source citations, and retrieval that shows the chunks and scores behind an answer. Autoresearch tunes retrieval overnight. [▶ Ep 3](https://www.youtube.com/watch?v=pT_J93qTCL0)
 - **Plan mode.** Turn it on with `/plan` and every request is looked into with read-only tools first, then comes back as a plan card you approve, edit or reject; approved steps run one at a time and pause when one fails. It is offered on a model only once that model passes the plan-mode test.
 - **Agents on a real desktop.** Screen agents get an Ubuntu desktop of their own, see it with a vision model, click with closed-loop targeting, and work in a real browser while you watch from any page. [▶ Ep 4](https://www.youtube.com/watch?v=oMFCPXrxd_M)
@@ -91,6 +82,10 @@ The complete, enumerated list of models, tools, plugins and pages is in **[CAPAB
 ---
 
 ## Chat with your own files (local RAG)
+
+<p align="center"><img src="docs/media/readme/chat.gif" width="100%" alt="A question about a service agreement answered in Guaardvark chat, naming the document it came from"></p>
+
+**Chat with your files.** Answers come from your own index, from a model on your own machine, and name the document they used.
 
 Upload documents, build a knowledge base per project, and ask questions. Answers are grounded in your files and cite where they came from.
 
@@ -175,6 +170,10 @@ All generation runs on your GPU. No cloud APIs, no per-minute billing.
 
 ### Video generation
 
+<p align="center"><img src="docs/media/readme/video.gif" width="100%" alt="A prompt typed into Video Gen, then finished dance clips opened one after another with their model, seed and settings"></p>
+
+**Video Gen.** Wan 2.2 on your GPU. Every clip opens with the prompt, model, seed and settings that made it.
+
 | Model | Type | Max duration | Native resolution | VRAM |
 |-------|------|-------------|-------------------|------|
 | **Wan 2.2 TI2V-5B** (default) | Text + image to video | ~5 s (up to 121 frames @ 24 fps) | 1280x704 | 8 GB |
@@ -229,6 +228,10 @@ The Audio Foundry plugin runs three audio backends with shared GPU arbitration, 
 
 ### Directors: Film Crew, music videos and the editor
 
+<p align="center"><img src="docs/media/readme/film.gif" width="100%" alt="A finished Film Crew short playing, then its pipeline and approved storyboard"></p>
+
+**Film Crew.** A logline becomes a script, a cast, a storyboard you approve shot by shot, and a finished short.
+
 **Film Crew** turns a one-line idea into a finished video with five roles, with human checkpoints at casting and storyboard ([Episode 9](https://www.youtube.com/watch?v=sq104u9N4Qg)):
 
 | Role | What it does |
@@ -244,6 +247,10 @@ The Audio Foundry plugin runs three audio backends with shared GPU arbitration, 
 **Video editor.** Drop clips into the bin, pick a song, and press Plan: the Art Director arranges the cut, you adjust it with director's notes, and Render writes an MLT project and an MP4, with undo and keyboard shortcuts. A separate text-overlay tool places captions in nine positions with `ffmpeg drawtext`.
 
 ## Self-improvement, System Map and code intelligence
+
+<p align="center"><img src="docs/media/readme/map.gif" width="100%" alt="The System Map lighting up layers of the codebase, zooming into modules, finding one by name and jumping to a finding"></p>
+
+**System Map.** Every module drawn from its real imports: light up a layer, find a module, jump from a finding to the exact code.
 
 - **Self-improvement.** Guaardvark runs its own tests, sends a code agent to read the failure and the source, drafts a fix, verifies it, and stages it as a pending fix for your review; applying fixes on its own stays off unless you turn it on. Three modes: scheduled (every six hours), reactive (after repeated server errors) and directed (tasks you give it). A codebase lock stops all changes, and what it learns can be shared with your other machines over the Interconnector ([Episode 11](https://www.youtube.com/watch?v=RuduOwfy2fI)).
 - **Self-analysis and self-edits.** A question about Guaardvark itself ("where does the seed box keep its value?") starts from the System Map: the files most likely involved, the functions read by name, their callers and tests. Each `file:line` in the answer is checked against the file. A change to its own code is planned first, copies the files it touches to a restore point, runs a syntax check, an import check and the tests that cover those files, and puts them back if one fails. Revert is on the chat card and on the Self-improvement page.
@@ -267,6 +274,10 @@ The Audio Foundry plugin runs three audio backends with shared GPU arbitration, 
 See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## More built in
+
+<p align="center"><img src="docs/media/readme/memory.gif" width="100%" alt="Chat told to remember brand colours, a new chat recalling them, the saved memory on the Agent Memory page, then the Rules page"></p>
+
+**Memory and rules.** Say "remember this" once and a new chat still knows it. Each memory is listed with its type, source and tags, to edit or delete.
 
 - **Supervised outreach.** Drafts replies to threads on Reddit, YouTube, Discord and Facebook from the thread itself and a pitch sheet you write, graded for relevance before they reach the queue, with nothing posted until you approve it. Reddit, YouTube and Facebook posts go out one at a time while you watch the Agent Screen, or through YouTube's official API for a channel you connect. Kill switch, per-platform cadence limits and a JSONL audit trail.
 - **Files and projects.** A desktop-style file manager (folders as windows, drag and drop, right-click menus) with clients, projects, websites and notes linked together and indexed recursively. Files stream into the browser's own players and viewers, so video plays without a codec pack and PDFs start rendering before they finish downloading.
@@ -448,6 +459,10 @@ Chat and agent latency depend on a few settings, all in **Settings** unless note
 - **Mind the VRAM neighbors.** Renders wait for the card, but idle services holding VRAM (voice models, image pipelines) slow everything's admission. The Plugins page shows who holds what.
 
 ## CLI
+
+<p align="center"><img src="docs/media/readme/cli.gif" width="100%" alt="The guaardvark command in a terminal: status, a document search with reranker scores, the REPL logo, an answer from an indexed agreement, and an image generated inside the terminal"></p>
+
+**The `guaardvark` CLI.** Status, search with reranker scores, the REPL, answers from your files, and pictures drawn right in the terminal.
 
 ```bash
 pip install guaardvark
