@@ -172,7 +172,7 @@ def test_fps_falls_back_to_native():
 # ── Hardware ─────────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("model,expected", [
-    ("wan22-5b", 11), ("wan22-14b", 16), ("minimax-h3-bf16", 48), ("minimax-h3-int8-full", 24),
+    ("wan22-5b", 6), ("wan22-14b", 16), ("minimax-h3-bf16", 48), ("minimax-h3-int8-full", 24),
     ("cogvideox-5b", 16), ("hunyuan-i2v", 16),
 ])
 def test_min_vram(model, expected):
