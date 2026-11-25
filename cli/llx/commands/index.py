@@ -12,8 +12,8 @@ index_app = typer.Typer(help="Document and entity indexing for RAG", no_args_is_
 @index_app.command("document")
 def index_document(
     doc_id: int = typer.Argument(..., help="Document ID to index"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Trigger indexing for a document."""
     server = server or get_global_server()
@@ -34,8 +34,8 @@ def index_document(
 
 @index_app.command("status")
 def index_status(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show entity indexing status."""
     server = server or get_global_server()
@@ -59,8 +59,8 @@ def index_status(
 def index_entity(
     entity_type: str = typer.Option(..., "--type", "-t", help="Entity type: client, project, website, task"),
     entity_id: int = typer.Option(..., "--id", help="Entity ID"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Index a single entity by type and ID."""
     server = server or get_global_server()
@@ -94,8 +94,8 @@ def index_entity(
 
 @index_app.command("all")
 def index_all(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Index all entities in the database."""
     server = server or get_global_server()

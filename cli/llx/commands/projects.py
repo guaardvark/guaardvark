@@ -10,8 +10,8 @@ projects_app = typer.Typer(help="Project management", no_args_is_help=True)
 
 @projects_app.command("list")
 def projects_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List all projects."""
     server = server or get_global_server()
@@ -44,8 +44,8 @@ def projects_create(
     name: str = typer.Argument(..., help="Project name"),
     client_id: int = typer.Option(None, "--client", "-c", help="Client ID"),
     description: str = typer.Option("", "--desc", "-d", help="Description"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Create a new project."""
     server = server or get_global_server()
@@ -71,8 +71,8 @@ def projects_create(
 @projects_app.command("info")
 def projects_info(
     project_id: int = typer.Argument(..., help="Project ID"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show project details."""
     server = server or get_global_server()
@@ -103,7 +103,7 @@ def projects_info(
 def projects_delete(
     project_id: int = typer.Argument(..., help="Project ID"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
 ):
     """Delete a project."""
     server = server or get_global_server()

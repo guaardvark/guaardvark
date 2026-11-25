@@ -14,8 +14,8 @@ tasks_app = typer.Typer(help="Task management (create, run, monitor)", no_args_i
 def tasks_list(
     status: str = typer.Option(None, "--status", help="Filter by status (queued, running, completed, failed)"),
     limit: int = typer.Option(20, "--limit", "-n", help="Max results"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List tasks."""
     server = server or get_global_server()
@@ -56,8 +56,8 @@ def tasks_create(
     project_id: int = typer.Option(None, "--project", "-p", help="Project ID"),
     client_id: int = typer.Option(None, "--client", "-c", help="Client ID"),
     auto_start: bool = typer.Option(True, "--start/--no-start", help="Start task immediately (default: yes)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Create a new task."""
     server = server or get_global_server()
@@ -99,8 +99,8 @@ def tasks_create(
 @tasks_app.command("info")
 def tasks_info(
     task_id: int = typer.Argument(..., help="Task ID"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show task details and progress."""
     server = server or get_global_server()
@@ -133,8 +133,8 @@ def tasks_info(
 @tasks_app.command("start")
 def tasks_start(
     task_id: int = typer.Argument(..., help="Task ID to start"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Start or restart a task."""
     server = server or get_global_server()
@@ -157,8 +157,8 @@ def tasks_start(
 def tasks_download(
     task_id: int = typer.Argument(..., help="Task ID"),
     dest: str = typer.Option(".", "--dest", "-d", help="Destination directory"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Download task output file."""
     from pathlib import Path
@@ -188,8 +188,8 @@ def tasks_download(
 def tasks_delete(
     task_id: int = typer.Argument(..., help="Task ID"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Delete a task."""
     server = server or get_global_server()

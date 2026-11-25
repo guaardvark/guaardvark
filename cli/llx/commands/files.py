@@ -16,8 +16,8 @@ files_app = typer.Typer(help="File and folder management", no_args_is_help=True)
 @files_app.command("list")
 def files_list(
     path: str = typer.Option("/", "--path", "-p", help="Folder path to browse"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List files and folders."""
     server = server or get_global_server()
@@ -62,8 +62,8 @@ def files_upload(
     folder: str = typer.Option(None, "--folder", "-f", help="Target folder path"),
     tags: str = typer.Option(None, "--tags", "-t", help="Comma-separated tags"),
     index: bool = typer.Option(True, "--index/--no-index", help="Trigger indexing after upload (default: on)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Upload a file. Indexing is triggered by default for RAG."""
     server = server or get_global_server()
@@ -108,7 +108,7 @@ def files_upload(
 def files_download(
     doc_id: int = typer.Argument(..., help="Document ID to download"),
     dest: Path = typer.Option(Path("."), "--dest", "-d", help="Destination directory"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
 ):
     """Download a file by ID."""
     server = server or get_global_server()
@@ -129,7 +129,7 @@ def files_download(
 def files_delete(
     doc_id: int = typer.Argument(..., help="Document ID to delete"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
 ):
     """Delete a file by ID."""
     server = server or get_global_server()
@@ -147,8 +147,8 @@ def files_delete(
 def files_mkdir(
     name: str = typer.Argument(..., help="Folder name"),
     parent: str = typer.Option("", "--parent", "-p", help="Parent folder path, e.g. research/2026"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Create a folder."""
     server = server or get_global_server()

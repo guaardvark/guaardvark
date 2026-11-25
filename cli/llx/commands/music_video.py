@@ -50,8 +50,8 @@ def _song_document_id(api_client, song: str) -> int:
 
 @music_video_app.command("list")
 def music_video_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List music-video projects."""
     json_out = json_out or get_global_json()
@@ -83,8 +83,8 @@ def music_video_create(
     style: str = typer.Option(..., "--style", help="Visual style for the Director"),
     name: str = typer.Option(None, "--name", "-n", help="Project name (default: song stem)"),
     model: str = typer.Option(None, "--model", "-m", help="I2V model id (default: active video model)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Create a music-video project and start analysis. Does not render clips."""
     json_out = json_out or get_global_json()
@@ -117,8 +117,8 @@ def music_video_create(
 @music_video_app.command("status")
 def music_video_status(
     mv_id: int = typer.Argument(..., help="Music-video id"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show one music-video project."""
     json_out = json_out or get_global_json()
@@ -146,8 +146,8 @@ def music_video_status(
 @music_video_app.command("cancel")
 def music_video_cancel(
     mv_id: int = typer.Argument(..., help="Music-video id"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Cancel analysis or generation. Does not delete the row."""
     json_out = json_out or get_global_json()
@@ -166,7 +166,7 @@ def music_video_cancel(
 def music_video_delete(
     mv_id: int = typer.Argument(..., help="Music-video id"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
 ):
     """Delete a music-video project row. Song and output files stay on disk."""
     if not force:

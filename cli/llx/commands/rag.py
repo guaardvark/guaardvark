@@ -16,8 +16,8 @@ rag_app = typer.Typer(help="RAG index inspection and evaluation", no_args_is_hel
 
 @rag_app.command("status")
 def rag_status(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show RAG index statistics — document counts, index health, storage size."""
     server = server or get_global_server()
@@ -66,8 +66,8 @@ def rag_status(
 def rag_query(
     query: str = typer.Argument(help="Search query to test against the RAG index"),
     top_k: int = typer.Option(5, "--top-k", "-k", help="Number of results to retrieve"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Test a RAG query and see retrieved chunks with relevance scores."""
     server = server or get_global_server()
@@ -104,8 +104,8 @@ def rag_query(
 @rag_app.command("entities")
 def rag_entities(
     limit: int = typer.Option(25, "--limit", "-l", help="Max entities to show"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Not available: Guaardvark does not build an entity graph from your documents."""
     json_out = json_out or get_global_json()
@@ -180,8 +180,8 @@ def _autoresearch_lines(st: dict) -> list:
 
 @rag_app.command("eval")
 def rag_eval(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show RAG autoresearch evaluation results and optimization status."""
     server = server or get_global_server()

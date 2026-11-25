@@ -18,8 +18,8 @@ jobs_app = typer.Typer(help="Background job management", no_args_is_help=True)
 
 @jobs_app.command("list")
 def jobs_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List active jobs, by the ids `jobs status` reads."""
     server = server or get_global_server()
@@ -54,8 +54,8 @@ def jobs_list(
 @jobs_app.command("status")
 def jobs_status(
     job_id: str = typer.Argument(..., help="Job ID as a command printed it (ImageBatch_…, VideoBatch_…, a task number, …)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Check status of a specific job."""
     server = server or get_global_server()
@@ -140,7 +140,7 @@ def jobs_watch(
     job_id: str = typer.Argument(..., help="Job ID to watch"),
     interval: float = typer.Option(1.5, "--interval", "-i", help="Seconds between checks"),
     timeout: float = typer.Option(0, "--timeout", help="Give up after this many seconds (0 = wait until it ends)"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
     json_out: bool = typer.Option(False, "--json", "-j", help="No progress bar; print the final job state as JSON"),
 ):
     """Live-watch job progress until it finishes."""
@@ -181,8 +181,8 @@ def jobs_watch(
 @jobs_app.command("cancel")
 def jobs_cancel(
     job_id: str = typer.Argument(..., help="Job ID to cancel"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Cancel a running job."""
     server = server or get_global_server()

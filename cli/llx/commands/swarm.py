@@ -21,8 +21,8 @@ def _unwrap(data):
 
 @swarm_app.command("list")
 def swarm_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List swarm history / active runs."""
     json_out = json_out or get_global_json()
@@ -55,8 +55,8 @@ def swarm_run(
     max_agents: int = typer.Option(None, "--max-agents", "-n", help="Agents working at once"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Parse and plan, start no agents"),
     allow_dirty: bool = typer.Option(False, "--allow-dirty", help="Start even with uncommitted changes in Guaardvark's own checkout"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Launch a swarm: each task gets its own agent in its own git worktree.
 
@@ -114,8 +114,8 @@ def swarm_run(
 
 @swarm_app.command("templates")
 def swarm_templates(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List the plan templates a swarm can start from."""
     json_out = json_out or get_global_json()
@@ -136,8 +136,8 @@ def swarm_templates(
 @swarm_app.command("status")
 def swarm_status(
     swarm_id: str = typer.Argument(None, help="Swarm id (omit for overall status)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show swarm status."""
     json_out = json_out or get_global_json()
@@ -160,8 +160,8 @@ def swarm_status(
 def swarm_logs(
     swarm_id: str = typer.Argument(..., help="Swarm id"),
     task_id: str = typer.Argument(..., help="Task id"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Fetch logs for one swarm task."""
     json_out = json_out or get_global_json()

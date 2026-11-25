@@ -14,8 +14,8 @@ images_app = typer.Typer(help="Image generation and management", no_args_is_help
 
 @images_app.command("list")
 def images_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List generated image batches."""
     server = server or get_global_server()
@@ -70,8 +70,8 @@ def images_generate(
     negative: str = typer.Option(None, "--negative", help="What to keep out of the image"),
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for the images, showing progress"),
     save: Path = typer.Option(None, "--save", help="With --wait: download the result here (a file for one image, a folder for several)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Generate images from a prompt."""
     server = server or get_global_server()
@@ -160,8 +160,8 @@ def images_download(
     batch_id: str = typer.Argument(..., help="Batch ID to download"),
     image_name: str = typer.Argument(None, help="One image's filename (omit for the whole batch as a ZIP)"),
     output_dir: Path = typer.Option(Path("."), "--output", "-o", help="Folder to save into"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Download a batch's images: one file, or the whole batch as a ZIP."""
     server = server or get_global_server()
@@ -189,8 +189,8 @@ def images_download(
 @images_app.command("status")
 def images_status(
     batch_id: str = typer.Argument(..., help="Batch ID"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Check generation status of a batch."""
     server = server or get_global_server()
@@ -217,8 +217,8 @@ def images_status(
 
 @images_app.command("models")
 def images_models(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List available image generation models."""
     server = server or get_global_server()
@@ -247,8 +247,8 @@ def images_models(
 def images_delete(
     batch_id: str = typer.Argument(..., help="Batch ID to delete"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Delete an image batch."""
     server = server or get_global_server()

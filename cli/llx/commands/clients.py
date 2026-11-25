@@ -10,8 +10,8 @@ clients_app = typer.Typer(help="Client management", no_args_is_help=True)
 
 @clients_app.command("list")
 def clients_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List all clients."""
     server = server or get_global_server()
@@ -43,8 +43,8 @@ def clients_list(
 def clients_create(
     name: str = typer.Argument(..., help="Client name"),
     description: str = typer.Option("", "--desc", "-d", help="Description"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Create a new client."""
     server = server or get_global_server()
@@ -70,8 +70,8 @@ def clients_create(
 @clients_app.command("info")
 def clients_info(
     client_id: int = typer.Argument(..., help="Client ID"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show client details."""
     server = server or get_global_server()
@@ -100,7 +100,7 @@ def clients_info(
 def clients_delete(
     client_id: int = typer.Argument(..., help="Client ID"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
 ):
     """Delete a client."""
     server = server or get_global_server()

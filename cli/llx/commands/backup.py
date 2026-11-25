@@ -16,8 +16,8 @@ backup_app = typer.Typer(help="Backup and restore system data.", no_args_is_help
 def create_backup(
     backup_type: str = typer.Option("full", "--type", "-t", help="Backup type: full, data, code_release"),
     name: str = typer.Option(None, "--name", "-n", help="Custom backup name"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Create a system backup."""
     server = server or get_global_server()
@@ -52,8 +52,8 @@ def create_backup(
 
 @backup_app.command("list")
 def list_backups(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List available backups on the server."""
     server = server or get_global_server()
@@ -85,7 +85,7 @@ def list_backups(
 def download_backup(
     filename: str = typer.Argument(..., help="Backup filename to download"),
     dest: Path = typer.Option(Path("."), "--dest", "-d", help="Destination directory"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
 ):
     """Download a backup file from the server."""
     server = server or get_global_server()
@@ -104,8 +104,8 @@ def download_backup(
 def restore_backup(
     file: Path = typer.Argument(..., help="Local backup ZIP file to restore"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Restore system from a backup file. This overwrites existing data."""
     server = server or get_global_server()
@@ -155,7 +155,7 @@ def restore_backup(
 def delete_backup(
     filename: str = typer.Argument(..., help="Backup filename to delete"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
 ):
     """Delete a backup from the server."""
     server = server or get_global_server()

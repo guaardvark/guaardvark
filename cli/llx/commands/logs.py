@@ -100,7 +100,7 @@ def logs_search(
     service: str = typer.Option(None, "--service", "-s", help="Limit to one service"),
     lines: int = typer.Option(5, "--context", "-C", help="Context lines around matches"),
     max_results: int = typer.Option(20, "--max", "-m", help="Maximum results to show"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Search across all service logs with regex support."""
     json_out = json_out or get_global_json()
@@ -160,7 +160,7 @@ def logs_search(
 
 @logs_app.command("stats")
 def logs_stats(
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show error/warning counts across all service logs."""
     json_out = json_out or get_global_json()

@@ -35,8 +35,8 @@ def _script_text(script: str | None, file: str | None) -> str:
 
 @film_crew_app.command("list")
 def film_crew_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List Film Crew productions."""
     json_out = json_out or get_global_json()
@@ -67,8 +67,8 @@ def film_crew_create(
     file: str = typer.Option(None, "--file", help="Path to a screenplay file"),
     name: str = typer.Option(None, "--name", "-n", help="Production name (default: first line)"),
     model: str = typer.Option(None, "--model", "-m", help="Scene / I2V model id (default: active video model)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Create a Film Crew production and start the screenwriter. Does not render shots."""
     json_out = json_out or get_global_json()
@@ -97,8 +97,8 @@ def film_crew_create(
 @film_crew_app.command("status")
 def film_crew_status(
     prod_id: int = typer.Argument(..., help="Production id"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show one Film Crew production."""
     json_out = json_out or get_global_json()
@@ -129,7 +129,7 @@ def film_crew_status(
 def film_crew_delete(
     prod_id: int = typer.Argument(..., help="Production id"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
 ):
     """Delete a production and its shots. Subjects are kept."""
     if not force:

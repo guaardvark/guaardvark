@@ -28,9 +28,9 @@ def chat(
     output_file: Path | None = typer.Option(None, "--output", "-o", help="Write export to file (default: stdout)"),
     project: int = typer.Option(None, "--project", "-p", help="Scope RAG context to a project ID"),
     no_rag: bool = typer.Option(False, "--no-rag", help="Disable RAG context"),
-    stream: bool = typer.Option(False, "--stream", help="Use Socket.IO streaming (experimental)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    stream: bool = typer.Option(False, "--stream", help="Stream the reply live through the agent path, where tools and web search are available"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Chat with the LLM. Supports piped input and session management."""
     server = server or get_global_server()

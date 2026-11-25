@@ -35,8 +35,8 @@ outreach_app = typer.Typer(
 @outreach_app.callback(invoke_without_command=True)
 def outreach_root(
     ctx: typer.Context,
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Say what to do in plain words, e.g. outreach "comment on youtube videos about offline AI".
     Without arguments, show status."""
@@ -51,8 +51,8 @@ def outreach_root(
 @outreach_app.command("say", hidden=True)
 def outreach_say(
     words: List[str] = typer.Argument(..., help="What to do, in plain words"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Run a natural-language outreach request."""
     server = server or get_global_server()
@@ -84,8 +84,8 @@ def outreach_say(
 
 @outreach_app.command("status")
 def outreach_status(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show kill switch, supervised mode, and cadence."""
     server = server or get_global_server()
@@ -98,9 +98,9 @@ def outreach_status(
 @outreach_app.command("queue")
 def outreach_queue(
     status: str = typer.Option("drafted", "--status", help="drafted|approved|posted|rejected"),
-    limit: int = typer.Option(10, "--limit", "-n"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    limit: int = typer.Option(10, "--limit", "-n", help="How many drafts to show"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List outreach drafts (defaults to pending drafted)."""
     server = server or get_global_server()
@@ -143,8 +143,8 @@ def outreach_queue(
 @outreach_app.command("approve")
 def outreach_approve(
     draft_id: int = typer.Argument(..., help="SocialOutreachLog id"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Approve a drafted row for the next process-approved tick."""
     server = server or get_global_server()

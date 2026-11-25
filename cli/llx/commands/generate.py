@@ -20,8 +20,8 @@ def generate_csv(
     client_name: str = typer.Option(None, "--client", "-c", help="Client name"),
     project_name: str = typer.Option(None, "--project", "-p", help="Project name"),
     word_count: int = typer.Option(500, "--words", "-w", help="Target word count"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Generate CSV content from a prompt."""
     server = server or get_global_server()
@@ -60,8 +60,8 @@ def generate_image(
     prompt: str = typer.Argument(..., help="Image description"),
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for the image, showing progress"),
     save: Path = typer.Option(None, "--save", help="With --wait: download the image to this file"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Generate an image from a prompt (short form of `images generate`)."""
     from llx.commands.images import images_generate

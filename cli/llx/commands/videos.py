@@ -121,8 +121,8 @@ def _build_gen_params(
 
 @videos_app.command("list")
 def videos_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List generated video batches."""
     server = server or get_global_server()
@@ -169,8 +169,8 @@ def videos_generate(
     frames_only: bool = typer.Option(False, "--frames-only", help="Generate frames without combining"),
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for completion with progress"),
     save: Path = typer.Option(None, "--save", help="With --wait: download the finished clip to this file"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Generate videos from a text prompt."""
     server = server or get_global_server()
@@ -220,8 +220,8 @@ def videos_from_image(
     seed: int = typer.Option(None, "--seed", help="Random seed for reproducibility"),
     frames_only: bool = typer.Option(False, "--frames-only", help="Generate frames without combining"),
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for completion with progress"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Generate videos from a source image."""
     server = server or get_global_server()
@@ -263,8 +263,8 @@ def videos_from_image(
 @videos_app.command("status")
 def videos_status(
     batch_id: str = typer.Argument(..., help="Batch ID"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Check generation status of a video batch."""
     server = server or get_global_server()
@@ -303,8 +303,8 @@ def videos_status(
 
 @videos_app.command("models")
 def videos_models(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List video models from the registry (installed status + active default)."""
     server = server or get_global_server()
@@ -337,7 +337,7 @@ def videos_models(
 def videos_delete(
     batch_id: str = typer.Argument(..., help="Batch ID to delete"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
 ):
     """Delete a video batch."""
     server = server or get_global_server()
@@ -356,7 +356,7 @@ def videos_download(
     batch_id: str = typer.Argument(..., help="Batch ID to download"),
     video_name: str = typer.Argument(None, help="Specific video filename (omit for full batch ZIP)"),
     output_dir: str = typer.Option(".", "--output", "-o", help="Output directory"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
 ):
     """Download videos from a batch."""
     server = server or get_global_server()
@@ -382,8 +382,8 @@ def videos_combine(
     batch_id: str = typer.Argument(..., help="Batch ID with generated frames"),
     fps: int = typer.Option(7, "--fps", help="Output frame rate"),
     item_id: str = typer.Option(None, "--item", help="Specific item ID (omit for all)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Combine generated frames into a video."""
     server = server or get_global_server()

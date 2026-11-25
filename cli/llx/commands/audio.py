@@ -22,8 +22,8 @@ def _unwrap(data):
 
 @audio_app.command("voices")
 def audio_voices(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List available TTS voices."""
     json_out = json_out or get_global_json()
@@ -51,9 +51,9 @@ def audio_voices(
 @audio_app.command("tts")
 def audio_tts(
     text: str = typer.Argument(..., help="Text to speak"),
-    no_play: bool = typer.Option(False, "--no-play"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    no_play: bool = typer.Option(False, "--no-play", help="Make the file without playing it"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Generate speech from text (Audio Foundry, falls back to /api/voice)."""
     json_out = json_out or get_global_json()
@@ -89,8 +89,8 @@ def audio_music(
     instrumental: bool = typer.Option(False, "--instrumental", help="No vocals"),
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for the song, then play it"),
     no_play: bool = typer.Option(False, "--no-play", help="With --wait: do not play it"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Generate a song (ACE-Step in Audio Foundry)."""
     import time
@@ -144,8 +144,8 @@ def audio_music(
 @audio_app.command("sfx")
 def audio_sfx(
     prompt: str = typer.Argument(..., help="SFX / ambience description"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Generate a sound effect."""
     json_out = json_out or get_global_json()

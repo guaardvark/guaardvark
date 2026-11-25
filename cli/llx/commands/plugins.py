@@ -21,8 +21,8 @@ def _unwrap(data):
 
 @plugins_app.command("list")
 def plugins_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List registered plugins and their status."""
     json_out = json_out or get_global_json()
@@ -49,8 +49,8 @@ def plugins_list(
 @plugins_app.command("start")
 def plugins_start(
     plugin_id: str = typer.Argument(..., help="Plugin id (comfyui, ollama, ...)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Start a plugin."""
     json_out = json_out or get_global_json()
@@ -68,8 +68,8 @@ def plugins_start(
 @plugins_app.command("stop")
 def plugins_stop(
     plugin_id: str = typer.Argument(..., help="Plugin id"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Stop a plugin."""
     json_out = json_out or get_global_json()
@@ -87,8 +87,8 @@ def plugins_stop(
 @plugins_app.command("enable")
 def plugins_enable(
     plugin_id: str = typer.Argument(..., help="Plugin id"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Persistently enable a plugin."""
     json_out = json_out or get_global_json()
@@ -106,8 +106,8 @@ def plugins_enable(
 @plugins_app.command("disable")
 def plugins_disable(
     plugin_id: str = typer.Argument(..., help="Plugin id"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Persistently disable a plugin."""
     json_out = json_out or get_global_json()
@@ -125,8 +125,8 @@ def plugins_disable(
 @plugins_app.command("status")
 def plugins_status(
     plugin_id: str = typer.Argument(None, help="Optional plugin id"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show one plugin, or the orchestrator state."""
     json_out = json_out or get_global_json()
@@ -151,8 +151,8 @@ def plugins_status(
 @plugins_app.command("logs")
 def plugins_logs(
     plugin_id: str = typer.Argument(..., help="Plugin id"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show plugin info (includes recent log fields when the API provides them)."""
     json_out = json_out or get_global_json()

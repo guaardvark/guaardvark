@@ -38,8 +38,8 @@ def _fail(e):
 
 @mcp_client_app.command("status")
 def mcp_status(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """MCP client status: servers, tools, recent errors."""
     try:
@@ -65,8 +65,8 @@ def mcp_status(
 
 @mcp_client_app.command("servers")
 def mcp_servers(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List configured MCP servers."""
     try:
@@ -96,8 +96,8 @@ def mcp_servers(
 @mcp_client_app.command("show")
 def mcp_show(
     name: str = typer.Argument(..., help="Server name"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show a server's definition, capabilities, tools and recent stderr."""
     try:
@@ -124,8 +124,8 @@ def mcp_show(
 @mcp_client_app.command("connect")
 def mcp_connect(
     name: str = typer.Argument(..., help="Server name"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Connect to a configured MCP server."""
     try:
@@ -143,8 +143,8 @@ def mcp_connect(
 @mcp_client_app.command("disconnect")
 def mcp_disconnect(
     name: str = typer.Argument(..., help="Server name"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Disconnect from an MCP server."""
     try:
@@ -173,8 +173,8 @@ def _print_tools(tools, server_name=None):
 @mcp_client_app.command("tools")
 def mcp_tools(
     name: str = typer.Argument(None, help="Only this server"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List tools from connected MCP servers, with their approval policy."""
     try:
@@ -224,8 +224,8 @@ def mcp_call(
     arg: list[str] = typer.Option(None, "--arg", help="Argument as key=value (repeatable; value may be JSON)"),
     approve: list[str] = typer.Option(None, "--approve", "-a",
                                       help="Skip the prompt for tools matching this glob (repeatable)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Call a tool on an MCP server directly.
 
@@ -275,8 +275,8 @@ def mcp_call(
 @mcp_client_app.command("resources")
 def mcp_resources(
     name: str = typer.Argument(None, help="Only this server"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List resources exposed by connected MCP servers."""
     try:
@@ -302,8 +302,8 @@ def mcp_resources(
 def mcp_read(
     name: str = typer.Argument(..., help="Server name"),
     uri: str = typer.Argument(..., help="Resource URI"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Read a resource from an MCP server."""
     try:
@@ -320,8 +320,8 @@ def mcp_read(
 @mcp_client_app.command("prompts")
 def mcp_prompts(
     name: str = typer.Argument(None, help="Only this server"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List prompt templates from connected MCP servers."""
     try:
@@ -348,7 +348,7 @@ def mcp_add(
                                   help="KEY=value for the server (repeatable). Use KEY=${VAR} to "
                                        "reference a backend environment variable instead of a secret"),
     auto_connect: bool = typer.Option(False, "--auto-connect", help="Connect when the backend starts"),
-    description: str = typer.Option(None, "--description", "-d"),
+    description: str = typer.Option(None, "--description", "-d", help="One line on what it is for"),
     keyword: list[str] = typer.Option(None, "--keyword", "-k",
                                       help="Chat keyword that offers this server's tools (repeatable)"),
     allow: list[str] = typer.Option(None, "--allow", help="Only expose tools matching this glob"),
@@ -358,8 +358,8 @@ def mcp_add(
                                            help="Never ask before tools matching this glob"),
     timeout: float = typer.Option(None, "--timeout", help="Per-call timeout in seconds"),
     connect: bool = typer.Option(True, "--connect/--no-connect", help="Connect right after saving"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Add or replace an MCP server in data/config/mcp_servers.json.
 
@@ -417,8 +417,8 @@ def _split_pairs(pairs, hint):
 def mcp_remove(
     name: str = typer.Argument(..., help="Server name"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Don't ask for confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Remove an MCP server from the configuration."""
     try:
@@ -437,8 +437,8 @@ def mcp_remove(
 
 @mcp_client_app.command("reload")
 def mcp_reload(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Re-read the MCP configuration (servers whose definition changed are restarted)."""
     try:
@@ -458,8 +458,8 @@ def mcp_reload(
 def mcp_audit(
     limit: int = typer.Option(25, "--limit", "-n", help="Number of entries"),
     tool_filter: str = typer.Option(None, "--tool", help="Only entries whose tool matches this glob"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Recent MCP calls (who called what, and whether it ran)."""
     try:

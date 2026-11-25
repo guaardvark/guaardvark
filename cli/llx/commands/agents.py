@@ -11,8 +11,8 @@ agents_app = typer.Typer(help="Agent configuration and info", no_args_is_help=Tr
 
 @agents_app.command("list")
 def agents_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List all configured agents."""
     server = server or get_global_server()
@@ -42,8 +42,8 @@ def agents_list(
 @agents_app.command("info")
 def agents_info(
     agent_id: str = typer.Argument(..., help="Agent ID"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show agent details and available tools."""
     server = server or get_global_server()
@@ -80,8 +80,8 @@ def run_agent(
     prompt: str = typer.Argument(..., help="Message/prompt to send to the agent"),
     agent_id: str = typer.Option(None, "--agent", "-a", help="Agent ID (auto-matched if omitted)"),
     max_iterations: int = typer.Option(10, "--max-iter", "-n", help="Max agent iterations"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Execute an agent with a prompt. Auto-selects best agent if --agent is omitted."""
     server = server or get_global_server()
@@ -137,8 +137,8 @@ def update_agent(
     enabled: bool = typer.Option(None, "--enabled/--disabled", help="Enable or disable agent"),
     max_iterations: int = typer.Option(None, "--max-iter", "-n", help="Max iterations"),
     prompt_file: Path = typer.Option(None, "--prompt-file", "-f", help="System prompt from file"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Update an agent's configuration."""
     server = server or get_global_server()

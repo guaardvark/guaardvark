@@ -73,8 +73,8 @@ def style_analyze(
     name: str = typer.Option(None, "--name", "-n", help="Name for the analysis and a saved recipe"),
     wait: bool = typer.Option(False, "--wait", "-w", help="Run inline and print the profile"),
     threshold: float = typer.Option(None, "--threshold", help="Shot detection sensitivity (ffmpeg scdet, default 8)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Measure a video's shots, motion, look and pacing."""
     json_out = json_out or get_global_json()
@@ -101,7 +101,7 @@ def style_analyze(
 
 
 @style_app.command("list")
-def style_list(server: str = typer.Option(None, "--server", "-s"), json_out: bool = typer.Option(False, "--json", "-j")):
+def style_list(server: str = typer.Option(None, "--server", "-s", help="Override server URL"), json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON")):
     """Recent analyses."""
     json_out = json_out or get_global_json()
     output.set_json_mode(json_out)
@@ -120,8 +120,8 @@ def style_list(server: str = typer.Option(None, "--server", "-s"), json_out: boo
 
 
 @style_app.command("status")
-def style_status(job: str = typer.Argument(...), server: str = typer.Option(None, "--server", "-s"),
-                    json_out: bool = typer.Option(False, "--json", "-j")):
+def style_status(job: str = typer.Argument(...), server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+                    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON")):
     """One analysis: progress, and the profile once complete."""
     json_out = json_out or get_global_json()
     output.set_json_mode(json_out)
@@ -137,8 +137,8 @@ def style_status(job: str = typer.Argument(...), server: str = typer.Option(None
 
 
 @style_app.command("shots")
-def style_shots(job: str = typer.Argument(...), server: str = typer.Option(None, "--server", "-s"),
-                   json_out: bool = typer.Option(False, "--json", "-j")):
+def style_shots(job: str = typer.Argument(...), server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+                   json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON")):
     """Per-shot measurements."""
     json_out = json_out or get_global_json()
     output.set_json_mode(json_out)
@@ -165,7 +165,7 @@ def style_shots(job: str = typer.Argument(...), server: str = typer.Option(None,
 
 
 @style_app.command("recipes")
-def style_recipes(server: str = typer.Option(None, "--server", "-s"), json_out: bool = typer.Option(False, "--json", "-j")):
+def style_recipes(server: str = typer.Option(None, "--server", "-s", help="Override server URL"), json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON")):
     """Style recipes on disk, measured and hand-written."""
     json_out = json_out or get_global_json()
     output.set_json_mode(json_out)
@@ -183,10 +183,10 @@ def style_recipes(server: str = typer.Option(None, "--server", "-s"), json_out: 
 
 
 @style_app.command("save-recipe")
-def style_save_recipe(job: str = typer.Argument(...), name: str = typer.Option(None, "--name", "-n"),
-                         description: str = typer.Option(None, "--description", "-d"),
-                         overwrite: bool = typer.Option(False, "--overwrite"),
-                         server: str = typer.Option(None, "--server", "-s"), json_out: bool = typer.Option(False, "--json", "-j")):
+def style_save_recipe(job: str = typer.Argument(...), name: str = typer.Option(None, "--name", "-n", help="Name for the recipe"),
+                         description: str = typer.Option(None, "--description", "-d", help="One line on what it is for"),
+                         overwrite: bool = typer.Option(False, "--overwrite", help="Replace a recipe that has this name"),
+                         server: str = typer.Option(None, "--server", "-s", help="Override server URL"), json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON")):
     """Save a finished analysis as a style recipe."""
     json_out = json_out or get_global_json()
     output.set_json_mode(json_out)
@@ -212,7 +212,7 @@ def style_save_recipe(job: str = typer.Argument(...), name: str = typer.Option(N
 def style_compare(a: str = typer.Argument(..., help="Job id or measured recipe name"),
                      b: str = typer.Argument(..., help="Job id or measured recipe name"),
                      preset: str = typer.Option("all", "--preset", help="all | pacing-only | look-only"),
-                     server: str = typer.Option(None, "--server", "-s"), json_out: bool = typer.Option(False, "--json", "-j")):
+                     server: str = typer.Option(None, "--server", "-s", help="Override server URL"), json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON")):
     """Distance between two measured styles (0 = identical, 1 = unrelated)."""
     json_out = json_out or get_global_json()
     output.set_json_mode(json_out)

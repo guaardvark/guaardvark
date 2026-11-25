@@ -13,8 +13,8 @@ rules_app = typer.Typer(help="Rules and system prompts management", no_args_is_h
 @rules_app.command("list")
 def rules_list(
     project_id: int = typer.Option(None, "--project", "-p", help="Filter by project ID"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List all rules."""
     server = server or get_global_server()
@@ -52,8 +52,8 @@ def rules_create(
     file: Path = typer.Option(None, "--file", "-f", help="Read rule text from file", exists=True),
     level: str = typer.Option("USER_GLOBAL", "--level", "-l", help="Rule level"),
     rule_type: str = typer.Option("SYSTEM", "--type", "-t", help="Rule type"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Create a new rule/prompt."""
     server = server or get_global_server()
@@ -88,9 +88,9 @@ def rules_create(
 @rules_app.command("delete")
 def rules_delete(
     rule_id: int = typer.Argument(..., help="Rule ID"),
-    force: bool = typer.Option(False, "--force", "-f"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Delete a rule."""
     server = server or get_global_server()
@@ -112,8 +112,8 @@ def rules_delete(
 @rules_app.command("export")
 def rules_export(
     file: Path = typer.Option("rules.json", "--file", "-f", help="Output file"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Export all rules to a JSON file."""
     server = server or get_global_server()
@@ -140,8 +140,8 @@ def rules_export(
 @rules_app.command("import")
 def rules_import(
     file: Path = typer.Argument(..., help="JSON file to import", exists=True),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Import rules from a JSON file."""
     server = server or get_global_server()

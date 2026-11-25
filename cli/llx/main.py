@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import typer
+from typer.core import TyperGroup
 
 from llx import __version__
 from llx import output
@@ -40,8 +41,30 @@ from llx.commands.audio import audio_app
 from llx.commands.swarm import swarm_app
 from llx.commands.lessons import lessons_app
 
+# Help-screen sections, in the order the help screen shows them.
+_CHAT = "Chat"
+_CREATE = "Create"
+_KNOWLEDGE = "Knowledge"
+_AGENTS = "Agents and automation"
+_SYSTEM = "System"
+_PANEL_ORDER = (_CHAT, _CREATE, _KNOWLEDGE, _AGENTS, _SYSTEM)
+
+
+class _SectionedGroup(TyperGroup):
+    """Lists commands section by section, so the help panels come out in
+    _PANEL_ORDER rather than in the order the commands happen to be registered."""
+
+    def list_commands(self, ctx):
+        def rank(name: str) -> int:
+            panel = getattr(self.commands[name], "rich_help_panel", None)
+            return _PANEL_ORDER.index(panel) if panel in _PANEL_ORDER else len(_PANEL_ORDER)
+
+        return sorted(self.commands, key=rank)
+
+
 app = typer.Typer(
     name="guaardvark",
+    cls=_SectionedGroup,
     help="[#a29bfe]Guaardvark CLI[/#a29bfe] — chat, search, manage files, and more from the terminal.",
     no_args_is_help=False,
     rich_markup_mode="rich",
@@ -81,7 +104,7 @@ def _run_analyze(
         raise typer.Exit(1)
     output.print_json({"status": "success", "data": report})
 
-app.command("analyze")(_run_analyze)
+app.command("analyze", rich_help_panel=_CHAT)(_run_analyze)
 
 def _run_init(
     force: bool = typer.Option(False, "--force", help="Overwrite an existing GUAARDVARK.md"),
@@ -100,7 +123,7 @@ def _run_init(
         raise typer.Exit(1)
     output.print_json({"status": "success", "data": {**result, "written": result.get("status") == "created"}})
 
-app.command("init")(_run_init)
+app.command("init", rich_help_panel=_CHAT)(_run_init)
 
 
 def _maybe_bootstrap_backend() -> None:
@@ -136,16 +159,16 @@ def _maybe_bootstrap_backend() -> None:
                 console.print("[llx.dim]Try: guaardvark start or ./start.sh[/llx.dim]")
 
 
-app.command("health")(health)
-app.command("status")(status)
+app.command("health", rich_help_panel=_SYSTEM)(health)
+app.command("status", rich_help_panel=_SYSTEM)(status)
 # app.command("init")(init)  # overridden by project init below for GUAARDVARK/agentic use
-app.command("doctor")(doctor)
-app.command("start")(start)
-app.command("stop")(stop)
-app.command("chat")(chat)
-app.command("search")(search)
-app.command("dashboard")(dashboard)
-app.command("launch")(launch)
+app.command("doctor", rich_help_panel=_SYSTEM)(doctor)
+app.command("start", rich_help_panel=_SYSTEM)(start)
+app.command("stop", rich_help_panel=_SYSTEM)(stop)
+app.command("chat", rich_help_panel=_CHAT)(chat)
+app.command("search", rich_help_panel=_CHAT)(search)
+app.command("dashboard", rich_help_panel=_SYSTEM)(dashboard)
+app.command("launch", rich_help_panel=_SYSTEM)(launch)
 
 
 def ask(
@@ -153,7 +176,7 @@ def ask(
     server: str | None = typer.Option(None, "--server", "-s", help="Override server URL"),
     json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
     no_rag: bool = typer.Option(False, "--no-rag", help="Answer without searching your documents"),
-    stream: bool = typer.Option(False, "--stream", help="Print the answer as it is written"),
+    stream: bool = typer.Option(False, "--stream", help="Stream the reply live through the agent path, where tools and web search are available"),
 ):
     """Send a one-shot chat message (replaces bare guaardvark \"query\" syntax)."""
     from llx.global_opts import get_global_json as _gj, get_global_server as _gs
@@ -173,39 +196,39 @@ def ask(
     )
 
 
-app.command("ask")(ask)
-app.command("setup")(setup_wizard)
+app.command("ask", rich_help_panel=_CHAT)(ask)
+app.command("setup", rich_help_panel=_SYSTEM)(setup_wizard)
 
-app.add_typer(models_app, name="models")
-app.add_typer(files_app, name="files")
-app.add_typer(projects_app, name="projects")
-app.add_typer(rules_app, name="rules")
-app.add_typer(agents_app, name="agents")
-app.add_typer(generate_app, name="generate")
-app.add_typer(jobs_app, name="jobs")
-app.add_typer(settings_app, name="settings")
-app.add_typer(index_app, name="index")
-app.add_typer(backup_app, name="backup")
-app.add_typer(family_app, name="family")
-app.add_typer(logs_app, name="logs")
-app.add_typer(rag_app, name="rag")
-app.add_typer(clients_app, name="clients")
-app.add_typer(websites_app, name="websites")
-app.add_typer(tasks_app, name="tasks")
-app.add_typer(images_app, name="images")
-app.add_typer(videos_app, name="videos")
-app.add_typer(music_video_app, name="music-video")
-app.add_typer(style_app, name="style")
-app.add_typer(film_crew_app, name="film-crew")
-app.add_typer(quality_app, name="quality")
-app.add_typer(outreach_app, name="outreach")
-app.add_typer(recipes_app, name="recipes")
-app.add_typer(plugins_app, name="plugins")
-app.add_typer(gpu_app, name="gpu")
-app.add_typer(mcp_app, name="mcp")
-app.add_typer(audio_app, name="audio")
-app.add_typer(swarm_app, name="swarm")
-app.add_typer(lessons_app, name="lessons")
+app.add_typer(models_app, name="models", rich_help_panel=_SYSTEM)
+app.add_typer(files_app, name="files", rich_help_panel=_KNOWLEDGE)
+app.add_typer(projects_app, name="projects", rich_help_panel=_KNOWLEDGE)
+app.add_typer(rules_app, name="rules", rich_help_panel=_KNOWLEDGE)
+app.add_typer(agents_app, name="agents", rich_help_panel=_AGENTS)
+app.add_typer(generate_app, name="generate", rich_help_panel=_CREATE)
+app.add_typer(jobs_app, name="jobs", rich_help_panel=_AGENTS)
+app.add_typer(settings_app, name="settings", rich_help_panel=_SYSTEM)
+app.add_typer(index_app, name="index", rich_help_panel=_KNOWLEDGE)
+app.add_typer(backup_app, name="backup", rich_help_panel=_SYSTEM)
+app.add_typer(family_app, name="family", rich_help_panel=_SYSTEM)
+app.add_typer(logs_app, name="logs", rich_help_panel=_SYSTEM)
+app.add_typer(rag_app, name="rag", rich_help_panel=_KNOWLEDGE)
+app.add_typer(clients_app, name="clients", rich_help_panel=_KNOWLEDGE)
+app.add_typer(websites_app, name="websites", rich_help_panel=_KNOWLEDGE)
+app.add_typer(tasks_app, name="tasks", rich_help_panel=_AGENTS)
+app.add_typer(images_app, name="images", rich_help_panel=_CREATE)
+app.add_typer(videos_app, name="videos", rich_help_panel=_CREATE)
+app.add_typer(music_video_app, name="music-video", rich_help_panel=_CREATE)
+app.add_typer(style_app, name="style", rich_help_panel=_CREATE)
+app.add_typer(film_crew_app, name="film-crew", rich_help_panel=_CREATE)
+app.add_typer(quality_app, name="quality", rich_help_panel=_SYSTEM)
+app.add_typer(outreach_app, name="outreach", rich_help_panel=_AGENTS)
+app.add_typer(recipes_app, name="recipes", rich_help_panel=_KNOWLEDGE)
+app.add_typer(plugins_app, name="plugins", rich_help_panel=_SYSTEM)
+app.add_typer(gpu_app, name="gpu", rich_help_panel=_SYSTEM)
+app.add_typer(mcp_app, name="mcp", rich_help_panel=_AGENTS)
+app.add_typer(audio_app, name="audio", rich_help_panel=_CREATE)
+app.add_typer(swarm_app, name="swarm", rich_help_panel=_AGENTS)
+app.add_typer(lessons_app, name="lessons", rich_help_panel=_KNOWLEDGE)
 
 
 def completion(
@@ -224,7 +247,7 @@ def completion(
     print(script)
 
 
-app.command("completion")(completion)
+app.command("completion", rich_help_panel=_SYSTEM)(completion)
 
 
 def version_callback(value: bool):

@@ -35,8 +35,8 @@ def _session(session: str | None) -> str:
 def lessons_begin(
     session: str = typer.Option(None, "--session", help="Chat session id (default: your latest chat)"),
     title: str = typer.Option(None, "--title", "-t", help="A name for the lesson"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Start a lesson bracket."""
     json_out = json_out or get_global_json()
@@ -58,8 +58,8 @@ def lessons_begin(
 @lessons_app.command("end")
 def lessons_end(
     lesson_id: str = typer.Argument(..., help="Lesson id from /lessons begin"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """End a lesson and distill it into memory."""
     json_out = json_out or get_global_json()
@@ -77,8 +77,8 @@ def lessons_end(
 @lessons_app.command("list")
 def lessons_list(
     session: str = typer.Option(None, "--session", help="Chat session id (default: your latest chat)"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show the active lesson of a chat session: your latest chat in this CLI, or --session.
 

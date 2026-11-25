@@ -19,8 +19,8 @@ def _unwrap(data):
 
 @gpu_app.command("status")
 def gpu_status(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show GPU availability, VRAM, and current owner lock."""
     json_out = json_out or get_global_json()
@@ -49,9 +49,9 @@ def gpu_status(
 @gpu_app.command("release")
 def gpu_release(
     force: bool = typer.Option(False, "--force", help="Force-release the lock"),
-    restart_ollama: bool = typer.Option(False, "--restart-ollama"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    restart_ollama: bool = typer.Option(False, "--restart-ollama", help="Restart Ollama after releasing the lock"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Release the GPU owner lock (Ollama / ComfyUI)."""
     json_out = json_out or get_global_json()

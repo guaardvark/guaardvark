@@ -457,8 +457,8 @@ def _setup_json(server: str | None, api_key: str | None) -> None:
 
 @models_app.command("list")
 def models_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
     refresh: bool = typer.Option(False, "--refresh", help="Bypass model cache"),
 ):
     server = server or get_global_server()
@@ -483,8 +483,8 @@ def models_list(
 
 @models_app.command("active")
 def models_active(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     server = server or get_global_server()
     json_out = json_out or get_global_json()
@@ -512,8 +512,8 @@ def models_active(
 @models_app.command("set")
 def models_set(
     model: str = typer.Argument(help="Model name to switch to"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     server = server or get_global_server()
     json_out = json_out or get_global_json()

@@ -10,8 +10,8 @@ websites_app = typer.Typer(help="Website management", no_args_is_help=True)
 
 @websites_app.command("list")
 def websites_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List all websites."""
     server = server or get_global_server()
@@ -46,8 +46,8 @@ def websites_create(
     url: str = typer.Argument(..., help="Website URL"),
     client_id: int = typer.Option(None, "--client", "-c", help="Client ID"),
     project_id: int = typer.Option(None, "--project", "-p", help="Project ID"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Create a new website entry."""
     server = server or get_global_server()
@@ -75,8 +75,8 @@ def websites_create(
 @websites_app.command("info")
 def websites_info(
     website_id: int = typer.Argument(..., help="Website ID"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show website details."""
     server = server or get_global_server()
@@ -105,8 +105,8 @@ def websites_info(
 @websites_app.command("scrape")
 def websites_scrape(
     website_id: int = typer.Argument(..., help="Website ID to scrape"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Trigger a scrape of the website."""
     server = server or get_global_server()
@@ -131,8 +131,8 @@ def websites_scrape(
 def websites_delete(
     website_id: int = typer.Argument(..., help="Website ID"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Delete a website."""
     server = server or get_global_server()

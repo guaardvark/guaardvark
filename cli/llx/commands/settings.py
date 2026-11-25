@@ -10,8 +10,8 @@ settings_app = typer.Typer(help="Application settings", no_args_is_help=True)
 
 @settings_app.command("list")
 def settings_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show all settings."""
     server = server or get_global_server()
@@ -50,8 +50,8 @@ def settings_list(
 @settings_app.command("get")
 def settings_get(
     key: str = typer.Argument(..., help="Setting key"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Get a setting value."""
     server = server or get_global_server()
@@ -73,8 +73,8 @@ def settings_get(
 def settings_set(
     key: str = typer.Argument(..., help="Setting key"),
     value: str = typer.Argument(..., help="Setting value"),
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Set a setting value."""
     server = server or get_global_server()

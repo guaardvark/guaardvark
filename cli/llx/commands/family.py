@@ -16,8 +16,8 @@ family_app = typer.Typer(help="Interconnector family network management", no_arg
 
 @family_app.command("list")
 def family_list(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """List all family nodes and their sync status."""
     server = server or get_global_server()
@@ -72,8 +72,8 @@ def family_list(
 
 @family_app.command("status")
 def family_status(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Show interconnector status and network health."""
     server = server or get_global_server()
@@ -116,8 +116,8 @@ def family_status(
 
 @family_app.command("sync")
 def family_sync(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Trigger a manual sync with all connected family nodes."""
     server = server or get_global_server()
@@ -145,8 +145,8 @@ def family_sync(
 
 @family_app.command("health")
 def family_health(
-    server: str = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Check connectivity to all family nodes."""
     server = server or get_global_server()

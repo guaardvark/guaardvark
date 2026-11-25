@@ -15,7 +15,7 @@ console = make_console()
 
 def dashboard(
     interval: float = typer.Option(3.0, "--interval", "-i", help="Refresh interval in seconds"),
-    server: str = typer.Option(None, "--server", "-s"),
+    server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
 ):
     """Live system dashboard with auto-refreshing metrics. Press Ctrl+C to exit."""
     # When called directly (not via Typer CLI), Options remain as OptionInfo objects
