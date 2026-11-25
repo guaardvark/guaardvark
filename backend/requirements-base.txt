@@ -21,7 +21,7 @@ kombu==5.7.0
 redis==8.1.0
 eventlet==0.41.2
 # Cron expressions for scheduled tasks (backend/api/task_scheduler_api.py).
-croniter==6.2.4
+croniter==7.0.0
 
 # Data Processing & Analysis
 numpy<2.0,>=1.26.4  # Pin to <2.0 for PyTorch compatibility
@@ -106,7 +106,7 @@ pydantic-settings>=2.15.0
 # scipy/tqdm/PyYAML stay here — shared transitive deps of the always-on stack.
 scipy>=1.10.0  # used by image/audio paths; also a GFPGAN dep
 tqdm>=4.65.0   # transitive dep of transformers/huggingface_hub (always-on)
-PyYAML>=6.0    # transitive dep of transformers/huggingface_hub (always-on)
+PyYAML>=6.0.4    # transitive dep of transformers/huggingface_hub (always-on)
 
 # Video Processing Dependencies
 imageio==2.38.1
@@ -117,10 +117,10 @@ piper-tts==1.8.0
 onnxruntime==1.30.0
 
 # Testing Dependencies
-pytest==9.0.3
+pytest==9.2.0
 pytest-timeout==2.4.0
 pytest-playwright==0.8.0  # 0.7.0 caps pytest<9.0.0; 0.8.0 supports pytest 9.x
-playwright==1.52.0
+playwright==1.65.2
 
 # Desktop Automation Dependencies
 pyautogui>=0.9.54      # GUI automation (mouse, keyboard)
