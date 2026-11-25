@@ -44,8 +44,7 @@ import ScheduleRequestButton from "../components/jobs/ScheduleRequestButton";
 import PageLayout from "../components/layout/PageLayout";
 import WaveformPlayer from "../components/audio/WaveformPlayer";
 import axios from "axios";
-import { io } from "socket.io-client";
-import { SOCKET_URL } from "../api/apiClient";
+import { openSocket } from "../api/sharedSocket";
 import { startPluginsForRoute } from "../hooks/useGpuIntent";
 import { ActionButton, DashboardStrip, DashboardTile } from "../components/settings/ui";
 import AlertSnackbar from "../components/common/AlertSnackbar";
@@ -378,11 +377,7 @@ const AudioFoundryPage = () => {
   // Plugin list pushes keep the tile, banner and Generate current however
   // Audio Foundry is started or stopped; the read above is the first value.
   useEffect(() => {
-    const socket = io(SOCKET_URL, {
-      reconnection: true,
-      reconnectionAttempts: 5,
-      transports: ["polling", "websocket"],
-    });
+    const socket = openSocket();
     socket.on("connect", () => socket.emit("subscribe_plugins"));
     socket.on("plugins:status", (payload) => {
       const entry = (payload?.plugins || []).find((p) => p.id === AUDIO_PLUGIN_ID);

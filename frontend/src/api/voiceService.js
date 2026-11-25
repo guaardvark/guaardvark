@@ -1,8 +1,8 @@
 // frontend/src/api/voiceService.js
 // Version 1.0: Voice chat API service
 
-import { BASE_URL, SOCKET_URL, handleResponse } from './apiClient';
-import { io } from 'socket.io-client';
+import { BASE_URL, handleResponse } from './apiClient';
+import { openSocket } from "./sharedSocket";
 import { debugLog } from "../utils/debugLog";
 import { translate } from "../i18n";
 
@@ -48,10 +48,7 @@ class VoiceService {
    */
   initSocket() {
     if (!this.socket) {
-      this.socket = io(SOCKET_URL, {
-        transports: ['polling', 'websocket'],
-        reconnection: true,
-      });
+      this.socket = openSocket();
       
       this.socket.on('connect', () => {
         debugLog('VoiceService: WebSocket connected');

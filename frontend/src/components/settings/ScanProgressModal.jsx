@@ -21,7 +21,7 @@ import {
   Error as ErrorIcon,
   Block as BlockIcon,
 } from "@mui/icons-material";
-import io from "socket.io-client";
+import { openSocket } from "../../api/sharedSocket";
 import { selfImprovementService } from "../../api/selfImprovementService";
 import { ActionButton, StatusPill } from "./ui";
 import {
@@ -210,7 +210,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
     cancelRequestedRef.current = false;
 
     // Stand up the socket FIRST so we don't miss the earliest events.
-    const socket = io({ path: "/socket.io", transports: ["polling", "websocket"] });
+    const socket = openSocket();
     socketRef.current = socket;
     socket.on("connect", () => setSocketConnected(true));
     socket.on("disconnect", () => setSocketConnected(false));

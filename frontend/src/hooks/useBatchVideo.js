@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { io } from "socket.io-client";
-import { SOCKET_URL, handleResponse } from "../api/apiClient";
+import { openSocket } from "../api/sharedSocket";
+import { handleResponse } from "../api/apiClient";
 import { formatUiError } from "../utils/uiError";
 import { translate } from "../i18n";
 
@@ -141,7 +141,7 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
   }, [stopPolling, fetchStatusOnce]);
 
   useEffect(() => {
-    socketRef.current = io(SOCKET_URL);
+    socketRef.current = openSocket();
     socketRef.current.on("video_batch:update", (data) => {
       // Only apply WS updates for the active batch (or unset until first poll).
       if (

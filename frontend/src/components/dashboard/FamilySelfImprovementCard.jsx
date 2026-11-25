@@ -25,7 +25,7 @@ import DashboardCardWrapper from "./DashboardCardWrapper";
 import { StatusChip, UNCLE_GOLD, getFamilyColors } from "../../utils/familyColors";
 import { claudeAdvisorService } from "../../api/claudeAdvisorService";
 import { selfImprovementService } from "../../api/selfImprovementService";
-import io from "socket.io-client";
+import { openSocket } from "../../api/sharedSocket";
 import { uiLocale, useUiTranslation } from "../../i18n";
 
 // Stage color mapping
@@ -84,7 +84,7 @@ const FamilySelfImprovementCard = React.forwardRef(
 
     // Listen for real-time progress events
     useEffect(() => {
-      const socket = io({ path: "/socket.io", transports: ["polling", "websocket"] });
+      const socket = openSocket();
       socket.on("self_improvement_progress", (data) => {
         setProgress(data);
         // When complete or error, refresh data after a short delay and clear progress

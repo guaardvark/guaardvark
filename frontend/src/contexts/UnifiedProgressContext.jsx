@@ -14,10 +14,10 @@ import React, {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { io } from "socket.io-client";
+import { openSocket } from "../api/sharedSocket";
 
 import { useTheme } from "@mui/material/styles";
-import { BASE_URL as API_BASE, SOCKET_URL } from "../api/apiClient";
+import { BASE_URL as API_BASE } from "../api/apiClient";
 import { debugLog } from "../utils/debugLog";
 import { translate, useUiTranslation } from "../i18n";
 import { UPDATE_APPLIED_EVENT } from "./HealthContext";
@@ -353,17 +353,7 @@ export const UnifiedProgressProvider = ({ children }) => {
 
     const initializeSocket = () => {
       try {
-        const socket = io(SOCKET_URL, {
-          path: "/socket.io",
-          transports: ["polling", "websocket"],
-          reconnection: true,
-          reconnectionAttempts: Infinity,
-          reconnectionDelay: 1000,
-          reconnectionDelayMax: 10000,
-          timeout: 10000,
-          upgrade: true,
-          rememberUpgrade: true,
-        });
+        const socket = openSocket();
 
         socketRef.current = socket;
 

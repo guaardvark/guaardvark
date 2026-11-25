@@ -36,7 +36,7 @@ import SendIcon from "@mui/icons-material/Send";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import ManageSearchIcon from "@mui/icons-material/ManageSearch";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
-import { io } from "socket.io-client";
+import { openSocket } from "../api/sharedSocket";
 
 import PageLayout from "../components/layout/PageLayout";
 import PageStatus, { StatusChip } from "../components/layout/PageStatus";
@@ -57,7 +57,6 @@ import ChecklistIcon from "@mui/icons-material/Checklist";
 import { useFloatingChatStore } from "../stores/useFloatingChatStore";
 import { useAppStore } from "../stores/useAppStore";
 import { setPlanMode } from "../api/planModeService";
-import { SOCKET_URL } from "../api/apiClient";
 import { useUiTranslation, translate, Trans } from "../i18n";
 
 // Mirror of the SECTION_HUE in SystemMapCanvas — keep these in sync.
@@ -421,12 +420,7 @@ export default function SystemMapPage() {
   useEffect(() => {
     if (!map) return;
     const moduleNames = moduleIdsOf(map);
-    const socket = io(SOCKET_URL, {
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      transports: ["polling", "websocket"],
-    });
+    const socket = openSocket();
 
     function pushEvent(kind, data) {
       const toolName = data?.tool || data?.tool_name || data?.name;
@@ -446,14 +440,12 @@ export default function SystemMapPage() {
       }
     }
 
-    // Chat events are scoped to the asking session's room, which this page
-    // never joins; the backend mirrors them machine-wide as map:tool_activity
-    // (tool name and session only). The chat:* handlers stay for a socket
-    // that does share a room.
+    // Chat events go to the asking session's room; the backend mirrors them
+    // machine-wide as map:tool_activity (tool name and session only). The
+    // tab's connection may be in a chat room too, so listening to chat:*
+    // as well would show that session's calls twice.
     const handlers = {
       "map:tool_activity": (d) => pushEvent(d?.kind === "result" ? "result" : "call", d),
-      "chat:tool_call": (d) => pushEvent("call", d),
-      "chat:tool_result": (d) => pushEvent("result", d),
     };
     for (const [evt, fn] of Object.entries(handlers)) socket.on(evt, fn);
     return () => {

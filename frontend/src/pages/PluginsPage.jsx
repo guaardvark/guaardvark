@@ -54,8 +54,7 @@ import PageLayout from '../components/layout/PageLayout';
 import { ContextualLoader } from '../components/common/LoadingStates';
 import EntityContextMenu from '../components/common/EntityContextMenu';
 import useContextMenu from '../hooks/useContextMenu';
-import { io } from 'socket.io-client';
-import { SOCKET_URL } from '../api/apiClient';
+import { openSocket } from "../api/sharedSocket";
 import {
   listPlugins,
   pluginGateRefusal,
@@ -815,11 +814,7 @@ const PluginsPage = () => {
     };
     loadGpuOnce();
 
-    const socket = io(SOCKET_URL, {
-      reconnection: true,
-      reconnectionAttempts: 5,
-      transports: ['polling', 'websocket'],
-    });
+    const socket = openSocket();
     socketRef.current = socket;
 
     socket.on('connect', () => {

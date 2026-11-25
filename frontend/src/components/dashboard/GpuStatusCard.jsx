@@ -17,8 +17,7 @@ import {
 import { useTheme } from "@mui/material/styles";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import MemoryIcon from "@mui/icons-material/Memory";
-import { io } from "socket.io-client";
-import { SOCKET_URL } from "../../api/apiClient";
+import { openSocket } from "../../api/sharedSocket";
 import { getGpuStatus, setGpuTier, evictGpuModel } from "../../api/gpuService";
 import { translate, useUiTranslation } from "../../i18n";
 
@@ -81,11 +80,7 @@ const GpuStatusCard = React.forwardRef(
       fetchStatus();
 
       try {
-        const socket = io(SOCKET_URL, {
-          reconnection: true,
-          reconnectionAttempts: 3,
-          transports: ["polling", "websocket"],
-        });
+        const socket = openSocket();
         socketRef.current = socket;
 
         socket.on("connect", () => {

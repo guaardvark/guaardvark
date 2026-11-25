@@ -1,8 +1,8 @@
 // frontend/src/api/swarmService.js
 // API service for the Swarm Orchestrator plugin
 
-import { BASE_URL as API_BASE_URL, SOCKET_URL, handleResponse } from "./apiClient";
-import { io } from "socket.io-client";
+import { BASE_URL as API_BASE_URL, handleResponse } from "./apiClient";
+import { openSocket } from "./sharedSocket";
 
 const BASE_URL = `${API_BASE_URL}/swarm`;
 
@@ -194,13 +194,9 @@ class SwarmService {
   }
 
   connect() {
-    if (this.socket?.connected) return this.socket;
+    if (this.socket) return this.socket;
 
-    this.socket = io(SOCKET_URL, {
-      path: "/socket.io",
-      transports: ["polling", "websocket"],
-      reconnectionAttempts: 5,
-    });
+    this.socket = openSocket();
 
     this.socket.on("connect", () => {
       console.log("SwarmService connected to Socket.IO");
