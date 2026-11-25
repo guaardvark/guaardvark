@@ -236,7 +236,7 @@ def test_a_real_clip_succeeds_without_a_kind(comfy, monkeypatch):
 
 
 def test_card_too_small(comfy):
-    comfy.fake.total_vram_mb = 6 * 1024
+    comfy.fake.total_vram_mb = 4 * 1024   # below the 5B's 6 GB floor
     assert _render(comfy).error_kind == "card_too_small"
 
 
