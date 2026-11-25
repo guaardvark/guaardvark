@@ -86,15 +86,67 @@ def clean_pycache_directory(
         return False, stats, f"Unexpected error: {e}"
 
 
+def _is_installed_package_dir(name: str) -> bool:
+    return name in ("site-packages", "node_modules") or name.startswith(("venv", ".venv"))
+
+
 def find_pycache_directories(root: Path) -> List[Path]:
+    """The project's own bytecode folders. Virtualenvs are not walked: their
+    bytecode never goes stale with a code change, and dropping it makes every
+    service recompile its whole environment at the next start."""
     pycache_dirs = []
     try:
-        for path in root.rglob("__pycache__"):
-            if path.is_dir():
-                pycache_dirs.append(path)
+        for dirpath, dirnames, _files in os.walk(root):
+            dirnames[:] = [d for d in dirnames if not _is_installed_package_dir(d)]
+            if "__pycache__" in dirnames:
+                dirnames.remove("__pycache__")
+                pycache_dirs.append(Path(dirpath) / "__pycache__")
     except (OSError, PermissionError) as e:
         logger.warning(f"Error searching for __pycache__ directories in {root}: {e}")
     return pycache_dirs
+
+
+# Subfolders of the cache folder that hold only copies the app remakes on
+# demand: Library previews and the scratch files of image, chat-vision, voice
+# and batch work. Downloaded data (nltk_data, docling_artifacts) and built
+# indexes (system_map, tool_embeddings.json) are not listed and are never touched.
+REGENERABLE_CACHE_DIRS = ("thumbnails", "generated_images", "chat_images", "audio", "batch_generation")
+# A scratch file this young may belong to a render or a reply still in flight.
+CACHE_IN_USE_WINDOW_S = 3600
+
+
+def clear_regenerable_caches(cache_dir=None) -> Dict:
+    """Delete the files in REGENERABLE_CACHE_DIRS, leaving recent ones alone."""
+    import time
+
+    if cache_dir is None:
+        from backend.config import CACHE_DIR
+        cache_dir = CACHE_DIR
+    stats = {"files": 0, "size_bytes": 0, "kept_recent": 0, "errors": []}
+    cutoff = time.time() - CACHE_IN_USE_WINDOW_S
+    for sub in REGENERABLE_CACHE_DIRS:
+        folder = Path(cache_dir) / sub
+        if not folder.is_dir():
+            continue
+        for dirpath, _dirs, filenames in os.walk(folder, topdown=False):
+            for filename in filenames:
+                path = Path(dirpath) / filename
+                try:
+                    st = path.lstat()
+                    if st.st_mtime > cutoff:
+                        stats["kept_recent"] += 1
+                        continue
+                    path.unlink()
+                    stats["files"] += 1
+                    stats["size_bytes"] += st.st_size
+                except OSError as e:
+                    stats["errors"].append(f"{path}: {e}")
+            if Path(dirpath) != folder:
+                try:
+                    os.rmdir(dirpath)
+                except OSError:
+                    pass  # still holds a recent file
+    return stats
 
 
 def purge_backend_modules() -> List[str]:
@@ -184,7 +236,11 @@ def clear_pycache_endpoint():
                 size /= 1024.0
             return f"{size:.2f} TB"
 
-        success = len(errors) == 0 or total_dirs_cleaned > 0
+        app_cache = clear_regenerable_caches()
+        errors.extend(app_cache["errors"])
+        total_size_bytes += app_cache["size_bytes"]
+
+        success = len(errors) == 0 or total_dirs_cleaned > 0 or app_cache["files"] > 0
         message_parts = []
 
         if total_dirs_cleaned > 0:
@@ -194,6 +250,9 @@ def clear_pycache_endpoint():
             )
         else:
             message_parts.append("No __pycache__ directories found to clean")
+
+        if app_cache["files"]:
+            message_parts.append(f"Removed {app_cache['files']} cached preview and scratch file(s)")
 
         # Module purging disabled (destroys SQLAlchemy in running Flask)
         purged_modules = []
@@ -208,6 +267,8 @@ def clear_pycache_endpoint():
                 "directories_found": total_dirs_found,
                 "directories_cleaned": total_dirs_cleaned,
                 "pyc_files_deleted": total_pyc_files,
+                "cache_files_deleted": app_cache["files"],
+                "cache_files_kept_recent": app_cache["kept_recent"],
                 "size_bytes": total_size_bytes,
                 "size_formatted": format_size(total_size_bytes),
             },

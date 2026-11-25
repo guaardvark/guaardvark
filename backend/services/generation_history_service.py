@@ -29,11 +29,21 @@ Scope is deliberately narrow and structural, not by folder prefix:
   directories already own (no ``documents`` row points into them). The one
   exception is ``input/example.png``, which ComfyUI's own checkout tracks.
   Both folders are left alone while ComfyUI has a prompt running or queued:
-  it reads ``input/`` and writes ``output/`` on the fly.
+  it reads ``input/`` and writes ``output/`` on the fly. The same gate covers
+  the reference clips staged for it under the cache folder and its in-memory
+  prompt history;
+- tool outputs = the files chat, the Image Edit page and the MCP tools write
+  under the outputs folder (``OUTPUT_HISTORY`` below), matched by the names
+  those writers give. A hand-named file in the same folder stays;
+- upscales = everything under ``outputs/upscaling/input`` and ``output``,
+  left alone while an upscale is queued or running;
+- previews = the Library's thumbnail cache, which holds a small copy of every
+  image it has shown.
 
 Never touched: Film Crew productions, video-editor projects, the cast
 library and ``data/training/loras`` (the live LoRA registry ComfyUI loads),
-chat history, scheduler tasks, music videos, upscaling, voice reference clips.
+chat history, scheduler tasks, music videos, voice reference clips, and the
+consent records kept by content hash in ``outputs/consent``.
 """
 from __future__ import annotations
 
@@ -48,13 +58,18 @@ from typing import Any, Iterable, Optional
 logger = logging.getLogger(__name__)
 
 BATCH_METADATA = "batch_metadata.json"
-AUDIO_GENERATED_RE = re.compile(r"^[0-9a-f]{32}(\.wav|\.mp3|_input_params\.json)$")
+# audio_foundry names a generation uuid4().hex; the ComfyUI music graph saves
+# ``minimax_music3_<8 hex>`` plus SaveAudio's counter.
+AUDIO_GENERATED_RE = re.compile(
+    r"^([0-9a-f]{32}(\.wav|\.mp3|_input_params\.json)|minimax_music3_[0-9a-f]{8}_\d{5}_?\.(flac|mp3|wav))$"
+)
 # A copy made in the Library keeps the name and gains " (2)".
 _COPY = r"( \(\d+\))?"
 # output_registration.bates_name for single renders, and ComfyUI's SaveImage /
 # SaveVideo counter, which nothing but ComfyUI writes.
+# "Upscale" in the Library writes ``<name>_upscaled`` beside its source.
 LOOSE_GENERATED_RE = re.compile(
-    r"^((ImageGen|VideoGen)_\d{2}-\d{2}-\d{4}(_\d+)+|.+_\d{5}_)" + _COPY + r"\.[A-Za-z0-9]+$"
+    r"^((ImageGen|VideoGen)_\d{2}-\d{2}-\d{4}(_\d+)+|.+_\d{5}_)(_upscaled)?" + _COPY + r"\.[A-Za-z0-9]+$"
 )
 INFOGRAPHIC_RE = re.compile(r"^infographic_\d{8}_\d{6}_[0-9a-f]{6}" + _COPY + r"\.png$")
 INFOGRAPHICS_SUBDIR = ("Images", "Infographics")
@@ -70,6 +85,32 @@ COMFYUI_SCRATCH_DIRS = ("output", "input")
 # Files ComfyUI's own checkout ships in these folders (its .gitignore exempts
 # them); removing them dirties the plugin tree and breaks the stock workflow.
 COMFYUI_KEEP = {"input": frozenset({"example.png"})}
+# Reference clips staged for a ComfyUI prompt, under the cache folder.
+COMFYUI_STAGING_DIRS = (("generated_videos", "h3_guides"), ("generated_videos", "h3_refs"))
+
+_STAMP = r"\d{8}_\d{6}"
+# Generator files under the outputs folder that no batch owns:
+# (result key, subfolder, the names its writer gives).
+OUTPUT_HISTORY = (
+    # stills_pipeline and image_tools: chat, Image Edit and MCP results.
+    ("tool_outputs", "generated_images",
+     re.compile(r"^(gen|edit|nobg|outpaint|identity|scene)_" + _STAMP + r"_[0-9a-f]{8}\.(png|jpe?g|webp)$")),
+    ("tool_outputs", "generated_animations",
+     re.compile(r"^anim_" + _STAMP + r"_[0-9a-f]{8}\.(gif|mp4)$")),
+    # The source, likeness and mask images those edits were given, with the
+    # consent sidecar written beside one.
+    ("tool_outputs", "edit_inputs",
+     re.compile(r"^(page_src|edit_src|identity_ref|identity_mask)_[0-9a-f]{12}\.[A-Za-z0-9]+(\.consent)?$")),
+    ("tool_outputs", "identity_scenes",
+     re.compile(r"^scene_" + _STAMP + r"_[0-9a-f]{8}\.[A-Za-z0-9]+\.json$")),
+    ("narrations", "narrations", re.compile(r"^narration_" + _STAMP + r"\.(wav|mp3)$")),
+)
+OUTPUT_HISTORY_KEYS = ("tool_outputs", "narrations")
+UPSCALING_SUBDIR = "upscaling"
+UPSCALING_SCRATCH_DIRS = ("input", "output")
+THUMBNAILS_SUBDIR = "thumbnails"
+# job_history rows are a log of work done; these process types are generation.
+HISTORY_PROCESS_TYPES = frozenset({"image_generation", "video_render", "upscale"})
 
 
 # ─── filesystem ──────────────────────────────────────────────────────────────
@@ -165,6 +206,75 @@ def _files_size(paths: Iterable[Path]) -> int:
     return total
 
 
+def _output_roots(output_dir: Optional[str | Path] = None) -> list[Path]:
+    """The outputs folder, plus ``data/outputs`` under the install: the voice
+    and upscaling routes write there whatever ``OUTPUT_DIR`` is set to."""
+    if output_dir is not None:
+        return [Path(output_dir)]
+    from backend.config import GUAARDVARK_ROOT, OUTPUT_DIR
+    roots = [Path(OUTPUT_DIR)]
+    fixed = Path(GUAARDVARK_ROOT) / "data" / "outputs"
+    if fixed.resolve() != roots[0].resolve():
+        roots.append(fixed)
+    return roots
+
+
+def _cache_dir(cache_dir: Optional[str | Path] = None) -> Path:
+    if cache_dir is not None:
+        return Path(cache_dir)
+    from backend.config import CACHE_DIR
+    return Path(CACHE_DIR)
+
+
+def _output_history_files(roots: Iterable[Path]) -> dict[str, list[Path]]:
+    found: dict[str, list[Path]] = {key: [] for key in OUTPUT_HISTORY_KEYS}
+    for root in roots:
+        for key, sub, pattern in OUTPUT_HISTORY:
+            found[key].extend(_matching_files(root / sub, pattern))
+    return found
+
+
+def _files_under(folders: Iterable[Path]) -> list[Path]:
+    found: list[Path] = []
+    for folder in folders:
+        if folder.is_dir():
+            found.extend(p for p in folder.rglob("*") if p.is_file() or p.is_symlink())
+    return sorted(found)
+
+
+def _upscaling_files(roots: Iterable[Path]) -> list[Path]:
+    return _files_under(
+        root / UPSCALING_SUBDIR / sub for root in roots for sub in UPSCALING_SCRATCH_DIRS
+    )
+
+
+def _prune_empty_dirs(folders: Iterable[Path]) -> None:
+    """Remove the empty subfolders left under each folder; the folder itself stays."""
+    import os
+
+    for folder in folders:
+        if not folder.is_dir():
+            continue
+        for root, _dirs, _files in os.walk(folder, topdown=False):
+            if Path(root) != folder:
+                try:
+                    os.rmdir(root)
+                except OSError:
+                    pass  # not empty
+
+
+def _upscales_running() -> int:
+    """Upscale jobs queued or running in this process. Never constructs the
+    supervisor: one that was never built has no jobs."""
+    try:
+        from backend.services import upscale_supervisor as mod
+        supervisor = getattr(mod, "_SUPERVISOR", None)
+        return supervisor.active_count() if supervisor is not None else 0
+    except Exception as e:  # pragma: no cover - import failure means nothing is live
+        logger.debug("upscale supervisor unavailable: %s", e)
+        return 0
+
+
 def _unlink_all(paths: Iterable[Path], label: str, errors: list[str]) -> tuple[list[Path], int]:
     """Remove files; returns (the ones removed, bytes freed)."""
     removed: list[Path] = []
@@ -248,6 +358,21 @@ def _remove_scratch_entry(p: Path) -> None:
         p.unlink()
     else:
         shutil.rmtree(p)
+
+
+def _comfyui_staging_files(cache: Path) -> list[Path]:
+    return _files_under(cache.joinpath(*parts) for parts in COMFYUI_STAGING_DIRS)
+
+
+def _comfyui_clear_history() -> None:
+    """Drop the finished prompts ComfyUI keeps in memory (text and settings of
+    every render since it started). An unreachable ComfyUI holds none."""
+    import requests
+    try:
+        resp = requests.post(f"{_comfyui_url()}/history", json={"clear": True}, timeout=COMFYUI_TIMEOUT_S)
+    except requests.ConnectionError:
+        return
+    resp.raise_for_status()
 
 
 def _comfyui_in_flight() -> list[str]:
@@ -434,12 +559,48 @@ def _db_targets(batch_paths: Iterable[str], file_paths: Iterable[str] = ()) -> t
     return folder_ids, sorted(doc_ids)
 
 
-def _job_history_ids(image_ids: Iterable[str], keep: Iterable[str] = ()) -> list[str]:
-    """job_history rows for video batches (their own kind) and image batches.
+def _stale_targets(upload: Path) -> tuple[list[int], list[int]]:
+    """(folder ids, document ids) of Library entries whose folder is gone.
 
-    Image batches share the ``unified`` kind with indexing and other
-    processes, so they are picked by ``native_id`` or by the
-    ``process_type`` the image generator stamps — never by kind alone.
+    The Library lists from these rows, not from disk, so a generated folder
+    removed any other way (an older delete, a file manager) keeps showing
+    there. Only folders below the media roots count, and one is left alone
+    while any document filed in it still resolves to a file.
+    """
+    from backend.models import db, Document, Folder
+
+    roots = (*MEDIA_ROOTS, "Audio")
+    stale: dict[int, str] = {}
+    for fid, path in db.session.query(Folder.id, Folder.path):
+        head, sep, _rest = (path or "").partition("/")
+        if sep and head in roots and not (upload / path).is_dir():
+            stale[fid] = path
+    if not stale:
+        return [], []
+    docs: dict[int, list[int]] = {}
+    kept: set[str] = set()
+    for did, path, folder_id in db.session.query(Document.id, Document.path, Document.folder_id).filter(
+        Document.folder_id.in_(list(stale))
+    ):
+        file = Path(path or "")
+        if path and (file if file.is_absolute() else upload / file).exists():
+            kept.add(stale[folder_id])
+        else:
+            docs.setdefault(folder_id, []).append(did)
+
+    def holds_a_kept_folder(path: str) -> bool:
+        return any(k == path or k.startswith(path + "/") for k in kept)
+
+    folder_ids = sorted(fid for fid, path in stale.items() if not holds_a_kept_folder(path))
+    return folder_ids, sorted(did for fid in folder_ids for did in docs.get(fid, []))
+
+
+def _job_history_ids(image_ids: Iterable[str], keep: Iterable[str] = ()) -> list[str]:
+    """job_history rows for generation work.
+
+    Generation shares the ``unified`` kind with indexing and other processes,
+    so rows are picked by ``native_id`` or by the ``process_type`` a generator
+    stamps (``HISTORY_PROCESS_TYPES``), never by kind alone.
     ``keep`` names batches that are still running: their rows stay with them.
     """
     from backend.models import db, JobHistory
@@ -457,7 +618,7 @@ def _job_history_ids(image_ids: Iterable[str], keep: Iterable[str] = ()) -> list
         if native_id in keep_set:
             continue
         process_type = (meta or {}).get("process_type") if isinstance(meta, dict) else None
-        if native_id in image_set or process_type == "image_generation":
+        if native_id in image_set or process_type in HISTORY_PROCESS_TYPES:
             ids.append(jid)
     return ids
 
@@ -555,7 +716,10 @@ def _delete_db_rows(folder_ids: list[int], doc_ids: list[int], job_history_ids: 
 # ─── public API ──────────────────────────────────────────────────────────────
 
 def count_generation_history(
-    upload_dir: Optional[str | Path] = None, comfyui_dir: Optional[str | Path] = None
+    upload_dir: Optional[str | Path] = None,
+    comfyui_dir: Optional[str | Path] = None,
+    output_dir: Optional[str | Path] = None,
+    cache_dir: Optional[str | Path] = None,
 ) -> dict[str, Any]:
     """What "Delete History" would remove, for the confirmation dialog."""
     upload = _upload_dir(upload_dir)
@@ -569,6 +733,12 @@ def count_generation_history(
     audio_jobs = _audio_job_files(audio_root)
     comfy = _comfyui_dir(comfyui_dir)
     scratch = {sub: _comfyui_scratch(comfy, sub) for sub in COMFYUI_SCRATCH_DIRS}
+    roots = _output_roots(output_dir)
+    cache = _cache_dir(cache_dir)
+    outputs = _output_history_files(roots)
+    upscales = _upscaling_files(roots)
+    staging = _comfyui_staging_files(cache)
+    thumbnails = _files_under([cache / THUMBNAILS_SUBDIR])
 
     running_images = sorted(_active_batch_ids(_generator_instance("images")))
     running_videos = sorted(_active_batch_ids(_generator_instance("videos")))
@@ -592,9 +762,10 @@ def count_generation_history(
             [b["rel"] for b in batches],
             [p.relative_to(upload).as_posix() for p in loose + infographics],
         )
+        stale_folders, stale_docs = _stale_targets(upload)
         db_counts = {
-            "documents": len(doc_ids),
-            "folders": len(folder_ids),
+            "documents": len(set(doc_ids) | set(stale_docs)),
+            "folders": len(set(folder_ids) | set(stale_folders)),
             "job_history": len(_job_history_ids(
                 [b["batch_id"] for b in images], keep=running_images + running_videos
             )),
@@ -606,11 +777,18 @@ def count_generation_history(
         sub: {"files": sum(e["files"] for e in scratch[sub]), "bytes": sum(e["bytes"] for e in scratch[sub])}
         for sub in COMFYUI_SCRATCH_DIRS
     }
+    comfy_counts["staging"] = {"files": len(staging), "bytes": _files_size(staging)}
     comfy_bytes = sum(c["bytes"] for c in comfy_counts.values())
     loose_bytes = _files_size(loose)
     infographic_bytes = _files_size(infographics)
+    extra = {
+        **{key: {"files": len(paths), "bytes": _files_size(paths)} for key, paths in outputs.items()},
+        "upscales": {"files": len(upscales), "bytes": _files_size(upscales), "running": _upscales_running()},
+        "previews": {"files": len(thumbnails), "bytes": _files_size(thumbnails)},
+    }
     total_bytes = (
         sum(b["bytes"] for b in batches) + audio_bytes + comfy_bytes + loose_bytes + infographic_bytes
+        + sum(c["bytes"] for c in extra.values())
     )
     return {
         "images": {
@@ -633,6 +811,7 @@ def count_generation_history(
         },
         "loose": {"files": len(loose), "bytes": loose_bytes},
         "infographics": {"files": len(infographics), "bytes": infographic_bytes},
+        **extra,
         "comfyui": {
             **comfy_counts,
             "files": sum(c["files"] for c in comfy_counts.values()),
@@ -648,10 +827,13 @@ def delete_generation_history(
     *,
     upload_dir: Optional[str | Path] = None,
     comfyui_dir: Optional[str | Path] = None,
+    output_dir: Optional[str | Path] = None,
+    cache_dir: Optional[str | Path] = None,
     triggered_by: str = "settings_ui",
 ) -> dict[str, Any]:
     """Delete all batch-image, batch-video and audio generation history,
-    single renders, infographics, plus ComfyUI's output/ and input/ scratch.
+    single renders, infographics, tool outputs, narrations, upscales and
+    Library previews, plus ComfyUI's output/ and input/ scratch.
 
     Each stage is isolated: a failure is recorded in ``errors`` and the
     remaining stages still run, so a bad sidecar cannot leave batch
@@ -660,14 +842,18 @@ def delete_generation_history(
     """
     upload = _upload_dir(upload_dir)
     errors: list[str] = []
-    skipped: dict[str, list[str]] = {"images": [], "videos": [], "audio": [], "comfyui": []}
+    skipped: dict[str, Any] = {"images": [], "videos": [], "audio": [], "comfyui": [], "upscales": 0}
     deleted: dict[str, Any] = {
         "images": {"batches": 0, "files": 0, "bytes": 0},
         "videos": {"batches": 0, "files": 0, "bytes": 0},
         "audio": {"jobs": 0, "files": 0, "bytes": 0},
         "loose": {"files": 0, "bytes": 0},
         "infographics": {"files": 0, "bytes": 0},
-        "comfyui": {sub: {"files": 0, "bytes": 0} for sub in COMFYUI_SCRATCH_DIRS},
+        "tool_outputs": {"files": 0, "bytes": 0},
+        "narrations": {"files": 0, "bytes": 0},
+        "upscales": {"files": 0, "bytes": 0},
+        "previews": {"files": 0, "bytes": 0},
+        "comfyui": {sub: {"files": 0, "bytes": 0} for sub in (*COMFYUI_SCRATCH_DIRS, "staging")},
         "documents": 0,
         "folders": 0,
         "job_history": 0,
@@ -708,6 +894,25 @@ def delete_generation_history(
         deleted[key]["bytes"] = freed
         removed_file_paths.extend(p.relative_to(upload).as_posix() for p in removed)
 
+    # 1a'. Tool outputs and narrations under the outputs folder, upscales
+    #      unless one is in flight (it reads input/ and writes output/), and
+    #      the previews the Library made of all of the above.
+    roots = _output_roots(output_dir)
+    cache = _cache_dir(cache_dir)
+    for key, paths in _output_history_files(roots).items():
+        removed, freed = _unlink_all(paths, key, errors)
+        deleted[key] = {"files": len(removed), "bytes": freed}
+    skipped["upscales"] = _upscales_running()
+    if not skipped["upscales"]:
+        removed, freed = _unlink_all(_upscaling_files(roots), "upscale", errors)
+        deleted["upscales"] = {"files": len(removed), "bytes": freed}
+        _prune_empty_dirs(
+            root / UPSCALING_SUBDIR / sub for root in roots for sub in UPSCALING_SCRATCH_DIRS
+        )
+    removed, freed = _unlink_all(_files_under([cache / THUMBNAILS_SUBDIR]), "preview", errors)
+    deleted["previews"] = {"files": len(removed), "bytes": freed}
+    _prune_empty_dirs([cache / THUMBNAILS_SUBDIR])
+
     # 1b. ComfyUI's own output/ and input/. A prompt still executing may read
     #     input/ or write output/ next, so a non-empty queue defers both.
     comfy = _comfyui_dir(comfyui_dir)
@@ -729,6 +934,12 @@ def delete_generation_history(
                     continue
                 deleted["comfyui"][sub]["files"] += entry["files"]
                 deleted["comfyui"][sub]["bytes"] += entry["bytes"]
+        removed, freed = _unlink_all(_comfyui_staging_files(cache), "comfyui staging", errors)
+        deleted["comfyui"]["staging"] = {"files": len(removed), "bytes": freed}
+        try:
+            _comfyui_clear_history()
+        except Exception as e:
+            errors.append(f"comfyui history: {e}")
 
     # 2. Audio: let the sidecar drop its finished jobs so its memory and the
     #    .jobs files agree; if it is down, every job file is stale.
@@ -771,11 +982,14 @@ def delete_generation_history(
         except Exception as e:
             errors.append(f"audio {p.name}: {e}")
 
-    # 3. Database mirrors of what is now gone from disk.
+    # 3. Database mirrors of what is now gone from disk, by this run or earlier.
     try:
         folder_ids, doc_ids = _db_targets(removed_batch_paths, removed_file_paths)
+        stale_folders, stale_docs = _stale_targets(upload)
         jh_ids = _job_history_ids(removed_ids["images"], keep=skipped["images"] + skipped["videos"])
-        deleted.update(_delete_db_rows(folder_ids, doc_ids, jh_ids))
+        deleted.update(_delete_db_rows(
+            sorted(set(folder_ids) | set(stale_folders)), sorted(set(doc_ids) | set(stale_docs)), jh_ids
+        ))
     except Exception as e:
         errors.append(f"database: {e}")
 
@@ -803,7 +1017,7 @@ def delete_generation_history(
                 parameters={"skipped": skipped["audio"], "sidecar_available": sidecar_available},
                 triggered_by=triggered_by,
             )
-        for key in ("loose", "infographics"):
+        for key in ("loose", "infographics", "tool_outputs", "narrations", "upscales", "previews"):
             if deleted[key]["files"]:
                 record_deletion(
                     actor="user",
@@ -839,6 +1053,7 @@ def delete_generation_history(
     bytes_freed = (
         deleted["images"]["bytes"] + deleted["videos"]["bytes"] + deleted["audio"]["bytes"]
         + deleted["loose"]["bytes"] + deleted["infographics"]["bytes"]
+        + sum(deleted[key]["bytes"] for key in ("tool_outputs", "narrations", "upscales", "previews"))
         + sum(c["bytes"] for c in deleted["comfyui"].values())
     )
     return {
