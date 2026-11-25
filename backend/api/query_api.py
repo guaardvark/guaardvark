@@ -1338,12 +1338,13 @@ def handle_query(user_prompt: str, session_id: str):
 def handle_dynamic_command(command_label: str, args_string: str, session_id: str):
     llm_instance = current_app.config.get("LLAMA_INDEX_LLM")
     active_model_name = getattr(llm_instance, "model", "unknown_model")
-    if not prompt_utils:
-        return jsonify({"error": "Prompt utility unavailable."}), 500
+    if not rule_utils or not db:
+        return jsonify({"error": "Rule utility unavailable."}), 500
 
-    instruction_template = prompt_utils.get_active_command_prompt_for_model(
-        command_label, model_name=active_model_name
+    command_rule = rule_utils.get_active_command_rule(
+        command_label, db.session, model_name=active_model_name
     )
+    instruction_template = command_rule.rule_text if command_rule else None
     if not instruction_template:
         return (
             jsonify(
