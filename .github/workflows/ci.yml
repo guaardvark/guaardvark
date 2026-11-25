@@ -8,21 +8,34 @@ on:
 
 jobs:
   cli:
-    name: CLI Tests (Python ${{ matrix.python-version }})
+    name: CLI Tests
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # 3.12 is what the backend runs; 3.14 is the newest the command is
-        # installed on by itself.
-        python-version: ["3.12", "3.14"]
 
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v7
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
+
+      - name: Install CLI package
+        run: pip install -e ./cli pytest
+
+      - name: Run CLI test suite
+        run: python -m pytest cli/tests -q
+
+  # A separate job rather than a matrix: branch protection requires the check
+  # named "CLI Tests", and matrix jobs report under other names.
+  cli-newest-python:
+    name: CLI Tests (Python 3.14)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
 
       - name: Install CLI package
         run: pip install -e ./cli pytest
