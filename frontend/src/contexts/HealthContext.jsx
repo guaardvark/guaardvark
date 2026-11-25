@@ -38,15 +38,12 @@ export const HealthProvider = ({ children }) => {
   const healthDataRef = useRef(healthData);
   healthDataRef.current = healthData;
   const lastPolledRef = useRef(null);
+  // The poll that is out, if any: a caller that arrives meanwhile gets its
+  // result, so a slow check never has a second set of requests stacked on it.
+  const inFlightRef = useRef(null);
 
-  const updateHealthData = useCallback(async (force = false) => {
+  const pollHealth = useCallback(async () => {
     const now = Date.now();
-    const cacheTimeout = 30000; // 30 seconds cache
-
-    // Skip if not forced and cache is still valid
-    if (!force && lastPolledRef.current && (now - lastPolledRef.current) < cacheTimeout) {
-      return healthDataRef.current;
-    }
 
     // Only the first poll shows as loading; later ones refresh in place.
     if (lastPolledRef.current === null) setHealthData(prev => ({ ...prev, isLoading: true }));
@@ -90,6 +87,21 @@ export const HealthProvider = ({ children }) => {
     return newData;
   }, []);
 
+  const updateHealthData = useCallback((force = false) => {
+    const cacheTimeout = 30000; // 30 seconds cache
+
+    // Skip if not forced and cache is still valid
+    if (!force && lastPolledRef.current && (Date.now() - lastPolledRef.current) < cacheTimeout) {
+      return Promise.resolve(healthDataRef.current);
+    }
+    if (!inFlightRef.current) {
+      inFlightRef.current = pollHealth().finally(() => {
+        inFlightRef.current = null;
+      });
+    }
+    return inFlightRef.current;
+  }, [pollHealth]);
+
   // Background poll so the app notices the backend going down/coming back without a
   // manual reload. updateHealthData's identity changes every poll (its deps include
   // lastUpdated), so we drive the interval off a ref to avoid resetting it each tick.
@@ -99,12 +111,20 @@ export const HealthProvider = ({ children }) => {
   }, [updateHealthData]);
   useEffect(() => {
     updateRef.current(true); // prime immediately on mount
-    const id = setInterval(() => updateRef.current(true), 10000);
+    // A tab nobody is looking at does not poll; it catches up when shown.
+    const id = setInterval(() => {
+      if (!document.hidden) updateRef.current(true);
+    }, 10000);
+    const onVisible = () => {
+      if (!document.hidden) updateRef.current(true);
+    };
+    document.addEventListener('visibilitychange', onVisible);
     // The socket relays the backend's system:update_applied as this window event.
     const onUpdateApplied = () => updateRef.current(true);
     window.addEventListener(UPDATE_APPLIED_EVENT, onUpdateApplied);
     return () => {
       clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener(UPDATE_APPLIED_EVENT, onUpdateApplied);
     };
   }, []);
