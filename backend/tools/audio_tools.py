@@ -146,9 +146,9 @@ class GenerateMusicTool(BaseTool):
         "minutes. Poll get_generation_status with that job_id; when it reports complete it gives the "
         "file name, its library document id and a download link. The song is also listed on the "
         "Studio's Audio page. Needs the Audio Foundry plugin running (it answers that it is not "
-        "running otherwise). model 'ace-step-1.5' uses ACE-Step 1.5 instead of v1 when it has "
-        "been installed in Audio Studio → Manage models; it is refused otherwise, never "
-        "downloaded. ACE-Step 1.5 expands a plain-language style into a caption, lyrics, "
+        "running otherwise). With no model named it uses the installed one, ACE-Step 1.5 ahead "
+        "of v1. A named model that is not installed (Audio Studio → Manage models) is refused, "
+        "never downloaded. ACE-Step 1.5 expands a plain-language style into a caption, lyrics, "
         "tempo, key and meter with the planner loaded beside it, and keeps a bpm or key "
         "written in the style. With Verbatim Prompts on in Settings it skips the planner and "
         "renders the style and lyrics as written. For a spoken line use generate_speech; for a music video "
@@ -178,9 +178,10 @@ class GenerateMusicTool(BaseTool):
             description="Repeat a take exactly with the same seed and inputs. Omit for a new one.",
         ),
         "model": ToolParameter(
-            name="model", type="string", required=False, default="ace-step",
+            name="model", type="string", required=False,
             enum=list(MUSIC_MODELS),
-            description="'ace-step' (default): ACE-Step v1, tag-style prompts. 'ace-step-1.5': ACE-Step 1.5, "
+            description="Omit to use the installed model (ACE-Step 1.5 ahead of v1). 'ace-step': ACE-Step v1, "
+                        "tag-style prompts. 'ace-step-1.5': ACE-Step 1.5, "
                         "available once installed in Audio Studio → Manage models. 1.5 expands a sentence "
                         "into the caption it renders and keeps a stated bpm or key, unless Verbatim "
                         "Prompts is on, when it renders the text as written.",
@@ -199,8 +200,8 @@ class GenerateMusicTool(BaseTool):
             return ToolResult(success=False, error="seconds must be a number from 5 to 240")
         if not 5 <= seconds <= 240:
             return ToolResult(success=False, error="seconds must be from 5 to 240")
-        model = (model or MUSIC_MODELS[0]).strip().lower()
-        if model not in MUSIC_MODELS:
+        model = (model or "").strip().lower()
+        if model and model not in MUSIC_MODELS:
             return ToolResult(success=False, error=f"model must be one of {', '.join(MUSIC_MODELS)}")
 
         # No lyrics means an instrumental, as the lyrics parameter promises. Sent as
@@ -214,7 +215,8 @@ class GenerateMusicTool(BaseTool):
             payload["lyrics"] = lyrics
         if seed is not None:
             payload["seed"] = int(seed)
-        if model != MUSIC_MODELS[0]:
+        # Unnamed, the backend picks the installed default.
+        if model:
             payload["model"] = model
 
         body, err = _post("/api/audio-foundry/generate/music", payload, read_timeout=60)

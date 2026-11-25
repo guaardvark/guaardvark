@@ -222,6 +222,7 @@ def test_audio_down_and_start_off_is_the_old_503(audio, services):
 
 def test_audio_generate_starts_audio_foundry(audio, services, monkeypatch):
     _on(monkeypatch)
+    monkeypatch.setattr("backend.services.audio_foundry_models.installed_default_music_model", lambda: "ace-step")
     client, posted = audio
     r = client.post("/api/audio-foundry/generate/music", json={"style_prompt": "lofi"})
     assert r.status_code == 202
