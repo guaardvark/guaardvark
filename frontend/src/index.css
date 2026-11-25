@@ -240,8 +240,8 @@ code {
 .react-grid-layout > .react-grid-item[data-card-id].react-draggable-dragging {
   /* above every other card, whatever order they were last raised in */
   z-index: 1000 !important;
-  rotate: 1.5deg;
-  scale: 1.03;
+  rotate: 0.9deg;
+  scale: 1.02;
   box-shadow:
     0 24px 48px rgba(0, 0, 0, 0.45),
     0 8px 16px rgba(0, 0, 0, 0.3);
