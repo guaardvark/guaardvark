@@ -44,8 +44,12 @@ export const kindLabel = (kind, t) => {
 
 const PREVIEW_ROUTE = { video_batch: "batch-video", image_batch: "batch-image", infographic: "batch-image" };
 
-/** A picture of what a started job has made so far: its batch's preview. Null before it starts. */
+/**
+ * A picture of what a started job has made so far: its batch's preview. Null
+ * before it starts, and when the listing says the batch has no picture.
+ */
 export const outputThumb = (task) => {
+  if (task?.has_output_preview === false) return null;
   let handler = task?.handler_config;
   if (typeof handler === "string") {
     try {

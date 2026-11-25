@@ -18,6 +18,7 @@ from __future__ import annotations
 import datetime
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
@@ -339,6 +340,41 @@ def _ref(handler_config: Any) -> Optional[dict]:
             return None
     ref = handler_config.get("handoff") if isinstance(handler_config, dict) else None
     return ref if isinstance(ref, dict) and ref.get("batch_id") else None
+
+
+# What the batch preview routes serve: a video batch's first clip thumbnail, an
+# image batch's first thumbnail or image.
+_PICTURE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+
+
+def _folder_has_picture(folder) -> bool:
+    try:
+        return any(e.is_file() and os.path.splitext(e.name)[1] in _PICTURE_SUFFIXES for e in os.scandir(folder))
+    except OSError:
+        return False
+
+
+def has_preview(handler_config: Any) -> Optional[bool]:
+    """Whether the batch a started job rendered into has a picture for its
+    preview route to serve, so a listing can say so and a page need not ask
+    for one that is not there. None when the job has no batch, its kind has no
+    preview route, or the folder could not be read."""
+    ref = _ref(handler_config)
+    kind = ref.get("kind") if ref else None
+    try:
+        if kind == "video_batch":
+            from backend.services.batch_video_generator import get_batch_video_generator
+            return get_batch_video_generator().get_preview_thumbnail(ref["batch_id"]) is not None
+        if kind in ("image_batch", "infographic"):
+            from werkzeug.utils import secure_filename
+
+            from backend.services.batch_image_generator import get_batch_image_generator
+            from backend.services.output_registration import find_batch_dir
+            folder = find_batch_dir(get_batch_image_generator().base_output_dir, secure_filename(ref["batch_id"]))
+            return bool(folder) and any(_folder_has_picture(folder / sub) for sub in ("thumbnails", "images"))
+    except Exception as e:  # noqa: BLE001 - a listing never fails on one job's preview
+        logger.debug("Preview check failed for %s: %s", ref.get("batch_id"), e)
+    return None
 
 
 def cancel(task_type: Optional[str], handler_config: Any) -> bool:
