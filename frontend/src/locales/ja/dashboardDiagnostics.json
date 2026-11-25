@@ -61,7 +61,7 @@
   "checkError": "システムチェックエラー: {{message}}",
   "couldNotRun": "システムチェックを実行できませんでした。",
   "runFailed": "システムチェックの実行に失敗しました: {{message}}",
-  "runningSuite": "フルテストスイートを実行中...",
+  "runningSuite": "テストスイートを実行中...",
   "suiteFinished": "テストスイートが終了しました。",
   "invalidResponse": "無効なレスポンス",
   "suiteError": "テストスイートエラー: {{message}}",
@@ -84,5 +84,60 @@
   "runDiagnostics": "診断を実行",
   "depthChip": "深さ: {{depth}}",
   "testSuite": "テストスイート",
-  "runTests": "テストを実行"
+  "runTests": "テストを実行",
+  "suiteStopped": "テストスイートが停止しました。",
+  "suite": {
+    "quick": "クイック",
+    "full": "フル",
+    "aria": "テストスイートのサイズ",
+    "quickHelp": "クイックは、ルーティング、ステップ予算、メモリ、および制御などのエージェントコアテストを実行します。",
+    "fullHelp": "フルは、ライブサービスやGPUを必要としないすべてのテストを実行します。長時間かかりますが、いつでも停止できます。"
+  },
+  "progress": {
+    "testsOf": "{{done}} / {{total}} テスト",
+    "stepsOf": "ステップ {{done}} / {{total}}",
+    "filesOf": "{{done}} / {{total}} ファイル",
+    "elapsed": "経過時間: {{time}}",
+    "stop": "停止",
+    "now": "現在テスト中",
+    "recentFiles": "完了したばかりのファイル",
+    "filePassed": "{{total}} 成功",
+    "fileFailed": "{{failed}} / {{total}} 失敗",
+    "failures": "失敗 ({{count}})",
+    "failuresTruncated": "最初の {{shown}} 件を表示しています。ログに残りはあります。"
+  },
+  "runStatus": {
+    "running": "実行中",
+    "passed": "成功",
+    "failed": "失敗",
+    "warning": "警告",
+    "error": "エラー",
+    "cancelled": "停止"
+  },
+  "groups": {
+    "System": "システムチェック",
+    "Self-test": "セルフテスト"
+  },
+  "steps": {
+    "ollama": "Ollamaサービス",
+    "model": "チャットモデルの応答",
+    "database": "データベース、インデックスキュー、およびルール",
+    "folders": "ストレージ、アップロード、および出力フォルダ",
+    "prompt": "質問回答プロンプト",
+    "chat": "チャットの往復",
+    "log": "バックエンドログ",
+    "pip_check": "パッケージの競合 (pip check)",
+    "pip_outdated": "新しいパッケージバージョン",
+    "cat_database": "データベース",
+    "cat_services": "外部サービス",
+    "cat_filesystem": "ファイルシステムとストレージ",
+    "cat_backend": "バックエンドAPI",
+    "cat_llm": "LLMと埋め込み",
+    "cat_imports": "Python依存関係",
+    "prepare": "ライブデータなしでの実行準備",
+    "schema": "データベーススキーマの確認",
+    "collect": "テストの探索",
+    "run": "テストの実行",
+    "summary": "要約の作成"
+  }
 }

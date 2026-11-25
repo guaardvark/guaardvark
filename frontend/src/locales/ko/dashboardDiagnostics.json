@@ -61,7 +61,7 @@
   "checkError": "시스템 점검 오류: {{message}}",
   "couldNotRun": "시스템 점검을 실행할 수 없습니다.",
   "runFailed": "시스템 점검 실행 실패: {{message}}",
-  "runningSuite": "전체 테스트 세트 실행 중...",
+  "runningSuite": "테스트 스위트 실행 중...",
   "suiteFinished": "테스트 세트 완료.",
   "invalidResponse": "유효하지 않은 응답",
   "suiteError": "테스트 세트 오류: {{message}}",
@@ -84,5 +84,60 @@
   "runDiagnostics": "진단 실행",
   "depthChip": "깊이: {{depth}}",
   "testSuite": "테스트 세트",
-  "runTests": "테스트 실행"
+  "runTests": "테스트 실행",
+  "suiteStopped": "테스트 스위트 중지됨.",
+  "suite": {
+    "quick": "빠른 실행",
+    "full": "전체 실행",
+    "aria": "테스트 스위트 크기",
+    "quickHelp": "빠른 실행은 에이전트 코어 테스트(라우팅, 단계 예산, 메모리 및 제어)를 실행합니다.",
+    "fullHelp": "전체 실행은 실시간 서비스나 GPU가 필요 없는 모든 테스트를 실행합니다. 시간이 오래 걸릴 수 있으며, 언제든지 중지할 수 있습니다."
+  },
+  "progress": {
+    "testsOf": "{{done}} / {{total}} 테스트",
+    "stepsOf": "{{done}} / {{total}} 단계",
+    "filesOf": "{{done}} / {{total}} 파일",
+    "elapsed": "{{time}} 경과",
+    "stop": "중지",
+    "now": "현재 테스트 중",
+    "recentFiles": "최근 완료된 파일",
+    "filePassed": "{{total}} 통과",
+    "fileFailed": "{{failed}} / {{total}} 실패",
+    "failures": "실패 ({{count}})",
+    "failuresTruncated": "처음 {{shown}}개만 표시됩니다. 로그에 나머지가 포함되어 있습니다."
+  },
+  "runStatus": {
+    "running": "실행 중",
+    "passed": "통과",
+    "failed": "실패",
+    "warning": "경고",
+    "error": "오류",
+    "cancelled": "중지됨"
+  },
+  "groups": {
+    "System": "시스템 점검",
+    "Self-test": "자가 테스트"
+  },
+  "steps": {
+    "ollama": "Ollama 서비스",
+    "model": "채팅 모델 응답",
+    "database": "데이터베이스, 인덱싱 큐 및 규칙",
+    "folders": "저장소, 업로드 및 출력 폴더",
+    "prompt": "질의응답 프롬프트",
+    "chat": "채팅 왕복",
+    "log": "백엔드 로그",
+    "pip_check": "패키지 충돌 (pip check)",
+    "pip_outdated": "새로운 패키지 버전",
+    "cat_database": "데이터베이스",
+    "cat_services": "외부 서비스",
+    "cat_filesystem": "파일 시스템 및 저장소",
+    "cat_backend": "백엔드 API",
+    "cat_llm": "LLM 및 임베딩",
+    "cat_imports": "Python 의존성",
+    "prepare": "실시간 데이터 없는 실행 준비 중",
+    "schema": "데이터베이스 스키마 확인 중",
+    "collect": "테스트 찾는 중",
+    "run": "테스트 실행 중",
+    "summary": "요약 작성 중"
+  }
 }

@@ -61,7 +61,7 @@
   "checkError": "Systeem-check Fout: {{message}}",
   "couldNotRun": "Systeem-checks konden niet worden uitgevoerd.",
   "runFailed": "Systeem-checks uitvoeren mislukt: {{message}}",
-  "runningSuite": "Volledige testreeks uitvoeren...",
+  "runningSuite": "Testsuite uitvoeren...",
   "suiteFinished": "Testreeks voltooid.",
   "invalidResponse": "Ongeldige reactie",
   "suiteError": "Testreeks fout: {{message}}",
@@ -84,5 +84,60 @@
   "runDiagnostics": "Diagnostiek uitvoeren",
   "depthChip": "Diepte: {{depth}}",
   "testSuite": "Testpakket",
-  "runTests": "Tests uitvoeren"
+  "runTests": "Tests uitvoeren",
+  "suiteStopped": "Testsuite gestopt.",
+  "suite": {
+    "quick": "Snel",
+    "full": "Volledig",
+    "aria": "Testsuite grootte",
+    "quickHelp": "Snel voert de agent-kerntests uit: routing, stapbudgetten, geheugen en controle.",
+    "fullHelp": "Volledig voert elke test uit die geen live service of GPU nodig heeft. Het duurt lang; je kunt het op elk moment stoppen."
+  },
+  "progress": {
+    "testsOf": "{{done}} van {{total}} tests",
+    "stepsOf": "Stap {{done}} van {{total}}",
+    "filesOf": "{{done}} van {{total}} Bestanden",
+    "elapsed": "{{time}} verstreken",
+    "stop": "Stop",
+    "now": "Nu testen",
+    "recentFiles": "Net voltooide Bestanden",
+    "filePassed": "{{total}} geslaagd",
+    "fileFailed": "{{failed}} van {{total}} mislukt",
+    "failures": "Mislukkingen ({{count}})",
+    "failuresTruncated": "Toont de eerste {{shown}}. De log bevat de rest."
+  },
+  "runStatus": {
+    "running": "Bezig",
+    "passed": "Geslaagd",
+    "failed": "Mislukt",
+    "warning": "Waarschuwing",
+    "error": "Fout",
+    "cancelled": "Gestopt"
+  },
+  "groups": {
+    "System": "Systeemcontroles",
+    "Self-test": "Zelftest"
+  },
+  "steps": {
+    "ollama": "Ollama service",
+    "model": "Chatmodel antwoord",
+    "database": "Database, indexeringswachtrij en regels",
+    "folders": "Opslag, upload- en uitvoermappen",
+    "prompt": "Vraag-antwoord prompt",
+    "chat": "Chat rondreis",
+    "log": "Backend log",
+    "pip_check": "Pakketconflicten (pip check)",
+    "pip_outdated": "Nieuwere pakketversies",
+    "cat_database": "Database",
+    "cat_services": "Externe diensten",
+    "cat_filesystem": "Besturingssysteem en opslag",
+    "cat_backend": "Backend API",
+    "cat_llm": "LLM en embeddings",
+    "cat_imports": "Python-afhankelijkheden",
+    "prepare": "Voorbereiden van een run zonder live data",
+    "schema": "Controleren van het database-schema",
+    "collect": "De tests zoeken",
+    "run": "De tests uitvoeren",
+    "summary": "De samenvatting schrijven"
+  }
 }

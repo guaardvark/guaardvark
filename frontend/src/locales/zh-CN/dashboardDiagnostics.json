@@ -61,7 +61,7 @@
   "checkError": "系统检查错误：{{message}}",
   "couldNotRun": "无法运行系统检查。",
   "runFailed": "运行系统检查失败：{{message}}",
-  "runningSuite": "正在运行完整测试套件...",
+  "runningSuite": "正在运行测试套件...",
   "suiteFinished": "测试套件已完成。",
   "invalidResponse": "无效响应",
   "suiteError": "测试套件错误：{{message}}",
@@ -84,5 +84,60 @@
   "runDiagnostics": "运行诊断",
   "depthChip": "深度：{{depth}}",
   "testSuite": "测试套件",
-  "runTests": "运行测试"
+  "runTests": "运行测试",
+  "suiteStopped": "测试套件已停止。",
+  "suite": {
+    "quick": "快速",
+    "full": "完整",
+    "aria": "测试套件大小",
+    "quickHelp": "快速模式运行代理核心测试：路由、步骤预算、内存和控制。",
+    "fullHelp": "完整模式运行所有不需要实时服务或 GPU 的测试。耗时较长；您可以随时停止。"
+  },
+  "progress": {
+    "testsOf": "{{done}} / {{total}} 项测试",
+    "stepsOf": "步骤 {{done}} / {{total}}",
+    "filesOf": "{{done}} / {{total}} 个文件",
+    "elapsed": "已耗时 {{time}}",
+    "stop": "停止",
+    "now": "正在测试",
+    "recentFiles": "刚完成的文件",
+    "filePassed": "通过 {{total}} 个",
+    "fileFailed": "{{failed}} / {{total}} 个失败",
+    "failures": "失败次数 ({{count}})",
+    "failuresTruncated": "显示前 {{shown}} 项。日志中包含其余内容。"
+  },
+  "runStatus": {
+    "running": "运行中",
+    "passed": "通过",
+    "failed": "失败",
+    "warning": "警告",
+    "error": "错误",
+    "cancelled": "已停止"
+  },
+  "groups": {
+    "System": "系统检查",
+    "Self-test": "自我测试"
+  },
+  "steps": {
+    "ollama": "Ollama 服务",
+    "model": "对话模型回复",
+    "database": "数据库、索引队列和规则",
+    "folders": "存储、上传和输出文件夹",
+    "prompt": "问答提示词",
+    "chat": "对话往返",
+    "log": "后端日志",
+    "pip_check": "包冲突 (pip check)",
+    "pip_outdated": "新版本包",
+    "cat_database": "数据库",
+    "cat_services": "外部服务",
+    "cat_filesystem": "文件系统与存储",
+    "cat_backend": "后端 API",
+    "cat_llm": "LLM 与嵌入",
+    "cat_imports": "Python 依赖",
+    "prepare": "准备无实时数据的运行",
+    "schema": "检查数据库架构",
+    "collect": "查找测试用例",
+    "run": "运行测试",
+    "summary": "撰写摘要"
+  }
 }

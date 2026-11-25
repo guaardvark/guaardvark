@@ -61,7 +61,7 @@
   "checkError": "Systemprüfungsfehler: {{message}}",
   "couldNotRun": "Systemprüfungen konnten nicht ausgeführt werden.",
   "runFailed": "Systemprüfungen fehlgeschlagen: {{message}}",
-  "runningSuite": "Führe vollständige Testsuite aus...",
+  "runningSuite": "Testsuite wird ausgeführt...",
   "suiteFinished": "Testsuite abgeschlossen.",
   "invalidResponse": "Ungültige Antwort",
   "suiteError": "Testsuite-Fehler: {{message}}",
@@ -84,5 +84,60 @@
   "runDiagnostics": "Diagnose ausführen",
   "depthChip": "Tiefe: {{depth}}",
   "testSuite": "Testsuite",
-  "runTests": "Tests ausführen"
+  "runTests": "Tests ausführen",
+  "suiteStopped": "Testsuite gestoppt.",
+  "suite": {
+    "quick": "Schnell",
+    "full": "Vollständig",
+    "aria": "Testsuite-Größe",
+    "quickHelp": "Schnell führt die Agent-Kerntests aus: Routing, Schrittbudgets, Speicher und Steuerung.",
+    "fullHelp": "Vollständig führt jeden Test aus, der keinen Live-Service oder GPU benötigt. Es dauert lange; du kannst ihn jederzeit anhalten."
+  },
+  "progress": {
+    "testsOf": "{{done}} von {{total}} Tests",
+    "stepsOf": "Schritt {{done}} von {{total}}",
+    "filesOf": "{{done}} von {{total}} Dateien",
+    "elapsed": "{{time}} vergangen",
+    "stop": "Stopp",
+    "now": "Wird gerade getestet",
+    "recentFiles": "Gerade fertiggestellte Dateien",
+    "filePassed": "{{total}} bestanden",
+    "fileFailed": "{{failed}} von {{total}} fehlgeschlagen",
+    "failures": "Fehler ({{count}})",
+    "failuresTruncated": "Zeige die ersten {{shown}}. Das Log enthält den Rest."
+  },
+  "runStatus": {
+    "running": "Läuft",
+    "passed": "Bestanden",
+    "failed": "Fehlgeschlagen",
+    "warning": "Warnung",
+    "error": "Fehler",
+    "cancelled": "Gestoppt"
+  },
+  "groups": {
+    "System": "Systemchecks",
+    "Self-test": "Selbsttest"
+  },
+  "steps": {
+    "ollama": "Ollama-Service",
+    "model": "Chat-Modell-Antwort",
+    "database": "Datenbank, Indexierungs-Warteschlange und Regeln",
+    "folders": "Speicher-, Upload- und Ausgabeverzeichnisse",
+    "prompt": "Frage-Antwort-Prompt",
+    "chat": "Chat-Rundreise",
+    "log": "Backend-Log",
+    "pip_check": "Paketkonflikte (pip check)",
+    "pip_outdated": "Neuere Paketversionen",
+    "cat_database": "Datenbank",
+    "cat_services": "Externe Dienste",
+    "cat_filesystem": "Dateisystem und Speicher",
+    "cat_backend": "Backend API",
+    "cat_llm": "LLM und Embeddings",
+    "cat_imports": "Python-Abhängigkeiten",
+    "prepare": "Vorbereiten eines Durchlaufs ohne Live-Daten",
+    "schema": "Datenbankschema prüfen",
+    "collect": "Tests finden",
+    "run": "Tests ausführen",
+    "summary": "Zusammenfassung schreiben"
+  }
 }

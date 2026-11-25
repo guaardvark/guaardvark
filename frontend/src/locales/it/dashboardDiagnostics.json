@@ -61,7 +61,7 @@
   "checkError": "Errore Controllo Sistema: {{message}}",
   "couldNotRun": "Impossibile eseguire i controlli Sistema.",
   "runFailed": "Fallimento esecuzione controlli Sistema: {{message}}",
-  "runningSuite": "Esecuzione suite di test completa...",
+  "runningSuite": "Esecuzione della suite di test...",
   "suiteFinished": "Suite di test terminata.",
   "invalidResponse": "Risposta non valida",
   "suiteError": "Errore suite di test: {{message}}",
@@ -84,5 +84,60 @@
   "runDiagnostics": "Esegui diagnostica",
   "depthChip": "Profondità: {{depth}}",
   "testSuite": "Suite di test",
-  "runTests": "Esegui test"
+  "runTests": "Esegui test",
+  "suiteStopped": "Suite di test interrotta.",
+  "suite": {
+    "quick": "Rapida",
+    "full": "Completa",
+    "aria": "Dimensione suite di test",
+    "quickHelp": "Rapida esegue i test del core dell'agente: routing, budget dei passaggi, memoria e controllo.",
+    "fullHelp": "Completa esegue ogni test che non richiede servizi live o GPU. Richiede molto tempo; puoi interromperla in qualsiasi momento."
+  },
+  "progress": {
+    "testsOf": "{{done}} di {{total}} test",
+    "stepsOf": "Passaggio {{done}} di {{total}}",
+    "filesOf": "{{done}} di {{total}} File",
+    "elapsed": "{{time}} trascorsi",
+    "stop": "Interrompi",
+    "now": "In fase di test",
+    "recentFiles": "File appena terminati",
+    "filePassed": "{{total}} superati",
+    "fileFailed": "{{failed}} di {{total}} falliti",
+    "failures": "Fallimenti ({{count}})",
+    "failuresTruncated": "Mostra i primi {{shown}}. Il log contiene il resto."
+  },
+  "runStatus": {
+    "running": "In corso",
+    "passed": "Superato",
+    "failed": "Fallito",
+    "warning": "Avviso",
+    "error": "Errore",
+    "cancelled": "Interrotto"
+  },
+  "groups": {
+    "System": "Controlli Sistema",
+    "Self-test": "Autotest"
+  },
+  "steps": {
+    "ollama": "Servizio Ollama",
+    "model": "Risposta modello chat",
+    "database": "Database, coda indicizzazione e regole",
+    "folders": "Archiviazione, Caricamento e cartelle output",
+    "prompt": "Prompt di risposta alle domande",
+    "chat": "Ciclo di chat",
+    "log": "Log backend",
+    "pip_check": "Conflitti pacchetti (pip check)",
+    "pip_outdated": "Versioni pacchetti più recenti",
+    "cat_database": "Database",
+    "cat_services": "Servizi esterni",
+    "cat_filesystem": "File system e archiviazione",
+    "cat_backend": "API Backend",
+    "cat_llm": "LLM e embeddings",
+    "cat_imports": "Dipendenze Python",
+    "prepare": "Preparazione esecuzione senza dati live",
+    "schema": "Controllo schema database",
+    "collect": "Ricerca dei test",
+    "run": "Esecuzione test",
+    "summary": "Scrittura del riepilogo"
+  }
 }

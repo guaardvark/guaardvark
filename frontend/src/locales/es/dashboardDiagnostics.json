@@ -61,7 +61,7 @@
   "checkError": "Error de comprobación del sistema: {{message}}",
   "couldNotRun": "No se pudieron ejecutar las comprobaciones del sistema.",
   "runFailed": "Error al ejecutar las comprobaciones del sistema: {{message}}",
-  "runningSuite": "Ejecutando suite de pruebas completa...",
+  "runningSuite": "Ejecutando la suite de pruebas...",
   "suiteFinished": "Suite de pruebas finalizada.",
   "invalidResponse": "Respuesta inválida",
   "suiteError": "Error en la suite de pruebas: {{message}}",
@@ -84,5 +84,60 @@
   "runDiagnostics": "Ejecutar diagnósticos",
   "depthChip": "Profundidad: {{depth}}",
   "testSuite": "Suite de pruebas",
-  "runTests": "Ejecutar pruebas"
+  "runTests": "Ejecutar pruebas",
+  "suiteStopped": "Suite de pruebas detenida.",
+  "suite": {
+    "quick": "Rápida",
+    "full": "Completa",
+    "aria": "Tamaño de la suite",
+    "quickHelp": "Rápida ejecuta las pruebas del núcleo del agente: enrutamiento, presupuestos de pasos, memoria y control.",
+    "fullHelp": "Completa ejecuta cada prueba que no requiere servicio en vivo ni GPU. Tarda mucho tiempo; puedes detenerla en cualquier momento."
+  },
+  "progress": {
+    "testsOf": "{{done}} de {{total}} pruebas",
+    "stepsOf": "Paso {{done}} de {{total}}",
+    "filesOf": "{{done}} de {{total}} Archivos",
+    "elapsed": "{{time}} transcurridos",
+    "stop": "Detener",
+    "now": "Probando ahora",
+    "recentFiles": "Archivos recién terminados",
+    "filePassed": "{{total}} superados",
+    "fileFailed": "{{failed}} de {{total}} fallidos",
+    "failures": "Fallos ({{count}})",
+    "failuresTruncated": "Mostrando los primeros {{shown}}. El registro tiene el resto."
+  },
+  "runStatus": {
+    "running": "Ejecutando",
+    "passed": "Superado",
+    "failed": "Fallido",
+    "warning": "Advertencia",
+    "error": "Error",
+    "cancelled": "Detenido"
+  },
+  "groups": {
+    "System": "Verificaciones del Sistema",
+    "Self-test": "Autoprueba"
+  },
+  "steps": {
+    "ollama": "Servicio Ollama",
+    "model": "Respuesta del modelo de chat",
+    "database": "Base de datos, cola de indexación y reglas",
+    "folders": "Almacenamiento, carpetas de Subir y de salida",
+    "prompt": "Prompt de preguntas y respuestas",
+    "chat": "Viaje de ida y vuelta del chat",
+    "log": "Registro del backend",
+    "pip_check": "Conflictos de paquetes (pip check)",
+    "pip_outdated": "Versiones de paquetes más nuevas",
+    "cat_database": "Base de datos",
+    "cat_services": "Servicios externos",
+    "cat_filesystem": "Sistema de archivos y almacenamiento",
+    "cat_backend": "API de backend",
+    "cat_llm": "LLM y embeddings",
+    "cat_imports": "Dependencias de Python",
+    "prepare": "Preparando una ejecución sin datos en vivo",
+    "schema": "Verificando el esquema de la base de datos",
+    "collect": "Buscando las pruebas",
+    "run": "Ejecutando las pruebas",
+    "summary": "Escribiendo el resumen"
+  }
 }

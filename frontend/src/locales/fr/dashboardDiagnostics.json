@@ -61,7 +61,7 @@
   "checkError": "Erreur de vérification système : {{message}}",
   "couldNotRun": "Impossible d'exécuter les vérifications système.",
   "runFailed": "Échec de l'exécution des vérifications système : {{message}}",
-  "runningSuite": "Exécution de la suite de tests complète...",
+  "runningSuite": "Exécution de la suite de tests...",
   "suiteFinished": "Suite de tests terminée.",
   "invalidResponse": "Réponse invalide",
   "suiteError": "Erreur de la suite de tests : {{message}}",
@@ -84,5 +84,60 @@
   "runDiagnostics": "Lancer le diagnostic",
   "depthChip": "Profondeur : {{depth}}",
   "testSuite": "Suite de tests",
-  "runTests": "Lancer les tests"
+  "runTests": "Lancer les tests",
+  "suiteStopped": "Suite de tests arrêtée.",
+  "suite": {
+    "quick": "Rapide",
+    "full": "Complète",
+    "aria": "Taille de la suite de tests",
+    "quickHelp": "Rapide exécute les tests du cœur de l'agent : routage, budgets d'étapes, mémoire et contrôle.",
+    "fullHelp": "Complète exécute chaque test ne nécessitant aucun service en direct ou GPU. Cela prend beaucoup de temps ; vous pouvez l'arrêter à tout moment."
+  },
+  "progress": {
+    "testsOf": "{{done}} sur {{total}} tests",
+    "stepsOf": "Étape {{done}} sur {{total}}",
+    "filesOf": "{{done}} sur {{total}} Fichiers",
+    "elapsed": "{{time}} écoulé",
+    "stop": "Arrêter",
+    "now": "Test en cours",
+    "recentFiles": "Fichiers terminés récemment",
+    "filePassed": "{{total}} réussis",
+    "fileFailed": "{{failed}} sur {{total}} échoués",
+    "failures": "Échecs ({{count}})",
+    "failuresTruncated": "Affichage des {{shown}} premiers. Le journal contient le reste."
+  },
+  "runStatus": {
+    "running": "En cours",
+    "passed": "Réussi",
+    "failed": "Échoué",
+    "warning": "Avertissement",
+    "error": "Erreur",
+    "cancelled": "Arrêté"
+  },
+  "groups": {
+    "System": "Vérifications Système",
+    "Self-test": "Auto-test"
+  },
+  "steps": {
+    "ollama": "Service Ollama",
+    "model": "Réponse du modèle de Chat",
+    "database": "Base de données, file d'attente d'indexation et règles",
+    "folders": "Stockage, dossiers de Téléchargement et de sortie",
+    "prompt": "Prompt de question-réponse",
+    "chat": "Aller-retour de Chat",
+    "log": "Journal Backend",
+    "pip_check": "Conflits de paquets (pip check)",
+    "pip_outdated": "Versions de paquets plus récentes",
+    "cat_database": "Base de données",
+    "cat_services": "Services externes",
+    "cat_filesystem": "Système de fichiers et stockage",
+    "cat_backend": "API Backend",
+    "cat_llm": "LLM et embeddings",
+    "cat_imports": "Dépendances Python",
+    "prepare": "Préparation d'une exécution sans données en direct",
+    "schema": "Vérification du schéma de la base de données",
+    "collect": "Recherche des tests",
+    "run": "Exécution des tests",
+    "summary": "Rédaction du résumé"
+  }
 }

@@ -61,7 +61,7 @@
   "checkError": "Błąd kontroli systemu: {{message}}",
   "couldNotRun": "Nie można uruchomić kontroli systemu.",
   "runFailed": "Nie udało się uruchomić kontroli systemu: {{message}}",
-  "runningSuite": "Uruchamianie pełnego zestawu testów...",
+  "runningSuite": "Uruchamianie zestawu testów...",
   "suiteFinished": "Zestaw testów zakończony.",
   "invalidResponse": "Nieprawidłowa odpowiedź",
   "suiteError": "Błąd zestawu testów: {{message}}",
@@ -84,5 +84,60 @@
   "runDiagnostics": "Uruchom diagnostykę",
   "depthChip": "Głębokość: {{depth}}",
   "testSuite": "Zbiór testów",
-  "runTests": "Uruchom testy"
+  "runTests": "Uruchom testy",
+  "suiteStopped": "Zestaw testów zatrzymany.",
+  "suite": {
+    "quick": "Szybki",
+    "full": "Pełny",
+    "aria": "Rozmiar zestawu testów",
+    "quickHelp": "Szybki uruchamia testy rdzenia agenta: routowanie, budżety kroków, pamięć i kontrolę.",
+    "fullHelp": "Pełny uruchamia każdy test, który nie wymaga usługi na żywo ani GPU. Trwa to długo; możesz go przerwać w dowolnym momencie."
+  },
+  "progress": {
+    "testsOf": "{{done}} z {{total}} testów",
+    "stepsOf": "Krok {{done}} z {{total}}",
+    "filesOf": "{{done}} z {{total}} plików",
+    "elapsed": "Minęło: {{time}}",
+    "stop": "Zatrzymaj",
+    "now": "Testowanie teraz",
+    "recentFiles": "Właśnie zakończone pliki",
+    "filePassed": "{{total}} zaliczonych",
+    "fileFailed": "{{failed}} z {{total}} błędnych",
+    "failures": "Błędy ({{count}})",
+    "failuresTruncated": "Wyświetlanie pierwszych {{shown}}. Log zawiera resztę."
+  },
+  "runStatus": {
+    "running": "Uruchamianie",
+    "passed": "Zaliczony",
+    "failed": "Błąd",
+    "warning": "Ostrzeżenie",
+    "error": "Błąd",
+    "cancelled": "Zatrzymany"
+  },
+  "groups": {
+    "System": "Sprawdzenia systemu",
+    "Self-test": "Autotest"
+  },
+  "steps": {
+    "ollama": "Usługa Ollama",
+    "model": "Odpowiedź modelu Czat",
+    "database": "Baza danych, kolejka indeksowania i reguły",
+    "folders": "Przechowywanie, Prześlij i foldery wyjściowe",
+    "prompt": "Prompt do odpowiadania na pytania",
+    "chat": "Cykl Czat",
+    "log": "Log backendu",
+    "pip_check": "Konflikty pakietów (pip check)",
+    "pip_outdated": "Nowsze wersje pakietów",
+    "cat_database": "Baza danych",
+    "cat_services": "Usługi zewnętrzne",
+    "cat_filesystem": "System plików i pamięć",
+    "cat_backend": "Backend API",
+    "cat_llm": "LLM i osadzenia",
+    "cat_imports": "Zależności Pythona",
+    "prepare": "Przygotowanie uruchomienia bez danych na żywo",
+    "schema": "Sprawdzanie schematu bazy danych",
+    "collect": "Wyszukiwanie testów",
+    "run": "Uruchamianie testów",
+    "summary": "Pisanie podsumowania"
+  }
 }
