@@ -63,10 +63,11 @@ def test_the_plugin_reports_the_plan_and_one_result_per_test(tmp_path):
             pass
     """))
     progress = tmp_path / "progress.jsonl"
-    env = dict(os.environ, GUAARDVARK_TEST_PROGRESS=str(progress), PYTHONPATH=str(REPO_ROOT))
+    env = dict(os.environ, GUAARDVARK_TEST_PROGRESS=str(progress),
+               PYTHONPATH=str(REPO_ROOT / "backend" / "tests" / "plugins"))
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-p",
-         "backend.utils.pytest_progress", "-c", os.devnull, "--rootdir", str(tmp_path),
+         "pytest_progress", "-c", os.devnull, "--rootdir", str(tmp_path),
          "test_sample.py"],
         cwd=tmp_path, env=env, capture_output=True, text=True, timeout=120)
     events = [json.loads(line) for line in progress.read_text().splitlines()]
@@ -168,6 +169,7 @@ def emit(e):
         f.write(json.dumps(e) + "\\n")
 assert os.environ["CUDA_VISIBLE_DEVICES"] == ""
 assert os.environ["GUAARDVARK_NO_LIVE_STATE"] == "1"
+assert os.environ["GUAARDVARK_COMFYUI_URL"] == "http://127.0.0.1:9"
 emit({"event": "phase", "key": "schema", "skipped": True})
 emit({"event": "phase", "key": "collect"})
 emit({"event": "collected", "total": 2, "files": {"t.py": 2}})
@@ -365,3 +367,14 @@ def test_the_routes_refuse_what_they_do_not_know(client):
     assert client.get("/api/meta/runs/nope").status_code == 404
     assert client.post("/api/meta/runs/nope/cancel").status_code == 404
     assert client.get("/api/meta/runs/latest?kind=tests").get_json() == {"run": None}
+
+
+def test_loading_the_progress_plugin_imports_nothing_from_the_backend(tmp_path):
+    """backend.config reads the service addresses when it is first imported,
+    and the root conftest must get to set them first."""
+    probe = ("import sys, pytest_progress; "
+             "print(sorted(m for m in sys.modules if m == 'backend' or m.startswith('backend.')))")
+    env = dict(os.environ, PYTHONPATH=str(REPO_ROOT / "backend" / "tests" / "plugins"))
+    done = subprocess.run([sys.executable, "-c", probe], cwd=tmp_path, env=env,
+                          capture_output=True, text=True, timeout=60)
+    assert done.stdout.strip() == "[]", done.stdout + done.stderr[-400:]

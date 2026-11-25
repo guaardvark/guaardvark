@@ -150,7 +150,7 @@ PROGRESS_ENV = "GUAARDVARK_TEST_PROGRESS"
 
 def _progress(event: dict) -> None:
     """Append one event to the progress file a caller asked for (see
-    backend/utils/pytest_progress.py, which writes the per-test events)."""
+    backend/tests/plugins/pytest_progress.py, which writes the per-test events)."""
     path = os.environ.get(PROGRESS_ENV)
     if not path:
         return
@@ -202,8 +202,14 @@ def run_all(quick: bool = False, extra_args: list = None):
             )
 
     cmd = [sys.executable, "-m", "pytest"]
+    env = os.environ.copy()
     if os.environ.get(PROGRESS_ENV):
-        cmd.extend(["-p", "backend.utils.pytest_progress"])
+        # Loaded as a top-level module from its own folder: naming it through
+        # the backend package would import backend.config before the root
+        # conftest has pointed the run away from the local services.
+        cmd.extend(["-p", "pytest_progress"])
+        plugin_dir = os.path.join(repo_root, "backend", "tests", "plugins")
+        env["PYTHONPATH"] = os.pathsep.join(filter(None, [env.get("PYTHONPATH"), plugin_dir]))
         _progress({"event": "phase", "key": "collect"})
     if quick:
         cmd.extend(["-k", QUICK_FILTER])
@@ -212,7 +218,6 @@ def run_all(quick: bool = False, extra_args: list = None):
     else:
         cmd.extend(["-q", "-rA"])
 
-    env = os.environ.copy()
     env["GUAARDVARK_MODE"] = "test"
     env["DISABLE_CELERY"] = "true"
     proc = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_root, env=env)

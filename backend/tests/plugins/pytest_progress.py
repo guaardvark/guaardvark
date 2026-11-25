@@ -1,7 +1,8 @@
 """pytest plugin: report a run's progress as JSON lines.
 
-Loaded with ``-p backend.utils.pytest_progress`` by run_tests.py when
-GUAARDVARK_TEST_PROGRESS names a file. The Diagnostics panel's test run reads
+Loaded by run_tests.py when GUAARDVARK_TEST_PROGRESS names a file, as the
+top-level module ``pytest_progress`` with this folder on the path, so loading
+it imports nothing else from the backend. The Diagnostics panel's test run reads
 that file while pytest is still going, which is how it shows the total, the
 file being tested and each result as it arrives.
 

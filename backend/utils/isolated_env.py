@@ -1,5 +1,5 @@
 """Environment for a child process that must not reach the live database, the
-task queue or Redis: the Diagnostics test run and self-edit checks."""
+task queue, Redis or ComfyUI: the Diagnostics test run and self-edit checks."""
 
 import os
 from typing import Dict
@@ -11,6 +11,8 @@ UNREACHABLE = {
     "CELERY_RESULT_BACKEND": "redis://127.0.0.1:1/0",
     "REDIS_URL": "redis://127.0.0.1:1/0",
     "DISABLE_CELERY": "1",
+    # A cancel under test must not reach a render in progress.
+    "GUAARDVARK_COMFYUI_URL": "http://127.0.0.1:9",
     # Read by run_tests.py, which then skips its live schema check.
     "GUAARDVARK_NO_LIVE_STATE": "1",
 }
