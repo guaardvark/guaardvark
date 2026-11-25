@@ -8,7 +8,7 @@ import typer
 from rich.live import Live
 from rich.spinner import Spinner
 
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx.theme import make_console
 from llx import output
@@ -149,9 +149,8 @@ def videos_list(
         } for b in batches]
         output.print_table(rows, columns=["id", "name", "videos", "status"], title=f"Video Batches ({len(rows)})")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)
 
 
 @videos_app.command("generate")
@@ -199,12 +198,11 @@ def videos_generate(
         else:
             output.print_success(f"Video generation started ({count} video{'s' if count > 1 else ''})")
             if batch_id:
-                console.print(f"  Track with: [llx.accent]guaardvark videos status {batch_id}[/llx.accent]")
+                output.print_hint(f"Track with: [llx.accent]guaardvark videos status {batch_id}[/llx.accent]")
                 console.print(f"  Or wait:    [llx.accent]guaardvark videos generate \"{prompt[:40]}\" --wait[/llx.accent]")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)
 
 
 @videos_app.command("from-image")
@@ -256,11 +254,10 @@ def videos_from_image(
         else:
             output.print_success(f"Image-to-video generation started ({count} video{'s' if count > 1 else ''})")
             if batch_id:
-                console.print(f"  Track with: [llx.accent]guaardvark videos status {batch_id}[/llx.accent]")
+                output.print_hint(f"Track with: [llx.accent]guaardvark videos status {batch_id}[/llx.accent]")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)
 
 
 @videos_app.command("status")
@@ -300,9 +297,8 @@ def videos_status(
             } for r in results]
             output.print_table(rows, columns=["item", "success", "path"], title="Results")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)
 
 
 @videos_app.command("models")
@@ -333,9 +329,8 @@ def videos_models(
             "vram": m.get("vram_mb") or "",
         } for m in generation]
         output.print_table(rows, columns=["id", "name", "ready", "active", "vram"], title="Video Models")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)
 
 
 @videos_app.command("delete")
@@ -352,9 +347,8 @@ def videos_delete(
         api_client = get_client(server)
         api_client.delete(f"/api/batch-video/delete/{batch_id}")
         output.print_success(f"Deleted batch {batch_id}")
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)
 
 
 @videos_app.command("download")
@@ -372,16 +366,15 @@ def videos_download(
 
         if video_name:
             dest = out_path / video_name
-            api_client.download(f"/api/batch-video/video/{batch_id}/{video_name}", dest)
+            api_client.download(f"/api/batch-video/video/{batch_id}/{video_name}", dest, console=output.progress_console())
             output.print_success(f"Downloaded to {dest}")
         else:
             dest = out_path / f"{batch_id}.zip"
-            api_client.download(f"/api/batch-video/download/{batch_id}", dest)
+            api_client.download(f"/api/batch-video/download/{batch_id}", dest, console=output.progress_console())
             output.print_success(f"Downloaded batch to {dest}")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)
 
 
 @videos_app.command("combine")
@@ -411,6 +404,5 @@ def videos_combine(
             video_path = result.get("video_path", "")
             output.print_success(f"Frames combined into video: {video_path}")
 
-    except (LlxConnectionError, LlxError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)

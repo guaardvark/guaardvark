@@ -163,19 +163,56 @@ class LlxClient:
                         "Is the server running? Try: guaardvark (auto-start) or guaardvark start --full"
                     )
 
-    def download(self, path: str, dest: Path) -> Path:
+    def download(self, path: str, dest: Path, console=None) -> Path:
+        """Stream a file to dest. Pass a console to show a progress bar.
+
+        The body goes to a .part file first, so an interrupted download never
+        leaves a truncated file under the real name.
+        """
+        part = dest.with_name(dest.name + ".part")
         try:
-            resp = self.http.get(path)
-            if resp.status_code >= 400:
-                raise LlxError(f"Download failed: HTTP {resp.status_code}", resp.status_code)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(resp.content)
+            with self.http.stream("GET", path) as resp:
+                if resp.status_code >= 400:
+                    resp.read()
+                    try:
+                        self._handle_response(resp)
+                    except LlxError as e:
+                        raise LlxError(f"Download failed: {e.message}", resp.status_code)
+                    raise LlxError(f"Download failed: HTTP {resp.status_code}", resp.status_code)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                total = int(resp.headers.get("content-length") or 0) or None
+                with open(part, "wb") as f:
+                    if console is None:
+                        for chunk in resp.iter_bytes(1 << 16):
+                            f.write(chunk)
+                    else:
+                        from rich.progress import (
+                            Progress, BarColumn, TextColumn, DownloadColumn, TransferSpeedColumn,
+                        )
+
+                        with Progress(
+                            TextColumn("[llx.brand]{task.description}"),
+                            BarColumn(),
+                            DownloadColumn(),
+                            TransferSpeedColumn(),
+                            console=console,
+                            transient=True,
+                        ) as progress:
+                            task = progress.add_task(dest.name, total=total)
+                            for chunk in resp.iter_bytes(1 << 16):
+                                f.write(chunk)
+                                progress.update(task, advance=len(chunk))
+            part.replace(dest)
             return dest
         except httpx.ConnectError:
             raise LlxConnectionError(
                 f"Cannot connect to Guaardvark at {self.server_url}. "
                 "Is the server running? Try: guaardvark (auto-start) or guaardvark start --full"
             )
+        except httpx.TimeoutException:
+            raise LlxError("Download timed out.", 408)
+        finally:
+            part.unlink(missing_ok=True)
 
     # --- Agent Tool integration (leverages the rich existing backend tool system) ---
     def list_tools(self) -> dict:

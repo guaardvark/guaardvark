@@ -3,7 +3,7 @@
 import typer
 from pathlib import Path
 
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_server, get_global_json
 from llx.theme import make_console
 from llx import output
@@ -46,12 +46,8 @@ def create_backup(
             filename = data.get("file", "?")
             output.print_success(f"Backup created: {filename}")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @backup_app.command("list")
@@ -81,12 +77,8 @@ def list_backups(
                 table.add_row(str(b.get("name", "")) if isinstance(b, dict) else str(b))
             console.print(table)
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @backup_app.command("download")
@@ -101,15 +93,11 @@ def download_backup(
     try:
         client = get_client(server)
         dest_file = dest / filename if dest.is_dir() else dest
-        client.download(f"/api/backups/{filename}/download", dest_file)
+        client.download(f"/api/backups/{filename}/download", dest_file, console=output.progress_console())
         output.print_success(f"Downloaded to {dest_file}")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @backup_app.command("restore")
@@ -159,12 +147,8 @@ def restore_backup(
             if summary:
                 output.print_kv(summary, title="Restored Items")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @backup_app.command("delete")
@@ -187,9 +171,5 @@ def delete_backup(
         client.delete(f"/api/backups/{filename}")
         output.print_success(f"Deleted {filename}")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

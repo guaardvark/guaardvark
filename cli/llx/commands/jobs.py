@@ -6,7 +6,7 @@ import typer
 from rich.style import Style
 from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn
 
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx.job_status import TERMINAL, read_job
 from llx.theme import make_console, BRAND, SUCCESS
@@ -47,12 +47,8 @@ def jobs_list(
         } for j in jobs]
         output.print_table(rows, columns=["id", "name", "type", "status", "progress"], title="Jobs")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @jobs_app.command("status")
@@ -86,12 +82,57 @@ def jobs_status(
             rows[f"File {n}"] = f
         output.print_kv(rows, title="Job Status")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
+
+
+def watch_job(client, job_id: str, interval: float = 1.5, timeout: float = 0, quiet: bool = False) -> dict:
+    """Poll a job until it ends or `timeout` seconds pass; return its last state.
+
+    quiet draws nothing, for JSON output and pipes.
+    """
+    info = read_job(client, job_id)
+    started = time.monotonic()
+
+    def _expired() -> bool:
+        return bool(timeout) and time.monotonic() - started > timeout
+
+    if quiet:
+        while info["status"] not in TERMINAL and not _expired():
+            time.sleep(max(0.2, interval))
+            info = read_job(client, job_id)
+        return info
+
+    with Progress(
+        TextColumn("[llx.brand]{task.description}"),
+        BarColumn(complete_style=Style(color=BRAND), finished_style=Style(color=SUCCESS)),
+        TextColumn("[llx.dim]{task.percentage:>3.0f}%[/llx.dim]"),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task(f"{info['kind']} {job_id}", total=100)
+        while True:
+            pct = info.get("percent")
+            label = info.get("message") or info["kind"]
+            if isinstance(pct, (int, float)):
+                progress.update(task, completed=pct, description=label)
+            else:
+                progress.update(task, description=label)
+            if info["status"] in TERMINAL or _expired():
+                break
+            time.sleep(max(0.2, interval))
+            info = read_job(client, job_id)
+
+        if info["status"] == "completed":
+            progress.update(task, completed=100, description="[llx.success]Complete[/llx.success]")
+        elif info["status"] in ("failed", "cancelled"):
+            progress.update(task, description=f"[llx.error]{info['status'].capitalize()}[/llx.error]")
+    return info
+
+
+def job_failure_json(info: dict) -> dict:
+    return {"status": "error", "data": info, "error": {
+        "code": "JOB_" + info["status"].upper(), "message": str(info.get("error") or info["status"])}}
 
 
 @jobs_app.command("watch")
@@ -108,46 +149,14 @@ def jobs_watch(
     output.set_json_mode(json_out)
     try:
         client = get_client(server)
-        info = read_job(client, job_id)
-        started = time.monotonic()
+        info = watch_job(client, job_id, interval=interval, timeout=timeout, quiet=json_out)
 
         if json_out:
-            while info["status"] not in TERMINAL and not (timeout and time.monotonic() - started > timeout):
-                time.sleep(max(0.2, interval))
-                info = read_job(client, job_id)
             if info["status"] in ("failed", "cancelled"):
-                output.print_json({"status": "error", "data": info, "error": {
-                    "code": "JOB_" + info["status"].upper(), "message": str(info.get("error") or info["status"])}})
-                raise typer.Exit(1)
+                output.print_json(job_failure_json(info))
+                raise typer.Exit(output.EXIT_JOB_FAILED)
             output.print_json({"status": "success", "data": info})
             return
-
-        with Progress(
-            TextColumn("[llx.brand]{task.description}"),
-            BarColumn(complete_style=Style(color=BRAND), finished_style=Style(color=SUCCESS)),
-            TextColumn("[llx.dim]{task.percentage:>3.0f}%[/llx.dim]"),
-            TimeElapsedColumn(),
-            console=console,
-        ) as progress:
-            task = progress.add_task(f"{info['kind']} {job_id}", total=100)
-            while True:
-                pct = info.get("percent")
-                label = info.get("message") or info["kind"]
-                if isinstance(pct, (int, float)):
-                    progress.update(task, completed=pct, description=label)
-                else:
-                    progress.update(task, description=label)
-                if info["status"] in TERMINAL:
-                    break
-                if timeout and time.monotonic() - started > timeout:
-                    break
-                time.sleep(max(0.2, interval))
-                info = read_job(client, job_id)
-
-            if info["status"] == "completed":
-                progress.update(task, completed=100, description="[llx.success]Complete[/llx.success]")
-            elif info["status"] in ("failed", "cancelled"):
-                progress.update(task, description=f"[llx.error]{info['status'].capitalize()}[/llx.error]")
 
         if info["status"] == "completed":
             for f in info.get("files") or []:
@@ -161,16 +170,12 @@ def jobs_watch(
         elif info["status"] in ("failed", "cancelled"):
             if info.get("error"):
                 output.print_error(str(info["error"]), code="JOB_FAILED")
-            raise typer.Exit(1)
+            raise typer.Exit(output.EXIT_JOB_FAILED)
         else:
             console.print(f"[llx.dim]Still {info['status']}; stopped watching after {timeout:.0f} s.[/llx.dim]")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @jobs_app.command("cancel")
@@ -201,9 +206,5 @@ def jobs_cancel(
             msg = data.get("message", f"Job {job_id} cancelled.")
             output.print_success(msg)
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
