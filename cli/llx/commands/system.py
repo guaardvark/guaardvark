@@ -5,6 +5,7 @@ import sys
 from contextlib import contextmanager
 
 import typer
+from rich.markup import escape
 
 from llx.client import get_client, LlxError, LlxConnectionError
 from llx.config import load_config, save_config, CONFIG_FILE
@@ -298,6 +299,18 @@ def health(
         raise output.fail(e)
 
 
+def _sub_check(client, path: str) -> dict:
+    """One row of `status` beyond the server itself. A check the backend
+    answers with an error, or does not answer in time, comes back as
+    `{"status": "unknown", "error": ...}` so the other rows still print."""
+    try:
+        return client.get(path)
+    except LlxConnectionError:
+        raise
+    except LlxError as e:
+        return {"status": "unknown", "error": e.message}
+
+
 def status(
     server: str = typer.Option(None, "--server", "-s", help="Server URL override"),
     json_out: bool = typer.Option(False, "--json", "-j", help="JSON output"),
@@ -309,8 +322,8 @@ def status(
     try:
         client = get_client(server)
         health_data = client.get("/api/health")
-        model_data = client.get("/api/model/status")
-        celery_data = client.get("/api/health/celery")
+        model_data = _sub_check(client, "/api/model/status")
+        celery_data = _sub_check(client, "/api/health/celery")
 
         try:
             metrics_data = client.get("/api/meta/metrics")
@@ -343,14 +356,22 @@ def status(
         server_line = f"[llx.kv.key]Server:[/llx.kv.key]  {server_url}  [{s_style}]{s_icon} {'Online' if status_ok else 'Offline'}[/{s_style}]"
 
         model_info = _payload(model_data)
-        text_model = model_info.get("text_model", "none")
-        model_line = f"[llx.kv.key]Model:[/llx.kv.key]   [llx.accent]{text_model}[/llx.accent]"
+        if model_data.get("status") == "unknown":
+            model_line = ("[llx.kv.key]Model:[/llx.kv.key]   [llx.dim]unknown "
+                          f"({escape(str(model_data.get('error', '')))})[/llx.dim]")
+        else:
+            text_model = model_info.get("text_model", "none")
+            model_line = f"[llx.kv.key]Model:[/llx.kv.key]   [llx.accent]{text_model}[/llx.accent]"
 
         celery_status = celery_data.get("status", "unknown")
         workers = celery_data.get("workers", [])
         c_icon = ICON_ONLINE if celery_status == "up" else ICON_OFFLINE
         c_style = "llx.status.online" if celery_status == "up" else "llx.status.offline"
-        celery_line = f"[llx.kv.key]Celery:[/llx.kv.key]  {len(workers)} workers  [{c_style}]{c_icon} {celery_status}[/{c_style}]"
+        if celery_status == "unknown":
+            celery_line = (f"[llx.kv.key]Celery:[/llx.kv.key]  [{c_style}]{c_icon} unknown[/{c_style}]  "
+                           f"[llx.dim]{escape(str(celery_data.get('error', '')))}[/llx.dim]")
+        else:
+            celery_line = f"[llx.kv.key]Celery:[/llx.kv.key]  {len(workers)} workers  [{c_style}]{c_icon} {celery_status}[/{c_style}]"
 
         metrics = metrics_data.get("data", metrics_data) if metrics_data else {}
         gpu_mem = metrics.get("gpu_mem")
