@@ -49,6 +49,8 @@ https://github.com/user-attachments/assets/6ee72d6a-3a25-4380-92a9-a4b66e8b7e05
 </tr>
 </table>
 
+[All four in one 43-second cut, with music](https://www.youtube.com/watch?v=uzMIYsmd9Fg)
+
 ## Quick start
 
 **Linux with an NVIDIA GPU** (16 GB for video, 12 GB for the Wan 2.2 5B; chat, RAG and agents run on less, see the [hardware tiers](docs/HARDWARE.md)). A fresh Ubuntu desktop has no `curl` or `git`; run `sudo apt install -y curl git` first.
@@ -343,6 +345,8 @@ A newer category: the coding agent runs the studio. As of October 2026, from eac
 ## Watch it work
 
 Short screen recordings of the real system doing real work, narrated by its own local speech engine. **[Watch the full playlist](https://www.youtube.com/playlist?list=PLYycooXIy1Qs).**
+
+**In motion** ([watch, 0:43](https://www.youtube.com/watch?v=uzMIYsmd9Fg)): card workspaces, chat with your files, Video Gen and Film Crew, recorded on one machine and cut to "One Machine" (the song was made in Suno).
 
 | Episode | What it shows |
 |---|---|
