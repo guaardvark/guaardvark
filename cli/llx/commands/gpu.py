@@ -3,7 +3,7 @@
 import typer
 
 from llx import output
-from llx.client import LlxConnectionError, LlxError, get_client
+from llx.client import LlxError, get_client
 from llx.global_opts import get_global_json, get_global_server
 
 gpu_app = typer.Typer(help="GPU status and owner lock", no_args_is_help=True)
@@ -42,12 +42,8 @@ def gpu_status(
             "Util %": data.get("utilization") or data.get("gpu_percent") or "—",
         }
         output.print_kv(pairs, title="GPU")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @gpu_app.command("release")
@@ -67,9 +63,5 @@ def gpu_release(
             output.print_json({"status": "success", "data": _unwrap(data)})
             return
         output.print_success(data.get("message", "GPU lock released"))
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

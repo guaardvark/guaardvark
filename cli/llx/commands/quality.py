@@ -2,7 +2,7 @@
 
 import typer
 
-from llx.client import get_client, LlxConnectionError, LlxError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx import output
 
@@ -26,9 +26,5 @@ def quality_scorecard(
             output.print_json({"status": "success", "data": data})
             return
         output.print_json(data)
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

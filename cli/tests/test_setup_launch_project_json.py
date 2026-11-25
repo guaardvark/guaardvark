@@ -211,7 +211,7 @@ def test_setup_json_keeps_the_key_unless_given(home, monkeypatch):
 def test_setup_json_unreachable_server_saves_nothing(home, monkeypatch):
     monkeypatch.setattr("llx.commands.system.get_client", lambda server=None: _Server(server, up=False))
     result = runner.invoke(app, ["setup", "--server", "http://127.0.0.1:5999", "--json"])
-    assert result.exit_code == 1
+    assert result.exit_code == 3
     payload = _envelope(result)
     assert payload["error"]["code"] == "CONNECTION_ERROR"
     assert payload["data"]["saved"] is False

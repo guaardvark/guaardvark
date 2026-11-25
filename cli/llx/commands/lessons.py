@@ -3,7 +3,7 @@
 import typer
 
 from llx import output
-from llx.client import LlxConnectionError, LlxError, get_client
+from llx.client import LlxError, get_client
 from llx.global_opts import get_global_json, get_global_server
 from llx.theme import make_console
 
@@ -51,12 +51,8 @@ def lessons_begin(
             return
         lesson_id = data.get("lesson_id", data.get("id", "")) if isinstance(data, dict) else ""
         output.print_success(f"Lesson started{': ' + str(lesson_id) if lesson_id else ''}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @lessons_app.command("end")
@@ -74,12 +70,8 @@ def lessons_end(
             output.print_json({"status": "success", "data": data})
             return
         output.print_success("Lesson ended and distilled")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @lessons_app.command("list")
@@ -107,9 +99,5 @@ def lessons_list(
                             title="Active lesson")
         else:
             console.print(data)
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

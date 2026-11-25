@@ -4,7 +4,7 @@ import typer
 from rich.table import Table
 from rich.tree import Tree
 
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx.kb import list_documents, search_passages
 from llx.theme import make_console, make_panel, ICON_SUCCESS, ICON_WARNING
@@ -58,12 +58,8 @@ def rag_status(
             output.print_table(docs[:10], columns=["document", "passages"],
                                title="Largest documents" if len(docs) > 10 else "Documents")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @rag_app.command("query")
@@ -101,12 +97,8 @@ def rag_query(
             console.print(f"     [llx.dim]{text}{'...' if len(r['text']) > 200 else ''}[/llx.dim]")
             console.print()
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @rag_app.command("entities")
@@ -207,9 +199,5 @@ def rag_eval(
         console.print(make_panel("\n".join(_autoresearch_lines(status_data)),
                                  title="RAG Autoresearch"))
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

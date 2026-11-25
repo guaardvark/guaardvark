@@ -2,7 +2,7 @@
 
 import typer
 
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx.kb import search_passages
 from llx.theme import make_console
@@ -56,9 +56,5 @@ def search(
             why = f" ({rerank['reason']})" if rerank.get("reason") else ""
             console.print(f"[llx.dim]The reranker did not run{why}; these scores only order the results.[/llx.dim]")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

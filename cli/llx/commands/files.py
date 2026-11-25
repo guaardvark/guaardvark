@@ -4,7 +4,7 @@ from pathlib import Path
 import typer
 from rich.tree import Tree
 
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx.theme import make_console
 from llx import output
@@ -52,12 +52,8 @@ def files_list(
             tree.add(f"[llx.tree.file]{name}[/llx.tree.file]  [llx.tree.meta]{size_str}  id:{doc_id}[/llx.tree.meta]")
         console.print(tree)
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @files_app.command("upload")
@@ -104,12 +100,8 @@ def files_upload(
             msg += " — indexing in progress"
         output.print_success(msg)
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @files_app.command("download")
@@ -129,12 +121,8 @@ def files_download(
         dest_file = dest / filename
         client.download(f"/api/files/document/{doc_id}/download", dest_file)
         output.print_success(f"Downloaded: {dest_file}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @files_app.command("delete")
@@ -151,12 +139,8 @@ def files_delete(
         client = get_client(server)
         client.delete(f"/api/files/document/{doc_id}")
         output.print_success(f"Deleted document {doc_id}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @files_app.command("mkdir")
@@ -178,12 +162,8 @@ def files_mkdir(
             output.print_json({"status": "success", "data": result})
         else:
             output.print_success(f"Created folder: {name}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 def _format_size(size_bytes: int) -> str:

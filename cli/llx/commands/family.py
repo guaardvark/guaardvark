@@ -5,7 +5,7 @@ import typer
 from rich.live import Live
 from rich.table import Table
 
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx.theme import make_console, make_panel, ICON_ONLINE, ICON_OFFLINE, ICON_SUCCESS, ICON_WARNING
 from llx import output
@@ -66,12 +66,8 @@ def family_list(
         console.print(table)
         console.print(f"\n[llx.dim]{len(nodes)} node(s) in family[/llx.dim]")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @family_app.command("status")
@@ -114,12 +110,8 @@ def family_status(
 
         console.print(make_panel("\n".join(lines), title="Interconnector"))
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @family_app.command("sync")
@@ -147,12 +139,8 @@ def family_sync(
             for err in errors:
                 output.print_warning(f"  {err}")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @family_app.command("health")
@@ -196,9 +184,5 @@ def family_health(
         color = "llx.success" if online == total else ("llx.warning" if online > 0 else "llx.error")
         console.print(f"\n[{color}]{online}/{total} nodes online[/{color}]")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

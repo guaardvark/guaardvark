@@ -7,7 +7,7 @@ from typing import List
 import typer
 from typer.core import TyperGroup
 
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx.theme import make_console
 from llx import output
@@ -66,9 +66,8 @@ def outreach_say(
             "/api/social-outreach/intent",
             json={"text": text, "created_by": "cli"},
         )
-    except (LlxError, LlxConnectionError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)
 
     if json_out:
         output.print_json(data)
@@ -117,9 +116,8 @@ def outreach_queue(
             rows = client.get("/api/social-outreach/audit", limit=200)
             if isinstance(rows, list):
                 rows = [r for r in rows if r.get("status") == status][:limit]
-    except (LlxError, LlxConnectionError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)
 
     if not isinstance(rows, list):
         rows = []
@@ -155,9 +153,8 @@ def outreach_approve(
     client = get_client(server)
     try:
         data = client.post(f"/api/social-outreach/approve/{draft_id}", json={})
-    except (LlxError, LlxConnectionError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)
     if json_out:
         output.print_json(data)
     else:
@@ -167,9 +164,8 @@ def outreach_approve(
 def _print_status(client, json_out: bool) -> None:
     try:
         data = client.get("/api/social-outreach/status")
-    except (LlxError, LlxConnectionError) as e:
-        output.print_error(str(e))
-        raise typer.Exit(1)
+    except LlxError as e:
+        raise output.fail(e)
     if json_out:
         output.print_json(data)
         return

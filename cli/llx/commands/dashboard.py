@@ -7,6 +7,7 @@ from rich.panel import Panel
 
 from llx.client import get_client, LlxError, LlxConnectionError
 from llx.global_opts import get_global_server
+from llx import output
 from llx.theme import make_console, ICON_ONLINE, ICON_OFFLINE
 
 console = make_console()
@@ -28,7 +29,7 @@ def dashboard(
         client.get("/api/health")
     except (LlxConnectionError, LlxError) as e:
         console.print(f"[llx.error]Cannot connect: {e}[/llx.error]")
-        raise typer.Exit(1)
+        raise typer.Exit(output.EXIT_UNREACHABLE)
 
     console.print("[llx.dim]Dashboard starting... Press Ctrl+C to exit.[/llx.dim]\n")
 

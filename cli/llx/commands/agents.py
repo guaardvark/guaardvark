@@ -1,7 +1,7 @@
 """Agent management commands."""
 
 import typer
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx import output
 from pathlib import Path
@@ -35,12 +35,8 @@ def agents_list(
         } for a in agents]
         output.print_table(rows, columns=["id", "name", "enabled", "tools"], title=f"Agents ({len(rows)})")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @agents_app.command("info")
@@ -75,12 +71,8 @@ def agents_info(
             rows = [{"name": t.get("name", ""), "description": t.get("description", "")} for t in tools]
             output.print_table(rows, columns=["name", "description"], title="Tools")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @agents_app.command("run")
@@ -135,12 +127,8 @@ def run_agent(
         console.print(Markdown(answer))
         console.print()
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @agents_app.command("update")
@@ -181,9 +169,5 @@ def update_agent(
         else:
             output.print_success(f"Agent '{agent_id}' updated")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

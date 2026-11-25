@@ -30,7 +30,9 @@ def _setup(server, json_out):
 
 
 def _fail(e):
-    output.print_error(str(e.message if isinstance(e, LlxError) else e))
+    if isinstance(e, LlxError):
+        raise output.fail(e)
+    output.print_error(str(e))
     raise typer.Exit(1)
 
 

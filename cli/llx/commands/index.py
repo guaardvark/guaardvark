@@ -2,7 +2,7 @@
 
 import typer
 
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx import output
 
@@ -28,12 +28,8 @@ def index_document(
         else:
             output.print_success(f"Indexing triggered for document {doc_id}")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @index_app.command("status")
@@ -55,12 +51,8 @@ def index_status(
         else:
             output.print_kv(counts, title="Entity Indexing Status")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @index_app.command("entity")
@@ -96,12 +88,8 @@ def index_entity(
                 output.print_error(data.get("error", "Indexing failed"), code="INDEXING_FAILED")
                 raise typer.Exit(1)
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @index_app.command("all")
@@ -126,9 +114,5 @@ def index_all(
                 output.print_error(data.get("error", "Indexing failed"), code="INDEXING_FAILED")
                 raise typer.Exit(1)
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

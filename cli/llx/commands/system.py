@@ -295,8 +295,7 @@ def health(
             h, m = divmod(uptime // 60, 60)
             console.print(f"[{style}]{icon} {status}[/{style}]  [llx.dim]|[/llx.dim]  Version: {version}  [llx.dim]|[/llx.dim]  Uptime: {h}h {m}m")
     except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 def status(
@@ -375,12 +374,8 @@ def status(
         content = "\n".join([server_line, model_line, celery_line, gpu_line, cpu_line, mcp_line, ver_line])
         console.print(make_panel(content, title="System Status"))
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 def init(
@@ -443,7 +438,7 @@ def _setup_json(server: str | None, api_key: str | None) -> None:
         output.print_json({"status": "error", "data": data, "error": {
             "code": "CONNECTION_ERROR", "message": e.message,
             "hint": "Start the server (guaardvark start) and run setup again; nothing was saved."}})
-        raise typer.Exit(1)
+        raise typer.Exit(output.EXIT_UNREACHABLE)
     data["version"] = health.get("version")
     try:
         data["active_model"] = _payload(client.get("/api/model/status")).get("text_model")
@@ -482,12 +477,8 @@ def models_list(
         rows = [{"name": m.get("name", "?"), "id": m.get("id", m.get("full_name", "?"))} for m in models]
         output.print_table(rows, columns=["name", "id"], title=f"Available Models ({len(rows)})")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @models_app.command("active")
@@ -514,12 +505,8 @@ def models_active(
             "Image gen model": info.get("image_gen_model", "none"),
         }, title="Active Models")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @models_app.command("set")
@@ -546,9 +533,5 @@ def models_set(
             )
         else:
             output.print_success(f"Switching to {model}... (this may take a moment)")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

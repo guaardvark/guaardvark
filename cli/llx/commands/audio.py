@@ -3,7 +3,7 @@
 import typer
 
 from llx import output
-from llx.client import LlxConnectionError, LlxError, get_client
+from llx.client import LlxError, get_client
 from llx.global_opts import get_global_json, get_global_server
 from llx.media_preview import extract_media_path, play_audio
 from llx.theme import make_console
@@ -44,12 +44,8 @@ def audio_voices(
             output.print_table(rows, title="Voices")
         else:
             output.print_kv(data if isinstance(data, dict) else {"voices": voices})
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @audio_app.command("tts")
@@ -81,12 +77,8 @@ def audio_tts(
                 console.print(f"[llx.dim]Playing with {player}[/llx.dim]")
         elif path:
             console.print(f"[llx.dim]{path}[/llx.dim]")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @audio_app.command("music")
@@ -145,12 +137,8 @@ def audio_music(
         player = play_audio(path, no_play=no_play)
         if player:
             console.print(f"[llx.dim]Playing with {player}[/llx.dim]")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @audio_app.command("sfx")
@@ -171,12 +159,8 @@ def audio_sfx(
         output.print_success("SFX generation started")
         if isinstance(result, dict) and result.get("job_id"):
             console.print(f"[llx.dim]Job: {result['job_id']}[/llx.dim]")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @audio_app.command("play")

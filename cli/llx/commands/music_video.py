@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from llx import output
-from llx.client import LlxConnectionError, LlxError, get_client
+from llx.client import LlxError, get_client
 from llx.global_opts import get_global_json, get_global_server
 from llx.theme import make_console
 
@@ -73,12 +73,8 @@ def music_video_list(
         } for r in rows]
         output.print_table(table, columns=["id", "name", "stage", "status", "clips"],
                            title=f"Music Videos ({len(table)})")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @music_video_app.command("create")
@@ -114,12 +110,8 @@ def music_video_create(
         output.print_success(f"Music video '{result.get('name', title)}' created (id {mv_id}, stage: {stage})")
         console.print("[llx.dim]Analysis is running. Approve the cut plan in Studio before any clip renders.[/llx.dim]")
         console.print("[llx.dim]Open: /music-video    Status: guaardvark music-video status " + str(mv_id) + "[/llx.dim]")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @music_video_app.command("status")
@@ -147,12 +139,8 @@ def music_video_status(
         }, title="Music Video")
         if data.get("current_stage") == "awaiting_approval":
             console.print("[llx.dim]Approve the cut plan in Studio to start clip renders.[/llx.dim]")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @music_video_app.command("cancel")
@@ -170,12 +158,8 @@ def music_video_cancel(
             output.print_json(data)
             return
         output.print_success(f"Cancelled music video {mv_id} (stage: {data.get('current_stage', 'cancelled')})")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @music_video_app.command("delete")
@@ -190,9 +174,5 @@ def music_video_delete(
     try:
         _client(server).delete(f"/api/music-video/{mv_id}")
         output.print_success(f"Deleted music video {mv_id}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

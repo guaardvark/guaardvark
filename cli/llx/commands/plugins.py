@@ -3,7 +3,7 @@
 import typer
 
 from llx import output
-from llx.client import LlxConnectionError, LlxError, get_client
+from llx.client import LlxError, get_client
 from llx.global_opts import get_global_json, get_global_server
 from llx.theme import make_console
 
@@ -42,12 +42,8 @@ def plugins_list(
                 "port": p.get("port", ""),
             })
         output.print_table(rows, columns=["id", "status", "enabled", "port"], title="Plugins")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @plugins_app.command("start")
@@ -65,12 +61,8 @@ def plugins_start(
             output.print_json({"status": "success", "data": _unwrap(data)})
             return
         output.print_success(data.get("message", f"Started {plugin_id}"))
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @plugins_app.command("stop")
@@ -88,12 +80,8 @@ def plugins_stop(
             output.print_json({"status": "success", "data": _unwrap(data)})
             return
         output.print_success(data.get("message", f"Stopped {plugin_id}"))
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @plugins_app.command("enable")
@@ -111,12 +99,8 @@ def plugins_enable(
             output.print_json({"status": "success", "data": _unwrap(data)})
             return
         output.print_success(data.get("message", f"Enabled {plugin_id}"))
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @plugins_app.command("disable")
@@ -134,12 +118,8 @@ def plugins_disable(
             output.print_json({"status": "success", "data": _unwrap(data)})
             return
         output.print_success(data.get("message", f"Disabled {plugin_id}"))
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @plugins_app.command("status")
@@ -164,12 +144,8 @@ def plugins_status(
             output.print_kv({k: v for k, v in data.items() if not isinstance(v, (dict, list))}, title=plugin_id or "Orchestrator")
         else:
             console.print(data)
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @plugins_app.command("logs")
@@ -193,9 +169,5 @@ def plugins_logs(
             console.print(logs)
         else:
             output.print_kv(data if isinstance(data, dict) else {"info": data}, title=plugin_id)
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

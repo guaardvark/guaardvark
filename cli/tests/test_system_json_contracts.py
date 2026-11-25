@@ -68,7 +68,7 @@ def test_health_json_connection_error_envelope(monkeypatch):
         lambda server=None: (_ for _ in ()).throw(LlxConnectionError("offline")),
     )
     result = runner.invoke(app, ["--json", "health"])
-    assert result.exit_code == 1
+    assert result.exit_code == 3
     payload = json.loads(result.stdout)
     assert payload["status"] == "error"
     assert payload["error"]["code"] == "CONNECTION_ERROR"

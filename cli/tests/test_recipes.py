@@ -52,7 +52,7 @@ def test_validate_rejects_invalid_json(tmp_path):
     result = runner.invoke(app, ["recipes", "validate", "--file", str(path)])
 
     assert result.exit_code == 1
-    assert "Invalid JSON" in result.stdout
+    assert "Invalid JSON" in result.stderr
 
 
 def test_validate_candidate_file_success(tmp_path):
@@ -88,7 +88,7 @@ def test_show_unknown_recipe_is_clear(monkeypatch):
     result = runner.invoke(app, ["recipes", "show", "not-a-recipe"])
 
     assert result.exit_code == 1
-    assert "Unknown recipe: not-a-recipe" in result.stdout
+    assert "Unknown recipe: not-a-recipe" in result.stderr
 
 
 def test_cli_action_allowlist_matches_backend():

@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from llx import output
-from llx.client import LlxConnectionError, LlxError, get_client
+from llx.client import LlxError, get_client
 from llx.global_opts import get_global_json, get_global_server
 from llx.theme import make_console
 
@@ -45,12 +45,8 @@ def _video_ref(api_client, video: str) -> dict:
 def _run(fn):
     try:
         fn()
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 def _summary_rows(job: dict) -> list:

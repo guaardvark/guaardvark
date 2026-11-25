@@ -150,10 +150,10 @@ app.command("launch")(launch)
 
 def ask(
     message: str = typer.Argument(..., help="Natural language message to send to chat"),
-    server: str | None = typer.Option(None, "--server", "-s"),
-    json_out: bool = typer.Option(False, "--json", "-j"),
-    no_rag: bool = typer.Option(False, "--no-rag"),
-    stream: bool = typer.Option(False, "--stream"),
+    server: str | None = typer.Option(None, "--server", "-s", help="Override server URL"),
+    json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
+    no_rag: bool = typer.Option(False, "--no-rag", help="Answer without searching your documents"),
+    stream: bool = typer.Option(False, "--stream", help="Print the answer as it is written"),
 ):
     """Send a one-shot chat message (replaces bare guaardvark \"query\" syntax)."""
     from llx.global_opts import get_global_json as _gj, get_global_server as _gs
@@ -236,13 +236,14 @@ def version_callback(value: bool):
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    version: bool = typer.Option(False, "--version", "-v", callback=version_callback, is_eager=True),
+    version: bool = typer.Option(False, "--version", "-v", callback=version_callback, is_eager=True,
+                                 help="Print the version and exit"),
     json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON (for scripting)"),
     server: str | None = typer.Option(None, "--server", "-s", help="Override server URL"),
     timeout: float | None = typer.Option(None, "--timeout", "-t", help="Request timeout in seconds"),
     theme: str | None = typer.Option(None, "--theme", help="Color theme (default, teal, musk, hacker, vader, guaardvark, day, auto)"),
-    verbose: bool = typer.Option(False, "--verbose", "-V", help="Verbose output"),
-    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output"),
+    verbose: bool = typer.Option(False, "--verbose", "-V", help="Show each step chat takes while it works"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Results and errors only: no confirmations or tips"),
     non_interactive: bool = typer.Option(
         False,
         "--non-interactive",
@@ -251,9 +252,12 @@ def main(
 ):
     set_global_opts(server=server, json_out=json_out, timeout=timeout, verbose=verbose, quiet=quiet)
     if theme:
-        from llx.theme import set_active_theme, THEMES
-        if theme in THEMES:
-            set_active_theme(theme)
+        from llx.theme import set_active_theme, THEMES, _VIRTUAL_THEMES
+        if not set_active_theme(theme):
+            names = ", ".join(sorted(set(THEMES) | set(_VIRTUAL_THEMES)))
+            typer.echo(f"Unknown theme '{theme}'. Choose one of: {names}", err=True)
+            raise typer.Exit(2)
+        output.refresh_theme()
 
     if ctx.invoked_subcommand is None:
         if non_interactive:

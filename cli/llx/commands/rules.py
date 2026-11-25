@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 import typer
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx import output
 
@@ -41,12 +41,8 @@ def rules_list(
         } for r in rules]
         output.print_table(rows, columns=["id", "name", "level", "type", "active"], title=f"Rules ({len(rows)})")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @rules_app.command("create")
@@ -85,12 +81,8 @@ def rules_create(
             output.print_json({"status": "success", "data": result})
         else:
             output.print_success(f"Created rule: {name} (id: {result.get('id', '?')})")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @rules_app.command("delete")
@@ -113,12 +105,8 @@ def rules_delete(
             output.print_json({"status": "success", "data": {"rule_id": rule_id, "deleted": True}})
         else:
             output.print_success(f"Deleted rule {rule_id}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @rules_app.command("export")
@@ -145,12 +133,8 @@ def rules_export(
             )
         else:
             output.print_success(f"Exported {len(rules)} rules to {file}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @rules_app.command("import")
@@ -179,9 +163,5 @@ def rules_import(
             )
         else:
             output.print_success(f"Import complete: {created} created, {updated} updated, {skipped} skipped")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

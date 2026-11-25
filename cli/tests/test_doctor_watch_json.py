@@ -80,7 +80,7 @@ def test_jobs_watch_json_failed_job_is_an_error(monkeypatch):
 
     monkeypatch.setattr("llx.commands.jobs.get_client", lambda server=None: Client())
     result = runner.invoke(app, ["--json", "jobs", "watch", "0123456789abcdef0123456789abcdef"])
-    assert result.exit_code == 1
+    assert result.exit_code == 6
     payload = json.loads(result.stdout)
     assert payload["status"] == "error"
     assert payload["error"]["code"] == "JOB_FAILED"

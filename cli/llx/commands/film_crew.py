@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from llx import output
-from llx.client import LlxConnectionError, LlxError, get_client
+from llx.client import LlxError, get_client
 from llx.global_opts import get_global_json, get_global_server
 from llx.theme import make_console
 
@@ -57,12 +57,8 @@ def film_crew_list(
         } for r in rows]
         output.print_table(table, columns=["id", "name", "stage", "status"],
                            title=f"Film Crew ({len(table)})")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @film_crew_app.command("create")
@@ -94,12 +90,8 @@ def film_crew_create(
         output.print_success(f"Film Crew '{result.get('name', title)}' created (id {prod_id}, stage: {stage})")
         console.print("[llx.dim]The screenwriter is running. Casting, storyboards and renders wait in Studio.[/llx.dim]")
         console.print("[llx.dim]Open: /film-crew    Status: guaardvark film-crew status " + str(prod_id) + "[/llx.dim]")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @film_crew_app.command("status")
@@ -129,12 +121,8 @@ def film_crew_status(
             console.print(f"[llx.dim]video_model: {settings['video_model']}[/llx.dim]")
         if data.get("current_stage") not in ("complete", "cancelled"):
             console.print("[llx.dim]Casting, storyboards and renders wait in Studio.[/llx.dim]")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @film_crew_app.command("delete")
@@ -149,9 +137,5 @@ def film_crew_delete(
     try:
         _client(server).delete(f"/api/production/{prod_id}")
         output.print_success(f"Deleted production {prod_id}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

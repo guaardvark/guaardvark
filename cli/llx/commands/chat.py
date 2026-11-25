@@ -9,7 +9,7 @@ from pathlib import Path
 import typer
 from rich.markdown import Markdown
 
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.config import save_session, get_last_session_id, load_sessions
 from llx.global_opts import get_global_json, get_global_server
 from llx.theme import make_console
@@ -180,12 +180,8 @@ def _chat_sync(session_id: str, message: str, no_rag: bool, server: str | None, 
 
         save_session(session_id, message[:80])
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 def _chat_export(session_id: str, server: str | None, output_file: Path | None, json_out: bool):
@@ -224,12 +220,8 @@ def _chat_export(session_id: str, server: str | None, output_file: Path | None, 
         else:
             print(markdown)
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | None, json_out: bool, project_id: int | None = None, project_root: str | None = None):
@@ -360,9 +352,5 @@ def _chat_streaming(session_id: str, message: str, no_rag: bool, server: str | N
         if stream_failed:
             raise typer.Exit(1)
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(e.message, code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

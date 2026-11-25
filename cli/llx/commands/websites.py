@@ -1,7 +1,7 @@
 """Website management commands — list, create, info, delete, scrape."""
 
 import typer
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx import output
 
@@ -36,12 +36,8 @@ def websites_list(
         } for s in sites]
         output.print_table(rows, columns=["id", "name", "url", "pages"], title=f"Websites ({len(rows)})")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @websites_app.command("create")
@@ -72,12 +68,8 @@ def websites_create(
         else:
             output.print_success(f"Created website: {name} (id: {result.get('id', '?')})")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @websites_app.command("info")
@@ -106,12 +98,8 @@ def websites_info(
                 "Client": (result.get("client") or {}).get("name", "—"),
             }, title="Website Details")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @websites_app.command("scrape")
@@ -135,12 +123,8 @@ def websites_scrape(
             msg = result.get("message", f"Scrape started for website {website_id}")
             output.print_success(msg)
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @websites_app.command("delete")
@@ -165,9 +149,5 @@ def websites_delete(
             )
         else:
             output.print_success(f"Deleted website {website_id}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

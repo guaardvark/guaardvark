@@ -1,7 +1,7 @@
 """Settings commands — get, set, list."""
 
 import typer
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx import output
 
@@ -43,12 +43,8 @@ def settings_list(
                 {k: str(v) for k, v in settings.items()},
                 title="Settings",
             )
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @settings_app.command("get")
@@ -69,12 +65,8 @@ def settings_get(
             output.print_json({"status": "success", "data": {key: result}})
         else:
             output.print_kv({key: str(result)})
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @settings_app.command("set")
@@ -101,9 +93,5 @@ def settings_set(
             output.print_json({"status": "success", "data": {key: parsed}})
         else:
             output.print_success(f"Set {key} = {parsed}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

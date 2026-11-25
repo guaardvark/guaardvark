@@ -44,12 +44,8 @@ def swarm_list(
                 "tasks": s.get("task_count", s.get("tasks", "")),
             })
         output.print_table(rows, title="Swarm")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @swarm_app.command("run")
@@ -102,8 +98,7 @@ def swarm_run(
         if swarm_id:
             console.print(f"[llx.dim]id: {swarm_id}  →  guaardvark swarm status {swarm_id}[/llx.dim]")
     except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
     except LlxError as e:
         if e.status_code == 409:
             output.print_error(
@@ -135,12 +130,8 @@ def swarm_templates(
                  "tasks": t.get("task_count", t.get("tasks", ""))} if isinstance(t, dict)
                 else {"template": str(t), "title": "", "tasks": ""} for t in items]
         output.print_table(rows, title="Swarm templates")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 @swarm_app.command("status")
 def swarm_status(
@@ -161,12 +152,8 @@ def swarm_status(
             output.print_kv({k: v for k, v in data.items() if not isinstance(v, (dict, list))}, title=swarm_id or "Swarm")
         else:
             console.print(data)
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @swarm_app.command("logs")
@@ -186,9 +173,5 @@ def swarm_logs(
             return
         logs = data.get("logs", data) if isinstance(data, dict) else data
         console.print(logs)
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)

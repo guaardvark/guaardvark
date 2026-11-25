@@ -4,9 +4,11 @@ import json
 import sys
 from typing import Any
 
+import typer
 from rich.markdown import Markdown
 from rich.syntax import Syntax
 
+from llx.global_opts import get_global_quiet
 from llx.theme import make_console, make_table, make_panel, ICON_SUCCESS, ICON_ERROR, ICON_WARNING
 
 _json_mode = False
@@ -33,6 +35,11 @@ def is_json_mode() -> bool:
 def is_pipe() -> bool:
     """True if stdout is piped (not a terminal)."""
     return not sys.stdout.isatty()
+
+
+def progress_console():
+    """The console for a progress bar, or None when one would corrupt the output."""
+    return None if (_json_mode or is_pipe() or get_global_quiet()) else _console
 
 
 def print_json(data: Any):
@@ -79,20 +86,66 @@ def print_success(message: str):
     if _json_mode or is_pipe():
         print_json({"status": "success", "message": message})
         return
+    if get_global_quiet():
+        return
     _out.print(f"[llx.success]{ICON_SUCCESS} {message}[/llx.success]")
 
 
+def print_hint(message: str):
+    """A next-step tip for a person at a terminal; never part of scripted output."""
+    if _json_mode or is_pipe() or get_global_quiet():
+        return
+    _out.print(f"  {message}")
+
+
 def print_error(message: str, code: str = "ERROR"):
-    """Print error to stderr, or structured JSON in JSON / pipe mode."""
-    if _json_mode or is_pipe():
-        print_json(
-            {
-                "status": "error",
-                "error": {"code": code, "message": message},
-            }
-        )
+    """Report an error without putting it in the data stream.
+
+    --json keeps the structured error on stdout, where a caller that asked for
+    JSON parses it. A plain pipe (`guaardvark images list | jq`) gets it on
+    stderr, so the next program never reads an error as a result.
+    """
+    payload = {"status": "error", "error": {"code": code, "message": message}}
+    if _json_mode:
+        print_json(payload)
+        return
+    if is_pipe() and not sys.stderr.isatty():
+        print(json.dumps(payload, indent=2, default=str), file=sys.stderr)
         return
     _console.print(f"[llx.error]{ICON_ERROR} Error:[/llx.error] {message}")
+
+
+# Exit codes a script can branch on. 1 stays the catch-all and 2 is usage,
+# as Click already uses it.
+EXIT_ERROR = 1
+EXIT_USAGE = 2
+EXIT_UNREACHABLE = 3
+EXIT_NOT_FOUND = 4
+EXIT_DENIED = 5
+EXIT_JOB_FAILED = 6
+EXIT_TIMEOUT = 7
+
+
+def fail(exc: Exception) -> typer.Exit:
+    """Print a client error and return the exit to raise for it.
+
+    Usage: `except LlxError as e: raise output.fail(e)`.
+    """
+    from llx.client import LlxConnectionError
+
+    status = getattr(exc, "status_code", 0)
+    if isinstance(exc, LlxConnectionError):
+        code, exit_code = "CONNECTION_ERROR", EXIT_UNREACHABLE
+    elif status == 404:
+        code, exit_code = "NOT_FOUND", EXIT_NOT_FOUND
+    elif status in (401, 403):
+        code, exit_code = "NOT_AUTHORIZED", EXIT_DENIED
+    elif status == 408:
+        code, exit_code = "TIMEOUT", EXIT_TIMEOUT
+    else:
+        code, exit_code = "API_ERROR", EXIT_ERROR
+    print_error(str(exc), code=code)
+    return typer.Exit(exit_code)
 
 
 def print_warning(message: str):

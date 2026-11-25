@@ -1,7 +1,7 @@
 """Task management commands — list, create, info, start, delete, download."""
 
 import typer
-from llx.client import get_client, LlxError, LlxConnectionError
+from llx.client import get_client, LlxError
 from llx.global_opts import get_global_json, get_global_server
 from llx.theme import make_console
 from llx import output
@@ -44,12 +44,8 @@ def tasks_list(
         } for t in tasks]
         output.print_table(rows, columns=["id", "name", "type", "status", "progress"], title=f"Tasks ({len(rows)})")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @tasks_app.command("create")
@@ -96,12 +92,8 @@ def tasks_create(
             except LlxError as start_err:
                 console.print(f"  [llx.warning]Auto-start failed: {start_err.message}[/llx.warning]")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @tasks_app.command("info")
@@ -134,12 +126,8 @@ def tasks_info(
             "Output": meta.get("output_filename") or meta.get("output_file") or "—",
         }, title="Task Details")
 
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @tasks_app.command("start")
@@ -161,12 +149,8 @@ def tasks_start(
         else:
             output.print_success(msg)
             console.print(f"  Watch progress: [bold]guaardvark jobs watch {task_id}[/bold]")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @tasks_app.command("download")
@@ -196,12 +180,8 @@ def tasks_download(
             )
         else:
             output.print_success(f"Downloaded: {dest_path}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
 
 
 @tasks_app.command("delete")
@@ -224,9 +204,5 @@ def tasks_delete(
             output.print_json({"status": "success", "data": {"task_id": task_id, "deleted": True}})
         else:
             output.print_success(f"Deleted task {task_id}")
-    except LlxConnectionError as e:
-        output.print_error(str(e), code="CONNECTION_ERROR")
-        raise typer.Exit(1)
     except LlxError as e:
-        output.print_error(str(e), code="API_ERROR")
-        raise typer.Exit(1)
+        raise output.fail(e)
