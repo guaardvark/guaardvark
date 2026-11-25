@@ -58,8 +58,8 @@ def get_active_celery_tasks() -> Dict[str, Any]:
         return {}
     
     try:
-        inspect = celery.control.inspect()
-        active_tasks = inspect.active()
+        from backend.utils.celery_inspect import inspect_workers
+        active_tasks = inspect_workers(celery, "active")
         if not active_tasks:
             return {}
         
