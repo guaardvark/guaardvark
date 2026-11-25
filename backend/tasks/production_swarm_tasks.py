@@ -97,7 +97,11 @@ def _agent_run(prod_id: int, *, agent_name: str, expected_stage: str, next_agent
             celery.send_task(f"production.run_{next_agent}", args=[prod_id])
 
 
-def _default_ollama_llm(*, system: str, user: str, model: str = "gemma4:e4b") -> str:
+# The chat model the agents ask for; resolve_chat_model maps it to the tag installed.
+_AGENT_CHAT_MODEL = "gemma4:e4b"
+
+
+def _default_ollama_llm(*, system: str, user: str, model: str = _AGENT_CHAT_MODEL) -> str:
     from backend.services.plugin_bridge import ensure_plugins_for_stage
     from backend.services.ollama_chat_model import resolve_chat_model
     ensure_plugins_for_stage("film-crew", "screenwriting")  # or cinematography etc.; uses phased non-persist
@@ -130,26 +134,77 @@ def _film_autocurate_enabled() -> bool:
     return value not in ("0", "false", "False", "")
 
 
+# Seconds before a stage that found the GPU taken is asked for again.
+_GPU_TURN_RETRY_S = 10
+
+
+def _gpu_turn_wait_reason(needs_chat_model: bool) -> str | None:
+    """Why a stage has to wait for the GPU, or None when it can run now.
+
+    A render or training job sizes itself for the card it finds. A chat model
+    that loads beside it afterwards takes that memory and the render runs out
+    (seen with a Wan 2.2 render and the screenwriter's model). A stage that
+    only needs the chat model runs anyway when that model is already on the
+    card; one that draws stills always waits, since its own claim on the card
+    is refused while another process holds it.
+    """
+    from backend.utils.gpu_check import gpu_reserved_reason
+    reason = gpu_reserved_reason()
+    if reason is None or not needs_chat_model:
+        return reason
+    try:
+        from backend.services.ollama_chat_model import resolve_chat_model
+        from backend.utils.ollama_resource_manager import resident_entry
+        if resident_entry(resolve_chat_model(_AGENT_CHAT_MODEL)) is not None:
+            return None
+    except Exception:  # noqa: BLE001 - when Ollama cannot say, wait
+        pass
+    return reason
+
+
 def create_production_swarm_tasks(celery_app: Celery):
-    
+
+    def _put_off(task_name: str, args: list, *, needs_chat_model: bool = True) -> bool:
+        """Queue the stage again shortly when the GPU is taken; True when put off.
+
+        Asking again through the queue leaves the worker free for other tasks
+        in the meantime, which a wait inside the task would not.
+        """
+        reason = _gpu_turn_wait_reason(needs_chat_model)
+        if reason is None:
+            return False
+        import logging
+        logging.getLogger(__name__).info(
+            "%s%s waits for the GPU (%s); asking again in %ss", task_name, tuple(args), reason, _GPU_TURN_RETRY_S)
+        celery_app.send_task(task_name, args=args, countdown=_GPU_TURN_RETRY_S)
+        return True
+
     @celery_app.task(name="production.run_screenwriter")
     def run_screenwriter_task(prod_id: int):
         with current_app.app_context():
+            if _put_off("production.run_screenwriter", [prod_id]):
+                return
             run_screenwriter(prod_id)
 
     @celery_app.task(name="production.run_casting_director")
     def run_casting_director_task(prod_id: int):
         with current_app.app_context():
+            if _put_off("production.run_casting_director", [prod_id]):
+                return
             run_casting_director(prod_id)
 
     @celery_app.task(name="production.run_cinematographer")
     def run_cinematographer_task(prod_id: int):
         with current_app.app_context():
+            if _put_off("production.run_cinematographer", [prod_id]):
+                return
             run_cinematographer(prod_id)
 
     @celery_app.task(name="production.run_storyboard_artist")
     def run_storyboard_artist_task(prod_id: int):
         with current_app.app_context():
+            if _put_off("production.run_storyboard_artist", [prod_id], needs_chat_model=False):
+                return
             run_storyboard_artist(prod_id)
             # The curator only pre-ticks cards; the approval gate stays with the
             # person. run_curator no-ops unless the production reached
@@ -186,6 +241,8 @@ def create_production_swarm_tasks(celery_app: Celery):
     @celery_app.task(name="production.regen_shot_plan")
     def regen_shot_plan_task(shot_id: int, feedback: str):
         with current_app.app_context():
+            if _put_off("production.regen_shot_plan", [shot_id, feedback]):
+                return
             run_regen_shot_plan(shot_id, feedback)
         # The new image prompt only shows once the still is drawn from it.
         celery_app.send_task("production.regen_storyboard_shot", args=[shot_id, None])
