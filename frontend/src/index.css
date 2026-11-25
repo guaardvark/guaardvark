@@ -238,6 +238,8 @@ code {
    item with an inline transform, so the lift uses the separate rotate and scale
    properties, which compose with it instead of replacing it. */
 .react-grid-layout > .react-grid-item[data-card-id].react-draggable-dragging {
+  /* above every other card, whatever order they were last raised in */
+  z-index: 1000 !important;
   rotate: 1.5deg;
   scale: 1.03;
   box-shadow:
