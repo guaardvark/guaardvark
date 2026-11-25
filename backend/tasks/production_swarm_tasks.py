@@ -136,6 +136,10 @@ def _film_autocurate_enabled() -> bool:
 
 # Seconds before a stage that found the GPU taken is asked for again.
 _GPU_TURN_RETRY_S = 10
+# How long a stage keeps asking. The longest job it queues behind is a render
+# or a LoRA training run; past this the card is taken by something that is not
+# going to finish, and the stage fails with the reason instead of sitting.
+_GPU_TURN_MAX_WAIT_S = 2 * 3600
 
 
 def _gpu_turn_wait_reason(needs_chat_model: bool) -> str | None:
@@ -164,46 +168,59 @@ def _gpu_turn_wait_reason(needs_chat_model: bool) -> str | None:
 
 def create_production_swarm_tasks(celery_app: Celery):
 
-    def _put_off(task_name: str, args: list, *, needs_chat_model: bool = True) -> bool:
+    def _put_off(task_name: str, args: list, waited: int, *, stage: str | None = None,
+                 needs_chat_model: bool = True) -> bool:
         """Queue the stage again shortly when the GPU is taken; True when put off.
 
         Asking again through the queue leaves the worker free for other tasks
-        in the meantime, which a wait inside the task would not.
+        in the meantime, which a wait inside the task would not. ``waited`` is
+        the seconds this stage has been put off so far; at the ceiling a
+        production stage (``stage``, with the production id first in ``args``)
+        is failed with the reason, so the page says why and offers Retry.
         """
         reason = _gpu_turn_wait_reason(needs_chat_model)
         if reason is None:
             return False
         import logging
-        logging.getLogger(__name__).info(
-            "%s%s waits for the GPU (%s); asking again in %ss", task_name, tuple(args), reason, _GPU_TURN_RETRY_S)
-        celery_app.send_task(task_name, args=args, countdown=_GPU_TURN_RETRY_S)
+        log = logging.getLogger(__name__)
+        if waited >= _GPU_TURN_MAX_WAIT_S:
+            message = (f"The GPU stayed busy for {waited // 60} minutes ({reason}). "
+                       "Start this stage again when it is free.")
+            log.warning("%s%s gave up waiting for the GPU: %s", task_name, tuple(args), reason)
+            if stage:
+                ProductionService(db.session).fail_stage(args[0], stage=stage, error=message)
+            return True
+        log.info("%s%s waits for the GPU (%s); asking again in %ss",
+                 task_name, tuple(args), reason, _GPU_TURN_RETRY_S)
+        celery_app.send_task(task_name, args=args, kwargs={"waited": waited + _GPU_TURN_RETRY_S},
+                             countdown=_GPU_TURN_RETRY_S)
         return True
 
     @celery_app.task(name="production.run_screenwriter")
-    def run_screenwriter_task(prod_id: int):
+    def run_screenwriter_task(prod_id: int, waited: int = 0):
         with current_app.app_context():
-            if _put_off("production.run_screenwriter", [prod_id]):
+            if _put_off("production.run_screenwriter", [prod_id], waited, stage="screenwriting"):
                 return
             run_screenwriter(prod_id)
 
     @celery_app.task(name="production.run_casting_director")
-    def run_casting_director_task(prod_id: int):
+    def run_casting_director_task(prod_id: int, waited: int = 0):
         with current_app.app_context():
-            if _put_off("production.run_casting_director", [prod_id]):
+            if _put_off("production.run_casting_director", [prod_id], waited, stage="casting"):
                 return
             run_casting_director(prod_id)
 
     @celery_app.task(name="production.run_cinematographer")
-    def run_cinematographer_task(prod_id: int):
+    def run_cinematographer_task(prod_id: int, waited: int = 0):
         with current_app.app_context():
-            if _put_off("production.run_cinematographer", [prod_id]):
+            if _put_off("production.run_cinematographer", [prod_id], waited, stage="cinematography"):
                 return
             run_cinematographer(prod_id)
 
     @celery_app.task(name="production.run_storyboard_artist")
-    def run_storyboard_artist_task(prod_id: int):
+    def run_storyboard_artist_task(prod_id: int, waited: int = 0):
         with current_app.app_context():
-            if _put_off("production.run_storyboard_artist", [prod_id], needs_chat_model=False):
+            if _put_off("production.run_storyboard_artist", [prod_id], waited, stage="storyboard_gen", needs_chat_model=False):
                 return
             run_storyboard_artist(prod_id)
             # The curator only pre-ticks cards; the approval gate stays with the
@@ -239,9 +256,9 @@ def create_production_swarm_tasks(celery_app: Celery):
                                      args=[shot_id, prompt_override], countdown=_REGEN_RETRY_S)
 
     @celery_app.task(name="production.regen_shot_plan")
-    def regen_shot_plan_task(shot_id: int, feedback: str):
+    def regen_shot_plan_task(shot_id: int, feedback: str, waited: int = 0):
         with current_app.app_context():
-            if _put_off("production.regen_shot_plan", [shot_id, feedback]):
+            if _put_off("production.regen_shot_plan", [shot_id, feedback], waited):
                 return
             run_regen_shot_plan(shot_id, feedback)
         # The new image prompt only shows once the still is drawn from it.
