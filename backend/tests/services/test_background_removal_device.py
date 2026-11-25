@@ -20,8 +20,9 @@ from backend.tools import image_tools as it
 
 
 class _Session:
-    def __init__(self, path=None, providers=None):
+    def __init__(self, path=None, providers=None, sess_options=None):
         self.asked = list(providers or [])
+        self.options = sess_options
 
     def get_providers(self):
         return self.asked or ["CPUExecutionProvider"]
@@ -43,7 +44,9 @@ def cuda_build(monkeypatch, tmp_path):
     fake = types.ModuleType("onnxruntime")
     fake.get_available_providers = lambda: ["TensorrtExecutionProvider", "CUDAExecutionProvider",
                                             "CPUExecutionProvider"]
-    fake.InferenceSession = lambda path, providers=None: created.append(_Session(path, providers)) or created[-1]
+    fake.SessionOptions = lambda: types.SimpleNamespace(enable_cpu_mem_arena=True)
+    fake.InferenceSession = lambda path, sess_options=None, providers=None: (
+        created.append(_Session(path, providers, sess_options)) or created[-1])
     monkeypatch.setitem(sys.modules, "onnxruntime", fake)
     monkeypatch.setattr(bg, "_sessions", {})
     monkeypatch.setattr(bg, "model_path", lambda mid: tmp_path / bg.MODELS[mid]["file"])
@@ -56,6 +59,16 @@ def test_the_session_is_created_on_the_cpu_provider_only(cuda_build):
     sess = bg._session("bgremove-u2net")
     assert sess.asked == ["CPUExecutionProvider"] and len(cuda_build) == 1
     assert bg._session("bgremove-u2net") is sess and len(cuda_build) == 1     # kept, not reloaded
+    assert sess.options.enable_cpu_mem_arena is False
+
+
+def test_a_model_not_kept_loaded_gets_a_session_per_cut_out(cuda_build, tmp_path):
+    write_model_file(tmp_path / bg.MODELS["bgremove-birefnet"]["file"])
+    photo = Image.new("RGB", (64, 64), (10, 200, 30))
+    for _ in range(2):
+        assert bg.remove_background(photo, "bgremove-birefnet").mode == "RGBA"
+    assert len(cuda_build) == 2 and "bgremove-birefnet" not in bg._sessions
+    assert all(s.options.enable_cpu_mem_arena is False for s in cuda_build)
 
 
 def test_device_used_reads_the_loaded_session(cuda_build, monkeypatch):

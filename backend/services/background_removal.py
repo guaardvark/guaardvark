@@ -22,16 +22,31 @@ from PIL import Image
 logger = logging.getLogger(__name__)
 
 # Preference order: BiRefNet's 1024 px matting first, u2net's 320 px second.
+# ``keep_loaded`` says whether the session stays in memory between cut-outs.
+# Resident memory of this process after two cut-outs of a 1344x768 picture,
+# measured 2026-11-25 with onnxruntime 1.30.0 on the CPU provider, a fresh
+# process per run:
+#   bgremove-birefnet  session kept, onnxruntime's CPU memory arena on: over
+#                      12.5 GB (stopped by a 12 GB cap) and none of it returned,
+#                      because the arena keeps its peak for the session's life
+#                      session kept, arena off: 1.67 GB, peak 7.74 GB
+#                      session dropped after each cut-out, arena off: 0.82 GB,
+#                      peak 7.68 GB, 16-17 s per cut-out with the reload
+#   bgremove-u2net     session kept, arena on: 1.04 GB; arena off: 0.50 GB,
+#                      peak 0.78 GB, 0.5 s per cut-out
+# So the arena is off for both, and BiRefNet is loaded for the cut-out only.
 MODELS = {
     "bgremove-birefnet": {
         "file": "BiRefNet-general-epoch_244.onnx",
         "size": (1024, 1024),
         "sigmoid": True,
+        "keep_loaded": False,
     },
     "bgremove-u2net": {
         "file": "u2net.onnx",
         "size": (320, 320),
         "sigmoid": False,
+        "keep_loaded": True,
     },
 }
 PREFERENCE = ("bgremove-birefnet", "bgremove-u2net")
@@ -58,6 +73,9 @@ _STD = (0.229, 0.224, 0.225)
 
 _sessions: dict = {}
 _lock = threading.Lock()
+# One cut-out at a time for a model that is not kept loaded: each run holds
+# its own session, and two BiRefNet sessions at once are 15 GB.
+_run_lock = threading.Lock()
 
 
 class BackgroundRemovalNotInstalled(RuntimeError):
@@ -99,8 +117,11 @@ def _session(model_id: str):
         path = model_path(model_id)
         if not path.is_file():
             raise BackgroundRemovalNotInstalled(_missing_message())
-        sess = ort.InferenceSession(str(path), providers=_providers())
-        _sessions[model_id] = sess
+        options = ort.SessionOptions()
+        options.enable_cpu_mem_arena = False
+        sess = ort.InferenceSession(str(path), sess_options=options, providers=_providers())
+        if MODELS[model_id]["keep_loaded"]:
+            _sessions[model_id] = sess
         logger.info("Background removal loaded %s (%s)", model_id, sess.get_providers()[0])
         return sess
 
@@ -138,9 +159,15 @@ def predict_mask(img: Image.Image, model_id: Optional[str] = None) -> Image.Imag
     if not mid:
         raise BackgroundRemovalNotInstalled(_missing_message())
     spec = MODELS[mid]
-    sess = _session(mid)
     tensor = preprocess(img, spec["size"])
-    outputs = sess.run(None, {sess.get_inputs()[0].name: tensor})
+    if spec["keep_loaded"]:
+        sess = _session(mid)
+        outputs = sess.run(None, {sess.get_inputs()[0].name: tensor})
+    else:
+        with _run_lock:
+            sess = _session(mid)
+            outputs = sess.run(None, {sess.get_inputs()[0].name: tensor})
+            del sess
     return postprocess(outputs[0], img.size, sigmoid=spec["sigmoid"])
 
 
