@@ -362,17 +362,11 @@ export const UnifiedProgressProvider = ({ children }) => {
           // console.log("UnifiedProgressContext: Connected to SocketIO");
           setConnectionState('connected');
 
-          // CRITICAL: Fetch and restore active processes from backend
-          try {
-            const _jobCount = await fetchActiveJobs();
-            // console.log(`UnifiedProgressContext: Restored ${jobCount} active jobs from server`);
-          } catch (error) {
-            console.error("UnifiedProgressContext: Failed to restore active jobs on connect:", error);
-          }
-
-          // Subscribe to global progress updates (legacy job_progress channel)
+          // Subscribe before the restore below: events sent while that request
+          // is out would otherwise be missed, and the restore keeps anything
+          // newer that has already arrived over the socket.
+          // Global progress updates (legacy job_progress channel)
           socket.emit("subscribe", { job_id: "global_progress" });
-          // console.log("UnifiedProgressContext: Subscribed to global_progress room");
 
           // Phase 4 of Tasks/Jobs unification — also subscribe to the new
           // canonical jobs:* channel. Both channels run in parallel until
@@ -380,6 +374,14 @@ export const UnifiedProgressProvider = ({ children }) => {
           // 'job:event' with a fully-adapted Job dict (kind, status normalized,
           // wire-format id 'kind:native_id', etc.).
           socket.emit("subscribe", { job_id: "jobs:all" });
+
+          // CRITICAL: Fetch and restore active processes from backend
+          try {
+            const _jobCount = await fetchActiveJobs();
+            // console.log(`UnifiedProgressContext: Restored ${jobCount} active jobs from server`);
+          } catch (error) {
+            console.error("UnifiedProgressContext: Failed to restore active jobs on connect:", error);
+          }
         });
 
         socket.on("job_progress", (data) => {
