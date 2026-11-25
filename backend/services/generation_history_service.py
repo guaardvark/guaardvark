@@ -40,10 +40,14 @@ Scope is deliberately narrow and structural, not by folder prefix:
 - previews = the Library's thumbnail cache, which holds a small copy of every
   image it has shown.
 
-Never touched: Film Crew productions, video-editor projects, the cast
-library and ``data/training/loras`` (the live LoRA registry ComfyUI loads),
-chat history, scheduler tasks, music videos, voice reference clips, and the
-consent records kept by content hash in ``outputs/consent``.
+Finished projects go only when the caller names them (``OPTIONAL_KINDS``):
+Film Crew productions, music videos, and the Cast Library's generated samples
+that have not become training data. One an agent is working on is skipped.
+
+Never touched: video-editor projects, cast subjects with their reference and
+training images, ``data/training/loras`` (the live LoRA registry ComfyUI
+loads), chat history, scheduler tasks, voice reference clips, and the consent
+records kept by content hash in ``outputs/consent``.
 """
 from __future__ import annotations
 
@@ -109,6 +113,11 @@ OUTPUT_HISTORY_KEYS = ("tool_outputs", "narrations")
 UPSCALING_SUBDIR = "upscaling"
 UPSCALING_SCRATCH_DIRS = ("input", "output")
 THUMBNAILS_SUBDIR = "thumbnails"
+# Projects a person built up over several steps; deleted only when asked for.
+OPTIONAL_KINDS = ("productions", "music_videos", "cast_samples")
+PRODUCTION_SUBDIRS = ("productions", "storyboards")
+PRODUCTION_FOLDER_RE = re.compile(r"^(project_\d+|orphan)/productions/(\d+)(/|$)")
+MUSIC_VIDEO_DIR_RE = re.compile(r"^music_video_(\d+)$")
 # job_history rows are a log of work done; these process types are generation.
 HISTORY_PROCESS_TYPES = frozenset({"image_generation", "video_render", "upscale"})
 
@@ -595,6 +604,193 @@ def _stale_targets(upload: Path) -> tuple[list[int], list[int]]:
     return folder_ids, sorted(did for fid in folder_ids for did in docs.get(fid, []))
 
 
+def _stale_render_docs(upload: Path) -> list[int]:
+    """Library entries a ComfyUI render registered whose file no longer exists
+    (the clip was moved into its project, or removed by hand)."""
+    from backend.models import db, Document, Folder
+
+    media = {
+        fid for fid, path in db.session.query(Folder.id, Folder.path)
+        if (path or "").partition("/")[0] in MEDIA_ROOTS
+    }
+    if not media:
+        return []
+    ids = []
+    for did, path, meta in db.session.query(Document.id, Document.path, Document.file_metadata).filter(
+        Document.folder_id.in_(list(media))
+    ):
+        if isinstance(meta, str):  # the column holds JSON as text
+            try:
+                meta = json.loads(meta)
+            except ValueError:
+                continue
+        if not path or not isinstance(meta, dict) or meta.get("source") != "comfyui":
+            continue
+        file = Path(path)
+        if not (file if file.is_absolute() else upload / file).exists():
+            ids.append(did)
+    return sorted(ids)
+
+
+# ─── optional kinds ──────────────────────────────────────────────────────────
+
+def _project_busy(row, stage_to_agent: dict) -> bool:
+    """True while an agent owns the project's current stage. A stage waiting
+    on a person, a finished one and a failed or cancelled one are not busy."""
+    status = row.status or ""
+    if status.startswith(("failed", "cancelled")):
+        return False
+    return bool(stage_to_agent.get(row.current_stage or ""))
+
+
+def _docs_inside(dirs: Iterable[Path]) -> list[int]:
+    """Documents registered by absolute path inside any of these folders."""
+    from backend.models import db, Document
+
+    prefixes = [str(d.resolve()) + "/" for d in dirs]
+    if not prefixes:
+        return []
+    return [
+        did for did, path in db.session.query(Document.id, Document.path)
+        if path and path.startswith("/") and any(path.startswith(prefix) for prefix in prefixes)
+    ]
+
+
+def _optional_plan(kind: str, roots: list[Path]) -> dict[str, Any]:
+    """What deleting one optional kind removes: ORM ``rows``, whole ``dirs``,
+    single ``files``, Library ``doc_ids`` and ``folder_ids``, and how many
+    projects are ``running`` and therefore left out."""
+    from backend.models import db, Document, Folder
+
+    plan: dict[str, Any] = {"rows": [], "dirs": [], "files": [], "doc_ids": [], "folder_ids": [], "running": 0}
+
+    if kind == "productions":
+        from backend.models import Production
+        from backend.services.production_service import STAGE_TO_AGENT
+
+        rows = Production.query.all()
+        busy = {p.id for p in rows if _project_busy(p, STAGE_TO_AGENT)}
+        plan["running"] = len(busy)
+        plan["rows"] = [p for p in rows if p.id not in busy]
+        # A folder left by a production deleted earlier has no row; it goes too.
+        for root in roots:
+            for sub in PRODUCTION_SUBDIRS:
+                if (root / sub).is_dir():
+                    plan["dirs"].extend(
+                        d for d in sorted((root / sub).iterdir())
+                        if d.is_dir() and d.name.isdigit() and int(d.name) not in busy
+                    )
+        ids = {p.id for p in plan["rows"]} | {int(d.name) for d in plan["dirs"]}
+        for fid, path in db.session.query(Folder.id, Folder.path):
+            m = PRODUCTION_FOLDER_RE.match(path or "")
+            if m and int(m.group(2)) in ids:
+                plan["folder_ids"].append(fid)
+        doc_ids = set(_docs_inside(plan["dirs"]))
+        if plan["folder_ids"]:
+            doc_ids.update(
+                did for (did,) in db.session.query(Document.id).filter(Document.folder_id.in_(plan["folder_ids"]))
+            )
+        plan["doc_ids"] = sorted(doc_ids)
+
+    elif kind == "music_videos":
+        from backend.models import MusicVideo
+        from backend.services.music_video_service import STAGE_TO_AGENT
+
+        rows = MusicVideo.query.all()
+        busy = {mv.id for mv in rows if _project_busy(mv, STAGE_TO_AGENT)}
+        plan["running"] = len(busy)
+        plan["rows"] = [mv for mv in rows if mv.id not in busy]
+        for root in roots:
+            if (root / "videos").is_dir():
+                for d in sorted((root / "videos").iterdir()):
+                    m = MUSIC_VIDEO_DIR_RE.match(d.name)
+                    if m and d.is_dir() and int(m.group(1)) not in busy:
+                        plan["dirs"].append(d)
+        doc_ids = set(_docs_inside(plan["dirs"]))
+        output_ids = [mv.output_document_id for mv in plan["rows"] if mv.output_document_id]
+        if output_ids:
+            # The finished video is filed in the Library; the editor wrote the
+            # file itself into its renders folder under the same name.
+            for did, filename in db.session.query(Document.id, Document.filename).filter(
+                Document.id.in_(output_ids)
+            ):
+                doc_ids.add(did)
+                for root in roots:
+                    render = root / "videos" / "editor-renders" / (filename or "")
+                    if filename and render.is_file():
+                        plan["files"].append(render)
+        plan["doc_ids"] = sorted(doc_ids)
+
+    elif kind == "cast_samples":
+        from backend.models import Subject, SubjectSample
+
+        keep: set[str] = set()
+        for (paths,) in db.session.query(Subject.ref_image_paths):
+            keep.update(str(Path(x).resolve().with_suffix("")) for x in (paths or []) if isinstance(x, str))
+        for sample in SubjectSample.query.all():
+            if sample.promoted_to_training or sample.status == "generating":
+                plan["running"] += sample.status == "generating"
+                if sample.image_path:
+                    keep.add(str(Path(sample.image_path).resolve().with_suffix("")))
+            else:
+                plan["rows"].append(sample)
+        # Each sample is a picture and its caption, sharing a name.
+        plan["files"] = [
+            f for f in _files_under(root / "character_samples" for root in roots)
+            if str(f.resolve().with_suffix("")) not in keep
+        ]
+
+    else:
+        raise ValueError(f"unknown history kind: {kind}")
+    return plan
+
+
+def _plan_size(plan: dict[str, Any]) -> tuple[int, int]:
+    files, size = len(plan["files"]), _files_size(plan["files"])
+    for d in plan["dirs"]:
+        n, b = _tree_stats(d)
+        files, size = files + n, size + b
+    return files, size
+
+
+def _count_optional(roots: list[Path]) -> dict[str, Any]:
+    counts: dict[str, Any] = {}
+    for kind in OPTIONAL_KINDS:
+        try:
+            plan = _optional_plan(kind, roots)
+            files, size = _plan_size(plan)
+            counts[kind] = {"items": len(plan["rows"]), "files": files, "bytes": size, "running": plan["running"]}
+        except Exception as e:
+            logger.warning("generation history count for %s failed: %s", kind, e)
+            counts[kind] = {"items": 0, "files": 0, "bytes": 0, "running": 0}
+    return counts
+
+
+def _delete_optional(kind: str, roots: list[Path], errors: list[str]) -> dict[str, int]:
+    from backend.models import db
+
+    plan = _optional_plan(kind, roots)
+    files, size = _plan_size(plan)
+    removed = {"items": len(plan["rows"]), "files": files, "bytes": size, "skipped": plan["running"]}
+    for d in plan["dirs"]:
+        try:
+            shutil.rmtree(d)
+        except Exception as e:
+            errors.append(f"{kind}/{d.name}: {e}")
+    _unlink_all(plan["files"], kind, errors)
+    if kind == "cast_samples":
+        _prune_empty_dirs(root / "character_samples" for root in roots)
+    _delete_db_rows(plan["folder_ids"], plan["doc_ids"], [])
+    try:
+        for row in plan["rows"]:
+            db.session.delete(row)  # through the session, so shots and versions cascade
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return removed
+
+
 def _job_history_ids(image_ids: Iterable[str], keep: Iterable[str] = ()) -> list[str]:
     """job_history rows for generation work.
 
@@ -763,6 +959,7 @@ def count_generation_history(
             [p.relative_to(upload).as_posix() for p in loose + infographics],
         )
         stale_folders, stale_docs = _stale_targets(upload)
+        stale_docs = stale_docs + _stale_render_docs(upload)
         db_counts = {
             "documents": len(set(doc_ids) | set(stale_docs)),
             "folders": len(set(folder_ids) | set(stale_folders)),
@@ -812,6 +1009,7 @@ def count_generation_history(
         "loose": {"files": len(loose), "bytes": loose_bytes},
         "infographics": {"files": len(infographics), "bytes": infographic_bytes},
         **extra,
+        "optional": _count_optional(roots),
         "comfyui": {
             **comfy_counts,
             "files": sum(c["files"] for c in comfy_counts.values()),
@@ -829,6 +1027,7 @@ def delete_generation_history(
     comfyui_dir: Optional[str | Path] = None,
     output_dir: Optional[str | Path] = None,
     cache_dir: Optional[str | Path] = None,
+    include: Iterable[str] = (),
     triggered_by: str = "settings_ui",
 ) -> dict[str, Any]:
     """Delete all batch-image, batch-video and audio generation history,
@@ -839,6 +1038,7 @@ def delete_generation_history(
     remaining stages still run, so a bad sidecar cannot leave batch
     directories behind and a bad directory cannot leave DB rows behind.
     Batches a generator is still working on are skipped and reported.
+    ``include`` names the ``OPTIONAL_KINDS`` to delete as well.
     """
     upload = _upload_dir(upload_dir)
     errors: list[str] = []
@@ -986,12 +1186,24 @@ def delete_generation_history(
     try:
         folder_ids, doc_ids = _db_targets(removed_batch_paths, removed_file_paths)
         stale_folders, stale_docs = _stale_targets(upload)
+        stale_docs = stale_docs + _stale_render_docs(upload)
         jh_ids = _job_history_ids(removed_ids["images"], keep=skipped["images"] + skipped["videos"])
         deleted.update(_delete_db_rows(
             sorted(set(folder_ids) | set(stale_folders)), sorted(set(doc_ids) | set(stale_docs)), jh_ids
         ))
     except Exception as e:
         errors.append(f"database: {e}")
+
+    # 3a. The projects the caller asked for. After the sweep above, which looks
+    #     at the disk as it was left by the stages before it.
+    deleted["optional"] = {}
+    for kind in OPTIONAL_KINDS:
+        if kind not in set(include):
+            continue
+        try:
+            deleted["optional"][kind] = _delete_optional(kind, roots, errors)
+        except Exception as e:
+            errors.append(f"{kind}: {e}")
 
     # 4. Retention audit — append-only, one row per category that lost something.
     try:
@@ -1027,6 +1239,17 @@ def delete_generation_history(
                     bytes_freed=deleted[key]["bytes"],
                     triggered_by=triggered_by,
                 )
+        for kind, removed in deleted["optional"].items():
+            if removed["items"] or removed["files"]:
+                record_deletion(
+                    actor="user",
+                    kind=f"generation_history_{kind}",
+                    operation="bulk_delete",
+                    item_count=removed["items"],
+                    bytes_freed=removed["bytes"],
+                    parameters=removed,
+                    triggered_by=triggered_by,
+                )
         comfy_files = sum(c["files"] for c in deleted["comfyui"].values())
         if comfy_files:
             record_deletion(
@@ -1055,6 +1278,7 @@ def delete_generation_history(
         + deleted["loose"]["bytes"] + deleted["infographics"]["bytes"]
         + sum(deleted[key]["bytes"] for key in ("tool_outputs", "narrations", "upscales", "previews"))
         + sum(c["bytes"] for c in deleted["comfyui"].values())
+        + sum(r["bytes"] for r in deleted["optional"].values())
     )
     return {
         "success": not errors,

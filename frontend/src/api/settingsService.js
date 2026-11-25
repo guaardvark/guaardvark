@@ -129,10 +129,14 @@ export const getGenerationHistoryCounts = async () => {
   }
 };
 
-export const deleteGenerationHistory = async () => {
+export const deleteGenerationHistory = async (include = []) => {
   const endpoint = `${BASE_URL}/meta/generation-history`;
   try {
-    const response = await fetch(endpoint, { method: "DELETE" });
+    const response = await fetch(endpoint, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ include }),
+    });
     const data = await handleResponse(response);
     if (typeof data === "object" && data !== null && data.error)
       throw new Error(data.error);
