@@ -551,7 +551,9 @@ const FileDesktop = forwardRef(({
   // or PENDING (INDEXED, ERROR and NOT_INDEXED are final), until it settles or
   // the poll has run long enough to call the job stuck. Watched: the root,
   // every open window, each folder that was indexed, and the subfolders of
-  // those whose counts still show unindexed documents.
+  // those whose counts still show unindexed documents. An upload also names
+  // its new documents: a text file sits at STORED, with no dot, until the
+  // indexer takes it, so for those rows STORED counts as still in progress.
   const indexPollRef = useRef(null);
   const stopIndexPoll = useCallback(() => {
     if (indexPollRef.current) {
@@ -567,9 +569,10 @@ const FileDesktop = forwardRef(({
     return { folders: data.folders || [], documents: data.documents || [] };
   }, []);
 
-  const followIndexing = useCallback(async ({ folderIds = [], folderPaths = [] } = {}) => {
+  const followIndexing = useCallback(async ({ folderIds = [], folderPaths = [], documentIds = [] } = {}) => {
     stopIndexPoll();
     const targetIds = new Set(folderIds);
+    const awaitedDocs = new Set(documentIds);
     const targetPaths = new Set(folderPaths.filter(Boolean));
     const underTarget = (path) =>
       Array.from(targetPaths).some((t) => path === t || path.startsWith(`${t}/`));
@@ -612,7 +615,9 @@ const FileDesktop = forwardRef(({
       }
       if (!isMountedRef.current) return;
 
-      const busy = listings.some((l) => l.documents.some((d) => INDEX_IN_PROGRESS.has(d.index_status)));
+      const busy = listings.some((l) => l.documents.some((d) =>
+        INDEX_IN_PROGRESS.has(d.index_status)
+        || (d.index_status === 'STORED' && awaitedDocs.has(d.id))));
       ticks += 1;
       if (busy && ticks < INDEX_POLL_MAX_TICKS) {
         indexPollRef.current = setTimeout(tick, INDEX_POLL_INTERVAL_MS);
@@ -1039,6 +1044,7 @@ const FileDesktop = forwardRef(({
         const failures = [];
         const folderApi = filesFolderApi(axios, API_BASE);
         const folderCache = new Map();
+        const uploadedIds = [];
         setUploadProgress({ current: 0, total: filesToUpload.length });
         try {
           for (const { file, relativePath } of filesToUpload) {
@@ -1055,9 +1061,10 @@ const FileDesktop = forwardRef(({
               formData.append('file', file);
               formData.append('folder_path', targetUploadPath);
 
-              await axios.post(`${API_BASE}/upload`, formData, {
+              const response = await axios.post(`${API_BASE}/upload`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
               });
+              if (response.data?.data?.id != null) uploadedIds.push(response.data.data.id);
               uploadedCount++;
             } catch (uploadErr) {
               failures.push(t('documents.import.fileFailure', {
@@ -1085,9 +1092,8 @@ const FileDesktop = forwardRef(({
           showMessage?.(t('documents.import.failed', { error: failures[0] }), 'error');
         }
 
-        // Refresh data after upload
-        await refreshData();
-        refreshOpenWindows();
+        // Uploads queue their own indexing: re-read until it settles.
+        await followIndexing({ folderPaths: [uploadPath], documentIds: uploadedIds });
 
         // Reset after a short delay
         setTimeout(() => {
@@ -1259,7 +1265,7 @@ const FileDesktop = forwardRef(({
         dragDropHandledRef.current = false;
       }, 100);
     }
-  }, [windows, showMessage, refreshData, refreshOpenWindows, rootPath, isRoot]);
+  }, [windows, showMessage, refreshData, refreshOpenWindows, followIndexing, rootPath, isRoot]);
 
   // Separate windows by state (needed by arrange callbacks and render)
   const foldedWindows = useMemo(() => windows.filter(w => w.state === 'folded'), [windows]);
@@ -1586,9 +1592,11 @@ const FileDesktop = forwardRef(({
         : t('documents.import.imported', { count: uploaded, folder: destination });
       showMessage?.(msg, 'success');
 
-      // Refresh data after upload
-      await refreshData();
-      refreshOpenWindows();
+      // Uploads queue their own indexing: re-read until it settles.
+      await followIndexing({
+        folderPaths: [uploadPath],
+        documentIds: results.map((r) => r?.data?.id).filter((id) => id != null),
+      });
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.message || t('documents.import.failedPlain');
       showMessage?.(t('documents.import.failed', { error: errorMsg }), 'error');
@@ -1598,7 +1606,7 @@ const FileDesktop = forwardRef(({
         e.target.value = '';
       }
     }
-  }, [showMessage, refreshData, refreshOpenWindows, rootPath]);
+  }, [showMessage, followIndexing, rootPath]);
 
   const handleCopy = useCallback(() => {
     setClipboard({ items: Array.from(activeSelection), operation: 'copy' });
