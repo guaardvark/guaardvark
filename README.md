@@ -275,6 +275,10 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## More built in
 
+<p align="center"><img src="docs/media/readme/memory.gif" width="100%" alt="Chat told to remember brand colours, a new chat recalling them, the saved memory on the Agent Memory page, then the Rules page"></p>
+
+**Memory and rules.** Say "remember this" once and a new chat still knows it. Each memory is listed with its type, source and tags, to edit or delete.
+
 - **Supervised outreach.** Drafts replies to threads on Reddit, YouTube, Discord and Facebook from the thread itself and a pitch sheet you write, graded for relevance before they reach the queue, with nothing posted until you approve it. Reddit, YouTube and Facebook posts go out one at a time while you watch the Agent Screen, or through YouTube's official API for a channel you connect. Kill switch, per-platform cadence limits and a JSONL audit trail.
 - **Files and projects.** A desktop-style file manager (folders as windows, drag and drop, right-click menus) with clients, projects, websites and notes linked together and indexed recursively. Files stream into the browser's own players and viewers, so video plays without a codec pack and PDFs start rendering before they finish downloading.
 - **Rules, prompts, lessons and memory.** Portable rule bundles, lessons that teach the agent from a good run, and "remember …" notes that carry across chats.
@@ -455,6 +459,10 @@ Chat and agent latency depend on a few settings, all in **Settings** unless note
 - **Mind the VRAM neighbors.** Renders wait for the card, but idle services holding VRAM (voice models, image pipelines) slow everything's admission. The Plugins page shows who holds what.
 
 ## CLI
+
+<p align="center"><img src="docs/media/readme/cli.gif" width="100%" alt="The guaardvark command in a terminal: status, a document search with reranker scores, the REPL logo, an answer from an indexed agreement, and an image generated inside the terminal"></p>
+
+**The `guaardvark` CLI.** Status, search with reranker scores, the REPL, answers from your files, and pictures drawn right in the terminal.
 
 ```bash
 pip install guaardvark
