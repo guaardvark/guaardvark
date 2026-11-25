@@ -10,6 +10,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+
+from backend.tests._mcp_sdk import use_mcp_sdk
+
+use_mcp_sdk()  # these tools reach the adapter, which imports mcp.types; see backend/tests/_mcp_sdk.py
 from flask import Flask
 
 from backend import config

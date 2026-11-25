@@ -9,8 +9,13 @@ import logging
 import time
 from pathlib import Path
 
-import mcp.types as mcp_types
 import pytest
+
+from backend.tests._mcp_sdk import use_mcp_sdk
+
+use_mcp_sdk()  # mcp below must be the SDK; see backend/tests/_mcp_sdk.py
+
+import mcp.types as mcp_types  # noqa: E402
 
 from backend.mcp import config as mcp_config
 from backend.mcp import tools_adapter
