@@ -8,7 +8,7 @@ import {
   useTheme
 } from '@mui/material';
 import { listCastLibrary } from '../../api/productionService';
-import { trainingStatusLabel } from './CastLibraryView';
+import { subjectMayHavePreview, trainingStatusLabel } from './CastLibraryView';
 import { useUiTranslation } from '../../i18n';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -108,7 +108,7 @@ const CharacterPicker = ({
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
       {subjects.map((s) => {
         const isSelected = value.includes(s.id);
-        const hasError = imgErrors[s.id];
+        const hasError = imgErrors[s.id] || !subjectMayHavePreview(s);
 
         return (
           <Card

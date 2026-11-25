@@ -35,8 +35,16 @@ const reason = (err) => formatUiError(err?.response?.data) || formatUiError(err)
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
-// Thumbnail with graceful fallback to the subject's initials when no ref image
-// is on disk (preview endpoint 404s).
+/**
+ * Whether a subject's preview is worth requesting. The preview route serves the
+ * first reference image, so a listing that says there are none has no preview.
+ * A subject from a source that does not list its references is still tried.
+ */
+export const subjectMayHavePreview = (subject) =>
+  !Array.isArray(subject?.ref_image_paths) || subject.ref_image_paths.length > 0;
+
+// Thumbnail with graceful fallback to the subject's initials when there is no
+// reference image (none listed, or the listed file is gone and the request fails).
 export const SubjectThumb = ({ subject }) => {
   const [failed, setFailed] = useState(false);
   const initials = (subject.name || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -44,7 +52,7 @@ export const SubjectThumb = ({ subject }) => {
     <Box sx={{ position: 'relative', width: '100%', height: 160, bgcolor: 'action.hover',
                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
       <Typography variant="h4" sx={{ color: "text.disabled" }}>{initials}</Typography>
-      {!failed && (
+      {!failed && subjectMayHavePreview(subject) && (
         <Box component="img" src={`${API_BASE}/cast-library/subjects/${subject.id}/preview`}
              onError={() => setFailed(true)} alt={subject.name}
              sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
