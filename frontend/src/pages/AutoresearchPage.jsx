@@ -40,8 +40,7 @@ import {
 } from "@mui/icons-material";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { io } from "socket.io-client";
-import { SOCKET_URL } from "../api/apiClient";
+import { openSocket } from "../api/sharedSocket";
 import { ragAutoresearchService } from "../api/ragAutoresearchService";
 import { selfImprovementService } from "../api/selfImprovementService";
 import { guardedMediaSrc } from "../utils/assetGuard";
@@ -237,11 +236,7 @@ const AutoresearchPage = () => {
     fetchAll();
 
     try {
-      const socket = io(SOCKET_URL, {
-        reconnection: true,
-        reconnectionAttempts: 3,
-        transports: ["polling", "websocket"],
-      });
+      const socket = openSocket();
       socketRef.current = socket;
 
       socket.on("autoresearch:experiment_complete", () => {

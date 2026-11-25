@@ -21,7 +21,7 @@ import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
-import { io } from 'socket.io-client';
+import { openSocket } from "../../api/sharedSocket";
 import { useAppStore } from '../../stores/useAppStore';
 import { useUiTranslation } from '../../i18n';
 
@@ -165,7 +165,7 @@ export default function LessonPearlsFloater({ onClose }) {
   useEffect(() => {
     if (!activeLessonId) return;
 
-    const socket = io({ path: '/socket.io', transports: ['polling', 'websocket'] });
+    const socket = openSocket();
     socketRef.current = socket;
 
     socket.on('lesson:pearl_added', (data) => {

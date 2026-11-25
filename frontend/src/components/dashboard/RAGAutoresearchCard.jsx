@@ -10,8 +10,7 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
-import { SOCKET_URL } from '../../api/apiClient';
+import { openSocket } from "../../api/sharedSocket";
 import { ragAutoresearchService } from '../../api/ragAutoresearchService';
 import DashboardCardWrapper from './DashboardCardWrapper';
 import {
@@ -55,11 +54,7 @@ const RAGAutoresearchCard = React.forwardRef(
 
     // Push updates via Socket.IO; the 30s poll below stays as fallback.
     try {
-      const socket = io(SOCKET_URL, {
-        reconnection: true,
-        reconnectionAttempts: 3,
-        transports: ['polling', 'websocket'],
-      });
+      const socket = openSocket();
       socketRef.current = socket;
       socket.on('autoresearch:experiment_complete', refresh);
       socket.on('autoresearch:run_complete', refresh);

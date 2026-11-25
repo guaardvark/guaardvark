@@ -19,7 +19,7 @@ import {
 import AccountBoxIcon from "@mui/icons-material/AccountBox";
 import { LinearProgress } from "@mui/material";
 
-import { io } from "socket.io-client";
+import { openSocket } from "../api/sharedSocket";
 import CreateBackupModal from "../components/modals/CreateBackupModal";
 import RestoreBackupModal from "../components/modals/RestoreBackupModal";
 import ManageBackupsModal from "../components/modals/ManageBackupsModal";
@@ -43,7 +43,7 @@ import ProfileSection from "../components/settings/ProfileSection";
 import TipsSetting from "../components/settings/TipsSetting";
 import LanguageSetting from "../components/settings/LanguageSetting";
 import JobOrderSetting from "../components/settings/JobOrderSetting";
-import { SOCKET_URL, handleResponse } from "../api/apiClient";
+import { handleResponse } from "../api/apiClient";
 import { SUPPORT_LINKS } from "../config/constants";
 import { brand } from "../config/brand";
 import CoffeeIcon from "@mui/icons-material/Coffee";
@@ -850,12 +850,7 @@ const SettingsPage = () => {
 
   // Socket listener for async model switching events
   useEffect(() => {
-    socketRef.current = io(SOCKET_URL, {
-      transports: ["polling", "websocket"],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+    socketRef.current = openSocket();
 
     socketRef.current.on("connect", () => {
       debugLog("SettingsPage: Socket connected for model switch events");

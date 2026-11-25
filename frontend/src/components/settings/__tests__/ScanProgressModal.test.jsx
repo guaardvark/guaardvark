@@ -20,7 +20,7 @@ vi.mock("../../../api/selfImprovementService", () => ({
 }));
 
 vi.mock("socket.io-client", () => ({
-  default: () => ({
+  io: () => ({
     on: vi.fn(),
     off: vi.fn(),
     disconnect: vi.fn(),

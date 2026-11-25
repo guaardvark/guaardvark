@@ -27,7 +27,7 @@ import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined';
 import axios from 'axios';
-import { io } from 'socket.io-client';
+import { openSocket } from "../../api/sharedSocket";
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/useAppStore';
 import {
@@ -231,7 +231,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
   useEffect(() => {
     if (!open) return;
 
-    const socket = io({ path: '/socket.io', transports: ['polling', 'websocket'] });
+    const socket = openSocket();
     socketRef.current = socket;
 
     socket.on('agent:learning_mode_started', () => {

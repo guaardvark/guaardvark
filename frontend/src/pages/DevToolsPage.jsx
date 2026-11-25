@@ -50,7 +50,7 @@ import DiagnosticsPanel from "../components/system/DiagnosticsPanel";
 import RAGDebugSection from "../components/settings/RAGDebugSection";
 import SystemMetricsBar from "../components/layout/SystemMetricsBar";
 import { activateResourceManager } from "../utils/resource_manager";
-import { io } from "socket.io-client";
+import { openSocket } from "../api/sharedSocket";
 import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
 import SelfImprovementRuns from "../components/selfImprovement/SelfImprovementRuns";
@@ -111,10 +111,7 @@ const DevToolsPage = () => {
     activateResourceManager();
     
     // Initialize WebSocket connection for health updates
-    socketRef.current = io(SOCKET_URL, {
-      reconnection: true,
-      reconnectionAttempts: 5,
-    });
+    socketRef.current = openSocket();
 
     socketRef.current.on("connect", () => {
       console.log("DevTools: Connected to health monitoring WebSocket");
