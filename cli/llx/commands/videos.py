@@ -121,6 +121,7 @@ def _build_gen_params(
 
 @videos_app.command("list")
 def videos_list(
+    limit: int = typer.Option(None, "--limit", "-n", help="How many batches, newest first (default: 20 in a table, all in JSON; 0 = all)"),
     server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
     json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
@@ -137,9 +138,13 @@ def videos_list(
         if not isinstance(batches, list):
             batches = []
 
+        total = len(batches)
         if json_out or output.is_pipe():
-            output.print_json(batches)
+            output.print_json(batches[:limit] if limit else batches)
             return
+        shown = 20 if limit is None else limit
+        if shown:
+            batches = batches[:shown]
 
         rows = [{
             "id": b.get("batch_id", b.get("id", "")),
@@ -147,7 +152,7 @@ def videos_list(
             "videos": b.get("video_count", b.get("total_videos", 0)),
             "status": b.get("status", ""),
         } for b in batches]
-        output.print_table(rows, columns=["id", "name", "videos", "status"], title=f"Video Batches ({len(rows)})")
+        output.print_listing(rows, ["id", "name", "videos", "status"], f"Video Batches ({total})", total=total)
 
     except LlxError as e:
         raise output.fail(e)

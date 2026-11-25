@@ -14,6 +14,7 @@ images_app = typer.Typer(help="Image generation and management", no_args_is_help
 
 @images_app.command("list")
 def images_list(
+    limit: int = typer.Option(None, "--limit", "-n", help="How many batches, newest first (default: 20 in a table, all in JSON; 0 = all)"),
     server: str = typer.Option(None, "--server", "-s", help="Override server URL"),
     json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
@@ -24,21 +25,29 @@ def images_list(
     try:
         api_client = get_client(server)
         data = api_client.get("/api/batch-image/list")
-        batches = data.get("batches", data.get("data", []))
+        batches = data.get("data", data)
+        if isinstance(batches, dict):
+            batches = batches.get("batches", [])
         if not isinstance(batches, list):
             batches = []
 
+        total = len(batches)
         if json_out or output.is_pipe():
+            if limit:
+                batches = batches[:limit]
             output.print_json({"status": "success", "data": {"batches": batches}})
             return
+        shown = 20 if limit is None else limit
+        if shown:
+            batches = batches[:shown]
 
         rows = [{
             "id": b.get("batch_id", b.get("id", "")),
-            "name": b.get("name", b.get("batch_id", "")),
-            "images": b.get("image_count", 0),
+            "name": b.get("display_name", b.get("batch_id", "")),
+            "images": b.get("completed_images", b.get("total_images", 0)),
             "status": b.get("status", ""),
         } for b in batches]
-        output.print_table(rows, columns=["id", "name", "images", "status"], title=f"Image Batches ({len(rows)})")
+        output.print_listing(rows, ["id", "name", "images", "status"], f"Image Batches ({total})", total=total)
 
     except LlxError as e:
         raise output.fail(e)

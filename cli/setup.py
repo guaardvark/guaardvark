@@ -78,6 +78,9 @@ setup(
         "rich>=13.0.0",
         "python-socketio>=5.10.0",
         "httpx>=0.25.0",
+        # python-socketio's client needs both of these at run time (its "client"
+        # extra); nothing here imports them, and without requests chat streaming
+        # cannot connect.
         "websocket-client>=1.6.0",
         "requests>=2.31.0",
         "prompt_toolkit>=3.0.0",
@@ -96,14 +99,17 @@ setup(
             "guaardvark=llx.main:run",
         ],
     },
-    # 3.12 only — the ML stack (numpy<2.0, mediapipe, basicsr/gfpgan) has no
-    # wheels for 3.13/3.14 yet, so an open lower bound lets pip try and fail (#35).
-    python_requires=">=3.12,<3.13",
+    # The CLI is a client: it talks to a running backend or starts one with
+    # start.sh, which builds the backend's own 3.12 environment. Only that ML
+    # stack is tied to 3.12 (#35), so the command itself installs on newer
+    # Pythons. Exercised on 3.12 and 3.14.
+    python_requires=">=3.12",
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
 )

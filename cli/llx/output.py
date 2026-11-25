@@ -66,6 +66,31 @@ def print_table(rows: list[dict], columns: list[str] | None = None, title: str |
     _out.print(table)
 
 
+def print_listing(rows: list[dict], columns: list[str], title: str, total: int | None = None):
+    """A table whose first column (an id to copy) is never cut and whose second
+    (a free-text name) is shortened to fit instead of wrapping onto more lines."""
+    if not rows:
+        _out.print("[llx.dim]No results.[/llx.dim]")
+        return
+    def width(col: str) -> int:
+        return max([len(col)] + [len(str(r.get(col, ""))) for r in rows])
+
+    # Borders and padding take three cells per column plus one.
+    room = _out.width - (3 * len(columns) + 1) - sum(width(c) for i, c in enumerate(columns) if i != 1)
+    room = max(room, 12)
+    table = make_table(title=title)
+    for col in columns:
+        table.add_column(col, no_wrap=True)
+    for row in rows:
+        cells = [str(row.get(c, "")) for c in columns]
+        if len(columns) > 1 and len(cells[1]) > room:
+            cells[1] = cells[1][: room - 1].rstrip() + "…"
+        table.add_row(*cells)
+    _out.print(table)
+    if total and total > len(rows):
+        _out.print(f"[llx.dim]Newest {len(rows)} of {total}. --limit 0 lists them all.[/llx.dim]")
+
+
 def print_panel(title: str, content: str, style: str = "llx.panel.border"):
     """Render a Rich panel, or JSON in json/pipe mode."""
     if _json_mode or is_pipe():

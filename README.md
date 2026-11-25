@@ -446,6 +446,7 @@ guaardvark status                       # System dashboard
 guaardvark chat "explain this codebase" # Chat with RAG context
 guaardvark search "query"               # Semantic search
 guaardvark files upload report.pdf      # Upload and index
+guaardvark images generate "a brass telescope" --wait --save telescope.png
 guaardvark plugins list                 # ComfyUI / Ollama / …
 guaardvark gpu status                   # VRAM and owner lock
 guaardvark mcp install --client cursor  # Wire Guaardvark into Cursor
@@ -472,6 +473,8 @@ guaardvark completion zsh               # Shell completion script
 ```
 
 Tab completion works with or without a leading `/`; `/help imagine` shows one command; unknown commands suggest a close match. While a reply is on its way, a status line says what is happening and for how long (`⠋ Searching the web… · 14s · esc to stop`); piped and `--json` output never show it, and `GUAARDVARK_NO_SPINNER=1` turns it off in a terminal too.
+
+Scripting: `--json` returns one envelope on stdout, `{"status": "success", "data": …}` or `{"status": "error", "error": {"code", "message"}}`; without it, a piped command writes its error to stderr. Exit codes: `0` done, `1` error, `2` usage, `3` server unreachable, `4` not found, `5` not authorized, `6` job failed or cancelled, `7` timed out.
 
 Config: `~/.guaardvark/cli.json` (legacy `~/.llx/config.json` is still read). Themes: `default`, `teal`, `musk`, `hacker`, `vader`, `guaardvark`, `day`, `auto`. Short terminals get a compact aardvark banner.
 
