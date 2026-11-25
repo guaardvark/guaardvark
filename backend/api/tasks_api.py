@@ -126,7 +126,15 @@ def serialize_task(task):
         return None
 
     # Use centralized serialization - it handles project_info automatically
-    return utils_serialize_task(task)
+    row = utils_serialize_task(task)
+    # A started render job says whether its batch has a picture yet, so the
+    # Jobs page only requests a preview that exists.
+    if isinstance(row, dict) and row.get("handler_config"):
+        from backend.services.job_handoff import has_preview
+        known = has_preview(row["handler_config"])
+        if known is not None:
+            row["has_output_preview"] = known
+    return row
 
 
 @tasks_bp.route("", methods=["GET"])
