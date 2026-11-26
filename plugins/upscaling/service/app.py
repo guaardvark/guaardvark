@@ -524,7 +524,7 @@ def _run_video_job(
             result = upscale_image(
                 frame, model, model_scale,
                 outscale=outscale, tile_size=tile_size,
-                device=device, precision=_config.precision,
+                device=device, precision=_model_manager.current_precision,
                 sharpen=sharpen, denoise_strength=denoise_strength, two_pass=two_pass,
                 face_enhance=face_enhance, target_size=frame_size,
             )
@@ -653,7 +653,7 @@ def _run_image_batch_job(
                 output = upscale_image(
                     img, model, model_scale,
                     outscale=scale, tile_size=tile_size,
-                    device=device, precision=_config.precision,
+                    device=device, precision=_model_manager.current_precision,
                     sharpen=sharpen, denoise_strength=denoise_strength,
                     two_pass=two_pass, face_enhance=face_enhance,
                     target_size=_target_size(img, target_width),
@@ -782,7 +782,7 @@ def upscale_image_endpoint(req: ImageUpscaleRequest, request: Request):
         output = upscale_image(
             img, model, model_scale,
             outscale=req.scale, tile_size=tile_size,
-            device=device, precision=_config.precision,
+            device=device, precision=_model_manager.current_precision,
             sharpen=req.sharpen if req.sharpen is not None else 0.3,
             denoise_strength=req.denoise_strength if req.denoise_strength is not None else 0.0,
             two_pass=req.two_pass if req.two_pass is not None else False,
@@ -830,7 +830,7 @@ async def upscale_image_upload(
         output = upscale_image(
             img, mdl, model_scale,
             outscale=scale, tile_size=tile_size,
-            device=device, precision=_config.precision,
+            device=device, precision=_model_manager.current_precision,
             sharpen=sharpen, denoise_strength=denoise_strength, two_pass=two_pass,
             face_enhance=face_enhance,
         )
