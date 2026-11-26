@@ -42,6 +42,8 @@ def test_contained_file_rejects_symlink_escape(tmp_path):
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(m, "_get_upload_dir", lambda: tmp_path)
+    # Sources and results stay under the output folders; here that is tmp_path.
+    monkeypatch.setattr("backend.config.OUTPUT_DIR", str(tmp_path))
     # Never start the real plugin or book the real GPU from a test.
     monkeypatch.setattr(m, "_start_upscaling_for_job", lambda: None)
     monkeypatch.setattr(m, "_gpu_turn", lambda _model: contextlib.nullcontext())
@@ -175,10 +177,10 @@ _REFUSAL = (
 
 def test_video_submit_relays_the_plugins_refusal(client, monkeypatch):
     """FastAPI puts the refusal under ``detail``; the caller must still read it."""
-    c, _ = client
+    c, root = client
     monkeypatch.setattr(m, "_proxy_post", lambda path, payload, timeout=None: ({"detail": _REFUSAL}, 409))
 
-    resp = c.post("/api/upscaling/upscale/video", json={"input_path": "/videos/clip.mp4"})
+    resp = c.post("/api/upscaling/upscale/video", json={"input_path": str(root / "videos" / "clip.mp4")})
 
     assert resp.status_code == 409
     assert resp.get_json()["error"]["message"] == _REFUSAL

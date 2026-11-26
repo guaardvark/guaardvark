@@ -18,6 +18,13 @@ from service.auth import auth_token
 AUTH_HEADER = {"Authorization": f"Bearer {auth_token()}"}
 
 
+@pytest.fixture(autouse=True)
+def _output_folder(monkeypatch, tmp_path):
+    """Results may only be written under the install's output folders
+    (service/write_scope.py); the tests write under tmp_path."""
+    monkeypatch.setenv("GUAARDVARK_OUTPUT_DIR", str(tmp_path))
+
+
 @pytest.fixture(scope="module")
 def client():
     """TestClient as context manager triggers lifespan events. The base URL
@@ -406,3 +413,60 @@ def test_an_impossible_target_is_refused(client, tmp_path, target):
         headers=AUTH_HEADER,
     )
     assert resp.status_code == 422
+
+
+def test_a_result_path_outside_the_output_folders_is_refused(client, tmp_path_factory, tmp_path):
+    """Nothing is read, queued or written for an output path that leaves the
+    output folders, directly, through ``..`` or through a link."""
+    import cv2
+    import numpy as np
+
+    elsewhere = tmp_path_factory.mktemp("elsewhere")
+    (tmp_path / "link").symlink_to(elsewhere)
+    source = tmp_path / "in.png"
+    cv2.imwrite(str(source), np.zeros((8, 8, 3), np.uint8))
+
+    for target in (elsewhere / "out.png", tmp_path / ".." / elsewhere.name / "out.png", tmp_path / "link" / "out.png"):
+        resp = client.post("/upscale/image", json={"input_path": str(source), "output_path": str(target)},
+                           headers=AUTH_HEADER)
+        assert resp.status_code == 400, target
+    resp = client.post("/upscale/images", json={"inputs": [str(source)], "output_dir": str(elsewhere)},
+                       headers=AUTH_HEADER)
+    assert resp.status_code == 400
+    resp = client.post("/upscale/images",
+                       json={"inputs": [str(source)], "output_dir": str(tmp_path / "out"), "suffix": "../../x"},
+                       headers=AUTH_HEADER)
+    assert resp.status_code == 400
+    assert list(elsewhere.iterdir()) == []
+
+
+def test_a_video_result_outside_the_output_folders_is_refused(client, tmp_path_factory, tmp_path):
+    elsewhere = tmp_path_factory.mktemp("elsewhere")
+    inside = tmp_path / "clip.mp4"
+    outside = elsewhere / "clip.mp4"
+    for clip in (inside, outside):
+        clip.write_bytes(b"\x00")
+
+    named = client.post("/upscale/video", json={"input_path": str(inside), "output_path": str(elsewhere / "o.mp4")},
+                        headers=AUTH_HEADER)
+    beside = client.post("/upscale/video", json={"input_path": str(outside)}, headers=AUTH_HEADER)
+
+    assert (named.status_code, beside.status_code) == (400, 400)
+
+
+def test_a_source_outside_the_stored_folders_is_refused(client, tmp_path_factory, tmp_path):
+    import cv2
+    import numpy as np
+
+    elsewhere = tmp_path_factory.mktemp("elsewhere")
+    (tmp_path / "consent").mkdir()
+    for source in (elsewhere / "in.png", tmp_path / "consent" / "in.png"):
+        cv2.imwrite(str(source), np.zeros((8, 8, 3), np.uint8))
+        still = client.post("/upscale/image", json={"input_path": str(source), "output_path": str(tmp_path / "o.png")},
+                            headers=AUTH_HEADER)
+        batch = client.post("/upscale/images", json={"inputs": [str(source)], "output_dir": str(tmp_path / "out")},
+                            headers=AUTH_HEADER)
+        video = client.post("/upscale/video", json={"input_path": str(source), "output_path": str(tmp_path / "o.mp4")},
+                            headers=AUTH_HEADER)
+        assert (still.status_code, batch.status_code, video.status_code) == (400, 400, 400), source
+    assert not (tmp_path / "o.png").exists() and not (tmp_path / "out").exists()

@@ -202,20 +202,25 @@ def upscale_video():
     input_path = body.get("input_path")
     if not input_path:
         return error_response("input_path is required", 400)
+    # The plugin reads this file and its result can be downloaded, so it has to
+    # be one of the install's own stored files.
+    input_path = _stored_path(input_path) if isinstance(input_path, str) else None
+    if input_path is None:
+        return error_response("input_path must be inside the uploads or outputs folder", 400)
     try:
         target_width = _parse_target_width(body.get("target_width"))
     except ValueError as exc:
         return error_response(str(exc), 400)
 
     suffix = body.get("suffix") or _target_suffix(target_width)
-    # Where the result goes: the caller's path, else the plugin's own default
-    # beside the input. Either is sent only as a name no earlier result has.
-    wanted = body.get("output_path") or f"{os.path.splitext(input_path)[0]}_{suffix}.mp4"
-    output_path = _free_output_path(wanted)
+    try:
+        output_path = _video_output_path(input_path, body.get("output_path"), suffix)
+    except ValueError as exc:
+        return error_response(str(exc), 400)
 
     payload = {
         "input_path": input_path,
-        "output_path": output_path if output_path != wanted else body.get("output_path"),
+        "output_path": output_path,
         "model": body.get("model"),
         "scale": body.get("scale"),
         "target_width": target_width,
@@ -736,6 +741,49 @@ def _free_output_path(path: str) -> str:
         return path
     root, ext = os.path.splitext(path)
     return f"{root}_{_name_token()}{ext}"
+
+
+def _stored_path(path) -> Optional[str]:
+    """The real location of ``path`` (``..`` and symlinks followed) when it is
+    inside the uploads or output folders and not in a private one: where a
+    source may be read from and a result written. None otherwise."""
+    from backend.services.document_path_resolver import private_output_folder, serve_roots
+    from backend.utils.path_guard import PathEscapesRoot, contained_path
+
+    try:
+        real = os.path.realpath(path)
+    except (OSError, ValueError, TypeError):
+        return None
+    if private_output_folder(real) is not None:
+        return None
+    for root in serve_roots():
+        try:
+            inside = contained_path(root, real)
+        except PathEscapesRoot:
+            continue
+        if inside != str(root):
+            return inside
+    return None
+
+
+def _video_output_path(input_path: str, wanted, suffix: str) -> str:
+    """Where a video upscale writes, as a name no earlier result has.
+
+    A path the caller names must be inside the uploads or output folders
+    (ValueError otherwise). With none named the result goes beside the input.
+    """
+    if not isinstance(suffix, str) or any(c in suffix for c in "/\\\x00"):
+        raise ValueError("suffix must not contain a path separator")
+    if wanted:
+        path = _stored_path(wanted) if isinstance(wanted, str) else None
+        if path is None:
+            raise ValueError("output_path must be inside the uploads or outputs folder")
+        return _free_output_path(path)
+    name = f"{os.path.splitext(os.path.basename(input_path))[0]}_{suffix}.mp4"
+    path = _stored_path(os.path.join(os.path.dirname(input_path), name))
+    if path is None:
+        raise ValueError("input_path must be inside the uploads or outputs folder")
+    return _free_output_path(path)
 
 
 def _target_suffix(target_width: Optional[int]) -> str:

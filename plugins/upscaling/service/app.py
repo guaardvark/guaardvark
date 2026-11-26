@@ -29,6 +29,7 @@ from service.model_manager import ModelManager
 from service.upscaler import UnusableOutputError, fit_long_edge, upscale_image
 from service.video_pipeline import get_video_info, process_video
 from service.watcher import FolderWatcher
+from service.write_scope import OutsideWriteScope, confined_input, confined_output
 
 logging.basicConfig(
     level=logging.INFO,
@@ -181,6 +182,11 @@ app.add_middleware(guard.BearerTokenASGIMiddleware, name=TOKEN_NAME)
 # this machine's (a page re-pointed at 127.0.0.1) is refused before the token
 # gate, CORS or any route sees it.
 app.add_middleware(guard.HostCheckASGIMiddleware)
+
+
+@app.exception_handler(OutsideWriteScope)
+async def _outside_write_scope(_request: Request, exc: OutsideWriteScope):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 @app.exception_handler(UnusableOutputError)
@@ -775,10 +781,12 @@ def download_model(req: ModelDownloadRequest, request: Request):
 @app.post("/upscale/image")
 def upscale_image_endpoint(req: ImageUpscaleRequest, request: Request):
     verify_token(request)
-    if not os.path.isfile(req.input_path):
+    output_path = confined_output(req.output_path)
+    input_path = confined_input(req.input_path)
+    if not os.path.isfile(input_path):
         raise HTTPException(400, f"Input file not found: {req.input_path}")
 
-    img = cv2.imread(req.input_path, cv2.IMREAD_UNCHANGED)
+    img = cv2.imread(input_path, cv2.IMREAD_UNCHANGED)
     if img is None:
         raise HTTPException(400, f"Could not read image: {req.input_path}")
     _require_installed(req.model)
@@ -807,9 +815,9 @@ def upscale_image_endpoint(req: ImageUpscaleRequest, request: Request):
         )
     _free_cache_unless_job()
 
-    if not _atomic_imwrite(req.output_path, output):
+    if not _atomic_imwrite(output_path, output):
         raise HTTPException(500, f"Could not write image: {req.output_path}")
-    return {"status": "completed", "output_path": req.output_path}
+    return {"status": "completed", "output_path": output_path}
 
 
 # Fix 4: Multipart image upload endpoint
@@ -872,15 +880,20 @@ def upscale_images_endpoint(req: ImageBatchUpscaleRequest, request: Request):
     verify_token(request)
     if not req.inputs:
         raise HTTPException(400, "inputs must not be empty")
+    output_dir = confined_output(req.output_dir)
+    # The suffix becomes part of each file name inside that folder.
+    if "/" in req.suffix or "\\" in req.suffix or "\x00" in req.suffix:
+        raise HTTPException(400, "suffix must not contain a path separator")
 
-    missing = [p for p in req.inputs if not os.path.isfile(p)]
+    inputs = [confined_input(p) for p in req.inputs]
+    missing = [p for p in inputs if not os.path.isfile(p)]
     if missing:
         raise HTTPException(400, f"Input file not found: {missing[0]}")
     _require_installed(req.model)
 
     job = _start_image_batch_job(
-        inputs=req.inputs,
-        output_dir=req.output_dir,
+        inputs=inputs,
+        output_dir=output_dir,
         model_name=req.model,
         scale=req.scale,
         denoise_strength=req.denoise_strength if req.denoise_strength is not None else 0.0,
@@ -896,21 +909,22 @@ def upscale_images_endpoint(req: ImageBatchUpscaleRequest, request: Request):
 @app.post("/upscale/video", status_code=202)
 def upscale_video_endpoint(req: VideoUpscaleRequest, request: Request):
     verify_token(request)
-    if not os.path.isfile(req.input_path):
+    input_path = confined_input(req.input_path)
+    if not os.path.isfile(input_path):
         raise HTTPException(400, f"Input file not found: {req.input_path}")
+    if req.output_path:
+        output_path = confined_output(req.output_path)
+    else:
+        base = os.path.splitext(input_path)[0]
+        output_path = _free_output_path(confined_output(f"{base}_{req.suffix}.mp4"))
     _require_installed(req.model)
 
     # Note: VRAM is checked at job-start time (inside the worker), not here.
     # When jobs are queued, free VRAM at submission time is irrelevant — by
     # the time this job's turn comes up, the previous one has released it.
 
-    output_path = req.output_path
-    if not output_path:
-        base = os.path.splitext(req.input_path)[0]
-        output_path = _free_output_path(f"{base}_{req.suffix}.mp4")
-
     job = _start_video_job(
-        input_path=req.input_path,
+        input_path=input_path,
         output_path=output_path,
         model_name=req.model,
         scale=req.scale,

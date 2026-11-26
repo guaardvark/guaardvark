@@ -20,6 +20,8 @@ from backend.services.job_handoff import HANDOFFS
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(m, "_get_upload_dir", lambda: tmp_path)
+    # Results are written only under the output folders; here that is tmp_path.
+    monkeypatch.setattr("backend.config.OUTPUT_DIR", str(tmp_path))
     monkeypatch.setattr(m, "_start_upscaling_for_job", lambda: None)
     monkeypatch.setattr(m, "_gpu_turn", lambda _model: contextlib.nullcontext())
     monkeypatch.setenv(m.upscale_supervisor.ENV, "0")
@@ -108,15 +110,15 @@ def test_video_upload_refuses_a_bad_target_before_saving(client, posted):
 
 @pytest.mark.parametrize("width, suffix", [(7680, "8k"), (3840, "4k"), (None, "upscaled")])
 def test_video_json_names_the_output_by_its_target(client, posted, width, suffix):
-    c, _ = client
-    body = {"input_path": "/v/clip.mp4", **({"target_width": width} if width else {})}
+    c, root = client
+    body = {"input_path": str(root / "v" / "clip.mp4"), **({"target_width": width} if width else {})}
     assert c.post("/api/upscaling/upscale/video", json=body).status_code == 200
     assert posted[0][1]["suffix"] == suffix
 
 
 def test_video_json_keeps_a_suffix_the_caller_gave(client, posted):
-    c, _ = client
-    c.post("/api/upscaling/upscale/video", json={"input_path": "/v/clip.mp4", "target_width": 7680, "suffix": "final"})
+    c, root = client
+    c.post("/api/upscaling/upscale/video", json={"input_path": str(root / "v" / "clip.mp4"), "target_width": 7680, "suffix": "final"})
     assert posted[0][1]["suffix"] == "final"
 
 
@@ -142,8 +144,8 @@ def test_a_scheduled_upscale_replays_the_target(client, posted):
 
 
 def test_video_json_refuses_a_bad_target(client, posted):
-    c, _ = client
-    resp = c.post("/api/upscaling/upscale/video", json={"input_path": "/v/clip.mp4", "target_width": 0})
+    c, root = client
+    resp = c.post("/api/upscaling/upscale/video", json={"input_path": str(root / "v" / "clip.mp4"), "target_width": 0})
 
     assert resp.status_code == 400
     assert posted == []
@@ -211,3 +213,34 @@ def test_document_options_carry_the_target():
     body = {"model": "4x-UltraSharp", "target_width": 3840}
     options = m._image_options_from_form({k: str(v) for k, v in body.items()})
     assert options == {"model": "4x-UltraSharp", "target_width": 3840}
+
+
+def test_video_json_refuses_an_output_outside_the_output_folders(client, posted, tmp_path_factory):
+    c, root = client
+    elsewhere = tmp_path_factory.mktemp("elsewhere")
+    (root / "link").symlink_to(elsewhere)
+
+    for target in (elsewhere / "o.mp4", root / ".." / elsewhere.name / "o.mp4", root / "link" / "o.mp4"):
+        resp = c.post("/api/upscaling/upscale/video", json={"input_path": str(root / "v" / "clip.mp4"), "output_path": str(target)})
+        assert resp.status_code == 400, target
+    resp = c.post("/api/upscaling/upscale/video", json={"input_path": str(root / "v" / "clip.mp4"), "suffix": "../../x"})
+    assert resp.status_code == 400
+    assert posted == []
+
+
+def test_video_json_refuses_an_input_outside_the_stored_folders(client, posted, tmp_path_factory):
+    """The source is read and its result can be downloaded, so it has to be a
+    stored file: not elsewhere on disk, through a link, or in a private folder."""
+    c, root = client
+    elsewhere = tmp_path_factory.mktemp("elsewhere")
+    (root / "link").symlink_to(elsewhere)
+
+    for source in (elsewhere / "clip.mp4", root / "link" / "clip.mp4", root / "consent" / "clip.mp4", 7):
+        resp = c.post("/api/upscaling/upscale/video",
+                      json={"input_path": source if isinstance(source, int) else str(source)})
+        assert resp.status_code == 400, source
+    assert posted == []
+
+    assert c.post("/api/upscaling/upscale/video", json={"input_path": str(root / "videos" / "clip.mp4")}).status_code == 200
+    assert posted[0][1]["input_path"] == str(root / "videos" / "clip.mp4")
+    assert posted[0][1]["output_path"] == str(root / "videos" / "clip_upscaled.mp4")

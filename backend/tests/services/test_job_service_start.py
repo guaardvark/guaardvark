@@ -287,6 +287,8 @@ def upscaler(services, monkeypatch):
         RequestException=requests.RequestException,
     ))
     monkeypatch.setattr(upa, "_cached_token", None, raising=False)
+    # Where a source may sit is test_upscaling_target_width.py's subject.
+    monkeypatch.setattr(upa, "_stored_path", lambda path: path)
     app = Flask(__name__)
     app.register_blueprint(upa.upscaling_bp)
     return app.test_client(), posted
