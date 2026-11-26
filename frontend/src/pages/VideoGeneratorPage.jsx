@@ -98,6 +98,8 @@ import lazyWithReload from "../utils/lazyWithReload";
 import PageStatus, { PagePrimaryAction, StatusChip } from "../components/layout/PageStatus";
 import { useSnackbar } from "../components/common/SnackbarProvider";
 import { useUiTranslation, uiLocale, Trans } from "../i18n";
+import ResetSettingsButton from "../components/layout/ResetSettingsButton";
+import { clearSavedSettings, readSavedSettings, savedValue, writeSavedSettings } from "../utils/savedSettings";
 
 // Lazy import for VideoModelsModal
 const VideoModelsModal = lazyWithReload(() => import("../components/modals/VideoModelsModal"));
@@ -145,10 +147,81 @@ const VIDEO_GEN_LAYOUTS = [
   },
 ];
 
+// The settings the page remembers between visits (utils/savedSettings), with
+// the value each has on a first visit and after Reset settings.
+const SAVED_SETTINGS_PAGE = "videoGenerator";
+const SETTING_DEFAULTS = {
+  inputMode: "text",
+  model: DEFAULT_T2V_MODEL,
+  qualityPreset: "standard",
+  durationPreset: "short",
+  motionPreset: "normal",
+  aspectRatio: "16:9",
+  videoSize: null,
+  qualityTier: "standard",
+  promptStyle: "cinematic",
+  enhancePrompt: true,
+  fidelityMode: false,
+  directorMode: false,
+  cinematicKeyframe: false,
+  directorGuidance: "",
+  storyboardMode: false,
+  storyboardShots: 6,
+  keyframeModel: DEFAULT_KEYFRAME_MODEL,
+  highConsistencyMode: false,
+  postUpscale: false,
+  lookAndFeel: "",
+  negativePrompt: "",
+  fetaEnabled: false,
+  fetaWeight: 1.0,
+};
+const ADVANCED_DEFAULTS = {
+  num_inference_steps: null, // null means "use quality preset", explicit number means "override"
+  guidance_scale: 6.0, // CogVideoX default
+  generate_frames_only: false,
+  frames_per_batch: 1,
+  combine_frames: false,
+  face_restore: false,
+  lora_name: "",
+  lora_strength: 1.0,
+  wan_sampler_profile: "official",
+  // Capability-contract knobs; only sent when the model declares them.
+  speed_profile: "standard",
+  style_embedding: "",
+  adapters: [],
+  adapter_strength: 0.7,
+  // User text encoder id ("" = the one the model ships with).
+  text_encoder: "",
+  // Typed seed; blank gives every clip a new random seed.
+  seed: "",
+};
+
+/** The settings to open with: what was saved, each falling back to its default. */
+const openingSettings = () => {
+  const saved = readSavedSettings(SAVED_SETTINGS_PAGE);
+  const settings = { restored: Boolean(saved) };
+  Object.entries(SETTING_DEFAULTS).forEach(([key, fallback]) => {
+    settings[key] = savedValue(saved, key, fallback);
+  });
+  if (!["text", "image", "references"].includes(settings.inputMode)) settings.inputMode = SETTING_DEFAULTS.inputMode;
+  // "from-lora" belongs to a cast pick, and the cast is not kept.
+  if (settings.keyframeModel === "from-lora") settings.keyframeModel = DEFAULT_KEYFRAME_MODEL;
+  const advanced = saved?.advancedParams;
+  settings.advancedParams = {
+    ...ADVANCED_DEFAULTS,
+    ...(advanced && typeof advanced === "object" && !Array.isArray(advanced) ? advanced : {}),
+    seed: "",
+  };
+  return settings;
+};
+
 const VideoGeneratorPage = ({ embedded = false }) => {
   const { t, language } = useUiTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [inputMode, setInputMode] = useState("text");
+  const [opening] = useState(openingSettings);
+  // Adjust & Retry loads its own settings over whatever was saved.
+  const [openedForRetry] = useState(() => Boolean(searchParams.get("retry")));
+  const [inputMode, setInputMode] = useState(opening.inputMode);
   const [promptsText, setPromptsText] = useState("");
   const [videoModelsModalOpen, setVideoModelsModalOpen] = useState(false);
 
@@ -168,26 +241,26 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   const [gallerySelectedImages, setGallerySelectedImages] = useState(new Set());
 
   // Preset selections
-  const [qualityPreset, setQualityPreset] = useState("standard");
-  const [durationPreset, setDurationPreset] = useState("short");
-  const [motionPreset, setMotionPreset] = useState("normal");
-  const [model, setModel] = useState(DEFAULT_T2V_MODEL);
-  const [aspectRatio, setAspectRatio] = useState("16:9");
+  const [qualityPreset, setQualityPreset] = useState(opening.qualityPreset);
+  const [durationPreset, setDurationPreset] = useState(opening.durationPreset);
+  const [motionPreset, setMotionPreset] = useState(opening.motionPreset);
+  const [model, setModel] = useState(opening.model);
+  const [aspectRatio, setAspectRatio] = useState(opening.aspectRatio);
   // null until the person picks a size: the model's default for the mode applies.
-  const [pickedVideoSize, setVideoSize] = useState(null);
-  const [qualityTier, setQualityTier] = useState("standard");
-  const [promptStyle, setPromptStyle] = useState("cinematic");
-  const [enhancePrompt, setEnhancePrompt] = useState(true);
-  const [fidelityMode, setFidelityMode] = useState(false); // "Exact text mode" / preserve fidelity — light enhancement only
+  const [pickedVideoSize, setVideoSize] = useState(opening.videoSize);
+  const [qualityTier, setQualityTier] = useState(opening.qualityTier);
+  const [promptStyle, setPromptStyle] = useState(opening.promptStyle);
+  const [enhancePrompt, setEnhancePrompt] = useState(opening.enhancePrompt);
+  const [fidelityMode, setFidelityMode] = useState(opening.fidelityMode); // "Exact text mode" / preserve fidelity — light enhancement only
   // Quality pipeline (v2.6.2 — ported from the music-video generator). Opt-in.
-  const [directorMode, setDirectorMode] = useState(false);          // rewrite each prompt via the cinematic Director
-  const [cinematicKeyframe, setCinematicKeyframe] = useState(false); // FLUX still -> Wan2.2 I2V per clip (slower, sharper)
-  const [directorGuidance, setDirectorGuidance] = useState("");      // optional free-text steer for the Director
-  const [storyboardMode, setStoryboardMode] = useState(false);       // one concept -> N director-written shots
-  const [storyboardShots, setStoryboardShots] = useState(6);
-  const [keyframeModel, setKeyframeModel] = useState(DEFAULT_KEYFRAME_MODEL);
-  const [highConsistencyMode, setHighConsistencyMode] = useState(false);
-  const [postUpscale, setPostUpscale] = useState(false); // independent 2x upscale (quality post-processing)
+  const [directorMode, setDirectorMode] = useState(opening.directorMode);          // rewrite each prompt via the cinematic Director
+  const [cinematicKeyframe, setCinematicKeyframe] = useState(opening.cinematicKeyframe); // FLUX still -> Wan2.2 I2V per clip (slower, sharper)
+  const [directorGuidance, setDirectorGuidance] = useState(opening.directorGuidance);      // optional free-text steer for the Director
+  const [storyboardMode, setStoryboardMode] = useState(opening.storyboardMode);       // one concept -> N director-written shots
+  const [storyboardShots, setStoryboardShots] = useState(opening.storyboardShots);
+  const [keyframeModel, setKeyframeModel] = useState(opening.keyframeModel);
+  const [highConsistencyMode, setHighConsistencyMode] = useState(opening.highConsistencyMode);
+  const [postUpscale, setPostUpscale] = useState(opening.postUpscale); // independent 2x upscale (quality post-processing)
   const [faceRestoreNodeAvailable, setFaceRestoreNodeAvailable] = useState(null);
   const [faceRestoreModelReady, setFaceRestoreModelReady] = useState(null);
   const faceRestoreAvailable =
@@ -217,8 +290,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   }, []);
 
   // Batch-wide prompt modifiers (mirror BatchImageGen's "Look & Feel" pattern)
-  const [lookAndFeel, setLookAndFeel] = useState("");
-  const [negativePrompt, setNegativePrompt] = useState("");
+  const [lookAndFeel, setLookAndFeel] = useState(opening.lookAndFeel);
+  const [negativePrompt, setNegativePrompt] = useState(opening.negativePrompt);
   const [lowVramMode, setLowVramMode] = useState(() => {
     const saved = localStorage.getItem('lowVramMode');
     // Off unless the person turns it on. On a 16 GB card Wan 2.2 14B renders
@@ -228,26 +301,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   });
 
   // Advanced settings
-  const [advancedParams, setAdvancedParams] = useState({
-    num_inference_steps: null, // null means "use quality preset", explicit number means "override"
-    guidance_scale: 6.0, // CogVideoX default
-    generate_frames_only: false,
-    frames_per_batch: 1,
-    combine_frames: false,
-    face_restore: false,
-    lora_name: "",
-    lora_strength: 1.0,
-    wan_sampler_profile: "official",
-    // Capability-contract knobs; only sent when the model declares them.
-    speed_profile: "standard",
-    style_embedding: "",
-    adapters: [],
-    adapter_strength: 0.7,
-    // User text encoder id ("" = the one the model ships with).
-    text_encoder: "",
-    // Typed seed; blank gives every clip a new random seed.
-    seed: "",
-  });
+  const [advancedParams, setAdvancedParams] = useState(opening.advancedParams);
   // End frame for models that declare l2v / flf2v (image mode): {ref, name,
   // thumbnailUrl}, ref being an uploaded file's path or a library document id.
   const [endFrame, setEndFrame] = useState(null);
@@ -266,7 +320,10 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   const [selectedPromptPreset, setSelectedPromptPreset] = useState("");
   const [isUploadingEndFrame, setIsUploadingEndFrame] = useState(false);
   // Which model the registry's per-VRAM-class defaults were last applied to.
-  const seededTierFor = useRef(null);
+  // Restored settings count as applied: they are the person's own choices.
+  const seededTierFor = useRef(opening.restored ? opening.model : null);
+  // Which model the guidance scale was last set for, restored settings included.
+  const guidanceSetFor = useRef(opening.restored ? opening.model : null);
 
   // Cast picker: trained character Subjects whose LoRA locks identity into a
   // cinematic keyframe via character_still_pipeline (Z-Image/SDXL/FLUX by train base).
@@ -296,8 +353,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   }, [castReload]);
 
   // CogVideoX temporal-coherence feature (quality, not speed)
-  const [fetaEnabled, setFetaEnabled] = useState(false);
-  const [fetaWeight, setFetaWeight] = useState(1.0);
+  const [fetaEnabled, setFetaEnabled] = useState(opening.fetaEnabled);
+  const [fetaWeight, setFetaWeight] = useState(opening.fetaWeight);
 
   // Cast selection implies cinematic keyframe; still model is auto from LoRA family.
   useEffect(() => {
@@ -362,6 +419,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
 
   // Sync guidance scale to model-family defaults when the model changes.
   useEffect(() => {
+    if (guidanceSetFor.current === model) return;
+    guidanceSetFor.current = model;
     const family = familyType(model, modelMeta[model]);
     // Per-model wins: some models' backend workflows default differently from
     // their family, and the UI should send what the backend would have chosen.
@@ -461,6 +520,10 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   const [highlightModelId, setHighlightModelId] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  // The model list has been asked for and answered (or failed). Settings are
+  // saved only after that, once the registry has had its say on restored ones.
+  const [modelsChecked, setModelsChecked] = useState(false);
+  const [settingsLive, setSettingsLive] = useState(false);
 
   // Pull the authoritative model list + readiness. Extracted so we can re-run it
   // after the user closes the install modal (a freshly-installed model should
@@ -502,6 +565,8 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       // Offline / API down — fall back to the (already-culled) MODEL_OPTIONS,
       // and say so: without the API nobody knows which of them are installed.
       setError(t("videoGenerator.errors.modelsCheckFailed", { reason: formatUiError(e) || t("videoGenerator.errors.requestFailed") }));
+    } finally {
+      setModelsChecked(true);
     }
   }, []);
 
@@ -596,12 +661,28 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       : inputMode === "image"
         ? (meta?.capabilities?.supports_i2v ?? opt?.supportsI2V)
         : (meta?.capabilities?.supports_t2v ?? opt?.supportsT2V);
+    // A restored registry-only model is unknown until the model list arrives.
+    if (!meta && !opt && !modelsChecked) return;
     if (!isCompatible) {
       const fallback = availableModels[0]?.[0]
         || (inputMode === "image" ? DEFAULT_I2V_MODEL : DEFAULT_T2V_MODEL);
       if (fallback && fallback !== model) setModel(fallback);
     }
-  }, [inputMode, model, modelMeta, availableModels]);
+  }, [inputMode, model, modelMeta, availableModels, modelsChecked]);
+
+  // Restored choices the checks below may have replaced before the registry
+  // described the model are put back once it has; the same checks then keep
+  // or replace them knowing what the model offers. Stays above those checks.
+  useEffect(() => {
+    if (!modelsChecked || settingsLive) return;
+    if (opening.restored && !openedForRetry && model === opening.model) {
+      setAspectRatio(opening.aspectRatio);
+      setDurationPreset(opening.durationPreset);
+      setPromptStyle(opening.promptStyle);
+      setQualityPreset(opening.qualityPreset);
+    }
+    setSettingsLive(true);
+  }, [modelsChecked]);
 
   // Duration presets follow the selected model's native fps.
   const durationPresets = useMemo(() => durationPresetsFor(model, modelMeta[model]), [model, modelMeta, language]);
@@ -1050,6 +1131,73 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       setQualityPreset(qualityChipOptions[0].value);
     }
   }, [qualityChipOptions, qualityPreset]);
+
+  // Remember the settings for the next visit. A cast pick switches the
+  // keyframe on by itself, so those two keep their last value from without one.
+  const keptKeyframe = useRef({ cinematicKeyframe: opening.cinematicKeyframe, keyframeModel: opening.keyframeModel });
+  useEffect(() => {
+    if (!settingsLive) return;
+    if (selectedSubjectIds.length === 0) keptKeyframe.current = { cinematicKeyframe, keyframeModel };
+    writeSavedSettings(SAVED_SETTINGS_PAGE, {
+      inputMode, model, qualityPreset, durationPreset, motionPreset, aspectRatio,
+      videoSize: pickedVideoSize, qualityTier, promptStyle, enhancePrompt, fidelityMode,
+      directorMode, directorGuidance, storyboardMode, storyboardShots, highConsistencyMode,
+      postUpscale, lookAndFeel, negativePrompt, fetaEnabled, fetaWeight,
+      ...keptKeyframe.current,
+      advancedParams: { ...advancedParams, seed: "" },
+    });
+  }, [settingsLive, inputMode, model, qualityPreset, durationPreset, motionPreset, aspectRatio,
+    pickedVideoSize, qualityTier, promptStyle, enhancePrompt, fidelityMode, directorMode,
+    cinematicKeyframe, directorGuidance, storyboardMode, storyboardShots, keyframeModel,
+    highConsistencyMode, postUpscale, lookAndFeel, negativePrompt, fetaEnabled, fetaWeight,
+    advancedParams, selectedSubjectIds.length]);
+
+  // Reset settings: back to a first visit's values. The prompt, picked files
+  // and cast stay; the model's own starting values are applied again.
+  const resetSettings = useCallback(() => {
+    clearSavedSettings(SAVED_SETTINGS_PAGE);
+    // The default model's own starting values, as its first selection sets them.
+    const target = SETTING_DEFAULTS.model;
+    const meta = modelMeta[target];
+    const guidance = MODEL_OPTIONS[target]?.defaultGuidance ?? MODEL_DEFAULT_GUIDANCE[familyType(target, meta)];
+    const tier = meta?.tier_defaults;
+    const tierDuration = tier?.frames
+      ? Object.entries(durationPresetsFor(target, meta)).find(([, preset]) => preset.duration_frames === tier.frames)?.[0]
+      : null;
+    guidanceSetFor.current = target;
+    seededTierFor.current = tier ? target : null;
+    setInputMode(SETTING_DEFAULTS.inputMode);
+    setModel(SETTING_DEFAULTS.model);
+    setQualityPreset(SETTING_DEFAULTS.qualityPreset);
+    setDurationPreset(tierDuration || SETTING_DEFAULTS.durationPreset);
+    setMotionPreset(SETTING_DEFAULTS.motionPreset);
+    setAspectRatio(resolveAspectRatio(target, SETTING_DEFAULTS.aspectRatio, meta));
+    setVideoSize(SETTING_DEFAULTS.videoSize);
+    setQualityTier(SETTING_DEFAULTS.qualityTier);
+    setPromptStyle(SETTING_DEFAULTS.promptStyle);
+    setEnhancePrompt(SETTING_DEFAULTS.enhancePrompt);
+    setFidelityMode(SETTING_DEFAULTS.fidelityMode);
+    setDirectorMode(SETTING_DEFAULTS.directorMode);
+    setDirectorGuidance(SETTING_DEFAULTS.directorGuidance);
+    setStoryboardMode(SETTING_DEFAULTS.storyboardMode);
+    setStoryboardShots(SETTING_DEFAULTS.storyboardShots);
+    setHighConsistencyMode(SETTING_DEFAULTS.highConsistencyMode);
+    setPostUpscale(SETTING_DEFAULTS.postUpscale);
+    setLookAndFeel(SETTING_DEFAULTS.lookAndFeel);
+    setNegativePrompt(SETTING_DEFAULTS.negativePrompt);
+    setFetaEnabled(SETTING_DEFAULTS.fetaEnabled);
+    setFetaWeight(SETTING_DEFAULTS.fetaWeight);
+    setAdvancedParams({
+      ...ADVANCED_DEFAULTS,
+      ...(guidance != null ? { guidance_scale: guidance } : {}),
+      ...(tier?.speed_profile ? { speed_profile: tier.speed_profile } : {}),
+    });
+    if (selectedSubjectIds.length === 0) {
+      setCinematicKeyframe(SETTING_DEFAULTS.cinematicKeyframe);
+      setKeyframeModel(SETTING_DEFAULTS.keyframeModel);
+    }
+    toast?.showMessage(t("layout.savedSettings.resetDone"), "success");
+  }, [selectedSubjectIds.length, modelMeta, toast, t]);
 
   const {
     activeBatchId,
@@ -1998,6 +2146,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
           sub={gpuBusy ? blockReason || t("videoGenerator.tiles.gpuBusy") : t("videoGenerator.tiles.readyToQueue")}
         />
         </PageStatus>
+        <ResetSettingsButton onReset={resetSettings} disabled={controlsDisabled} />
         <PagePrimaryAction>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Button

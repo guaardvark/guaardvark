@@ -12,6 +12,8 @@ import {
 } from "@mui/material";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
+import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
+import PowerMenu from "../power/PowerMenu";
 import { useAppStore } from "../../stores/useAppStore";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";
 import { isFloatingChatHiddenRoute } from "../../config/floatingChat";
@@ -320,6 +322,20 @@ const SoftwareNav = () => {
                 {isFullScreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
               </ButtonBase>
             </Tooltip>
+            <PowerMenu
+              renderButton={({ onClick, label, open }) => (
+                <Tooltip title={label}>
+                  <ButtonBase
+                    onClick={onClick}
+                    aria-label={label}
+                    aria-haspopup="menu"
+                    sx={pinButtonSx(open, "primary.main")}
+                  >
+                    <PowerSettingsNewIcon />
+                  </ButtonBase>
+                </Tooltip>
+              )}
+            />
           </Box>
         </Box>
 
