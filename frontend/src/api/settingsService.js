@@ -927,6 +927,24 @@ export const setMusicDirectory = async (path) => {
   }
 };
 
+/** Chat model while rendering: { choice, models: [{name, size, parameter_size}], automatic }. */
+export const getChatModelWhileRendering = async () => {
+  const response = await fetch(`${BASE_URL}/settings/chat_model_while_rendering`);
+  return await handleResponse(response);
+};
+
+/** choice: "auto", "same" or one of the offered model names. */
+export const setChatModelWhileRendering = async (choice) => {
+  const response = await fetch(`${BASE_URL}/settings/chat_model_while_rendering`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ choice }),
+  });
+  const data = await handleResponse(response);
+  if (typeof data === "object" && data !== null && data.error) throw new Error(data.error);
+  return data;
+};
+
 /** Keep ready: { enabled, state, detail, model, env_writable }. */
 export const getChatKeepReady = async () => {
   const response = await fetch(`${BASE_URL}/settings/chat_keep_ready`);

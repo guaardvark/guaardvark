@@ -630,6 +630,39 @@ def set_chat_thinking_default():
     return success_response({"chat_thinking_default": enabled})
 
 
+@settings_bp.route("/chat_model_while_rendering", methods=["GET"])
+def get_chat_model_while_rendering():
+    """The model chat answers with while a render or training job holds the
+    GPU: the saved choice, the installed models offered for it and what the
+    automatic choice resolves to."""
+    from backend.services import render_time_chat
+    return success_response(render_time_chat.settings_state())
+
+
+@settings_bp.route("/chat_model_while_rendering", methods=["POST"])
+def set_chat_model_while_rendering():
+    """Body: {"choice": "auto" | "same" | "<one of the offered model names>"}."""
+    from backend.services import render_time_chat
+    data = request.get_json(silent=True) or {}
+    choice = str(data.get("choice") or "").strip()
+    if choice not in (render_time_chat.AUTO, render_time_chat.SAME) and choice not in {
+            row["name"] for row in render_time_chat.offered()}:
+        return error_response(
+            'Send {"choice": "auto"}, {"choice": "same"} or one of the offered model names.', 400)
+    try:
+        setting = db.session.get(Setting, render_time_chat.SETTING_KEY)
+        if setting:
+            setting.value = choice
+        else:
+            db.session.add(Setting(key=render_time_chat.SETTING_KEY, value=choice))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to update {render_time_chat.SETTING_KEY}: {e}", exc_info=True)
+        return error_response("Failed to update setting", status_code=500)
+    return success_response(render_time_chat.settings_state())
+
+
 @settings_bp.route("/chat_tools_always_approved", methods=["GET"])
 def get_chat_tools_always_approved():
     """Tools chat runs without an approval card or file card."""

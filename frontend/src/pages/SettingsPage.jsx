@@ -62,6 +62,8 @@ import {
   setMusicDirectory as setMusicDirectoryAPI,
   getChatKeepReady,
   setChatKeepReady,
+  getChatModelWhileRendering,
+  setChatModelWhileRendering,
 } from "../api/settingsService";
 import { enablePlugin, startPlugin } from "../api/pluginsService";
 import { useAppStore } from "../stores/useAppStore";
@@ -149,6 +151,8 @@ const SettingsPage = () => {
   const [startingOllama, setStartingOllama] = useState(false);
   const [keepReady, setKeepReady] = useState(null);
   const [savingKeepReady, setSavingKeepReady] = useState(false);
+  const [renderTimeChat, setRenderTimeChat] = useState(null);
+  const [savingRenderTimeChat, setSavingRenderTimeChat] = useState(false);
   const [selectedModel, setSelectedModel] = useState("");
   const [embeddingModel, setEmbeddingModel] = useState("");
   const [_isLoadingEmbeddingModel, setIsLoadingEmbeddingModel] = useState(true);
@@ -1022,6 +1026,32 @@ const SettingsPage = () => {
       showMessage(t("settings.models.keepReadyFailed", { error: err.message }), "error");
     } finally {
       setSavingKeepReady(false);
+    }
+  };
+
+  const fetchRenderTimeChat = useCallback(async () => {
+    try {
+      const result = await getChatModelWhileRendering();
+      const state = result?.data ?? result;
+      if (state && Array.isArray(state.models)) setRenderTimeChat(state);
+    } catch {
+      // Older backend without the setting: the control stays hidden.
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRenderTimeChat();
+  }, [fetchRenderTimeChat]);
+
+  const handleRenderTimeChatChange = async (choice) => {
+    setSavingRenderTimeChat(true);
+    try {
+      const result = await setChatModelWhileRendering(choice);
+      setRenderTimeChat(result?.data ?? result);
+    } catch (err) {
+      showMessage(t("settings.models.renderTimeFailed", { error: err.message }), "error");
+    } finally {
+      setSavingRenderTimeChat(false);
     }
   };
 
@@ -3030,6 +3060,42 @@ const SettingsPage = () => {
             )}
           </Line>
         )}
+        {renderTimeChat && (
+          <Line nowrap>
+            <FormControl size="small" className="grow" disabled={savingRenderTimeChat}>
+              <InputLabel>{t("settings.modelsPanel.renderTimeModel")}</InputLabel>
+              <Select
+                value={
+                  ["auto", "same"].includes(renderTimeChat.choice) ||
+                  renderTimeChat.models.some((m) => m.name === renderTimeChat.choice)
+                    ? renderTimeChat.choice
+                    : "auto"
+                }
+                label={t("settings.modelsPanel.renderTimeModel")}
+                onChange={(e) => handleRenderTimeChatChange(e.target.value)}
+              >
+                <MenuItem value="auto">
+                  {renderTimeChat.automatic
+                    ? t("settings.modelsPanel.renderTimeAuto", { model: renderTimeChat.automatic })
+                    : t("settings.modelsPanel.renderTimeAutoNone")}
+                </MenuItem>
+                <MenuItem value="same">{t("settings.modelsPanel.renderTimeSame")}</MenuItem>
+                {renderTimeChat.models.map((m) => (
+                  <MenuItem key={m.name} value={m.name}>
+                    {m.name}
+                    {m.parameter_size ? ` (${m.parameter_size}` : ""}
+                    {m.size
+                      ? `${m.parameter_size ? ", " : " ("}${formatByteSize(m.size)})`
+                      : m.parameter_size
+                        ? ")"
+                        : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Line>
+        )}
+        {renderTimeChat && <Hint>{t("settings.modelsPanel.renderTimeHelp")}</Hint>}
       </Cluster>
 
       <Cluster
