@@ -156,7 +156,31 @@ class AudioFoundryClient:
             "instrumental_only": True,
             "output_format": "wav",
         }
+        model = _sidecar_music_model()
+        if model:
+            payload["model"] = model
         return self._generate("/generate/music", payload, output_path)
+
+
+def _sidecar_music_model() -> str | None:
+    """The music model to name in a request to the sidecar, or None for its own default.
+
+    The sidecar runs ACE-Step v1 when no model is named, whether or not v1 is
+    installed. The installed default is named instead when it is another model
+    the sidecar itself runs; MiniMax Music 3 renders through ComfyUI, which
+    this client does not call.
+    """
+    try:
+        from backend.services.audio_foundry_models import (
+            MUSIC_CATALOG_DEFAULT, installed_default_music_model,
+        )
+        model = installed_default_music_model()
+    except Exception as e:  # noqa: BLE001 - the score is optional; ask as before
+        logger.warning("installed music model not resolved: %s", e)
+        return None
+    if model == MUSIC_CATALOG_DEFAULT or model.startswith("minimax-music3"):
+        return None
+    return model
 
 
 # Loudness of a finished film, in LUFS. Each spoken line is compressed and
