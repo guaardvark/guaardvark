@@ -229,13 +229,14 @@ def _atomic_imwrite(output_path: str, image) -> bool:
     """Write ``image`` to ``output_path`` via a sibling temp file.
 
     The temp name keeps the target extension: OpenCV chooses its encoder from
-    the final extension and refuses to write one it does not recognise.
+    the final extension and refuses to write one it does not recognise. The
+    random part means a link left at a predictable name is never written through.
     """
     output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
     root, ext = os.path.splitext(output_path)
-    tmp_path = f"{root}.tmp{ext}"
+    tmp_path = f"{root}.{uuid.uuid4().hex[:12]}.tmp{ext}"
     if not cv2.imwrite(tmp_path, image):
         return False
     os.replace(tmp_path, output_path)
@@ -702,7 +703,15 @@ def _run_image_batch_job(
                 )
 
             stem = os.path.splitext(os.path.basename(input_path))[0]
-            output_path = os.path.join(output_dir, f"{stem}_{suffix}.png")
+            try:
+                # The folder was checked when the job was made; a name already
+                # in it may be a link that leads somewhere else.
+                output_path = confined_output(os.path.join(output_dir, f"{stem}_{suffix}.png"))
+            except OutsideWriteScope as exc:
+                failures.append(f"{os.path.basename(input_path)}: {exc}")
+                done += 1
+                _job_manager.update_progress(job_id, done, 0.0)
+                continue
             if not _atomic_imwrite(output_path, output):
                 failures.append(f"{os.path.basename(input_path)}: write failed")
                 done += 1
