@@ -6,6 +6,7 @@ and precision control. One model in VRAM at a time (LRU-1).
 Weights arrive only through ``download_model`` (the Install button, POST
 /models/download). Loading a model that is not on disk is refused.
 """
+import importlib.util
 import logging
 import os
 from pathlib import Path
@@ -177,6 +178,110 @@ def resolve_precision(configured: str, allowed: Sequence[str], bf16_available: b
     return "fp32"
 
 
+# Face Enhancement runs GFPGAN v1.4 over the upscaled picture. GFPGAN finds and
+# masks faces with facexlib's RetinaFace detector and ParseNet parser, and both
+# libraries download a file they are pointed at and do not find. The Install
+# (download_model(FACE_ENHANCE_MODEL)) is the only thing that fetches these
+# files; Face Enhancement loads them from disk or is refused.
+# size_bytes: the file's published size (Content-Length of its url, read
+# 2026-11-23). GFPGANv1.4.pth carries none: its size_mb is approximate and was
+# not checked against a download.
+FACE_ENHANCE_MODEL = "GFPGANv1.4"
+GFPGAN_FILE = "GFPGANv1.4.pth"
+FACE_ENHANCE_FILES: List[Dict[str, Any]] = [
+    {
+        "file": GFPGAN_FILE,
+        "size_mb": 332,
+        "url": "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth",
+    },
+    {
+        "file": "detection_Resnet50_Final.pth",
+        "size_mb": 104,
+        "size_bytes": 109497761,
+        "url": "https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth",
+    },
+    {
+        "file": "parsing_parsenet.pth",
+        "size_mb": 81,
+        "size_bytes": 85331193,
+        "url": "https://github.com/xinntao/facexlib/releases/download/v0.2.2/parsing_parsenet.pth",
+    },
+]
+FACE_HELPER_FILES = tuple(s["file"] for s in FACE_ENHANCE_FILES if s["file"] != GFPGAN_FILE)
+
+# Where the Install puts the three files.
+FACE_ENHANCE_DIR = Path(__file__).resolve().parent.parent / "models" / "face_enhance"
+
+
+def _package_dir(package: str) -> Optional[Path]:
+    """Folder of an installed package, found without importing it."""
+    try:
+        spec = importlib.util.find_spec(package)
+    except (ImportError, ValueError):
+        return None
+    if spec is None or not spec.submodule_search_locations:
+        return None
+    return Path(list(spec.submodule_search_locations)[0])
+
+
+def _whole(folder: Path, spec: Dict[str, Any]) -> bool:
+    path = folder / spec["file"]
+    if spec.get("size_bytes"):
+        expect_size(str(path), spec["size_bytes"])
+    return file_problem(str(path)) is None
+
+
+def face_helper_dir() -> Optional[Path]:
+    """The folder the face detector and parser load from: the Install's, else
+    facexlib's own weights folder (where Manage Video Models puts the same two
+    files). None when neither holds both whole."""
+    helpers = [s for s in FACE_ENHANCE_FILES if s["file"] in FACE_HELPER_FILES]
+    folders = [FACE_ENHANCE_DIR]
+    facexlib_dir = _package_dir("facexlib")
+    if facexlib_dir is not None:
+        folders.append(facexlib_dir / "weights")
+    for folder in folders:
+        if all(_whole(folder, s) for s in helpers):
+            return folder
+    return None
+
+
+def face_enhance_missing() -> List[Dict[str, Any]]:
+    """The Face Enhancement files the Install still has to fetch."""
+    have_helpers = face_helper_dir() is not None
+    return [
+        s for s in FACE_ENHANCE_FILES
+        if not (have_helpers and s["file"] in FACE_HELPER_FILES)
+        and not _whole(FACE_ENHANCE_DIR, s)
+    ]
+
+
+def face_enhance_status(supported: bool) -> Dict[str, Any]:
+    """Face Enhancement's state for the Upscaling page. ``supported``: whether
+    gfpgan loads in this service; where it does not, the weights would sit
+    unused and no Install is offered."""
+    missing = face_enhance_missing()
+    return {
+        "name": FACE_ENHANCE_MODEL,
+        "supported": supported,
+        "installed": supported and not missing,
+        "missing": [s["file"] for s in missing],
+        "size_mb": sum(s["size_mb"] for s in missing),
+    }
+
+
+def missing_face_enhance_message() -> Optional[str]:
+    """Why Face Enhancement cannot load its weights, or None when all are on disk."""
+    missing = face_enhance_missing()
+    if not missing:
+        return None
+    return (
+        f"Face Enhancement is not installed (missing {', '.join(s['file'] for s in missing)}). "
+        "Install it from the Upscaling page (the Install button beside Face "
+        "Enhancement), then try again. Upscaling never downloads a model on its own."
+    )
+
+
 class ModelNotInstalledError(FileNotFoundError):
     """The requested model's weights are not on disk. The message names the
     model and what to do about it."""
@@ -294,6 +399,8 @@ class ModelManager:
 
     def download_model(self, name: str) -> str:
         """Download a model from the registry (the Install route only). Returns local path."""
+        if name == FACE_ENHANCE_MODEL:
+            return self.download_face_enhance()
         entry = _registry_entry(name)
         if not entry:
             raise ValueError(f"Unknown model: {name}. Drop custom .pth files into {self.models_dir}")
@@ -309,6 +416,20 @@ class ModelManager:
         os.replace(part, dest)
         logger.info(f"Downloaded {name} to {dest}")
         return dest
+
+    def download_face_enhance(self) -> str:
+        """Fetch the Face Enhancement files that are missing (the Install route
+        only). Returns their folder."""
+        for spec in face_enhance_missing():
+            dest = FACE_ENHANCE_DIR / spec["file"]
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Downloading {spec['file']} from {spec['url']}...")
+            # A partial file must never read as an installed one.
+            part = str(dest) + ".part"
+            urlretrieve(spec["url"], part)
+            os.replace(part, dest)
+            logger.info(f"Downloaded {spec['file']} to {dest}")
+        return str(FACE_ENHANCE_DIR)
 
     def load_model(self, name: str) -> None:
         """Load a model into VRAM via spandrel. Evicts previous model.

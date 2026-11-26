@@ -25,8 +25,14 @@ from service.auth import TOKEN_NAME, auth_token, guard, verify_token
 from service.config import UpscalingConfig, load_config, resolve_default_model
 from service.health import get_health_status
 from service.jobs import JobManager
-from service.model_manager import ModelManager
-from service.upscaler import UnusableOutputError, fit_long_edge, upscale_image
+from service.model_manager import FACE_ENHANCE_MODEL, ModelManager, face_enhance_status
+from service.upscaler import (
+    UnusableOutputError,
+    face_enhance_supported,
+    face_enhance_unavailable_message,
+    fit_long_edge,
+    upscale_image,
+)
 from service.video_pipeline import get_video_info, process_video
 from service.watcher import FolderWatcher
 from service.write_scope import OutsideWriteScope, confined_input, confined_output
@@ -325,6 +331,20 @@ def _require_installed(model_name: Optional[str]) -> str:
     if missing:
         raise HTTPException(409, missing)
     return name
+
+
+def _require_face_enhance(face_enhance: Optional[bool]) -> None:
+    """Refuse a Face Enhancement request with 409 when it cannot run here.
+
+    Checked before a job is queued or a model is loaded, so the caller hears
+    what to install (or that this install cannot run it) instead of getting
+    an upscale without it.
+    """
+    if not face_enhance:
+        return
+    problem = face_enhance_unavailable_message()
+    if problem:
+        raise HTTPException(409, problem)
 
 
 def _start_video_job(
@@ -763,7 +783,13 @@ def list_models():
     configured = _config.default_model if _config else None
     installed = [m["name"] for m in listing["downloaded"]]
     request_default = resolve_default_model(configured, installed) if installed else None
-    return {**listing, "default_model": configured, "request_default": request_default}
+    return {
+        **listing,
+        "default_model": configured,
+        "request_default": request_default,
+        # Whether Face Enhancement can run here and what its Install still fetches.
+        "face_enhance": face_enhance_status(face_enhance_supported()),
+    }
 
 
 @app.post("/models/download")
@@ -771,6 +797,9 @@ def download_model(req: ModelDownloadRequest, request: Request):
     verify_token(request)
     if not _model_manager:
         raise HTTPException(503, "Service not initialized")
+    if req.model == FACE_ENHANCE_MODEL and not face_enhance_supported():
+        # Its weights would sit unused.
+        raise HTTPException(409, face_enhance_unavailable_message())
     try:
         path = _model_manager.download_model(req.model)
         return {"status": "downloaded", "model": req.model, "path": path}
@@ -790,6 +819,7 @@ def upscale_image_endpoint(req: ImageUpscaleRequest, request: Request):
     if img is None:
         raise HTTPException(400, f"Could not read image: {req.input_path}")
     _require_installed(req.model)
+    _require_face_enhance(req.face_enhance)
 
     # Serialise model swap + upscale together — see `_image_upscale_lock`
     # comment near the globals for the race we're avoiding.
@@ -839,6 +869,7 @@ async def upscale_image_upload(
     if img is None:
         raise HTTPException(400, "Could not decode image")
     _require_installed(model)
+    _require_face_enhance(face_enhance)
 
     # See `_image_upscale_lock` comment — same race as /upscale/image.
     with _image_upscale_lock:
@@ -890,6 +921,7 @@ def upscale_images_endpoint(req: ImageBatchUpscaleRequest, request: Request):
     if missing:
         raise HTTPException(400, f"Input file not found: {missing[0]}")
     _require_installed(req.model)
+    _require_face_enhance(req.face_enhance)
 
     job = _start_image_batch_job(
         inputs=inputs,
@@ -918,6 +950,7 @@ def upscale_video_endpoint(req: VideoUpscaleRequest, request: Request):
         base = os.path.splitext(input_path)[0]
         output_path = _free_output_path(confined_output(f"{base}_{req.suffix}.mp4"))
     _require_installed(req.model)
+    _require_face_enhance(req.face_enhance)
 
     # Note: VRAM is checked at job-start time (inside the worker), not here.
     # When jobs are queued, free VRAM at submission time is irrelevant — by

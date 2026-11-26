@@ -285,12 +285,33 @@ const UpscalingPage = ({ embedded = false }) => {
     }
   }, []);
 
+  // Face Enhancement's weights install like a model but are not an upscaling
+  // model: installing them turns the switch on instead of selecting them.
+  const faceEnhanceInfo = models.face_enhance || null;
   const handleUpscalingModelInstalled = useCallback(
     (name) => {
+      if (faceEnhanceInfo && name === faceEnhanceInfo.name) {
+        refreshModels();
+        setFaceEnhance(true);
+        return;
+      }
       refreshModels({ selectModel: name });
     },
-    [refreshModels],
+    [refreshModels, faceEnhanceInfo],
   );
+
+  // The service refuses a Face Enhancement request it cannot run, so the
+  // switch is off until it can: where gfpgan does not load it says so, and
+  // where only the weights are missing it offers their Install.
+  const faceEnhanceUnsupported = !!serviceAvailable && modelsLoaded && faceEnhanceInfo?.supported === false;
+  const faceEnhanceToInstall =
+    !!serviceAvailable && modelsLoaded && faceEnhanceInfo?.supported === true && !faceEnhanceInfo.installed
+      ? faceEnhanceInfo
+      : null;
+  const faceEnhanceBlocked = faceEnhanceUnsupported || !!faceEnhanceToInstall;
+  useEffect(() => {
+    if (faceEnhanceBlocked) setFaceEnhance(false);
+  }, [faceEnhanceBlocked]);
 
   // Upscaling never downloads a model. With none installed a request would use
   // the service's default and be refused, so the page offers Install for it.
@@ -1016,23 +1037,41 @@ const UpscalingPage = ({ embedded = false }) => {
                   }
                 />
 
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={faceEnhance}
-                      onChange={(e) => setFaceEnhance(e.target.checked)}
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                  <FormControlLabel
+                    sx={{ flex: 1 }}
+                    control={
+                      <Switch
+                        checked={faceEnhance}
+                        onChange={(e) => setFaceEnhance(e.target.checked)}
+                        disabled={faceEnhanceBlocked}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Stack>
+                        <Typography variant="body2">{t("upscaling.settings.faceEnhance")}</Typography>
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                          {faceEnhanceUnsupported
+                            ? t("upscaling.settings.faceEnhanceUnsupported")
+                            : faceEnhanceToInstall
+                              ? t("upscaling.settings.faceEnhanceNotInstalled", { size: faceEnhanceToInstall.size_mb })
+                              : t("upscaling.settings.faceEnhanceHelp")}
+                        </Typography>
+                      </Stack>
+                    }
+                  />
+                  {faceEnhanceToInstall && (
+                    <Button
                       size="small"
-                    />
-                  }
-                  label={
-                    <Stack>
-                      <Typography variant="body2">{t("upscaling.settings.faceEnhance")}</Typography>
-                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                        {t("upscaling.settings.faceEnhanceHelp")}
-                      </Typography>
-                    </Stack>
-                  }
-                />
+                      startIcon={<CloudDownloadIcon />}
+                      onClick={() => openUpscalingModels(faceEnhanceToInstall.name)}
+                      sx={{ flexShrink: 0, whiteSpace: "nowrap" }}
+                    >
+                      {t("upscaling.settings.install")}
+                    </Button>
+                  )}
+                </Stack>
 
                 {!isImageMode && (
                   <FormControlLabel

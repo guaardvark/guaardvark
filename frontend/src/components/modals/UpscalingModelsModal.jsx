@@ -1,5 +1,6 @@
 // frontend/src/components/modals/UpscalingModelsModal.jsx
-// Install registered upscaling weights (plugin model registry).
+// Install registered upscaling weights (plugin model registry), and the Face
+// Enhancement weights where the service can run them.
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
@@ -45,6 +46,17 @@ function buildRows(payload) {
     incomplete: m.incomplete,
   }));
   const rows = [...downloaded, ...available];
+  // Offered only where gfpgan loads in the service; elsewhere the weights
+  // would sit unused.
+  const face = payload.face_enhance;
+  if (face?.supported) {
+    rows.push({
+      name: face.name,
+      size_mb: face.installed ? null : face.size_mb,
+      is_downloaded: !!face.installed,
+      is_face_enhance: true,
+    });
+  }
   rows.sort((a, b) => a.name.localeCompare(b.name));
   return rows;
 }
@@ -143,7 +155,13 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
                           {model.name}
                         </Typography>
                         <Chip
-                          label={model.scale != null ? `${model.scale}x` : "—"}
+                          label={
+                            model.is_face_enhance
+                              ? t("models.upscalingModels.faceEnhance")
+                              : model.scale != null
+                                ? `${model.scale}x`
+                                : "—"
+                          }
                           size="small"
                           variant="outlined"
                         />
@@ -153,7 +171,11 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
                       </Box>
                     }
                     secondary={
-                      model.is_downloaded ? (
+                      model.is_face_enhance ? (
+                        model.is_downloaded
+                          ? t("models.upscalingModels.faceEnhanceReady")
+                          : t("models.upscalingModels.faceEnhanceNotInstalled")
+                      ) : model.is_downloaded ? (
                         t("models.upscalingModels.ready")
                       ) : model.incomplete ? (
                         <Typography variant="body2" component="span" title={model.incomplete} sx={{ color: "warning.main" }}>

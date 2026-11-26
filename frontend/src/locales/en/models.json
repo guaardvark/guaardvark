@@ -140,6 +140,9 @@
     "title": "Manage Upscaling Models",
     "ready": "Ready to use in the upscaler",
     "notInstalled": "Not installed — Install adds it to the model dropdown",
+    "faceEnhance": "Face Enhancement",
+    "faceEnhanceReady": "Ready for Face Enhancement",
+    "faceEnhanceNotInstalled": "Not installed — GFPGAN v1.4 with the face detector and parser it uses; Install turns on Face Enhancement",
     "noModels": "No upscaling models returned from the service."
   },
   "videoModels": {

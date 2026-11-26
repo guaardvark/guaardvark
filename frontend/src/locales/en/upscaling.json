@@ -13,6 +13,8 @@
     "twoPassHelp": "Runs model twice for higher quality (slower)",
     "faceEnhance": "Face Enhancement",
     "faceEnhanceHelp": "Restores faces using GFPGAN",
+    "faceEnhanceUnsupported": "Not available on this install: the gfpgan package does not load in the upscaling service.",
+    "faceEnhanceNotInstalled": "Restores faces using GFPGAN. Not installed: Install fetches about {{size}} MB; upscaling never downloads it on its own.",
     "doubleFps": "Double Framerate",
     "doubleFpsHelp": "Interpolates frames for smoother motion (slower)",
     "sharpening": "Sharpening",
