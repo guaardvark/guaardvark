@@ -443,15 +443,20 @@ def _engine_cache_put(comfy_url: str, info: dict | None) -> None:
 
 
 
-def restore_size_nodes(image_ref: list, like_ref: list) -> dict:
+def restore_size_nodes(image_ref: list, like_ref: list, *, cover: bool = False) -> dict:
     """Graph nodes that resize ``image_ref`` to the exact width and height of
     ``like_ref``. An edit samples at the model's working resolution; this hands
-    back a picture the size of the one that was asked for."""
+    back a picture the size of the one that was asked for.
+
+    ``cover`` is for an ``image_ref`` whose shape differs from ``like_ref``'s:
+    it is scaled evenly until it covers that size and the overhang is trimmed
+    equally from both sides, instead of being stretched to fit."""
     return {
         "out_size": {"class_type": "GetImageSize", "inputs": {"image": like_ref}},
         "out_scale": {"class_type": "ImageScale", "inputs": {
             "image": image_ref, "upscale_method": "lanczos",
-            "width": ["out_size", 0], "height": ["out_size", 1], "crop": "disabled"}},
+            "width": ["out_size", 0], "height": ["out_size", 1],
+            "crop": "center" if cover else "disabled"}},
     }
 
 
@@ -1160,9 +1165,13 @@ class ComfyUIImageGenerator:
         Sampler floor is the Comfy Original table: 20 steps / CFG 2.5. The 4-step
         Lightning LoRA is not in this graph — it is a different quality contract.
 
-        The canvas (the picture, plus its padding for an outpaint) is sampled at
-        the registry's working area with its shape kept, then resized back, so
-        the result has the canvas's own width and height.
+        An edit is sampled at the registry's working area with the picture's
+        shape kept, then resized back to the picture's own width and height.
+
+        An outpaint is sampled at the Kontext preset size nearest the padded
+        canvas's shape, then scaled to cover the canvas, so the result has the
+        canvas's width and height. Up to a few percent of the canvas is trimmed
+        from two opposite edges where the preset's shape differs from it.
         """
         n = max(int(steps), QWEN_EDIT_MIN_STEPS)
         cfg = float(cfg) if cfg else 2.5
@@ -1208,12 +1217,21 @@ class ComfyUIImageGenerator:
                     }
                     img_ref = ["pad", 0]
                 canvas_ref = img_ref
-                # Not FluxKontextImageScale: it centre-crops the canvas to the
-                # nearest of a fixed list of sizes, which cuts the picture's
-                # edges and returns that size instead of the canvas's.
-                wf["scale"] = {"class_type": "ImageScaleToTotalPixels", "inputs": {
-                    "image": img_ref, "upscale_method": "lanczos",
-                    "megapixels": QWEN_EDIT_WORK_MEGAPIXELS, "resolution_steps": QWEN_EDIT_WORK_GRID}}
+                if "pad" in wf:
+                    # Neither scale ties the new margins' tone to the picture,
+                    # so an outpaint uses the one that was measured: ten sampled
+                    # at the preset size (20 steps, feathering 40) joined their
+                    # margins to the picture, one with a faint line; the one
+                    # sampled at the canvas's own shape (1856x896 at 1472x704)
+                    # had darker top and right margins with a straight join.
+                    wf["scale"] = {"class_type": "FluxKontextImageScale", "inputs": {"image": img_ref}}
+                else:
+                    # Not FluxKontextImageScale: it centre-crops the picture to
+                    # the nearest of a fixed list of sizes, which cuts its edges
+                    # and changes its shape.
+                    wf["scale"] = {"class_type": "ImageScaleToTotalPixels", "inputs": {
+                        "image": img_ref, "upscale_method": "lanczos",
+                        "megapixels": QWEN_EDIT_WORK_MEGAPIXELS, "resolution_steps": QWEN_EDIT_WORK_GRID}}
                 image_src = ["scale", 0]
                 wf["encode"] = {
                     "class_type": "VAEEncode",
@@ -1264,7 +1282,7 @@ class ComfyUIImageGenerator:
             },
         }
         wf["vae"] = {"class_type": "VAEDecode", "inputs": {"samples": ["sampler", 0], "vae": ["vae_loader", 0]}}
-        wf.update(restore_size_nodes(["vae", 0], canvas_ref))
+        wf.update(restore_size_nodes(["vae", 0], canvas_ref, cover="pad" in wf))
         wf["save"] = {"class_type": "SaveImage", "inputs": {"filename_prefix": "edit-qwen", "images": ["out_scale", 0]}}
         return wf
 

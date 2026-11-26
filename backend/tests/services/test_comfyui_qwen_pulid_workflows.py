@@ -51,14 +51,14 @@ def test_qwen_edit_workflow_pad_and_extra_refs():
     assert wf["outpaint_mask"]["inputs"]["mask"] == ["pad", 1]
     assert wf["sampler"]["inputs"]["latent_image"] == ["outpaint_mask", 0]
     assert wf["encode"]["inputs"]["pixels"] == ["scale", 0]
-    # Sampled at the working area with the canvas's shape kept, returned at the
-    # padded canvas's own size.
-    assert wf["scale"]["class_type"] == "ImageScaleToTotalPixels"
+    # Sampled at the preset size nearest the canvas, returned at the padded
+    # canvas's own size by covering it rather than stretching to it.
+    assert wf["scale"]["class_type"] == "FluxKontextImageScale"
     assert wf["scale"]["inputs"]["image"] == ["pad", 0]
     assert wf["out_size"]["inputs"]["image"] == ["pad", 0]
     assert wf["out_scale"]["inputs"]["width"] == ["out_size", 0]
     assert wf["out_scale"]["inputs"]["height"] == ["out_size", 1]
-    assert wf["out_scale"]["inputs"]["crop"] == "disabled"
+    assert wf["out_scale"]["inputs"]["crop"] == "center"
     assert wf["save"]["inputs"]["images"] == ["out_scale", 0]
 
 
@@ -69,7 +69,10 @@ def test_qwen_edit_workflow_without_pad_samples_the_whole_image():
     assert "outpaint_mask" not in wf and "scale_ref" not in wf
     assert wf["sampler"]["inputs"]["latent_image"] == ["encode", 0]
     assert wf["pos"]["inputs"]["image1"] == ["scale", 0]
-    # An edit comes back the source's own size.
+    # An edit keeps the source's shape while it is sampled and comes back the
+    # source's own size.
+    assert wf["scale"]["class_type"] == "ImageScaleToTotalPixels"
+    assert wf["out_scale"]["inputs"]["crop"] == "disabled"
     assert wf["out_size"]["inputs"]["image"] == ["load1", 0]
     assert wf["out_scale"]["inputs"]["image"] == ["vae", 0]
     assert wf["save"]["inputs"]["images"] == ["out_scale", 0]
