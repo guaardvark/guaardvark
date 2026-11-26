@@ -892,6 +892,35 @@ def _fallback_num_ctx(model_name: str) -> int:
     return DEFAULT_TEXT_NUM_CTX if is_text_chat_model(model_name) else DEFAULT_VISION_NUM_CTX
 
 
+def placement_options(model_name: str) -> dict:
+    """Ollama ``options`` that keep a model off the GPU while another job has it.
+
+    Ollama places a model by the VRAM free at the moment it loads. A render or
+    training job sized itself for the card it found, and may not have filled
+    its share yet, so a chat model loading beside it takes that memory and the
+    render runs out (a Wan 2.2 render died this way 80 s in). While such a job
+    holds the card, a model that is not already on it is asked for on the CPU
+    (``num_gpu: 0``): a slower answer, and the render keeps its memory. A model
+    already on the card is left there. Once the job ends the options are empty
+    again; Ollama keeps a runner it loaded on the CPU, so the chat engine's
+    :func:`reload_onto_gpu_if_room` on the next turn is what moves it back.
+
+    Empty when the card is free, or when the probes cannot say.
+    """
+    if not model_name:
+        return {}
+    try:
+        from backend.utils.gpu_check import gpu_reserved_reason
+        reason = gpu_reserved_reason()
+        if reason is None or resident_entry(model_name) is not None:
+            return {}
+    except Exception as e:  # noqa: BLE001 - a failed probe must not change placement
+        logger.debug("placement probe failed for %s: %s", model_name, e)
+        return {}
+    logger.info("%s runs on the CPU for this request: %s", model_name, reason)
+    return {"num_gpu": 0}
+
+
 def request_options(model_name: str, **overrides) -> dict:
     """``options`` for an Ollama request, with ``num_ctx`` always set.
 
@@ -901,9 +930,13 @@ def request_options(model_name: str, **overrides) -> dict:
     offloads its KV cache to RAM). Either way the runner reloads when the next
     request asks for a different size. Every caller that is not the chat
     engine's sized path builds its options here so no request leaves unsized.
-    An explicit ``num_ctx`` in ``overrides`` wins.
+    An explicit ``num_ctx`` in ``overrides`` wins. So does an explicit
+    ``num_gpu``; without one the model is kept off a GPU that a render or
+    training job holds (:func:`placement_options`).
     """
     opts = {k: v for k, v in overrides.items() if v is not None}
+    if "num_gpu" not in opts:
+        opts.update(placement_options(model_name))
     if not opts.get("num_ctx"):
         opts["num_ctx"] = compute_optimal_num_ctx(model_name)
     return opts
