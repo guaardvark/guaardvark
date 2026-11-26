@@ -636,6 +636,10 @@ def list_templates():
                 # plan_<timestamp>.md files are one-off launches, not templates.
                 continue
             seen.add(f.name)
+            task_count = _task_count(f)
+            if not task_count:
+                # A file with no tasks cannot be launched, so it is not offered.
+                continue
             lines = f.read_text().split("\n")
             title = lines[0].lstrip("# ").strip() if lines else f.stem
             desc = ""
@@ -653,7 +657,7 @@ def list_templates():
                 "saved": saved,
                 "title": title,
                 "description": desc,
-                "task_count": _task_count(f),
+                "task_count": task_count,
             })
 
     templates.sort(key=lambda t: t["filename"])
