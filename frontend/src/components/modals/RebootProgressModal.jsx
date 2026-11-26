@@ -10,6 +10,7 @@ import {
   Alert,
   Paper,
   LinearProgress,
+  CircularProgress,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
@@ -29,6 +30,14 @@ import { useUiTranslation } from '../../i18n';
 const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07/g;
 const stripAnsi = (s) => s.replace(ANSI_RE, '');
 
+// One missed poll is a reconnect, not the end of the feed. Quiet is how long
+// a reachable log may sit still, after the API is healthy, before the reboot
+// counts as finished. The cap is the old five-minute poll budget.
+const POLL_MS = 1000;
+const QUIET_MS = 15000;
+const MAX_POLL_MS = 5 * 60 * 1000;
+const BOOT_DONE_RE = /GPU stack: (?:healthy\.|DEGRADED\b)/;
+
 const RebootProgressModal = ({ open, onClose }) => {
   const { t } = useUiTranslation();
   const _theme = useTheme();
@@ -44,6 +53,10 @@ const RebootProgressModal = ({ open, onClose }) => {
   const logOffsetRef = useRef(0);
   const pollingRef = useRef(null);
   const mountedRef = useRef(true);
+  const reconnectingShownRef = useRef(false);
+  const bootDoneRef = useRef(false);
+  const pollingStartedRef = useRef(false);
+  const finishedRef = useRef(false);
 
   // Auto-scroll on new output
   useEffect(() => {
@@ -73,6 +86,10 @@ const RebootProgressModal = ({ open, onClose }) => {
       setRefusal(null);
       logOffsetRef.current = 0;
       logServerUrlRef.current = null;
+      reconnectingShownRef.current = false;
+      bootDoneRef.current = false;
+      pollingStartedRef.current = false;
+      finishedRef.current = false;
       if (pollingRef.current) { clearTimeout(pollingRef.current); pollingRef.current = null; }
       startReboot();
     } else {
@@ -146,7 +163,9 @@ const RebootProgressModal = ({ open, onClose }) => {
             if (data.type === 'log_server') {
               logServerUrlRef.current = data.url;
             } else if (data.type === 'output') {
-              addLine('output', stripAnsi(data.line));
+              const text = stripAnsi(data.line);
+              if (BOOT_DONE_RE.test(text)) bootDoneRef.current = true;
+              addLine('output', text);
             } else if (data.type === 'status') {
               addLine('status', data.message);
             } else if (data.type === 'warning') {
@@ -166,25 +185,43 @@ const RebootProgressModal = ({ open, onClose }) => {
           }
         }
       }
+      // The socket closed cleanly before the "switch to polling" event, which
+      // is what happens when stop.sh kills Flask mid-stream.
+      if (logServerUrlRef.current) startLogServerPolling();
     } catch (err) {
       if (err.name === 'AbortError') return;
 
-      // Network error or stream error = Flask died (expected during reboot)
-      if (err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('Network') || err.message?.includes('input stream') || err.message?.includes('stream')) {
-        addLine('status', t('backups.reboot.connectionLost'));
+      // Flask dying drops the socket. Any error after the log-server URL
+      // arrived is that handoff, whatever the browser calls it.
+      if (logServerUrlRef.current) {
+        noteReconnecting();
         startLogServerPolling();
         return;
       }
+      const message = err.message || '';
+      if (err.name === 'TypeError' || /fetch|network|stream/i.test(message)) {
+        addLine('status', t('backups.reboot.waitingForOnline'));
+        startHealthCheckPolling();
+        return;
+      }
 
-      setErrorMessage(err.message || t('backups.reboot.startFailed'));
+      setErrorMessage(message || t('backups.reboot.startFailed'));
       setStatus('error');
-      addLine('error', err.message || t('backups.reboot.startFailed'));
+      addLine('error', message || t('backups.reboot.startFailed'));
     }
+  };
+
+  // One line for the gap. A retry must not stack another copy.
+  const noteReconnecting = () => {
+    if (reconnectingShownRef.current) return;
+    reconnectingShownRef.current = true;
+    addLine('status', t('backups.reboot.reconnecting'));
   };
 
   // ---- Phase 2: Poll the standalone log server ----
 
   const startLogServerPolling = () => {
+    if (pollingStartedRef.current) return;
     const url = logServerUrlRef.current;
     if (!url) {
       // No log server — skip straight to health-check polling
@@ -192,57 +229,64 @@ const RebootProgressModal = ({ open, onClose }) => {
       startHealthCheckPolling();
       return;
     }
+    pollingStartedRef.current = true;
 
-    let attempts = 0;
-    const MAX_ATTEMPTS = 150; // 5 min at 2s
-    let noUpdateCount = 0;
-    let logServerDead = false;
+    const started = Date.now();
+    let lastGrowth = Date.now();
+    let failSince = 0;
+
+    const readyToFinish = (lastPollOk) => {
+      if (bootDoneRef.current) return true;
+      if (lastPollOk && Date.now() - lastGrowth >= QUIET_MS) return true;
+      // The log server itself is gone. Keep trying through the outage; once
+      // it has been unreachable for a quiet window, the API health check is
+      // allowed to end the reboot. A server that is still answering is not.
+      return !lastPollOk && failSince !== 0 && Date.now() - failSince >= QUIET_MS;
+    };
 
     const poll = async () => {
-      if (!mountedRef.current) return;
-      if (attempts >= MAX_ATTEMPTS) {
+      if (!mountedRef.current || finishedRef.current) return;
+      if (Date.now() - started >= MAX_POLL_MS) {
         addLine('status', t('backups.reboot.maxPollingReached'));
         startHealthCheckPolling();
         return;
       }
-      attempts++;
 
-      // --- Try reading from log server ---
-      if (!logServerDead) {
-        try {
-          const resp = await fetch(`${url}/log?offset=${logOffsetRef.current}`);
-          const data = await resp.json();
-
-          if (data.success && data.content_lines?.length > 0) {
-            noUpdateCount = 0;
-            data.content_lines.forEach(ln => addLine('output', ln));
-            if (data.offset !== undefined) logOffsetRef.current = data.offset;
-          } else {
-            noUpdateCount++;
-          }
-        } catch {
-          // Log server died (maybe start.sh ended & it timed out, or port reused)
-          logServerDead = true;
-          noUpdateCount++;
+      let lastPollOk = false;
+      try {
+        const resp = await fetch(`${url}/log?offset=${logOffsetRef.current}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        lastPollOk = true;
+        failSince = 0;
+        if (data.success && data.content_lines?.length > 0) {
+          lastGrowth = Date.now();
+          data.content_lines.forEach((ln) => {
+            if (BOOT_DONE_RE.test(ln)) bootDoneRef.current = true;
+            addLine('output', ln);
+          });
+          if (data.offset !== undefined) logOffsetRef.current = data.offset;
         }
+      } catch {
+        lastPollOk = false;
+        if (failSince === 0) failSince = Date.now();
+        noteReconnecting();
       }
 
-      // --- Periodically try health check to see if Flask is back ---
-      if (noUpdateCount >= 5 || logServerDead) {
+      if (readyToFinish(lastPollOk)) {
         try {
           const health = await getBackendHealth();
           if (health?.status === 'ok') {
-            // Grab any final log lines from the new Flask instance
             await fetchFinalLog();
             finishReboot();
             return;
           }
         } catch {
-          // Flask not up yet — keep polling
+          // Flask not up yet — keep polling the log
         }
       }
 
-      pollingRef.current = setTimeout(poll, 2000);
+      pollingRef.current = setTimeout(poll, POLL_MS);
     };
 
     poll();
@@ -301,7 +345,12 @@ const RebootProgressModal = ({ open, onClose }) => {
   };
 
   const finishReboot = () => {
-    if (!mountedRef.current) return;
+    if (!mountedRef.current || finishedRef.current) return;
+    finishedRef.current = true;
+    if (pollingRef.current) {
+      clearTimeout(pollingRef.current);
+      pollingRef.current = null;
+    }
     setStatus('complete');
     addLine('status', t('backups.reboot.backOnline'));
 
@@ -330,7 +379,9 @@ const RebootProgressModal = ({ open, onClose }) => {
     ? <CheckCircleIcon color="success" />
     : status === 'error'
       ? <ErrorIcon color="error" />
-      : <RestartIcon color="primary" sx={status === 'running' ? { animation: 'spin 2s linear infinite', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } } } : {}} />;
+      : status === 'running'
+        ? <CircularProgress size={22} thickness={4} aria-label={t('backups.reboot.rebooting')} data-testid="reboot-spinner" />
+        : <RestartIcon color="primary" data-testid="reboot-mark" />;
 
   return (
     <Dialog

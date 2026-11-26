@@ -105,7 +105,9 @@ def stream_reboot():
             yield _sse("status", message="Starting reboot process...")
 
             # -- Spawn standalone log server --
-            log_server_url = f"http://localhost:{log_server_port}"
+            # 127.0.0.1, not localhost: the server binds that address, and
+            # localhost is ::1 on some machines, so every poll would fail.
+            log_server_url = f"http://127.0.0.1:{log_server_port}"
             try:
                 # Stop any leftover log server from a previous reboot
                 import urllib.request

@@ -9,6 +9,74 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATUS_FILE="$REPO_ROOT/data/gpu_stack_status.json"
 DEGRADED=()
 
+# Palette only. The vader_* printers fold into the phase board while it is
+# open, and this card scrolls under the ready line, so it draws itself.
+# set +u: terminal_ui.sh is sourced by scripts that do not run under set -u.
+set +u
+# shellcheck source=lib/terminal_ui.sh
+. "$REPO_ROOT/scripts/lib/terminal_ui.sh"
+set -u
+
+# kind is ok, skip, or bad. Plain mode keeps the historical "mark label: detail"
+# line so a pipe, NO_COLOR, and the reboot log stay what they were.
+gpu_row() {
+    local kind="$1" label="$2" detail="$3" mark mcol ncol
+    if [ "${_VADER_COLOR:-0}" != 1 ]; then
+        case "$kind" in
+            ok) mark="✔" ;;
+            skip) mark="–" ;;
+            *) mark="⚠" ;;
+        esac
+        echo "  $mark $label: $detail"
+        return 0
+    fi
+    case "$kind" in
+        ok) mark="✔"; mcol=$VADER_OK; ncol=$VADER_INK ;;
+        skip) mark="–"; mcol=$VADER_MUTED; ncol=$VADER_DIM ;;
+        *) mark="⚠"; mcol=$VADER_WARN; ncol=$VADER_DIM ;;
+    esac
+    printf '  %b%s%b  %b%-22s%b  %b%s%b\n' \
+        "$mcol" "$mark" "$VADER_RESET" \
+        "$ncol" "$label" "$VADER_RESET" \
+        "$VADER_DIM" "$detail" "$VADER_RESET"
+}
+
+gpu_banner() {
+    if [ "${_VADER_COLOR:-0}" != 1 ]; then
+        echo "GPU stack verification (advisory):"
+        return 0
+    fi
+    echo ""
+    printf '  %s' "$(_vader_gradient "GPU stack" 186 178 255 80 220 176)"
+    printf '   %badvisory%b\n' "$VADER_DIM" "$VADER_RESET"
+    echo ""
+    printf '  '
+    _vader_rule "$(_vader_rule_width)"
+}
+
+gpu_footer() {
+    if [ "${_VADER_COLOR:-0}" != 1 ]; then
+        if [ ${#DEGRADED[@]} -eq 0 ]; then
+            echo "GPU stack: healthy."
+        else
+            echo "GPU stack: DEGRADED (${DEGRADED[*]}). System still boots; see $STATUS_FILE."
+        fi
+        return 0
+    fi
+    echo ""
+    printf '  '
+    _vader_rule "$(_vader_rule_width)"
+    echo ""
+    if [ ${#DEGRADED[@]} -eq 0 ]; then
+        printf '  %b%s%b\n' "$VADER_OK" "GPU stack: healthy." "$VADER_RESET"
+    else
+        printf '  %b%s%b\n' "$VADER_WARN" \
+            "GPU stack: DEGRADED (${DEGRADED[*]}). System still boots; see $STATUS_FILE." \
+            "$VADER_RESET"
+    fi
+    echo ""
+}
+
 # A plugin whose manifest declares requirements.gpu=false is a CPU pipeline by
 # design (e.g. video_editor: MLT/auto-editor, no torch import anywhere). Its venv
 # correctly carries the +cpu torch wheel, so torch.zeros(1).cuda() ALWAYS raises
@@ -35,7 +103,7 @@ check_venv() {
     local label="$1" py="$2"
     [ -x "$py" ] || { return 0; }   # venv absent = not provisioned, not degraded
     if plugin_declares_no_gpu "$py"; then
-        echo "  – $label: CPU-only plugin (plugin.json requirements.gpu=false) — GPU check skipped"
+        gpu_row skip "$label" "CPU-only plugin (plugin.json requirements.gpu=false) — GPU check skipped"
         return 0
     fi
     # Distinguish a broken torch *import* from a torch that imports but can't run
@@ -68,22 +136,22 @@ print("OK")
 PY
 )"; then
         case "$err" in
-            OK_MPS*) echo "  ✔ $label: Metal/MPS active" ;;
-            *)       echo "  ✔ $label: GPU kernel OK" ;;
+            OK_MPS*) gpu_row ok "$label" "Metal/MPS active" ;;
+            *)       gpu_row ok "$label" "GPU kernel OK" ;;
         esac
     else
         local short="${err:0:140}"
         case "$err" in
-            IMPORT_FAIL:*) echo "  ⚠ $label: torch failed to IMPORT — ${short#IMPORT_FAIL: }" ;;
-            MPS_UNAVAIL:*) echo "  ⚠ $label: Metal/MPS unavailable — ${short#MPS_UNAVAIL: }" ;;
-            KERNEL_FAIL:*) echo "  ⚠ $label: torch imports but GPU kernel failed — ${short#KERNEL_FAIL: }" ;;
-            *)             echo "  ⚠ $label: torch GPU check failed — ${short}" ;;
+            IMPORT_FAIL:*) gpu_row bad "$label" "torch failed to IMPORT — ${short#IMPORT_FAIL: }" ;;
+            MPS_UNAVAIL:*) gpu_row bad "$label" "Metal/MPS unavailable — ${short#MPS_UNAVAIL: }" ;;
+            KERNEL_FAIL:*) gpu_row bad "$label" "torch imports but GPU kernel failed — ${short#KERNEL_FAIL: }" ;;
+            *)             gpu_row bad "$label" "torch GPU check failed — ${short}" ;;
         esac
         DEGRADED+=("$label")
     fi
 }
 
-echo "GPU stack verification (advisory):"
+gpu_banner
 check_venv "backend"             "$REPO_ROOT/backend/venv/bin/python"
 check_venv "audio_foundry"       "$REPO_ROOT/plugins/audio_foundry/venv/bin/python"
 check_venv "audio_foundry-music" "$REPO_ROOT/plugins/audio_foundry/venv-music/bin/python"
@@ -106,9 +174,9 @@ else:
 PY
 )
 if curl -sf --max-time 3 "http://localhost:${COMFY_PORT}/" >/dev/null 2>&1; then
-    echo "  ✔ comfyui: reachable on port ${COMFY_PORT}"
+    gpu_row ok "comfyui" "reachable on port ${COMFY_PORT}"
 else
-    echo "  ⚠ comfyui: not reachable on port ${COMFY_PORT} (start with: bash $REPO_ROOT/plugins/comfyui/scripts/start.sh)"
+    gpu_row bad "comfyui" "not reachable on port ${COMFY_PORT} (start with: bash $REPO_ROOT/plugins/comfyui/scripts/start.sh)"
     DEGRADED+=("comfyui")
 fi
 # Ollama: is a model loaded fully on GPU? `ollama ps` prints a PROCESSOR column.
@@ -116,20 +184,20 @@ if command -v ollama >/dev/null 2>&1 && ollama ps >/dev/null 2>&1; then
     # Match the PROCESSOR column ("NN% CPU"), not a model NAME that contains
     # "cpu" (e.g. a model called cpu-bench would otherwise false-positive).
     if ollama ps 2>/dev/null | grep -qiE '[0-9]+%[[:space:]]*cpu'; then
-        echo "  ⚠ ollama: a model is (partly) on CPU — check NUM_PARALLEL vs VRAM"
+        gpu_row bad "ollama" "a model is (partly) on CPU — check NUM_PARALLEL vs VRAM"
         DEGRADED+=("ollama-cpu-offload")
     else
-        echo "  ✔ ollama: reachable (no CPU-offload flagged)"
+        gpu_row ok "ollama" "reachable (no CPU-offload flagged)"
     fi
 fi
 
 mkdir -p "$REPO_ROOT/data"
 if [ ${#DEGRADED[@]} -eq 0 ]; then
     printf '{"degraded": false, "components": []}\n' > "$STATUS_FILE"
-    echo "GPU stack: healthy."
+    gpu_footer
 else
     printf '{"degraded": true, "components": [%s]}\n' \
         "$(printf '"%s",' "${DEGRADED[@]}" | sed 's/,$//')" > "$STATUS_FILE"
-    echo "GPU stack: DEGRADED (${DEGRADED[*]}). System still boots; see $STATUS_FILE."
+    gpu_footer
 fi
 exit 0

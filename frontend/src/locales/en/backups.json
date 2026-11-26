@@ -120,6 +120,7 @@
     "initiating": "Initiating reboot...",
     "switchingToPolling": "Switching to live log polling...",
     "connectionLost": "Server connection lost — services stopping...",
+    "reconnecting": "Reconnecting to the boot log…",
     "startFailed": "Failed to start reboot",
     "waitingForOnline": "Waiting for system to come back online...",
     "maxPollingReached": "Max polling time reached — checking health...",

@@ -10,8 +10,9 @@ Stops after a configurable timeout (default 5 minutes), or earlier on
 POST /shutdown.
 
 It listens on 127.0.0.1 only. The reboot page is handed
-http://localhost:<port>, which only a browser on this machine can reach; a
-browser on another device goes straight to polling the backend's health.
+http://127.0.0.1:<port>, the address that is actually bound (localhost may
+resolve to ::1 and refuse the connection). A browser on another device cannot
+reach it and keeps polling the backend's health instead.
 A reply names the requesting page in Access-Control-Allow-Origin only when
 the page is one of this install's frontend origins, which reboot_api.py passes
 as --allow-origin, so no other page can read the log. POST /shutdown is
