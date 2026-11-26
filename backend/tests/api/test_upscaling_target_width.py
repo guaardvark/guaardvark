@@ -74,6 +74,20 @@ def test_video_upload_sends_the_target(client, posted, width, suffix):
     assert payload["output_path"] == str(root / "output" / f"clip_{suffix}.mp4")
 
 
+def test_a_second_upload_of_a_name_keeps_the_first(client, posted):
+    c, root = client
+    for _ in range(2):
+        resp = c.post("/api/upscaling/upload", data={"file": _mp4(), "target_width": "3840"},
+                      content_type="multipart/form-data")
+        assert resp.status_code == 200
+
+    first, second = posted[0][1], posted[1][1]
+    assert first["output_path"] == str(root / "output" / "clip_4k.mp4")
+    assert second["input_path"] != first["input_path"]
+    assert second["output_path"] != first["output_path"]
+    assert second["output_path"].endswith("_4k.mp4")
+
+
 def test_video_upload_without_a_target_sends_none(client, posted):
     c, _ = client
     resp = c.post("/api/upscaling/upload", data={"file": _mp4()}, content_type="multipart/form-data")
