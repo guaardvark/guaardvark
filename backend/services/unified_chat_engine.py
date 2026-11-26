@@ -2772,6 +2772,9 @@ def emit_message_saved(emit_fn, session_id: str, request_id, message_id, role: s
         logger.debug(f"chat:message_saved emit failed (non-fatal): {e}")
 
 
+_ANSWERING_ON_CPU_STATUS = "Answering on the CPU while a render uses the GPU. This is slower than usual."
+
+
 class UnifiedChatEngine:
     """Core engine combining RAG + tools + conversation in one ReACT loop."""
 
@@ -5700,6 +5703,12 @@ class UnifiedChatEngine:
         # one without it would reload the model onto the GPU.
         from backend.utils.ollama_resource_manager import placement_options
         placement = placement_options(model_name)
+        if placement:
+            # The answer will be slow; say why in the chat's status line.
+            try:
+                emit_fn("chat:thinking", {"status": _ANSWERING_ON_CPU_STATUS})
+            except Exception as _serr:  # noqa: BLE001 - a status line must not fail the turn
+                logger.debug(f"CPU status line not sent: {_serr}")
 
         # Prioritize LLM load via orchestrator. This helps prevent image/video
         # jobs from evicting the chat model mid-analysis (the cause of the
