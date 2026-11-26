@@ -208,14 +208,14 @@ def upscale_video():
         return error_response(str(exc), 400)
 
     suffix = body.get("suffix") or _target_suffix(target_width)
-    # Where the result goes: the caller's path, else the plugin's own default
-    # beside the input. Either is sent only as a name no earlier result has.
-    wanted = body.get("output_path") or f"{os.path.splitext(input_path)[0]}_{suffix}.mp4"
-    output_path = _free_output_path(wanted)
+    try:
+        output_path = _video_output_path(input_path, body.get("output_path"), suffix)
+    except ValueError as exc:
+        return error_response(str(exc), 400)
 
     payload = {
         "input_path": input_path,
-        "output_path": output_path if output_path != wanted else body.get("output_path"),
+        "output_path": output_path,
         "model": body.get("model"),
         "scale": body.get("scale"),
         "target_width": target_width,
@@ -736,6 +736,53 @@ def _free_output_path(path: str) -> str:
         return path
     root, ext = os.path.splitext(path)
     return f"{root}_{_name_token()}{ext}"
+
+
+def _writable_path(path) -> Optional[str]:
+    """The real location of ``path`` (``..`` and symlinks followed) when a
+    result may be written there: inside the uploads or output folders and not
+    in a private one. None otherwise."""
+    from backend.services.document_path_resolver import private_output_folder, serve_roots
+    from backend.utils.path_guard import PathEscapesRoot, contained_path
+
+    try:
+        real = os.path.realpath(path)
+    except (OSError, ValueError, TypeError):
+        return None
+    if private_output_folder(real) is not None:
+        return None
+    for root in serve_roots():
+        try:
+            inside = contained_path(root, real)
+        except PathEscapesRoot:
+            continue
+        if inside != str(root):
+            return inside
+    return None
+
+
+def _video_output_path(input_path: str, wanted, suffix: str) -> str:
+    """Where a video upscale writes, as a name no earlier result has.
+
+    A path the caller names must be inside the uploads or output folders
+    (ValueError otherwise). With none named the result goes beside the input,
+    or into the upscaling output folder when the input sits somewhere results
+    are not written.
+    """
+    if not isinstance(suffix, str) or any(c in suffix for c in "/\\\x00"):
+        raise ValueError("suffix must not contain a path separator")
+    if wanted:
+        path = _writable_path(wanted) if isinstance(wanted, str) else None
+        if path is None:
+            raise ValueError("output_path must be inside the uploads or outputs folder")
+        return _free_output_path(path)
+    name = f"{os.path.splitext(os.path.basename(input_path))[0]}_{suffix}.mp4"
+    path = _writable_path(os.path.join(os.path.dirname(input_path), name))
+    if path is None:
+        folder = _get_upload_dir() / "output"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = str(folder / name)
+    return _free_output_path(path)
 
 
 def _target_suffix(target_width: Optional[int]) -> str:

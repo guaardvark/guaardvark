@@ -20,6 +20,8 @@ from backend.services.job_handoff import HANDOFFS
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(m, "_get_upload_dir", lambda: tmp_path)
+    # Results are written only under the output folders; here that is tmp_path.
+    monkeypatch.setattr("backend.config.OUTPUT_DIR", str(tmp_path))
     monkeypatch.setattr(m, "_start_upscaling_for_job", lambda: None)
     monkeypatch.setattr(m, "_gpu_turn", lambda _model: contextlib.nullcontext())
     monkeypatch.setenv(m.upscale_supervisor.ENV, "0")
@@ -211,3 +213,29 @@ def test_document_options_carry_the_target():
     body = {"model": "4x-UltraSharp", "target_width": 3840}
     options = m._image_options_from_form({k: str(v) for k, v in body.items()})
     assert options == {"model": "4x-UltraSharp", "target_width": 3840}
+
+
+def test_video_json_refuses_an_output_outside_the_output_folders(client, posted, tmp_path_factory):
+    c, root = client
+    elsewhere = tmp_path_factory.mktemp("elsewhere")
+    (root / "link").symlink_to(elsewhere)
+
+    for target in (elsewhere / "o.mp4", root / ".." / elsewhere.name / "o.mp4", root / "link" / "o.mp4"):
+        resp = c.post("/api/upscaling/upscale/video", json={"input_path": "/v/clip.mp4", "output_path": str(target)})
+        assert resp.status_code == 400, target
+    resp = c.post("/api/upscaling/upscale/video", json={"input_path": "/v/clip.mp4", "suffix": "../../x"})
+    assert resp.status_code == 400
+    assert posted == []
+
+
+def test_video_json_never_writes_beside_an_input_outside_the_output_folders(client, posted, tmp_path_factory):
+    """The default is beside the input only when the input is in a folder
+    results are written to; otherwise it is the upscaling output folder."""
+    c, root = client
+    elsewhere = tmp_path_factory.mktemp("elsewhere")
+
+    c.post("/api/upscaling/upscale/video", json={"input_path": str(elsewhere / "clip.mp4")})
+    c.post("/api/upscaling/upscale/video", json={"input_path": str(root / "videos" / "clip.mp4")})
+
+    assert posted[0][1]["output_path"] == str(root / "output" / "clip_upscaled.mp4")
+    assert posted[1][1]["output_path"] == str(root / "videos" / "clip_upscaled.mp4")
