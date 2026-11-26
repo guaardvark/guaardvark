@@ -100,9 +100,6 @@ def _not_the_agents_work(path: str) -> bool:
     return (path in _SWARM_OWN_FILES or path.endswith(".pyc")
             or any(part in _CACHE_DIRS for part in path.split("/")))
 
-# Tag values that mean "no preference", as the plan's "Assign to:" line reads them.
-_NO_PREFERENCE = ("", "any", "auto", "none")
-
 # Freeze-guard thresholds for the shared 60GB box. Each spawned agent is a
 # `claude`/`cline` subprocess that can balloon RAM (and carry "shadow RAM"
 # before psutil reflects it). Spawning into < this much free RAM, or any swap
@@ -194,6 +191,8 @@ class SwarmOrchestrator:
         self._cancel_event = threading.Event()
         self._waiting_on: str | None = None
         self._waiting_since: float | None = None
+        # The backend this launch named for tasks that name none.
+        self._default_backend: str | None = None
 
         # event callbacks — the future UI hooks into these
         self._on_event: Callable[[TimelineEvent], None] | None = None
@@ -205,6 +204,7 @@ class SwarmOrchestrator:
         max_agents: int | None = None,
         auto_merge: bool | None = None,
         dry_run: bool = False,
+        default_backend: str | None = None,
     ) -> SwarmResult:
         """
         Launch a swarm synchronously. Blocks until all agents complete.
@@ -215,6 +215,7 @@ class SwarmOrchestrator:
         fm = flight_mode if flight_mode is not None else self.config.flight_mode
         max_a = max_agents if max_agents is not None else self.config.max_concurrent_agents
         do_merge = auto_merge if auto_merge is not None else self.config.auto_merge
+        self._default_backend = default_backend
 
         # Swarm identity. launch_async has already issued one and handed it to
         # the caller, which tracks the swarm under it; keep that id.
@@ -608,29 +609,12 @@ class SwarmOrchestrator:
     def _launch_task(self, task: SwarmTask, online: bool) -> None:
         """Create a worktree and spawn an agent for a single task."""
         # select backend
-        preferred = task.preferred_backend
-        
-        # [Model: ...] and [Backend: ...] tags, keys in any letter case. A model
-        # tag wins over a backend tag; either one that names something
-        # unavailable fails the task rather than falling back.
-        tags = {str(k).strip().lower(): str(v).strip() for k, v in task.tags.items()}
-        model_tag = tags.get("model", "")
-        backend_tag = tags.get("backend", "")
-        if model_tag.lower() in _NO_PREFERENCE:
-            model_tag = ""
-        if backend_tag.lower() in _NO_PREFERENCE:
-            backend_tag = ""
-
-        if model_tag:
-            backend_config, reason = self.config.select_backend_for_model(model_tag, online=online)
-            if not backend_config:
-                raise RuntimeError(f"requested model {model_tag} not available: {reason}")
-        else:
-            if backend_tag:
-                preferred = backend_tag.lower()
-            backend_config, reason = self.config.select_backend(preferred, online=online)
-            if not backend_config and preferred:
-                raise RuntimeError(f"requested backend {preferred} not available: {reason}")
+        # A task that names a model or backend that is unavailable fails
+        # rather than falling back to another one.
+        backend_config, reason, named = self.config.backend_for_task(
+            task, online=online, default=self._default_backend)
+        if not backend_config and named:
+            raise RuntimeError(reason)
         if not backend_config:
             configured = list(self.config.backends.keys())
             import shutil

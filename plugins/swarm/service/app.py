@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from service.config import SwarmConfig, load_config, check_internet
+from service.config import NO_PREFERENCE, SwarmConfig, load_config, check_internet
 from service.deps_check import collect_dependency_status
 from service.models import generate_swarm_id
 from service.orchestrator import SwarmOrchestrator
@@ -105,6 +105,9 @@ class LaunchRequest(BaseModel):
     dry_run: bool = False
     self_code: bool = False
     acknowledge_dirty_tree: bool = False
+    # The backend for tasks that name none. Unset, such a task runs on the
+    # first installed local backend and never on a hosted one.
+    default_backend: Optional[str] = None
 
 
 class MergeRequest(BaseModel):
@@ -315,6 +318,23 @@ def launch_swarm(req: LaunchRequest):
             "warning_count": len(warnings),
         }
 
+    default_backend = (req.default_backend or "").strip().lower()
+    if default_backend in NO_PREFERENCE:
+        default_backend = None
+    elif default_backend not in _config.backends:
+        raise HTTPException(
+            400, f"Unknown backend: {default_backend} (configured: {', '.join(_config.backends) or 'none'})")
+
+    # A plan no installed backend would run is refused once, here, instead of
+    # starting and failing task by task.
+    try:
+        cannot_run = _config.plan_cannot_run(
+            parse_plan(plan_path), online=_online(req.flight_mode), default=default_backend)
+    except ValueError:
+        cannot_run = ""  # a plan that does not parse is reported by the launch below
+    if cannot_run:
+        raise HTTPException(409, cannot_run)
+
     orch = SwarmOrchestrator(repo_path, _config)
 
     try:
@@ -323,6 +343,7 @@ def launch_swarm(req: LaunchRequest):
             flight_mode=req.flight_mode,
             max_agents=req.max_agents,
             auto_merge=auto_merge,
+            default_backend=default_backend,
         )
     except ValueError as e:
         # plan parse failed — don't register a broken swarm
@@ -337,6 +358,12 @@ def launch_swarm(req: LaunchRequest):
         "swarm_id": swarm_id,
         "message": f"Swarm launched: {swarm_id}",
     }
+
+
+def _online(flight_mode: Optional[bool] = None) -> bool:
+    """Whether a swarm launched now would run online, as the orchestrator decides it."""
+    flight = _config.flight_mode if flight_mode is None else flight_mode
+    return not flight and check_internet(_config.offline_ping_target, _config.offline_ping_timeout)
 
 
 # --- Status ---

@@ -21,6 +21,9 @@ logger = logging.getLogger("swarm.config")
 PLUGIN_DIR = Path(__file__).parent.parent
 DEFAULT_CONFIG_PATH = PLUGIN_DIR / "config.yaml"
 
+# Tag values that mean "no preference", as the plan's "Assign to:" line reads them.
+NO_PREFERENCE = ("", "any", "auto", "none")
+
 
 @dataclass
 class BackendConfig:
@@ -106,7 +109,7 @@ class SwarmConfig:
         A named backend is used or refused, never swapped for another. A task
         that names none runs on the first installed local backend: a hosted
         backend receives the task and the repository's code, so it runs only
-        when a task names it.
+        when a task or the launch names it.
         """
         import shutil
 
@@ -129,9 +132,60 @@ class SwarmConfig:
         if hosted:
             return None, (
                 f"no local agent CLI is installed, and a hosted backend ({', '.join(hosted)}) "
-                f"runs a task only when the task names it, for example [Backend: {hosted[0]}]"
+                f"runs only when the task or the launch names it, for example [Backend: {hosted[0]}]"
             )
         return None, "no configured backend is installed for this mode"
+
+    def backend_for_task(
+        self, task, online: bool = True, default: str | None = None,
+    ) -> tuple[BackendConfig | None, str, bool]:
+        """The backend a task would run on: (backend, reason it has none, whether
+        one was named).
+
+        [Model: ...] and [Backend: ...] tags are read with keys in any letter
+        case. A model tag wins over a backend tag, and a tag wins over the
+        plan's backend field. ``default`` is the backend the launch named for
+        tasks that name none. Whatever is named is used or refused, never
+        swapped for another backend.
+        """
+        tags = {str(k).strip().lower(): str(v).strip() for k, v in task.tags.items()}
+        model_tag = tags.get("model", "")
+        backend_tag = tags.get("backend", "")
+        if model_tag.lower() in NO_PREFERENCE:
+            model_tag = ""
+        if backend_tag.lower() in NO_PREFERENCE:
+            backend_tag = ""
+
+        if model_tag:
+            backend, reason = self.select_backend_for_model(model_tag, online=online)
+            if not backend:
+                reason = f"requested model {model_tag} not available: {reason}"
+            return backend, reason, True
+
+        preferred = backend_tag.lower() if backend_tag else task.preferred_backend
+        if not preferred and (default or "").strip().lower() not in NO_PREFERENCE:
+            preferred = default.strip().lower()
+        backend, reason = self.select_backend(preferred, online=online)
+        if not backend and preferred:
+            reason = f"requested backend {preferred} not available: {reason}"
+        return backend, reason, bool(preferred)
+
+    def plan_cannot_run(self, tasks, online: bool = True, default: str | None = None) -> str:
+        """Why no task of a plan has a backend to run on, or "" when one does.
+
+        Asked before a launch so a plan that can only fail is refused once,
+        instead of every task failing in turn.
+        """
+        reasons: list[str] = []
+        for task in tasks:
+            backend, reason, _named = self.backend_for_task(task, online=online, default=default)
+            if backend:
+                return ""
+            if reason not in reasons:
+                reasons.append(reason)
+        if not reasons:
+            return ""
+        return f"No task in this plan can run on this machine: {'; '.join(reasons)}."
 
     def select_backend_for_model(self, model: str, online: bool = True) -> tuple[BackendConfig | None, str]:
         """Pick the backend for a [Model: ...] tag: (backend, "") or (None, reason).

@@ -97,6 +97,22 @@
     "dirtyTree": "This install has changes that are not committed. Agents start from the last commit, so they will not see those changes. Press Launch again to go ahead.",
     "scheduledName": "Swarm: {{plan}}"
   },
+  "runOn": {
+    "label": "Run on",
+    "choose": "Choose the agent that runs this swarm's tasks.",
+    "hosted": "{{name}} (hosted)",
+    "local": "{{name}} (on this machine)",
+    "names": {
+      "claude": "Claude Code",
+      "cline": "Cline"
+    },
+    "hostedNote": "Each task and the code it works on are sent to this agent's provider.",
+    "notes": {
+      "claude": "Each task and the code it works on are sent to Anthropic."
+    },
+    "none": "No agent CLI is installed. Install Cline or Claude Code to launch a swarm.",
+    "noneOffline": "Flight Mode needs a local agent CLI, and none is installed."
+  },
   "editor": {
     "title": "Swarm Plan Editor",
     "aiHint": "Describe your task, and AI will generate the plan.md structure for you.",
