@@ -434,7 +434,9 @@ def _generate_one(
 
     try:
         if hold_gpu:
-            from backend.services.gpu_resource_policy import gpu_session
+            from backend.services.gpu_resource_policy import (
+                GpuWaitStopped, gpu_session, gpu_session_when_free,
+            )
             from backend.services.job_operation_gate import GpuBusyError
             from backend.services.job_types import JobKind
 
@@ -450,19 +452,35 @@ def _generate_one(
                 generator._vram_estimate_mb(model, width, height)
                 if hasattr(generator, "_vram_estimate_mb") else 11000
             )
+            op_id = f"stills_{source}_{uuid.uuid4().hex[:8]}"
+            session_kwargs = dict(
+                evict_ollama=True,
+                vram_estimate_mb=vram_est,
+                ram_estimate_gb=ram_est,
+                require_fit=True,
+                cross_process=True,
+                vram_reserve_mb=compositor_vram_reserve_mb(),
+            )
+            # A chat turn or a tool job queues behind a render that holds the
+            # card, with a status line, as the edit tools do; any other caller
+            # gets the immediate refusal.
+            from backend.tools.image_tools import _chat_gpu_wait
+            gpu_wait = _chat_gpu_wait()
+            if gpu_wait and gpu_wait.get("wait_s"):
+                claim = gpu_session_when_free(
+                    JobKind.VIDEO_RENDER, op_id, wait_s=gpu_wait["wait_s"],
+                    on_wait=gpu_wait["on_wait"], should_stop=gpu_wait["should_stop"],
+                    **session_kwargs,
+                )
+            else:
+                claim = gpu_session(JobKind.VIDEO_RENDER, op_id, on_busy="raise", **session_kwargs)
             try:
-                with gpu_session(
-                    JobKind.VIDEO_RENDER,
-                    f"stills_{source}_{uuid.uuid4().hex[:8]}",
-                    on_busy="raise",
-                    evict_ollama=True,
-                    vram_estimate_mb=vram_est,
-                    ram_estimate_gb=ram_est,
-                    require_fit=True,
-                    cross_process=True,
-                    vram_reserve_mb=compositor_vram_reserve_mb(),
-                ):
+                with claim:
                     gen_result = generator.generate_image(request)
+            except GpuWaitStopped:
+                return _stopped_still(
+                    prompt, enhance_mode, width=width, height=height, steps=steps, guidance=guidance,
+                )
             except GpuBusyError as busy:
                 logger.warning("stills admission refused (%s): %s", source, busy)
                 return StillResult(
