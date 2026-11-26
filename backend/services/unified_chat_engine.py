@@ -2772,10 +2772,6 @@ def emit_message_saved(emit_fn, session_id: str, request_id, message_id, role: s
         logger.debug(f"chat:message_saved emit failed (non-fatal): {e}")
 
 
-_ANSWERING_ON_CPU_STATUS = "Answering on the CPU while a render uses the GPU. This is slower than usual."
-_ANSWERING_BESIDE_JOB_STATUS = "Sharing the GPU with a render. This answer is slower than usual."
-
-
 class UnifiedChatEngine:
     """Core engine combining RAG + tools + conversation in one ReACT loop."""
 
@@ -5699,43 +5695,24 @@ class UnifiedChatEngine:
 
         model_name = getattr(self.llm, "model", "gemma4:e4b")
 
-        # A num_gpu while a render or training job holds the card and the chat
-        # model is not wholly on it: 0 for the CPU, else the layers that fit
-        # beside the job. Every request of this call carries it, since one
-        # with another value would reload the model.
-        from backend.utils.ollama_resource_manager import placement_options
-        placement = placement_options(model_name, self._chat_context_window())
-        if placement:
-            # The answer will be slow; say why in the chat's status line.
-            try:
-                emit_fn("chat:thinking", {"status": _ANSWERING_BESIDE_JOB_STATUS if placement.get("num_gpu")
-                                          else _ANSWERING_ON_CPU_STATUS})
-            except Exception as _serr:  # noqa: BLE001 - a status line must not fail the turn
-                logger.debug(f"CPU status line not sent: {_serr}")
-
         # Prioritize LLM load via orchestrator. This helps prevent image/video
         # jobs from evicting the chat model mid-analysis (the cause of the
         # "Ollama EOF (runner dropped)" errors the user saw when analyzing
         # external project folders like dat4.net).
-        # Neither applies to a turn placed beside a job: its share of the card
-        # is already decided (the booking evicts other models), and it must
-        # not be moved.
         try:
-            if not placement:
-                from backend.services.gpu_memory_orchestrator import get_orchestrator, ModelType
-                orch = get_orchestrator()
-                orch.request_model(
-                    slot_id=f"ollama:{model_name}",
-                    vram_estimate_mb=8192,
-                    priority=90,
-                    model_type=ModelType.OLLAMA_LLM,
-                )
+            from backend.services.gpu_memory_orchestrator import get_orchestrator, ModelType
+            orch = get_orchestrator()
+            orch.request_model(
+                slot_id=f"ollama:{model_name}",
+                vram_estimate_mb=8192,
+                priority=90,
+                model_type=ModelType.OLLAMA_LLM,
+            )
         except Exception as _oerr:
             logger.debug(f"Orchestrator pre-load for LLM skipped: {_oerr}")
         try:
-            if not placement:
-                from backend.utils.ollama_resource_manager import reload_onto_gpu_if_room
-                reload_onto_gpu_if_room(model_name)
+            from backend.utils.ollama_resource_manager import reload_onto_gpu_if_room
+            reload_onto_gpu_if_room(model_name)
         except Exception as _perr:
             logger.debug(f"GPU placement check skipped: {_perr}")
 
@@ -5857,7 +5834,7 @@ class UnifiedChatEngine:
                 sampling_profiles.DEFAULT_PROFILE,
                 num_ctx=ctx_window,
                 num_predict=num_predict,
-                extra={"num_keep": -1, **placement},
+                extra={"num_keep": -1},
             )
 
             # For thinking models: strip literal XML tags from messages to
@@ -6050,7 +6027,7 @@ class UnifiedChatEngine:
                     sampling_profiles.DEFAULT_PROFILE,
                     num_ctx=ctx_window,
                     num_predict=num_predict if reasons_anyway else max_tokens,
-                    extra={"num_keep": -1, **placement},
+                    extra={"num_keep": -1},
                 )
                 accumulated.clear()
                 xml_detected = False
@@ -6190,7 +6167,7 @@ class UnifiedChatEngine:
                                     "model": model_name,
                                     "prompt": " ",
                                     "stream": False,
-                                    "options": {"num_predict": 1, "num_ctx": ctx_window, **placement},
+                                    "options": {"num_predict": 1, "num_ctx": ctx_window},
                                     "keep_alive": get_chat_keep_alive(),
                                 },
                                 timeout=(8.0, 90.0),
@@ -6229,7 +6206,6 @@ class UnifiedChatEngine:
             try:
                 import time, requests
                 from backend.config import OLLAMA_BASE_URL, get_chat_keep_alive
-                from backend.utils.ollama_resource_manager import request_options
                 model = getattr(self.llm, "model", None)
                 if not model:
                     return
@@ -6243,7 +6219,7 @@ class UnifiedChatEngine:
                         "model": model,
                         "prompt": " ",
                         "stream": False,
-                        "options": request_options(model, num_predict=1, num_ctx=self._chat_context_window()),
+                        "options": {"num_predict": 1, "num_ctx": self._chat_context_window()},
                         "keep_alive": get_chat_keep_alive(),
                     },
                     timeout=(8.0, 90.0),

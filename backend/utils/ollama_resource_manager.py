@@ -296,16 +296,6 @@ def reload_onto_gpu_if_room(model_name: str) -> bool:
         if now - _placement_checked.get(model_name, 0.0) < _PLACEMENT_CHECK_EVERY_S:
             return False
         _placement_checked[model_name] = now
-    try:
-        # A job on the card has booked the free memory read below; while it runs
-        # placement_options decides where the model sits.
-        from backend.utils.gpu_check import gpu_reserved_reason
-        if gpu_reserved_reason() is not None:
-            with _placement_lock:
-                _placement_checked.pop(model_name, None)
-            return False
-    except Exception as e:  # noqa: BLE001
-        logger.debug("GPU hold probe failed for %s: %s", model_name, e)
     base = get_ollama_base_url()
     try:
         models = requests.get(f"{base}/api/ps", timeout=3).json().get("models") or []
@@ -403,7 +393,7 @@ def get_model_info(model_name: str) -> Optional[dict]:
     """
     Get model metadata from Ollama /api/show.
 
-    Returns dict with: size_mb, parameter_count, native_context, block_count, architecture, families
+    Returns dict with: size_mb, parameter_count, native_context, architecture, families
     Returns None if model not found or Ollama unavailable.
     """
     # Check cache
@@ -440,7 +430,6 @@ def get_model_info(model_name: str) -> Optional[dict]:
         loose_context = 0
         embedding_length = 0
         embedding_out = 0
-        block_count = 0
         for key, value in model_info_raw.items():
             # "<arch>.embedding_length" only: multimodal models also report
             # "<arch>.vision.embedding_length" and "<arch>.audio.embedding_length".
@@ -450,8 +439,6 @@ def get_model_info(model_name: str) -> Optional[dict]:
             # (gemma-embedding2: embedding_length 512, embedding_length_out 768).
             if key.endswith(".embedding_length_out") and key.count(".") == 1:
                 embedding_out = int(value)
-            if key.endswith(".block_count") and key.count(".") == 1:
-                block_count = int(value)
             if key.endswith(".context_length"):
                 native_context = int(value)
             elif "context_length" in key:
@@ -499,8 +486,6 @@ def get_model_info(model_name: str) -> Optional[dict]:
             "parameter_count": parameter_count,
             "native_context": native_context,
             "embedding_length": embedding_out or embedding_length,
-            # Transformer blocks; Ollama offloads these plus the output layer.
-            "block_count": block_count,
             "architecture": details.get("family", "unknown"),
             "families": details.get("families", []),
             "quantization": details.get("quantization_level", "unknown"),
@@ -907,161 +892,6 @@ def _fallback_num_ctx(model_name: str) -> int:
     return DEFAULT_TEXT_NUM_CTX if is_text_chat_model(model_name) else DEFAULT_VISION_NUM_CTX
 
 
-# --- Chat model placement beside a job that holds the GPU ---------------------
-# Kept free on top of what the job has booked: the 1,024 MB margin a render's
-# own admission check keeps, plus about 500 MB a runner with any layer on the
-# card takes above its weights and cache (see the qwen35 note above). Reasoned,
-# not yet measured against a render.
-PLACEMENT_HEADROOM_MB = 1536
-# Smallest share of the card worth a split load. For a 12B Q4 model (about
-# 180 MB a layer) this is 5 of 49 layers; with less the answer runs at CPU
-# speed and the runner's fixed cost on the card buys nothing. Reasoned.
-PLACEMENT_FLOOR_MB = 1024
-# Booking assumed for a job whose lease does not carry one (work started in
-# ComfyUI itself, a lease written before the booking was recorded). The video
-# registry books 11,000-12,000 MB for the 14B video models, the largest jobs a
-# 16 GB card admits, so an unknown job is treated as one of those.
-UNKNOWN_JOB_BOOKED_MB = 12000
-_JOB_PROBE_TTL_S = 2.0
-_JOB_PROBE_TIMEOUT_S = 1.0
-_job_probe: Dict[str, float] = {"at": 0.0, "unfilled": 0.0}
-# num_gpu sent for a model during the present hold (full model name -> layers),
-# so every later request repeats it: a different num_gpu reloads the model.
-_placement_sent: Dict[str, int] = {}
-_job_lock = threading.Lock()
-
-
-def _job_unfilled_mb() -> float:
-    """MB the job holding the card has booked and not yet taken; read at most
-    once per _JOB_PROBE_TTL_S.
-
-    The booking is on the cross-process lease (gpu_session records it). What
-    the job has taken is ComfyUI's own allocation while ComfyUI is running a
-    prompt, else the lease holder's process as nvidia-smi lists it. A reading
-    that fails counts as nothing taken, the answer that leaves the job most room.
-    """
-    now = time.monotonic()
-    with _job_lock:
-        if now - _job_probe["at"] < _JOB_PROBE_TTL_S:
-            return _job_probe["unfilled"]
-    booked, pid, used = float(UNKNOWN_JOB_BOOKED_MB), 0, 0.0
-    try:
-        from backend.services.gpu_resource_coordinator import get_gpu_coordinator
-        lease = get_gpu_coordinator().lease_record() or {}
-        pid = int(lease.get("pid") or 0)
-        booked = float((lease.get("metadata") or {}).get("vram_mb") or booked)
-    except Exception as e:  # noqa: BLE001
-        logger.debug("GPU lease unreadable, assuming %d MB booked: %s", booked, e)
-    try:
-        from backend.config import COMFYUI_URL
-        if requests.get(f"{COMFYUI_URL}/queue", timeout=_JOB_PROBE_TIMEOUT_S).json().get("queue_running"):
-            stats = requests.get(f"{COMFYUI_URL}/system_stats", timeout=_JOB_PROBE_TIMEOUT_S).json()
-            used = float(stats["devices"][0]["torch_vram_total"]) / (1024 * 1024)
-        elif pid:
-            import subprocess
-            out = subprocess.check_output(
-                ["nvidia-smi", "--query-compute-apps=pid,used_memory", "--format=csv,noheader,nounits"],
-                timeout=2, text=True,
-            )
-            rows = (line.split(",") for line in out.splitlines() if "," in line)
-            used = float(sum(int(mb) for p, mb in rows if int(p) == pid))
-    except Exception as e:  # noqa: BLE001
-        logger.debug("Could not read what the GPU job has taken, counting none: %s", e)
-        used = 0.0
-    unfilled = max(0.0, booked - used)
-    with _job_lock:
-        _job_probe.update(at=time.monotonic(), unfilled=unfilled)
-    return unfilled
-
-
-def _layers_beside_job(model_name: str, num_ctx: Optional[int]) -> Tuple[int, int]:
-    """(layers of ``model_name`` to put on a card a job holds, layers it has);
-    equal when the whole model fits beside the job, (0, 0) when nothing can be read.
-
-    The model may take what is free now, less what the job has booked and not
-    yet taken, less PLACEMENT_HEADROOM_MB. With room for the whole model at
-    ``num_ctx`` Ollama places it; with at least PLACEMENT_FLOOR_MB it gets that
-    share of its layers (transformer blocks plus the output layer); with less,
-    or when the card or the model cannot be read, it runs on the CPU.
-    """
-    info = get_model_info(model_name)
-    mem = _gpu_memory_mb()
-    if not info or not mem or not info.get("size_mb") or not info.get("block_count"):
-        return 0, 0
-    window = int(num_ctx or 0) or compute_optimal_num_ctx(model_name)
-    need = info["size_mb"] + _estimate_total_overhead_mb(
-        info["parameter_count"], window, overhead_profile(model_name, info))
-    budget = mem[0] - _job_unfilled_mb() - PLACEMENT_HEADROOM_MB
-    layers = int(info["block_count"]) + 1
-    if budget >= need:
-        return layers, layers
-    if budget < PLACEMENT_FLOOR_MB:
-        return 0, layers
-    return max(1, int(layers * budget / need)), layers
-
-
-def placement_options(model_name: str, num_ctx: Optional[int] = None) -> dict:
-    """Ollama ``options`` that fit a chat model beside a job holding the GPU.
-
-    Ollama places a model by the VRAM free at the moment it loads. A render or
-    training job sized itself for the card it found and fills its share over
-    the next minute, and again when it swaps models, so a chat model loading
-    beside it takes memory the job has counted on and the job runs out. While
-    such a job holds the card (``gpu_reserved_reason``):
-
-    * a model wholly on the card is left there (``{}``);
-    * a model loaded partly on the card keeps its split: the ``num_gpu`` sent
-      when it loaded is repeated, or nothing is sent when this process did not
-      load it (Ollama keeps a runner for a request without ``num_gpu``);
-    * a model on the CPU or not loaded gets :func:`_layers_beside_job`:
-      ``{}`` when it fits whole (every layer by number when it sits on the
-      CPU, since only an explicit ``num_gpu`` moves a loaded runner),
-      ``{"num_gpu": n}`` for a share of its layers, ``{"num_gpu": 0}`` when
-      the room is below the floor or a probe failed. Once sent, a split is
-      not recomputed while the model stays loaded; a model on the CPU moves
-      up when the room appears, never back.
-
-    ``num_ctx`` is the window the request will use; unset, the sized one. With
-    no job on the card the options are empty; Ollama keeps a runner where it
-    loaded it, so :func:`reload_onto_gpu_if_room` on the next turn is what
-    moves a split or CPU model back.
-    """
-    if not model_name:
-        return {}
-    key = _full_model_name(model_name)
-    try:
-        from backend.utils.gpu_check import gpu_reserved_reason
-        reason = gpu_reserved_reason()
-    except Exception as e:  # noqa: BLE001 - without the probe no job is known to hold the card
-        logger.debug("GPU hold probe failed for %s: %s", model_name, e)
-        reason = None
-    if reason is None:
-        _placement_sent.pop(key, None)
-        return {}
-    try:
-        entry = resident_entry(model_name)
-        if entry is not None:
-            if int(entry.get("size_vram") or 0) >= int(entry.get("size") or 0):
-                return {}
-            kept = _placement_sent.get(key)
-            return {"num_gpu": kept} if kept else {}
-        layers, total = _layers_beside_job(model_name, num_ctx)
-        if layers and layers >= total and loaded_entry(model_name) is None:
-            _placement_sent.pop(key, None)
-            return {}
-    except Exception as e:  # noqa: BLE001 - an unread card or model must not cost the job its memory
-        logger.debug("placement probe failed for %s: %s", model_name, e)
-        layers, total = 0, 0
-    if layers:
-        _placement_sent[key] = layers
-    with _placement_lock:
-        # Off the card by this rule, not by Ollama: the next reload onto the
-        # GPU must not be read as one that failed.
-        _placement_reloaded.pop(model_name, None)
-    logger.info("%s runs with %d of %d layers on the GPU for this request: %s", model_name, layers, total, reason)
-    return {"num_gpu": layers}
-
-
 def request_options(model_name: str, **overrides) -> dict:
     """``options`` for an Ollama request, with ``num_ctx`` always set.
 
@@ -1071,15 +901,11 @@ def request_options(model_name: str, **overrides) -> dict:
     offloads its KV cache to RAM). Either way the runner reloads when the next
     request asks for a different size. Every caller that is not the chat
     engine's sized path builds its options here so no request leaves unsized.
-    An explicit ``num_ctx`` in ``overrides`` wins. So does an explicit
-    ``num_gpu``; without one the model is fitted beside a render or training
-    job that holds the GPU (:func:`placement_options`).
+    An explicit ``num_ctx`` in ``overrides`` wins.
     """
     opts = {k: v for k, v in overrides.items() if v is not None}
     if not opts.get("num_ctx"):
         opts["num_ctx"] = compute_optimal_num_ctx(model_name)
-    if "num_gpu" not in opts:
-        opts.update(placement_options(model_name, opts["num_ctx"]))
     return opts
 
 
@@ -1588,7 +1414,7 @@ def warm_chat_model(llm, keep_alive, timeout=(10.0, 900.0)) -> dict:
                 "model": model,
                 "prompt": "ok",
                 "stream": False,
-                "options": {"num_predict": 1, "num_ctx": num_ctx, **placement_options(model, num_ctx)},
+                "options": {"num_predict": 1, "num_ctx": num_ctx},
                 "keep_alive": keep_alive,
             },
             timeout=timeout,

@@ -537,25 +537,6 @@ class GPUResourceCoordinator:
     # mutually exclude. Unlike acquire_for_video_generation this does NOT stop the Ollama
     # service (gpu_session evicts models via keep_alive=0 and lets them lazily reload) and
     # does not touch the vision pipeline. Non-blocking: returns success=False if held.
-    def lease_record(self) -> Optional[Dict[str, Any]]:
-        """The live lease (owner, pid, metadata), or None when the lock is not
-        held. Reads the lock file only, like lock_held."""
-        if not self.lock_held():
-            return None
-        lock_info = self._read_lock_file()
-        return lock_info.to_dict() if lock_info else None
-
-    def note_booking(self, label: str, vram_mb: int) -> bool:
-        """Record on this process's lease the VRAM its job is booked for, so
-        another process can tell how much of the card the job has yet to take."""
-        with self._internal_lock, self._cross_process_critical_section():
-            current_lock = self._read_lock_file()
-            if current_lock is None or current_lock.owner != label or current_lock.pid != os.getpid():
-                return False
-            current_lock.metadata = dict(current_lock.metadata or {}, vram_mb=int(vram_mb))
-            self._write_lock_file(current_lock)
-            return True
-
     GENERIC_LEASE_SECONDS = 900  # 15 min — ample for any single image/edit/render
 
     @contextmanager
