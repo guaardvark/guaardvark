@@ -10,6 +10,7 @@ import importlib.util
 import json
 import logging
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -640,28 +641,62 @@ def list_templates():
             if not task_count:
                 # A file with no tasks cannot be launched, so it is not offered.
                 continue
-            lines = f.read_text().split("\n")
-            title = lines[0].lstrip("# ").strip() if lines else f.stem
-            desc = ""
-            for line in lines[1:]:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    desc = line
-                    break
+            text = f.read_text()
+            title, desc = _plan_title_and_summary(text, f.stem)
 
             templates.append({
                 "filename": f.name,
-                "path": str(f),
                 # What the launch takes as plan_path.
                 "plan_path": f"{relative}/{f.name}",
                 "saved": saved,
                 "title": title,
                 "description": desc,
                 "task_count": task_count,
+                # {NAMES} the feature that owns this plan fills in before it
+                # launches it; launched as it is, agents get the bare names.
+                "placeholders": sorted(set(_PLACEHOLDER_RE.findall(text))),
             })
 
     templates.sort(key=lambda t: t["filename"])
     return {"success": True, "templates": templates, "count": len(templates)}
+
+
+_PLACEHOLDER_RE = re.compile(r"\{([A-Z][A-Z0-9_]+)\}")
+_PLAN_FIELD_RE = re.compile(r"^(?:-\s*)?(?:files?|depends?(?:_?on)?|deps|backend|assign\s+to|description)\s*:",
+                            re.IGNORECASE)
+
+
+def _plan_title_and_summary(text: str, fallback_title: str) -> tuple[str, str]:
+    """A plan's name and one-sentence summary, as a template card shows them.
+
+    The name is the "# " heading without its "Swarm Plan:" prefix; a plan with
+    none is named after its file. The summary is the first sentence of the
+    prose under that heading, and empty when the plan goes straight to tasks.
+    """
+    lines = text.split("\n")
+    title = ""
+    start = 0
+    for i, line in enumerate(lines):
+        if line.startswith("# "):
+            title = re.sub(r"^swarm\s+plan\s*:\s*", "", line[2:].strip(), flags=re.IGNORECASE)
+            start = i + 1
+            break
+        if line.startswith("#"):
+            break
+    title = title or fallback_title.replace("_", " ").replace("-", " ").strip().capitalize()
+
+    paragraph: list[str] = []
+    for line in lines[start:]:
+        line = line.strip()
+        if line.startswith(("#", "```")) or _PLAN_FIELD_RE.match(line):
+            break
+        if line:
+            paragraph.append(line)
+        elif paragraph:
+            break
+    summary = " ".join(paragraph)
+    sentence = re.match(r"(.+?[.!?])(?:\s|$)", summary)
+    return title, (sentence.group(1) if sentence else summary)
 
 
 def _task_count(plan_file: Path) -> int:
@@ -702,7 +737,6 @@ def save_template(req: SavePlanRequest):
         filename += ".md"
 
     # sanitize filename
-    import re
     filename = re.sub(r"[^a-zA-Z0-9._-]", "_", filename)
 
     try:

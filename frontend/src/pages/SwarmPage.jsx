@@ -197,7 +197,9 @@ const SwarmPage = () => {
       const res = await getTemplates();
       if (res.success !== false) {
         const data = res.data || res;
-        setTemplates(data.templates || []);
+        // A plan with {NAMES} left to fill in is launched by the feature that
+        // fills them, not from this page.
+        setTemplates((data.templates || []).filter((tmpl) => !(tmpl.placeholders || []).length));
       }
     } catch {
       // silent
