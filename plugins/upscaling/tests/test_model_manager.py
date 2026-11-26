@@ -232,3 +232,26 @@ def test_safetensors_check_matches_the_header(tmp_path):
     path.write_bytes(whole + b"\x00")
     assert file_problem(path).startswith("corrupt")
     assert file_problem(tmp_path / "absent.safetensors") == "missing"
+
+
+def test_hat_l_is_never_loaded_at_fp16():
+    """HAT-L returns NaN at fp16, so its registry entry rules that precision out."""
+    allowed = model_manager_module.allowed_precisions("HAT-L_SRx4")
+    assert "fp16" not in allowed
+    assert model_manager_module.resolve_precision("fp16", allowed, bf16_available=True) == "bf16"
+    assert model_manager_module.resolve_precision("fp16", allowed, bf16_available=False) == "fp32"
+    assert model_manager_module.resolve_precision("fp32", allowed, bf16_available=True) == "fp32"
+
+
+def test_precision_follows_the_architecture_for_undeclared_models():
+    """A model with no declared precisions runs at what spandrel says it supports."""
+
+    class _NoHalf:
+        supports_half = False
+        supports_bfloat16 = True
+
+    resolve = model_manager_module.resolve_precision
+    allowed = model_manager_module.allowed_precisions
+    assert resolve("fp16", allowed("dropped-transformer", _NoHalf()), True) == "bf16"
+    assert resolve("fp16", allowed("realesr-general-x4v3"), True) == "fp16"
+    assert resolve("bf16", allowed("realesr-general-x4v3"), False) == "fp32"

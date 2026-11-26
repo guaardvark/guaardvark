@@ -9,7 +9,7 @@ Weights arrive only through ``download_model`` (the Install button, POST
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.request import urlretrieve
 
 import torch
@@ -42,12 +42,19 @@ def _contained(root, *parts) -> Path:
 # with the model (CUDA context included), which the backend books before it
 # submits one; vram_measured says what the figure came from. A model with no
 # figure is booked at UNMEASURED_VRAM_MB.
+# precisions: the only precisions the model may be loaded at, for one that is
+# wrong at some of them. A model without the field runs at whatever spandrel
+# says its architecture supports (allowed_precisions).
 MODEL_REGISTRY: List[Dict[str, Any]] = [
     {
         "name": "HAT-L_SRx4",
         "scale": 4,
         "size_mb": 159,
         "size_bytes": 165774123,
+        # fp16 returns NaN for every pixel, which saves as a black picture.
+        # One 1280x720 frame at tile 400 on a 16 GB consumer GPU, 2026-11-25:
+        # fp16 all NaN; bf16 clean in 10.4 s; fp32 clean in 19.5 s.
+        "precisions": ("bf16", "fp32"),
         "url": "https://huggingface.co/jaideepsingh/upscale_models/resolve/main/HAT/HAT-L_SRx4_ImageNet-pretrain.pth",
     },
     {
@@ -144,6 +151,32 @@ def _registry_entry(name: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def allowed_precisions(name: str, descriptor: Any = None) -> Tuple[str, ...]:
+    """The precisions ``name`` may be loaded at: its registry ``precisions``
+    when declared, else what spandrel says the architecture supports. fp32 is
+    always among them."""
+    declared = (_registry_entry(name) or {}).get("precisions")
+    if declared:
+        return tuple(declared)
+    allowed = ["fp32"]
+    if getattr(descriptor, "supports_bfloat16", True):
+        allowed.insert(0, "bf16")
+    if getattr(descriptor, "supports_half", True):
+        allowed.insert(0, "fp16")
+    return tuple(allowed)
+
+
+def resolve_precision(configured: str, allowed: Sequence[str], bf16_available: bool) -> str:
+    """The precision a model is loaded at: the configured one when the model
+    and the GPU can run it, else bf16 when they can, else fp32."""
+    usable = [p for p in allowed if p != "bf16" or bf16_available]
+    if configured in usable:
+        return configured
+    if configured in ("fp16", "bf16") and "bf16" in usable:
+        return "bf16"
+    return "fp32"
+
+
 class ModelNotInstalledError(FileNotFoundError):
     """The requested model's weights are not on disk. The message names the
     model and what to do about it."""
@@ -160,6 +193,9 @@ class ModelManager:
         self._model_descriptor = None
         self.current_model_name: Optional[str] = None
         self.current_scale: Optional[int] = None
+        # What the loaded model runs at; differs from ``precision`` when the
+        # model cannot run at the configured one. Frames are cast to this.
+        self.current_precision: str = precision
         os.makedirs(models_dir, exist_ok=True)
 
     def _model_path(self, name: str) -> str:
@@ -303,9 +339,15 @@ class ModelManager:
 
         # Precision
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if self.precision == "bf16" and torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+        bf16_available = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+        precision = resolve_precision(
+            self.precision, allowed_precisions(name, model_descriptor), bf16_available
+        )
+        if precision != self.precision:
+            logger.info(f"Model {name} does not run at {self.precision}; loading it at {precision}")
+        if precision == "bf16":
             model = model.bfloat16()
-        elif self.precision == "fp16":
+        elif precision == "fp16":
             model = model.half()
 
         model = model.to(device).eval()
@@ -318,7 +360,8 @@ class ModelManager:
         self._model = model
         self.current_model_name = name
         self.current_scale = getattr(model_descriptor, "scale", None)
-        logger.info(f"Model {name} loaded (scale={self.current_scale}, precision={self.precision})")
+        self.current_precision = precision
+        logger.info(f"Model {name} loaded (scale={self.current_scale}, precision={precision})")
 
     def get_model(self):
         """Return the currently loaded model. Raises if none loaded."""
