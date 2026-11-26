@@ -347,6 +347,17 @@ class UpscaleSupervisor:
             raise UpscaleGpuBusy(str(e)) from e
         except GpuBusyError as e:
             holder = gpu_holder_label(e)
+            fit = getattr(e, "fit", None)
+            if holder is None and fit is not None:
+                # No job holds the card: memory is the problem, and waiting
+                # for "it" to finish will not help.
+                raise UpscaleGpuBusy(
+                    f"Not enough free video memory for this upscale: it needs about "
+                    f"{fit.need_mb / 1024:.1f} GB and {fit.usable_mb / 1024:.1f} GB is free, "
+                    "after unloading the chat model and asking ComfyUI to release its models. "
+                    "Something else is still holding the card, such as another app or a "
+                    "ComfyUI that kept its models loaded. Free it, then try again."
+                ) from e
             raise UpscaleGpuBusy(
                 f"The GPU is busy{f' with {holder}' if holder else ''}; try again when it finishes, "
                 "or upload several images at once, which waits its turn."

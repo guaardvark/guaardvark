@@ -469,6 +469,8 @@ class Fit:
     need_mb: int
     headroom: bool = False
     reason: str = ""
+    # Free VRAM minus the reserve: what the job could actually use.
+    usable_mb: int = 0
 
 
 def _lighter_model_hint(total_mb: int) -> str:
@@ -557,7 +559,7 @@ def fit_verdict(estimate_mb: int, *, reserve_mb: int = 0, margin_mb: int = 1024)
     )
     return Fit(
         ok=False, capacity=False, free_mb=free, total_mb=total, need_mb=need,
-        reason=resident_reason,
+        reason=resident_reason, usable_mb=free_eff,
     )
 
 
@@ -568,7 +570,10 @@ def _raise_unless_fits(fit: Fit, slot: str) -> None:
         return
     from backend.services.job_operation_gate import GpuBusyError, GpuCapacityError
     text = fit.reason.format(slot=slot)
-    raise (GpuCapacityError if fit.capacity else GpuBusyError)(text)
+    exc = (GpuCapacityError if fit.capacity else GpuBusyError)(text)
+    # Callers that word their own refusal read the figures from here.
+    exc.fit = fit
+    raise exc
 
 
 def _ensure_fits_or_busy(
