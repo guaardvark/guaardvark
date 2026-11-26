@@ -362,6 +362,40 @@ class AgentExecutor:
         except Exception:
             pass
 
+    def _new_guard(self):
+        """The circuit breaker and duplicate-call guard for one run. A caller
+        whose tools repeat on purpose (a code agent re-runs its tests after
+        each fix) overrides this."""
+        from backend.services.tool_execution_guard import ToolExecutionGuard
+        return ToolExecutionGuard(max_failures_per_tool=2, scope="for the rest of this task")
+
+    def _memory_context(self, user_query: str, process_id: Optional[str]) -> str:
+        """Saved memories that match the task, as a block for the first
+        message; "" when there are none.
+
+        Durable AgentMemory rows, kept when memory_match_score against the
+        query is above 0.3, best first. With BrainState the system prompt
+        already carries its memory block, so this lookup only runs without it.
+        """
+        if self._brain_state_used():
+            return ""
+        try:
+            from backend.api.memory_api import search_memories
+            mems = search_memories(
+                query=user_query,
+                limit=8,
+                min_importance=0.4,
+                match_text=user_query,
+                min_match=0.3,
+                session_id=process_id or "default",
+            )
+            learnings = [(m.get('content') or '')[:200] for m in mems[:5]]
+            if learnings:
+                return "Saved memories that match this task:\n" + "\n".join(f"- {l}" for l in learnings)
+        except Exception as e:
+            logger.debug(f"Contract memory context not available (falling back empty): {e}")
+        return ""
+
     def set_tool_context(self, **kwargs):
         """Set extra kwargs that get forwarded to every tool execute() call."""
         self._tool_context.update(kwargs)
@@ -438,31 +472,9 @@ class AgentExecutor:
             # Clear facts registry for new execution
             self.facts_registry.clear()
 
-            # Tool execution guard: circuit breaker + duplicate detection
-            from backend.services.tool_execution_guard import ToolExecutionGuard
-            self._guard = ToolExecutionGuard(max_failures_per_tool=2, scope="for the rest of this task")
+            self._guard = self._new_guard()
 
-            # Durable AgentMemory rows that match the task, kept when
-            # memory_match_score against the query is above 0.3, best first.
-            # With BrainState the system prompt already carries its memory
-            # block, so this lookup only runs without it.
-            memory_context = ""
-            if not self._brain_state_used():
-                try:
-                    from backend.api.memory_api import search_memories
-                    mems = search_memories(
-                        query=user_query,
-                        limit=8,
-                        min_importance=0.4,
-                        match_text=user_query,
-                        min_match=0.3,
-                        session_id=process_id or "default",
-                    )
-                    learnings = [(m.get('content') or '')[:200] for m in mems[:5]]
-                    if learnings:
-                        memory_context = "Saved memories that match this task:\n" + "\n".join(f"- {l}" for l in learnings)
-                except Exception as e:
-                    logger.debug(f"Contract memory context not available (falling back empty): {e}")
+            memory_context = self._memory_context(user_query, process_id)
 
             if memory_context:
                 session_context = f"{session_context}\n\n{memory_context}" if session_context else memory_context
