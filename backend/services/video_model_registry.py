@@ -1079,6 +1079,12 @@ VIDEO_MODEL_REGISTRY = {
         # for more than the card has and refused every edit.
         "vram_mb": 12000,
         "min_steps": 20,
+        # The picture is sampled at about this many megapixels, sides on this
+        # grid (the model's 8x VAE times its 2x patch), with its shape kept;
+        # the result is then resized to the size that was asked for. 1.0 is
+        # the area the model's own reference encoder works at.
+        "work_megapixels": 1.0,
+        "work_grid": 16,
         "type": "qwen-edit",
     },
     # ── Qwen-Image 2.1 — text-to-image through ComfyUI ───────────────────────

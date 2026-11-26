@@ -166,6 +166,8 @@ try:
     QWEN_EDIT_UNET = ((_QWEN_EDIT.get("files") or [{}])[0].get("dst")
                       or "qwen_image_edit_2509_fp8_e4m3fn.safetensors")
     QWEN_EDIT_MIN_STEPS = int(_QWEN_EDIT.get("min_steps") or 20)
+    QWEN_EDIT_WORK_MEGAPIXELS = float(_QWEN_EDIT.get("work_megapixels") or 1.0)
+    QWEN_EDIT_WORK_GRID = int(_QWEN_EDIT.get("work_grid") or 16)
     _QWEN_CLIP = _VMR.get("qwen-image-clip") or {}
     QWEN_EDIT_CLIP = ((_QWEN_CLIP.get("files") or [{}])[0].get("dst")
                       or "qwen_2.5_vl_7b_fp8_scaled.safetensors")
@@ -231,6 +233,8 @@ except Exception:  # pragma: no cover - registry import is environment-specific
     KONTEXT_DEFAULT_STEPS = 28
     QWEN_EDIT_UNET = "qwen_image_edit_2509_fp8_e4m3fn.safetensors"
     QWEN_EDIT_MIN_STEPS = 20
+    QWEN_EDIT_WORK_MEGAPIXELS = 1.0
+    QWEN_EDIT_WORK_GRID = 16
     QWEN_EDIT_CLIP = "qwen_2.5_vl_7b_fp8_scaled.safetensors"
     QWEN_EDIT_VAE = "qwen_image_vae.safetensors"
     PULID_FLUX_FILE = "pulid_flux_v0.9.1.safetensors"
@@ -437,6 +441,18 @@ def _engine_cache_put(comfy_url: str, info: dict | None) -> None:
     if _ENGINE_CACHE_TTL_SECONDS > 0:
         _ENGINE_CACHE[comfy_url] = (time.monotonic(), info)
 
+
+
+def restore_size_nodes(image_ref: list, like_ref: list) -> dict:
+    """Graph nodes that resize ``image_ref`` to the exact width and height of
+    ``like_ref``. An edit samples at the model's working resolution; this hands
+    back a picture the size of the one that was asked for."""
+    return {
+        "out_size": {"class_type": "GetImageSize", "inputs": {"image": like_ref}},
+        "out_scale": {"class_type": "ImageScale", "inputs": {
+            "image": image_ref, "upscale_method": "lanczos",
+            "width": ["out_size", 0], "height": ["out_size", 1], "crop": "disabled"}},
+    }
 
 
 def edit_steps(steps, *, default: int, floor: int = 0, label: str = "") -> tuple:
@@ -1143,6 +1159,10 @@ class ComfyUIImageGenerator:
 
         Sampler floor is the Comfy Original table: 20 steps / CFG 2.5. The 4-step
         Lightning LoRA is not in this graph — it is a different quality contract.
+
+        The canvas (the picture, plus its padding for an outpaint) is sampled at
+        the registry's working area with its shape kept, then resized back, so
+        the result has the canvas's own width and height.
         """
         n = max(int(steps), QWEN_EDIT_MIN_STEPS)
         cfg = float(cfg) if cfg else 2.5
@@ -1187,7 +1207,13 @@ class ComfyUIImageGenerator:
                         },
                     }
                     img_ref = ["pad", 0]
-                wf["scale"] = {"class_type": "FluxKontextImageScale", "inputs": {"image": img_ref}}
+                canvas_ref = img_ref
+                # Not FluxKontextImageScale: it centre-crops the canvas to the
+                # nearest of a fixed list of sizes, which cuts the picture's
+                # edges and returns that size instead of the canvas's.
+                wf["scale"] = {"class_type": "ImageScaleToTotalPixels", "inputs": {
+                    "image": img_ref, "upscale_method": "lanczos",
+                    "megapixels": QWEN_EDIT_WORK_MEGAPIXELS, "resolution_steps": QWEN_EDIT_WORK_GRID}}
                 image_src = ["scale", 0]
                 wf["encode"] = {
                     "class_type": "VAEEncode",
@@ -1238,7 +1264,8 @@ class ComfyUIImageGenerator:
             },
         }
         wf["vae"] = {"class_type": "VAEDecode", "inputs": {"samples": ["sampler", 0], "vae": ["vae_loader", 0]}}
-        wf["save"] = {"class_type": "SaveImage", "inputs": {"filename_prefix": "edit-qwen", "images": ["vae", 0]}}
+        wf.update(restore_size_nodes(["vae", 0], canvas_ref))
+        wf["save"] = {"class_type": "SaveImage", "inputs": {"filename_prefix": "edit-qwen", "images": ["out_scale", 0]}}
         return wf
 
     def _build_qwen21_workflow(
@@ -1476,7 +1503,8 @@ class ComfyUIImageGenerator:
         the photo scaled to ~1 MP on a 16 px grid, MOSS-Image SFT with the edit
         LoRA at 1.0 and skip-layer guidance on block 22, TextEncodeMOSSImageEdit
         for both conditionings (the photo and the VAE as reference), a FLUX.2
-        latent the photo's size, KSampler euler/normal."""
+        latent the scaled photo's size, KSampler euler/normal. The decoded
+        result is resized to the photo's own width and height."""
         edit_inputs = {"clip": ["clip", 0], "edit_format": "Moss-Image-Edit", "image_strength": 1.0,
                        "images.image_0": ["scaled", 0], "vae": ["vae_loader", 0]}
         return {
@@ -1501,7 +1529,8 @@ class ComfyUIImageGenerator:
                 "scheduler": "normal", "denoise": 1.0, "model": ["slg", 0],
                 "positive": ["positive", 0], "negative": ["negative", 0], "latent_image": ["latent", 0]}},
             "vae": {"class_type": "VAEDecode", "inputs": {"samples": ["sampler", 0], "vae": ["vae_loader", 0]}},
-            "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-moss-edit", "images": ["vae", 0]}},
+            **restore_size_nodes(["vae", 0], ["src", 0]),
+            "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-moss-edit", "images": ["out_scale", 0]}},
         }
 
     def comfy_torch_version(self) -> tuple | None:

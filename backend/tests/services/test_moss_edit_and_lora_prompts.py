@@ -26,7 +26,9 @@ def test_edit_graph_is_the_official_template():
     types = {n["class_type"] for n in wf.values()}
     assert types == {"LoadImage", "ImageScaleToTotalPixels", "GetImageSize", "EmptyFlux2LatentImage",
                      "UNETLoader", "LoraLoaderModelOnly", "SkipLayerGuidanceDiTSimple", "CLIPLoader",
-                     "VAELoader", "TextEncodeMOSSImageEdit", "KSampler", "VAEDecode", "SaveImage"}
+                     "VAELoader", "TextEncodeMOSSImageEdit", "KSampler", "VAEDecode", "ImageScale", "SaveImage"}
+    assert wf["out_size"]["inputs"]["image"] == ["src", 0]
+    assert wf["save"]["inputs"]["images"] == ["out_scale", 0]
     assert wf["scaled"]["inputs"]["megapixels"] == 1.0 and wf["scaled"]["inputs"]["resolution_steps"] == 16
     assert wf["latent"]["inputs"]["width"] == ["size", 0] and wf["latent"]["inputs"]["height"] == ["size", 1]
     assert wf["edit_lora"]["inputs"] == {"model": ["unet", 0], "lora_name": cig.MOSS_EDIT_LORA, "strength_model": 1.0}
