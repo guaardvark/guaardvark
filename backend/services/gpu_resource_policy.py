@@ -938,6 +938,12 @@ def gpu_session(
                     )
                     if lease_held:
                         heartbeat_stop = _start_lease_heartbeat(_slot, lease_len)
+                        if vram_estimate_mb:
+                            try:
+                                from backend.services.gpu_resource_coordinator import get_gpu_coordinator
+                                get_gpu_coordinator().note_booking(_slot, vram_estimate_mb)
+                            except Exception:  # noqa: BLE001 - readers assume a default booking
+                                log.debug("lease booking not recorded for %s", _slot, exc_info=True)
                 release_kept_image_pipeline(image_model)
                 if evict_ollama and require_fit:
                     # A Keep ready load that started before this claim is not on
