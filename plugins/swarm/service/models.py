@@ -68,7 +68,7 @@ class SwarmTask:
     started_at: float | None = None
     completed_at: float | None = None
 
-    # cost tracking — because people love knowing what they spent
+    # Tokens and cost as the agent CLI reported them; zero when it reported none.
     token_count: int = 0
     estimated_cost_usd: float = 0.0
 
@@ -229,15 +229,19 @@ class SwarmResult:
         )
 
         mode = " [FLIGHT MODE]" if self.flight_mode else ""
-        cost = f"${self.total_cost_usd:.2f}" if self.total_cost_usd > 0 else "free (local)"
 
         lines = [
             f"Swarm complete{mode}: {total} tasks — {merged} merged, {done} done, {failed} failed, {review} needs review"
             + (f", {no_changes} produced no changes" if no_changes else "")
             + (f", {timed_out} timed out" if timed_out else ""),
             f"Total time: {time_str} | Longest task: {longest_str}",
-            f"Total cost: {cost} | Tokens: {self.total_tokens:,}",
         ]
+        # Usage is stated only when an agent CLI reported it.
+        if self.total_tokens > 0:
+            lines.append(
+                f"Tokens: {self.total_tokens:,}"
+                + (f" | Cost: ${self.total_cost_usd:.2f}" if self.total_cost_usd > 0 else "")
+            )
         return "\n".join(lines)
 
     def to_dict(self) -> dict[str, Any]:
@@ -249,6 +253,10 @@ class SwarmResult:
             "completed_at": self.completed_at,
             "total_cost_usd": self.total_cost_usd,
             "total_tokens": self.total_tokens,
+            # The token and cost figures are the agent CLI's own. Results saved
+            # before this field existed carry figures worked out from the
+            # length of the reply, which the page does not show.
+            "usage_reported": True,
             "flight_mode": self.flight_mode,
             "timeline": [e.to_dict() for e in self.timeline],
             "merge_results": {k: v.to_dict() for k, v in self.merge_results.items()},

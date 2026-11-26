@@ -113,11 +113,11 @@ class BaseBackend(ABC):
 
     def estimate_cost(self, process: AgentProcess) -> tuple[int, float]:
         """
-        Estimate tokens used and cost in USD.
+        Tokens used and cost in USD, as the agent CLI reported them.
 
-        Returns (token_count, cost_usd).
-        Override this if your backend can track actual token usage.
-        Default returns zeros — honest about what we don't know.
+        Returns (token_count, cost_usd). Override this only with figures the
+        CLI measured: both are shown to the person as they are. The default
+        returns zeros, and nothing is shown.
         """
         return (0, 0.0)
 

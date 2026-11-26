@@ -781,6 +781,7 @@ def swarm_history(limit: int = 20):
                 "flight_mode": data.get("flight_mode", False),
                 "total_cost_usd": data.get("total_cost_usd", 0),
                 "total_tokens": data.get("total_tokens", 0),
+                "usage_reported": bool(data.get("usage_reported")),
                 "started_at": data.get("started_at"),
                 "completed_at": data.get("completed_at"),
                 "task_count": len(data.get("tasks", [])),

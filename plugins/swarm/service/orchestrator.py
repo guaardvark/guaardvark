@@ -86,7 +86,8 @@ def backend_installed(name: str, backend_config) -> bool:
 
 # Files the agent backends write into a worktree for their own bookkeeping
 # (wrapper script, log, exit status, captured reply); not the agent's work.
-_SWARM_OWN_FILES = frozenset({".swarm-run.sh", ".swarm-agent.log", ".swarm-status", "completion.md"})
+_SWARM_OWN_FILES = frozenset({
+    ".swarm-run.sh", ".swarm-agent.log", ".swarm-status", ".swarm-result.json", "completion.md"})
 # Caches an agent leaves by running its code or tests. In a repository whose
 # .gitignore does not list them they show as untracked, and a task that had
 # committed its work was sent to review for "uncommitted changes".
@@ -436,6 +437,7 @@ class SwarmOrchestrator:
             "running_count": len(running),
             "total_cost_usd": self.result.total_cost_usd,
             "total_tokens": self.result.total_tokens,
+            "usage_reported": True,
             "elapsed_seconds": (time.time() - self.result.started_at) if self.result.started_at else 0,
             "disk_usage_mb": round(disk_mb, 1),
         }
@@ -736,15 +738,14 @@ class SwarmOrchestrator:
                     task.status = SwarmStatus.DONE
                 task.completed_at = time.time()
 
-                # grab cost/token estimates
+                # tokens and cost, when the agent CLI reported them
                 tokens, cost = backend.estimate_cost(process)
                 task.token_count = tokens
                 task.estimated_cost_usd = cost
 
-                logger.info(
-                    f"Task '{task_id}' completed in {task.elapsed_human} "
-                    f"(tokens={tokens:,}, cost=${cost:.2f})"
-                )
+                reported = (f" (tokens={tokens:,}" + (f", cost=${cost:.2f}" if cost > 0 else "") + ")"
+                            if tokens > 0 else "")
+                logger.info(f"Task '{task_id}' completed in {task.elapsed_human}{reported}")
                 self._emit_event("task_completed", task_id, {
                     "elapsed": task.elapsed_human,
                     "tokens": tokens,
