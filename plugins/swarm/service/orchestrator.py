@@ -28,6 +28,7 @@ from typing import Any, Callable
 import psutil
 import requests
 
+from .agent_backends.base_backend import SWARM_OWN_FILES as _SWARM_OWN_FILES
 from .backend_url import backend_api_url
 from .config import SwarmConfig, check_internet
 from .gpu_hold import GpuHoldClient, ollama_model_of
@@ -53,20 +54,22 @@ POLL_INTERVAL = 5
 
 def _backend_classes() -> dict:
     """Backend name in config.yaml -> the class that runs it."""
-    from .agent_backends.claude_backend import ClaudeBackend
-    from .agent_backends.cline_backend import ClineBackend
+    from .agent_backends import backend_classes
 
-    return {"claude": ClaudeBackend, "cline": ClineBackend}
+    return backend_classes()
 
 
 def backend_installed(name: str, backend_config) -> bool:
-    """Whether a configured backend's CLI is on this machine.
+    """Whether a configured backend can run on this machine.
 
-    The configured command on PATH, or else the backend's own check (cline
-    accepts several CLI names). Never runs a model.
+    For a CLI backend: the configured command on PATH, or else the backend's
+    own check (cline accepts several CLI names). For a built-in backend: its
+    own check alone. Never runs a model.
     """
     import shutil
 
+    if getattr(backend_config, "builtin", False):
+        return bool(backend_config.installed())
     command = getattr(backend_config, "command", "") or ""
     if command and shutil.which(command):
         return True
@@ -84,10 +87,6 @@ def backend_installed(name: str, backend_config) -> bool:
         return False
 
 
-# Files the agent backends write into a worktree for their own bookkeeping
-# (wrapper script, log, exit status, captured reply); not the agent's work.
-_SWARM_OWN_FILES = frozenset({
-    ".swarm-run.sh", ".swarm-agent.log", ".swarm-status", ".swarm-result.json", "completion.md"})
 # Caches an agent leaves by running its code or tests. In a repository whose
 # .gitignore does not list them they show as untracked, and a task that had
 # committed its work was sent to review for "uncommitted changes".
@@ -617,12 +616,10 @@ class SwarmOrchestrator:
             raise RuntimeError(reason)
         if not backend_config:
             configured = list(self.config.backends.keys())
-            import shutil
-            installed = [n for n in configured if shutil.which(self.config.backends[n].command)]
+            installed = [n for n in configured if backend_installed(n, self.config.backends[n])]
             raise RuntimeError(
                 f"No backend available for {'offline' if not online else 'online'} mode: {reason}. "
-                f"Configured: {configured}. Installed: {installed or 'none'}. "
-                f"{'Install cline/openclaw for offline mode, or disable flight mode.' if not online else ''}"
+                f"Configured: {configured}. Installed: {installed or 'none'}."
             )
 
         backend = self._backends.get(backend_config.name)
@@ -663,8 +660,8 @@ class SwarmOrchestrator:
             logger.debug(f"Could not record base HEAD for {task.id}: {e}")
 
         # spawn the agent, holding its local model on the GPU while it runs
-        config_dict = self._backend_call_config(backend_config)
-        self._hold_gpu(task, backend_config)
+        config_dict = self._call_config(backend_config, backend)
+        self._hold_gpu(task, config_dict["model"])
         try:
             process = backend.spawn(wt_info.worktree_path, task, config_dict)
         except Exception:
@@ -918,14 +915,27 @@ class SwarmOrchestrator:
             "model": backend_config.model,
         }
 
+    def _call_config(self, backend_config, backend) -> dict[str, Any]:
+        """_backend_call_config, with the model the backend would run now (a
+        backend that picks among installed models names its pick) and the
+        swarm's test command."""
+        config_dict = self._backend_call_config(backend_config)
+        run_model = getattr(backend, "run_model", None)
+        if callable(run_model):
+            config_dict["model"] = run_model(config_dict)
+        config_dict["test_command"] = self.config.test_command
+        return config_dict
+
     def _gpu_client(self) -> GpuHoldClient:
         if self._gpu is None:
             self._gpu = GpuHoldClient(self._backend_url)
         return self._gpu
 
-    def _hold_gpu(self, task: SwarmTask, backend_config) -> None:
-        """Hold the Ollama model this task's agent runs, if it runs one."""
-        model = ollama_model_of(backend_config.model)
+    def _hold_gpu(self, task: SwarmTask, model_setting) -> None:
+        """Hold the Ollama model this task's agent runs, if it runs one.
+        ``model_setting`` is the model as configured (``ollama/<name>``), or a
+        backend config carrying it."""
+        model = ollama_model_of(getattr(model_setting, "model", model_setting))
         if not model or task.id in self._gpu_holds:
             return
         slot_id = self._gpu_client().hold(model)
@@ -958,7 +968,7 @@ class SwarmOrchestrator:
             )
             return None
         try:
-            command = backend.command_prefix(self._backend_call_config(backend_config))
+            command = backend.command_prefix(self._call_config(backend_config, backend))
         except NotImplementedError:
             return None
         from .diagnostic_agent import DiagnosticAgent

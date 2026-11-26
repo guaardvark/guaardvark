@@ -17,12 +17,38 @@ defaults:
   # agent_timeout_minutes in service/config.py.
   agent_timeout_minutes: 120
 
-# A task that names no backend runs on the first installed backend with
-# requires_internet: false, in priority order. A hosted backend (claude) gets
-# the task and the repository's code, so it runs only for a task that names it
+# A task that names no backend runs on the first local backend that can run
+# (requires_internet: false), in priority order: Guaardvark's own agent, then
+# an installed local CLI. A hosted backend (claude) gets the task and the
+# repository's code, so it runs only for a task that names it
 # ([Backend: claude] or [Model: claude]) or a launch that names it (Run on in
 # the launch dialog, default_backend in the launch request).
 backends:
+  guaardvark:
+    # Guaardvark's own code agent (backend/services/worktree_agent.py) on a
+    # local Ollama model. Nothing to install and nothing leaves the machine;
+    # Flight Mode runs on it.
+    builtin: true
+    # The model is a preference: when Ollama does not have it, the agent runs
+    # on the installed chat model Guaardvark resolves instead (same family,
+    # then the chat model in use), provided it can call tools.
+    #
+    # Chosen by measurement, 2026-11-25, 16 GB NVIDIA card, 8,192-token
+    # window: three tasks in a scratch repository (a new module with its
+    # tests, a second module that imports the first, an edit to the first
+    # with new tests), four runs of each per model. All 48 runs finished with
+    # passing tests and a commit, 47 of them in one round.
+    #   gemma4:12b   4.3-7.6 s a task, 5, 7 and 9 steps on every run
+    #   gemma4:e4b   2.9-9.2 s (11.3 s with the model load), 5-10 steps
+    #   qwen3.5:9b   8.9-41.0 s, 6-16 steps
+    #   qwen3.5:4b   5.3-31.5 s, 6-29 steps (one run took two rounds)
+    # gemma4:12b took the same number of steps every time and is the chat
+    # model already loaded on such a card, so a swarm does not swap models.
+    model: "ollama/gemma4:12b"
+    requires_internet: false
+    priority: 1
+    cost_per_1k_input_tokens: 0.0
+    cost_per_1k_output_tokens: 0.0
   claude:
     command: "claude"
     # --output-file does not exist in Claude Code 2.x. Claude writes to stdout
@@ -35,7 +61,7 @@ backends:
     # The git worktree is the sandbox.
     args: ["--print", "--bare", "--dangerously-skip-permissions"]
     requires_internet: true
-    priority: 1
+    priority: 2
     cost_per_1k_input_tokens: 0.015
     cost_per_1k_output_tokens: 0.075
   cline:
@@ -43,7 +69,7 @@ backends:
     args: []
     model: "ollama/gemma4:e4b"
     requires_internet: false
-    priority: 2
+    priority: 3
     cost_per_1k_input_tokens: 0.0
     cost_per_1k_output_tokens: 0.0
 
