@@ -42,14 +42,21 @@ def test_edit_graph_is_the_official_template():
     assert s["model"] == ["slg", 0]
 
 
-def test_moss_edit_is_picked_by_name_and_last_on_auto(monkeypatch):
-    for name in ("moss-image-edit", "moss-edit", "moss-image"):
-        assert EditImageTool._pick_edit_backend(name) == "moss"
+def test_moss_edit_is_picked_by_name_and_never_on_auto(monkeypatch):
     installed = {"qwen": False, "kontext": False, "moss": True}
     monkeypatch.setattr(ComfyUIImageGenerator, "qwen_edit_installed", lambda self: installed["qwen"])
     monkeypatch.setattr(ComfyUIImageGenerator, "_kontext_installed", lambda self: installed["kontext"])
     monkeypatch.setattr(ComfyUIImageGenerator, "moss_edit_installed", lambda self: installed["moss"])
-    assert EditImageTool._pick_edit_backend("auto") == "moss"
+    monkeypatch.setattr(ComfyUIImageGenerator, "_registry_installed",
+                        lambda self, model_id: model_id == "moss-image-edit" and installed["moss"])
+    for name in ("moss-image-edit", "moss-edit", "moss-image"):
+        assert EditImageTool._pick_edit_backend(name) == "moss"
+    assert EditImageTool()._edit_backend("moss-image-edit") == "moss"
+    assert EditImageTool._pick_edit_backend("auto") is None
+    refusal = EditImageTool()._edit_backend("auto")
+    assert not refusal.success
+    assert refusal.error.startswith("Image editing needs Qwen-Image-Edit or FLUX.1 Kontext, which is not installed.")
+    assert "MOSS-Image Edit is installed and runs when it is chosen by name" in refusal.error
     installed["kontext"] = True
     assert EditImageTool._pick_edit_backend("auto") == "kontext"
     installed["qwen"] = True

@@ -2306,8 +2306,9 @@ class EditImageTool(BaseTool):
             description=(
                 "Image model/backend. Default 'auto': Qwen-Image-Edit when installed, else FLUX.1 "
                 "Kontext; with neither installed the call is refused and names the pack to install. "
-                "In chat, 'auto' is replaced by the /imagemodel setting. 'qwen-image-edit' and "
-                "'kontext' name a pack; any other downloaded image model runs a light img2img pass "
+                "In chat, 'auto' is replaced by the /imagemodel setting. 'qwen-image-edit', "
+                "'kontext' and 'moss-image-edit' name a pack; MOSS-Image Edit runs only when named, "
+                "never on 'auto'. Any other downloaded image model runs a light img2img pass "
                 "that keeps most of the picture."
             ),
             required=False, default="auto",
@@ -2334,8 +2335,8 @@ class EditImageTool(BaseTool):
     @staticmethod
     def _pick_edit_backend(model: str) -> Optional[str]:
         """'qwen', 'kontext', 'moss' or 'img2img' for ``model``; None when it is
-        'auto' and no editing pack is installed. MOSS-Image Edit is picked by name
-        and comes after the other two on 'auto'.
+        'auto' and no pack that 'auto' may choose is installed. A pack that
+        declares ``auto_pick: False`` (MOSS-Image Edit) is picked by name only.
 
         img2img is only ever picked by naming an image model. At the strength an
         edit uses it returns a near copy of the photo, so it is not what 'auto'
@@ -2352,16 +2353,29 @@ class EditImageTool(BaseTool):
             return "img2img"
         try:
             from backend.services.comfyui_image_generator import ComfyUIImageGenerator
+            from backend.services.image_editing_packs import auto_pick
             gen = ComfyUIImageGenerator()
-            if gen.qwen_edit_installed():
-                return "qwen"
-            if gen._kontext_installed():
-                return "kontext"
-            if gen.moss_edit_installed():
-                return "moss"
+            for pack_id, backend, installed in (
+                ("qwen-image-edit", "qwen", gen.qwen_edit_installed),
+                ("flux-kontext-dev", "kontext", gen._kontext_installed),
+                ("moss-image-edit", "moss", gen.moss_edit_installed),
+            ):
+                if auto_pick(pack_id) and installed():
+                    return backend
         except Exception:
             pass
         return None
+
+    def _by_name_packs_installed(self) -> list:
+        """Ids of installed packs for this tool that 'auto' does not choose."""
+        from backend.services.image_editing_packs import auto_pick, packs_for_tool
+        try:
+            from backend.services.comfyui_image_generator import ComfyUIImageGenerator
+            gen = ComfyUIImageGenerator()
+            return [p["id"] for p in packs_for_tool(self.for_tool)
+                    if not auto_pick(p["id"]) and gen._registry_installed(p["id"])]
+        except Exception:
+            return []
 
     def _edit_backend(self, model: str, references: int = 0):
         """The backend this edit runs on, or the ToolResult that refuses it.
@@ -2375,7 +2389,8 @@ class EditImageTool(BaseTool):
             backend = self._pick_edit_backend("auto")
         if backend is None:
             from backend.services.image_editing_packs import missing_message
-            return ToolResult(success=False, error=missing_message(self.for_tool),
+            return ToolResult(success=False,
+                              error=missing_message(self.for_tool, self._by_name_packs_installed()),
                               metadata={"error_kind": RenderErrorKind.MODEL_NOT_INSTALLED.value})
         if references and backend != "qwen":
             runs_on = {"kontext": "FLUX.1 Kontext", "moss": "MOSS-Image Edit"}.get(backend, f"img2img with '{model}'")
