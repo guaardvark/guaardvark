@@ -10,6 +10,7 @@ from pathlib import Path
 
 import requests as http_requests
 from flask import Blueprint, request
+from backend.utils.display_paths import display_text
 from backend.utils.response_utils import success_response, error_response
 from backend.utils.plugin_secrets import (
     apply_secret_updates,
@@ -530,7 +531,9 @@ def get_plugin_logs(plugin_id):
             )
 
         return success_response(
-            data={"logs": log_text, "lines": line_count, "source": source},
+            # The panel is read on screen: tracebacks and the log's own path
+            # name the home folder.
+            data={"logs": display_text(log_text), "lines": line_count, "source": display_text(source)},
             message="Logs retrieved",
         )
     except Exception as e:

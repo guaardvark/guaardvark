@@ -524,7 +524,11 @@ def _scan_notes(row, effect: str, fix_status: Optional[str], mode_now: str) -> D
 
 
 def _finding_with_origin(finding: dict, providers: List[str]) -> dict:
-    """A finding plus ``origin``: core, extension, posture, or unknown for rows recorded before findings named their scanner."""
+    """A finding as a person reads it: plus ``origin`` (core, extension, posture, or unknown for rows recorded
+    before findings named their scanner), and with home-folder paths in the quoted line shortened. The stored
+    finding, which an approval is checked against, keeps the line as it was scanned."""
+    from backend.utils.display_paths import display_text
+
     provider = finding.get("provider")
     if provider and provider != "core":
         origin = "extension"
@@ -534,7 +538,10 @@ def _finding_with_origin(finding: dict, providers: List[str]) -> dict:
         origin = "posture"
     else:
         origin = "unknown" if providers else "core"
-    return {**finding, "origin": origin}
+    shown = {**finding, "origin": origin}
+    if isinstance(shown.get("excerpt"), str):
+        shown["excerpt"] = display_text(shown["excerpt"])
+    return shown
 
 
 def scanners_run(source: Optional[str], providers: List[str]) -> List[dict]:
