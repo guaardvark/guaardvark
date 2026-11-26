@@ -103,6 +103,7 @@
     "hosted": "{{name}} (hosted)",
     "local": "{{name}} (on this machine)",
     "names": {
+      "guaardvark": "Guaardvark agent",
       "claude": "Claude Code",
       "cline": "Cline"
     },
@@ -110,8 +111,8 @@
     "notes": {
       "claude": "Each task and the code it works on are sent to Anthropic."
     },
-    "none": "No agent CLI is installed. Install Cline or Claude Code to launch a swarm.",
-    "noneOffline": "Flight Mode needs a local agent CLI, and none is installed."
+    "none": "No agent can run here yet. Guaardvark's own agent needs a chat model that can call tools, installed in Ollama (Settings → Models).",
+    "noneOffline": "Flight Mode runs on Guaardvark's own agent, which needs a chat model that can call tools, installed in Ollama (Settings → Models)."
   },
   "editor": {
     "title": "Swarm Plan Editor",

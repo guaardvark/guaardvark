@@ -37,6 +37,27 @@ class BackendConfig:
     priority: int = 99
     cost_per_1k_input_tokens: float = 0.0
     cost_per_1k_output_tokens: float = 0.0
+    # Part of Guaardvark, with no CLI to look for on PATH: the backend's own
+    # check says whether it can run (for the guaardvark backend, a local
+    # Ollama model that can call tools).
+    builtin: bool = False
+
+    def unavailable_reason(self) -> str:
+        """Why this backend cannot run a task on this machine now, or ""."""
+        if self.builtin:
+            from .agent_backends import backend_classes
+            cls = backend_classes().get(self.name)
+            if cls is None:
+                return f"no built-in backend is called {self.name}"
+            try:
+                return cls().unavailable_reason(self.model)
+            except Exception as e:  # noqa: BLE001 - a broken check means not usable
+                return f"its availability check failed ({e})"
+        import shutil
+        return "" if shutil.which(self.command) else f"'{self.command}' is not installed"
+
+    def installed(self) -> bool:
+        return not self.unavailable_reason()
 
     @classmethod
     def from_dict(cls, name: str, data: dict[str, Any]) -> BackendConfig:
@@ -49,6 +70,7 @@ class BackendConfig:
             priority=data.get("priority", 99),
             cost_per_1k_input_tokens=data.get("cost_per_1k_input_tokens", 0.0),
             cost_per_1k_output_tokens=data.get("cost_per_1k_output_tokens", 0.0),
+            builtin=bool(data.get("builtin", False)),
         )
 
 
@@ -98,8 +120,7 @@ class SwarmConfig:
         if self.flight_mode or not online:
             candidates = [b for b in candidates if not b.requires_internet]
         if check_available:
-            import shutil
-            candidates = [b for b in candidates if shutil.which(b.command)]
+            candidates = [b for b in candidates if b.installed()]
         candidates.sort(key=lambda b: b.priority)
         return candidates
 
@@ -111,8 +132,6 @@ class SwarmConfig:
         backend receives the task and the repository's code, so it runs only
         when a task or the launch names it.
         """
-        import shutil
-
         if preferred:
             b = self.backends.get(preferred)
             if b is None:
@@ -120,21 +139,28 @@ class SwarmConfig:
                 return None, f"unknown backend (configured: {configured})"
             if b.requires_internet and (self.flight_mode or not online):
                 return None, "it needs internet and the swarm is offline"
-            if not shutil.which(b.command):
-                return None, f"'{b.command}' is not installed"
+            reason = b.unavailable_reason()
+            if reason:
+                return None, reason
             return b, ""
 
         candidates = self.get_backend_priority_list(online=online)
         local = [b for b in candidates if not b.requires_internet]
         if local:
             return local[0], ""
+        # Why each local backend cannot run, the built-in agent included.
+        why_not = "; ".join(
+            f"{b.name}: {b.unavailable_reason()}"
+            for b in sorted(self.backends.values(), key=lambda b: b.priority) if not b.requires_internet
+        )
+        no_local = f"no local agent can run ({why_not})" if why_not else "no local agent is configured"
         hosted = [b.name for b in candidates if b.requires_internet]
         if hosted:
             return None, (
-                f"no local agent CLI is installed, and a hosted backend ({', '.join(hosted)}) "
+                f"{no_local}, and a hosted backend ({', '.join(hosted)}) "
                 f"runs only when the task or the launch names it, for example [Backend: {hosted[0]}]"
             )
-        return None, "no configured backend is installed for this mode"
+        return None, no_local
 
     def backend_for_task(
         self, task, online: bool = True, default: str | None = None,

@@ -30,6 +30,13 @@ _SECRET_NAME = re.compile(
 )
 
 
+# Files the agent backends write into a worktree for their own bookkeeping
+# (wrapper script, log, exit status, the agent's report, captured reply); not
+# the agent's work, and never committed.
+SWARM_OWN_FILES = frozenset({
+    ".swarm-run.sh", ".swarm-agent.log", ".swarm-status", ".swarm-result.json", "completion.md"})
+
+
 def agent_env(keep: tuple[str, ...] = ()) -> dict[str, str]:
     """The environment an agent CLI is started with: this process's, minus
     anything that names a secret. ``keep`` lists the names a backend needs
@@ -110,6 +117,15 @@ class BaseBackend(ABC):
         (the diagnostic agent) appends its own.
         """
         raise NotImplementedError(f"{self.name} backend cannot run a one-off prompt")
+
+    def run_model(self, config: dict[str, Any]) -> str | None:
+        """The model a task launched now runs on. The configured one, unless
+        the backend chooses among installed models itself."""
+        return config.get("model")
+
+    def unavailable_reason(self, model: str | None = None) -> str:
+        """Why this backend cannot run a task on this machine now, or ""."""
+        return "" if self.is_available() else f"{self.name} is not installed"
 
     def estimate_cost(self, process: AgentProcess) -> tuple[int, float]:
         """

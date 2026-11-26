@@ -13,8 +13,7 @@ import service.deps_check as deps_check
 from service.deps_check import collect_dependency_status
 
 
-def test_missing_agent_clis_flagged(monkeypatch):
-    """No claude / cline / openclaw on PATH -> missing non-empty, entries false."""
+def _no_agent_clis(monkeypatch):
     real_which = deps_check.shutil.which
 
     def fake_which(cmd):
@@ -24,13 +23,27 @@ def test_missing_agent_clis_flagged(monkeypatch):
 
     monkeypatch.setattr(deps_check.shutil, "which", fake_which)
 
+
+def test_no_agent_cli_is_launch_ready_on_the_builtin_agent(monkeypatch):
+    """No claude / cline / openclaw on PATH: the built-in agent still launches."""
+    _no_agent_clis(monkeypatch)
+
     status = collect_dependency_status()
     by_name = {d["name"]: d for d in status["dependencies"]}
 
     assert by_name["claude"]["installed"] is False
     assert by_name["cline"]["installed"] is False
-    # neither agent CLI -> not launch-ready
-    assert status["missing"], "expected non-empty missing list"
+    assert by_name["guaardvark"]["installed"] is True
+    assert "agent-cli" not in status["missing"]
+
+
+def test_no_agent_at_all_flagged(monkeypatch):
+    """Neither an agent CLI nor the built-in agent -> not launch-ready."""
+    _no_agent_clis(monkeypatch)
+    monkeypatch.setattr(deps_check, "_builtin_agent_present", lambda: False)
+
+    status = collect_dependency_status()
+
     assert "agent-cli" in status["missing"]
     assert status["ok"] is False
 

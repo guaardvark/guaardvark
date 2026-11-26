@@ -98,7 +98,7 @@ def test_no_preference_never_reaches_the_hosted_backend(only_claude_installed):
 
 def test_an_unnamed_task_with_only_the_hosted_cli_says_how_to_use_it(tmp_path, only_claude_installed):
     orch = _orchestrator(tmp_path, _config())
-    with pytest.raises(RuntimeError, match=r"no local agent CLI is installed.*\[Backend: claude\]"):
+    with pytest.raises(RuntimeError, match=r"no local agent can run \(cline: 'cline' is not installed\).*\[Backend: claude\]"):
         orch._launch_task(_task(), online=True)
 
 

@@ -1,11 +1,11 @@
 """
 GPU holds for agents that run a local Ollama model.
 
-A cline agent configured with ``ollama/<model>`` keeps that model on the GPU
-for as long as it works, but it talks to Ollama directly, so the backend's GPU
-memory orchestrator only knows the model as one more Ollama resident: free to
-evict when something else asks for room, after which the agent's next call
-loads it again beside whatever took its place.
+An agent that runs ``ollama/<model>`` (Guaardvark's own code agent, or cline)
+keeps that model on the GPU for as long as it works, but it talks to Ollama
+directly, so the backend's GPU memory orchestrator only knows the model as one
+more Ollama resident: free to evict when something else asks for room, after
+which the agent's next call loads it again beside whatever took its place.
 
 While such an agent runs, the swarm holds the model's orchestrator slot
 (``ollama:<model>``) over the backend's /api/gpu/memory endpoints, the way the

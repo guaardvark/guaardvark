@@ -9,7 +9,7 @@ sidecar process even running.
 Everything here is PURE STATIC inspection:
   - NO network calls
   - NO GPU / model loads
-  - just shutil.which() + import probes + a file readability check
+  - just shutil.which() + import probes + file checks
 
 Runnable as a module so the backend can shell out to it safely:
 
@@ -28,6 +28,12 @@ from typing import Any
 
 # config.yaml lives at plugins/swarm/config.yaml — one level up from service/
 _CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.yaml"
+# The built-in code agent the guaardvark backend runs, in this checkout.
+_BUILTIN_AGENT = Path(__file__).resolve().parents[3] / "backend" / "services" / "worktree_agent.py"
+
+
+def _builtin_agent_present() -> bool:
+    return _BUILTIN_AGENT.is_file()
 
 
 def _which(cmd: str) -> bool:
@@ -66,9 +72,22 @@ def collect_dependency_status() -> dict[str, Any]:
           "ok": bool,                    # True if nothing required-for-launch is missing
         }
 
-    "kind" is "binary", "python", or "file".
+    "kind" is "binary", "python", "file", or "builtin".
     """
     checks: list[dict[str, Any]] = []
+
+    # Guaardvark's own code agent: no CLI to install. Whether a local Ollama
+    # model is there for it is a live question the running service answers
+    # (/swarm/connectivity); this check stays static.
+    builtin_ok = _builtin_agent_present()
+    checks.append({
+        "name": "guaardvark",
+        "kind": "builtin",
+        "required_for": "launch",
+        "installed": builtin_ok,
+        "detail": ("built-in code agent (runs on a local Ollama model)" if builtin_ok
+                   else "built-in code agent not found in this checkout"),
+    })
 
     # --- binaries ---
     git_ok = _which("git")
@@ -122,9 +141,10 @@ def collect_dependency_status() -> dict[str, Any]:
         "detail": cfg_detail,
     })
 
-    # An agent CLI is "required for launch" but either claude OR cline suffices.
-    # Track the individual entries above for detail, and compute launch-readiness
-    # from the pair so we don't falsely flag a working offline-only setup.
+    # An agent is "required for launch", but any one of them suffices: the
+    # built-in agent, claude or cline. Track the individual entries above for
+    # detail, and compute launch-readiness from the set so a working
+    # offline-only setup is not flagged.
     missing: list[str] = []
     for c in checks:
         if c["installed"]:
@@ -133,9 +153,9 @@ def collect_dependency_status() -> dict[str, Any]:
             missing.append(c["name"])
         # launch deps handled below as a pair
 
-    # at least one agent backend CLI must exist to launch a swarm
-    if not claude_ok and not cline_ok:
-        missing.append("agent-cli")  # neither claude nor cline available
+    # at least one agent backend must exist to launch a swarm
+    if not builtin_ok and not claude_ok and not cline_ok:
+        missing.append("agent-cli")  # no built-in agent, claude or cline
 
     return {
         "dependencies": checks,
