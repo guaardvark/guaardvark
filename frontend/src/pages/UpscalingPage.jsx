@@ -30,6 +30,9 @@ import {
 } from "@mui/material";
 import PageLayout from "../components/layout/PageLayout";
 import PageStatus, { StatusChip } from "../components/layout/PageStatus";
+import ResetSettingsButton from "../components/layout/ResetSettingsButton";
+import { useOpeningSettings, useSaveSettings } from "../hooks/useSavedSettings";
+import { clearSavedSettings } from "../utils/savedSettings";
 import {
   Upload as UploadIcon,
   AutoFixHigh as EnhanceIcon,
@@ -81,6 +84,21 @@ const extensionOf = (name) => (name.split(".").pop() || "").toLowerCase();
 const isVideoFile = (name) => VIDEO_EXTENSIONS.includes(extensionOf(name));
 const isImageFile = (name) => IMAGE_EXTENSIONS.includes(extensionOf(name));
 
+// The settings the page remembers between visits (utils/savedSettings), with
+// the value each has on a first visit and after Reset settings.
+const SAVED_SETTINGS_PAGE = "upscaling";
+const SETTING_DEFAULTS = {
+  mediaKind: "video",
+  selectedModel: "",
+  imageScale: "",
+  targetResolution: "4k",
+  twoPass: false,
+  faceEnhance: false,
+  doubleFps: false,
+  sharpen: 0.3,
+  denoiseStrength: 0.0,
+};
+
 const UpscalingPage = ({ embedded = false }) => {
   const { t } = useUiTranslation();
   const navigate = useNavigate();
@@ -106,17 +124,34 @@ const UpscalingPage = ({ embedded = false }) => {
 
   // "video" or "image" — drives which files are accepted and which endpoint
   // the Upscale button calls. Switching kinds drops the pending selection.
-  const [mediaKind, setMediaKind] = useState("video");
+  const opening = useOpeningSettings(SAVED_SETTINGS_PAGE, SETTING_DEFAULTS);
+  const [mediaKind, setMediaKind] = useState(opening.mediaKind === "image" ? "image" : "video");
 
   // Settings
-  const [selectedModel, setSelectedModel] = useState("");
-  const [imageScale, setImageScale] = useState("");
-  const [targetResolution, setTargetResolution] = useState("4k");
-  const [twoPass, setTwoPass] = useState(false);
-  const [faceEnhance, setFaceEnhance] = useState(false);
-  const [doubleFps, setDoubleFps] = useState(false);
-  const [sharpen, setSharpen] = useState(0.3);
-  const [denoiseStrength, setDenoiseStrength] = useState(0.0);
+  const [selectedModel, setSelectedModel] = useState(opening.selectedModel);
+  const [imageScale, setImageScale] = useState(opening.imageScale);
+  const [targetResolution, setTargetResolution] = useState(opening.targetResolution);
+  const [twoPass, setTwoPass] = useState(opening.twoPass);
+  const [faceEnhance, setFaceEnhance] = useState(opening.faceEnhance);
+  const [doubleFps, setDoubleFps] = useState(opening.doubleFps);
+  const [sharpen, setSharpen] = useState(opening.sharpen);
+  const [denoiseStrength, setDenoiseStrength] = useState(opening.denoiseStrength);
+  useSaveSettings(
+    SAVED_SETTINGS_PAGE,
+    { mediaKind, selectedModel, imageScale, targetResolution, twoPass, faceEnhance, doubleFps, sharpen, denoiseStrength },
+  );
+  // Reset settings: back to a first visit's values; picked files stay.
+  const resetSettings = () => {
+    clearSavedSettings(SAVED_SETTINGS_PAGE);
+    setSelectedModel(models.request_default || models.downloaded?.[0]?.name || SETTING_DEFAULTS.selectedModel);
+    setImageScale(SETTING_DEFAULTS.imageScale);
+    setTargetResolution(SETTING_DEFAULTS.targetResolution);
+    setTwoPass(SETTING_DEFAULTS.twoPass);
+    setFaceEnhance(SETTING_DEFAULTS.faceEnhance);
+    setDoubleFps(SETTING_DEFAULTS.doubleFps);
+    setSharpen(SETTING_DEFAULTS.sharpen);
+    setDenoiseStrength(SETTING_DEFAULTS.denoiseStrength);
+  };
 
   // Jobs
   const [jobs, setJobs] = useState([]);
@@ -260,7 +295,12 @@ const UpscalingPage = ({ embedded = false }) => {
           setSelectedModel(selectModel);
         } else if (data.downloaded?.length > 0) {
           // The service's own pick for a request that names no model.
-          setSelectedModel((current) => current || data.request_default || data.downloaded[0].name);
+          // A model that is no longer installed (a restored one included) gives way to it.
+          setSelectedModel((current) => (
+            current && data.downloaded.some((m) => m.name === current)
+              ? current
+              : data.request_default || data.downloaded[0].name
+          ));
         }
       } catch (e) {
         // Without the list the model picker is empty; say why.
@@ -785,6 +825,7 @@ const UpscalingPage = ({ embedded = false }) => {
         </Alert>
       )}
 
+      <ResetSettingsButton onReset={resetSettings} />
       <PageStatus>
         <StatusChip
           label={t("layout.board.status.model")}

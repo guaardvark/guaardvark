@@ -58,6 +58,9 @@ import {
   uploadPhoto,
 } from "../api/imageEditService";
 import { useUiTranslation } from "../i18n";
+import ResetSettingsButton from "../components/layout/ResetSettingsButton";
+import { useOpeningSettings, useSaveSettings } from "../hooks/useSavedSettings";
+import { clearSavedSettings } from "../utils/savedSettings";
 import { CardWorkspace } from "../components/board";
 import PageStatus, { StatusChip } from "../components/layout/PageStatus";
 
@@ -331,29 +334,43 @@ const PhotoSlot = ({
   );
 };
 
+// The settings the page remembers between visits (utils/savedSettings), with
+// the value each has on a first visit and after Reset settings.
+const SAVED_SETTINGS_PAGE = "imageEdit";
+const SETTING_DEFAULTS = {
+  mode: "identity",
+  size: "portrait",
+  strength: 1.0,
+  engine: "auto",
+  editSteps: "",
+  pad: EXPAND_PRESETS.presetAll,
+  identityEngine: "pulid",
+};
+
 const ImageEditPage = () => {
   const { t } = useUiTranslation();
 
   const [caps, setCaps] = useState(null);
   const [capsError, setCapsError] = useState(null);
-  const [mode, setMode] = useState("identity");
+  const opening = useOpeningSettings(SAVED_SETTINGS_PAGE, SETTING_DEFAULTS);
+  const [mode, setMode] = useState(MODES.includes(opening.mode) ? opening.mode : SETTING_DEFAULTS.mode);
   // The first photo is shared by every mode; extra photos belong to a mode.
   const [primary, setPrimary] = useState(null);
   const [extras, setExtras] = useState({ identity: [], edit: [] });
   const [uploadingSlot, setUploadingSlot] = useState(null);
   const [confirming, setConfirming] = useState(null);
   const [prompts, setPrompts] = useState({ identity: "", edit: "", expand: "" });
-  const [size, setSize] = useState("portrait");
-  const [strength, setStrength] = useState(1.0);
+  const [size, setSize] = useState(SIZES.includes(opening.size) ? opening.size : SETTING_DEFAULTS.size);
+  const [strength, setStrength] = useState(opening.strength);
   const [seed, setSeed] = useState(randomSeed);
   const [newSeedEachRun, setNewSeedEachRun] = useState(true);
-  const [engine, setEngine] = useState("auto");
-  const [editSteps, setEditSteps] = useState("");
-  const [pad, setPad] = useState(EXPAND_PRESETS.presetAll);
+  const [engine, setEngine] = useState(opening.engine);
+  const [editSteps, setEditSteps] = useState(opening.editSteps);
+  const [pad, setPad] = useState({ ...SETTING_DEFAULTS.pad, ...opening.pad });
   // "With other people": the scene first, then the faces placed on the ones chosen.
   const [withOthers, setWithOthers] = useState(false);
   // "pulid" draws a new picture around the face; "kontext" restages the photo itself.
-  const [identityEngine, setIdentityEngine] = useState("pulid");
+  const [identityEngine, setIdentityEngine] = useState(opening.identityEngine === "kontext" ? "kontext" : "pulid");
   // Set by "Try again with PuLID": the run starts once the page has switched engines.
   const [retryWithPulid, setRetryWithPulid] = useState(false);
   const [person2, setPerson2] = useState([]);
@@ -369,15 +386,43 @@ const ImageEditPage = () => {
   const [installId, setInstallId] = useState(null);
   const pollingRef = useRef(null);
 
+  const strengthRestored = useRef(opening.restored);
+  const defaultStrength = useRef(SETTING_DEFAULTS.strength);
+  // Saved once the capabilities have had their say on restored engines.
+  useSaveSettings(
+    SAVED_SETTINGS_PAGE,
+    { mode, size, strength, engine, editSteps, pad, identityEngine },
+    Boolean(caps || capsError),
+  );
+  // Reset settings: back to a first visit's values; photos and prompts stay.
+  const resetSettings = () => {
+    clearSavedSettings(SAVED_SETTINGS_PAGE);
+    const engines = caps?.modes?.identity?.engines;
+    setSize(SETTING_DEFAULTS.size);
+    setStrength(defaultStrength.current);
+    setEngine(SETTING_DEFAULTS.engine);
+    setEditSteps(SETTING_DEFAULTS.editSteps);
+    setPad(SETTING_DEFAULTS.pad);
+    setIdentityEngine(engines && !engines.pulid && engines.kontext ? "kontext" : SETTING_DEFAULTS.identityEngine);
+  };
+
   const loadCaps = useCallback(async () => {
     try {
       const res = await getCapabilities();
       setCaps(res.data);
       setCapsError(null);
       const defaults = res.data?.modes?.identity?.defaults;
-      if (defaults?.weight) setStrength(Number(defaults.weight));
+      // The engine's own strength, unless the person's is being restored.
+      if (defaults?.weight && !strengthRestored.current) setStrength(Number(defaults.weight));
+      defaultStrength.current = defaults?.weight ? Number(defaults.weight) : SETTING_DEFAULTS.strength;
       const identityEngines = res.data?.modes?.identity?.engines;
       if (identityEngines && !identityEngines.pulid && identityEngines.kontext) setIdentityEngine("kontext");
+      if (identityEngines && identityEngines.pulid && !identityEngines.kontext) setIdentityEngine("pulid");
+      // A restored edit engine that is no longer installed goes back to Auto.
+      const editEngines = res.data?.modes?.edit?.engines || [];
+      setEngine((current) => (
+        current === "auto" || editEngines.some((e) => e.model === current && e.installed) ? current : "auto"
+      ));
     } catch (err) {
       setCapsError(err.message);
     }
@@ -731,6 +776,7 @@ const ImageEditPage = () => {
 
   return (
     <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
+      <ResetSettingsButton onReset={resetSettings} disabled={running} />
       {capsError && <Alert severity="error">{t("imageEdit.capabilitiesFailed", { message: capsError })}</Alert>}
       {!caps && !capsError && <LinearProgress aria-label={t("imageEdit.loading")} />}
 

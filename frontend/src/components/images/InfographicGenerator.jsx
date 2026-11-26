@@ -45,6 +45,9 @@ import ImageLightbox from './ImageLightbox';
 import useImageBatchQueue, { POLLABLE_STATUSES } from '../../hooks/useImageBatchQueue';
 import { IMAGE_MAX_SEED, clampQuantity, parseImageSeed } from '../../utils/batchImageSettings';
 import { uiLocale, useUiTranslation, Trans } from '../../i18n';
+import ResetSettingsButton from '../layout/ResetSettingsButton';
+import { useOpeningSettings, useSaveSettings } from '../../hooks/useSavedSettings';
+import { clearSavedSettings } from '../../utils/savedSettings';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 // Recent Infographics a person hid stay hidden in this browser.
@@ -96,10 +99,16 @@ const fetchJson = async (url) => {
   return data.data ?? data;
 };
 
+// The settings the tab remembers between visits (utils/savedSettings), with
+// the value each has on a first visit and after Reset settings.
+const SAVED_SETTINGS_PAGE = 'infographic';
+const SETTING_DEFAULTS = { mode: 'structured', style: 'editorial', aspect: '16:9', model: '', quantity: 1 };
+
 const InfographicGenerator = () => {
   const { t } = useUiTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [mode, setMode] = useState('structured'); // structured | freeform
+  const opening = useOpeningSettings(SAVED_SETTINGS_PAGE, SETTING_DEFAULTS);
+  const [mode, setMode] = useState(opening.mode === 'freeform' ? 'freeform' : 'structured'); // structured | freeform
 
   // Structured fields
   const [title, setTitle] = useState('');
@@ -107,15 +116,16 @@ const InfographicGenerator = () => {
   const [footer, setFooter] = useState('');
   const [hashtags, setHashtags] = useState('');
   const [callouts, setCallouts] = useState('');
-  const [style, setStyle] = useState('editorial');
-  const [aspect, setAspect] = useState('16:9');
-  const [model, setModel] = useState('');
+  const [style, setStyle] = useState(opening.style);
+  const [aspect, setAspect] = useState(opening.aspect);
+  // A restored model is kept by refreshStatus only while it is still installed.
+  const [model, setModel] = useState(opening.model);
 
   // Freeform
   const [rawPrompt, setRawPrompt] = useState('');
 
   // Batch
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(() => clampQuantity(opening.quantity));
   const [seedText, setSeedText] = useState('');
 
   // Run state
@@ -123,6 +133,17 @@ const InfographicGenerator = () => {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [status, setStatus] = useState(null); // {ready, default_model, models:[...]}
+  // Saved once the model list has had its say on a restored model.
+  useSaveSettings(SAVED_SETTINGS_PAGE, { mode, style, aspect, model, quantity }, status !== null);
+  // Reset settings: back to a first visit's values; the text stays.
+  const resetSettings = () => {
+    clearSavedSettings(SAVED_SETTINGS_PAGE);
+    const installed = (status?.models || []).filter((m) => m.installed).map((m) => m.id);
+    setStyle(SETTING_DEFAULTS.style);
+    setAspect(SETTING_DEFAULTS.aspect);
+    setQuantity(SETTING_DEFAULTS.quantity);
+    setModel(installed.includes(status?.default_model) ? status.default_model : installed[0] || '');
+  };
   // The batch shown under Results: the last one queued here, or one opened from Recent.
   const [currentBatchId, setCurrentBatchId] = useState(null);
   const [currentBatch, setCurrentBatch] = useState(null);
@@ -486,6 +507,7 @@ const InfographicGenerator = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', p: 1 }}>
+      <ResetSettingsButton onReset={resetSettings} disabled={queuing} />
       {renderStatusBanner()}
 
       <PageStatus>

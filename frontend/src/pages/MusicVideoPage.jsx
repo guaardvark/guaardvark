@@ -79,6 +79,8 @@ import ChangedElsewhereNotice from "../components/common/ChangedElsewhereNotice"
 import useServerSyncedForm from "../hooks/useServerSyncedForm";
 import useUnsavedChangesGuard from "../hooks/useUnsavedChangesGuard";
 import { useUiTranslation, translate, uiLocale, Trans } from "../i18n";
+import { useOpeningSettings, useSaveSettings } from "../hooks/useSavedSettings";
+import { clearSavedSettings } from "../utils/savedSettings";
 import { CardWorkspace } from "../components/board";
 
 const POLL_MS = 5000;
@@ -1000,6 +1002,21 @@ const stageLabel = (mv) => {
   return mv.current_stage || mv.status || translate("musicVideo.stage.unknown");
 };
 
+// The new-video settings the page remembers between visits (utils/savedSettings),
+// with the value each has on a first visit and after Reset settings. An empty
+// model means none was picked: the page follows what is installed and active.
+const SAVED_SETTINGS_PAGE = "musicVideo";
+const SETTING_DEFAULTS = {
+  fillMethod: "forward",
+  maxStretch: "2",
+  i2vSteps: "",
+  interp: "2",
+  directorEnabled: true,
+  planningMode: "narrative",
+  keyframeModel: "",
+  i2vModel: "",
+};
+
 const MusicVideoPage = () => {
   const { t, language } = useUiTranslation();
   const { gpuBusy, gpuSubmitBlocked, blockReason, blockDetail } = useJobsGate({ submitMode: "queue" });
@@ -1152,24 +1169,33 @@ const MusicVideoPage = () => {
   // Advanced render tuning (per video) — collapsed by default; defaults match the
   // backend _settings so leaving this untouched is a no-op.
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [fillMethod, setFillMethod] = useState("forward");
-  const [maxStretch, setMaxStretch] = useState("2");
-  const [i2vSteps, setI2vSteps] = useState("");
-  const [interp, setInterp] = useState("2");
+  const opening = useOpeningSettings(SAVED_SETTINGS_PAGE, SETTING_DEFAULTS);
+  const [fillMethod, setFillMethod] = useState(opening.fillMethod);
+  const [maxStretch, setMaxStretch] = useState(opening.maxStretch);
+  const [i2vSteps, setI2vSteps] = useState(opening.i2vSteps);
+  const [interp, setInterp] = useState(opening.interp);
 
   // Director / planning controls (new)
-  const [directorEnabled, setDirectorEnabled] = useState(true);
-  const [planningMode, setPlanningMode] = useState("narrative"); // "narrative" | "visual"
+  const [directorEnabled, setDirectorEnabled] = useState(opening.directorEnabled);
+  const [planningMode, setPlanningMode] = useState(opening.planningMode === "visual" ? "visual" : "narrative"); // "narrative" | "visual"
 
   // === New: Storyboard / Keyframe + I2V model selection (inspired by VideoGeneratorPage) ===
   // LoRA consistency: when true, bake cast LoRAs into keyframes via character_still_pipeline.
   // When false, more options for beautiful output (better keyframe models + top-tier I2V like Wan2.2).
   const [useLoraConsistency, setUseLoraConsistency] = useState(false);
-  const [keyframeModel, setKeyframeModel] = useState(DEFAULT_KEYFRAME_MODEL);
-  const [i2vModel, setI2vModel] = useState("wan22-5b");
+  const [keyframeModel, setKeyframeModel] = useState(opening.keyframeModel || DEFAULT_KEYFRAME_MODEL);
+  const [i2vModel, setI2vModel] = useState(opening.i2vModel || "wan22-5b");
+  // A restored I2V model counts as picked while the registry still lists it.
+  const i2vTouched = useRef(Boolean(opening.i2vModel));
+  const activeI2v = useRef(null);
+  // Both model lists have answered (or failed); settings are saved after that.
+  const [stillsChecked, setStillsChecked] = useState(false);
+  const [i2vChecked, setI2vChecked] = useState(false);
+  // The keyframe model picked without a cast; a cast pick replaces it for one video.
+  const plainKeyframe = useRef(opening.keyframeModel);
   // Z-Image Turbo stills render offline (as on the Images page); offered when it is installed.
   const [zimageInstalled, setZimageInstalled] = useState(false);
-  const keyframeTouched = useRef(false);
+  const keyframeTouched = useRef(Boolean(opening.keyframeModel));
   const defaultKeyframe = zimageInstalled ? "zimage-turbo" : DEFAULT_KEYFRAME_MODEL;
 
   const keyframeModelOptions = useMemo(
@@ -1190,6 +1216,32 @@ const MusicVideoPage = () => {
           ],
     [useLoraConsistency, zimageInstalled, t, language],
   );
+
+  if (!useLoraConsistency && keyframeTouched.current) plainKeyframe.current = keyframeModel;
+  useSaveSettings(
+    SAVED_SETTINGS_PAGE,
+    {
+      fillMethod, maxStretch, i2vSteps, interp, directorEnabled, planningMode,
+      keyframeModel: plainKeyframe.current,
+      i2vModel: i2vTouched.current ? i2vModel : "",
+    },
+    stillsChecked && i2vChecked,
+  );
+  // Reset settings: back to a first visit's values; the song, name and cast stay.
+  const resetSettings = () => {
+    clearSavedSettings(SAVED_SETTINGS_PAGE);
+    keyframeTouched.current = false;
+    i2vTouched.current = false;
+    plainKeyframe.current = "";
+    setFillMethod(SETTING_DEFAULTS.fillMethod);
+    setMaxStretch(SETTING_DEFAULTS.maxStretch);
+    setI2vSteps(SETTING_DEFAULTS.i2vSteps);
+    setInterp(SETTING_DEFAULTS.interp);
+    setDirectorEnabled(SETTING_DEFAULTS.directorEnabled);
+    setPlanningMode(SETTING_DEFAULTS.planningMode);
+    if (!useLoraConsistency) setKeyframeModel(defaultKeyframe);
+    setI2vModel(activeI2v.current || "wan22-5b");
+  };
 
   useEffect(() => {
     if (!keyframeModelOptions.some((opt) => opt.value === keyframeModel)) {
@@ -1265,9 +1317,10 @@ const MusicVideoPage = () => {
         // "models" also lists downloadable ones; only weights on disk count.
         const ready = models.some((m) => m && m.id === "zimage-turbo" && (m.availability === "ready" || m.is_downloaded));
         setZimageInstalled(ready);
-        if (ready && !keyframeTouched.current) setKeyframeModel("zimage-turbo");
+        if (ready && (!keyframeTouched.current || opening.keyframeModel === "zimage-turbo")) setKeyframeModel("zimage-turbo");
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { if (alive) setStillsChecked(true); });
     return () => {
       alive = false;
     };
@@ -1296,9 +1349,12 @@ const MusicVideoPage = () => {
         });
         setI2vModelRows(opts);
         const active = payload.active_i2v;
-        if (active && opts[active]) setI2vModel(active);
+        activeI2v.current = active && opts[active] ? active : null;
+        if (i2vTouched.current && !opts[opening.i2vModel]) i2vTouched.current = false;
+        if (!i2vTouched.current && active && opts[active]) setI2vModel(active);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { if (alive) setI2vChecked(true); });
     return () => { alive = false; };
   }, []);
 
@@ -1401,13 +1457,10 @@ const MusicVideoPage = () => {
       setStylePrompt("");
       setUserTreatment("");
       setFile(null);
-      setDirectorEnabled(true);
-      setPlanningMode("narrative");
+      // The cast belongs to that video; the other settings stay for the next one.
       setUseLoraConsistency(false);
       setSelectedSubjectIds([]);
-      setKeyframeModel(defaultKeyframe);
-      setI2vModel("wan22-5b");
-      // Reset any future advanced model params here too
+      if (useLoraConsistency) setKeyframeModel(plainKeyframe.current || defaultKeyframe);
       if (fileInputRef.current) fileInputRef.current.value = "";
       await refreshList();
       setSelectedId(mv.id);
@@ -1716,6 +1769,13 @@ const MusicVideoPage = () => {
               </Link>
               <Collapse in={showAdvanced}>
                 <Stack spacing={1.5} sx={{ pt: 0.5 }}>
+                  <Link
+                    component="button" type="button" variant="caption" underline="hover"
+                    sx={{ alignSelf: "flex-end" }}
+                    onClick={resetSettings}
+                  >
+                    {t("layout.savedSettings.reset")}
+                  </Link>
                   <TextField
                     select size="small" fullWidth label={t("musicVideo.create.fill")}
                     value={fillMethod} onChange={(e) => setFillMethod(e.target.value)}
@@ -1863,7 +1923,10 @@ const MusicVideoPage = () => {
                     fullWidth
                     label={t("musicVideo.create.i2vModel")}
                     value={i2vModel}
-                    onChange={(e) => setI2vModel(e.target.value)}
+                    onChange={(e) => {
+                      i2vTouched.current = true;
+                      setI2vModel(e.target.value);
+                    }}
                     helperText={t("musicVideo.create.i2vModelHelp")}
                     sx={{ mt: 1 }}
                   >
