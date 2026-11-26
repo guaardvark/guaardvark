@@ -207,13 +207,19 @@ def upscale_video():
     except ValueError as exc:
         return error_response(str(exc), 400)
 
+    suffix = body.get("suffix") or _target_suffix(target_width)
+    # Where the result goes: the caller's path, else the plugin's own default
+    # beside the input. Either is sent only as a name no earlier result has.
+    wanted = body.get("output_path") or f"{os.path.splitext(input_path)[0]}_{suffix}.mp4"
+    output_path = _free_output_path(wanted)
+
     payload = {
         "input_path": input_path,
-        "output_path": body.get("output_path"),
+        "output_path": output_path if output_path != wanted else body.get("output_path"),
         "model": body.get("model"),
         "scale": body.get("scale"),
         "target_width": target_width,
-        "suffix": body.get("suffix") or _target_suffix(target_width),
+        "suffix": suffix,
         "two_pass": body.get("two_pass", False),
         # The options /upload takes from its form, so a request it saved for
         # later (save_for_later) runs with the same settings.
@@ -446,7 +452,7 @@ def _stage_image(file) -> Path:
     if ext not in ALLOWED_IMAGE_EXTENSIONS:
         raise ValueError(f"Unsupported image type: {ext or file.filename}")
     stem = os.path.splitext(safe_name)[0] or "image"
-    staged = _image_input_dir() / f"{stem}_{uuid.uuid4().hex[:8]}{ext}"
+    staged = _image_input_dir() / f"{stem}_{_name_token()}{ext}"
     file.save(str(staged))
     return staged
 
@@ -718,6 +724,20 @@ def serve_image_output(filename):
 
 
 
+def _name_token() -> str:
+    """The short random part that keeps two files of the same name apart."""
+    return uuid.uuid4().hex[:8]
+
+
+def _free_output_path(path: str) -> str:
+    """``path``, or the same name with a short token before the extension when
+    a file is already there, so an earlier result is never replaced."""
+    if not os.path.exists(path):
+        return path
+    root, ext = os.path.splitext(path)
+    return f"{root}_{_name_token()}{ext}"
+
+
 def _target_suffix(target_width: Optional[int]) -> str:
     """Output name suffix for a video upscale: the preset it reaches, if any."""
     if target_width and target_width >= 7680:
@@ -748,7 +768,16 @@ def upload_and_upscale():
         return error_response(str(exc), 400)
 
     upload_dir = _get_upload_dir()
-    input_path = upload_dir / "input" / filename
+    suffix = _target_suffix(target_width)
+    # A second upload of a name keeps the first upload and its result: when
+    # either is on disk, this one is stored under the name plus a short token,
+    # as staged images are.
+    base_name = os.path.splitext(filename)[0] or "video"
+    if (upload_dir / "input" / f"{base_name}{ext}").exists() or (
+        upload_dir / "output" / f"{base_name}_{suffix}{ext}"
+    ).exists():
+        base_name = f"{base_name}_{_name_token()}"
+    input_path = upload_dir / "input" / f"{base_name}{ext}"
     input_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Save uploaded file
@@ -756,10 +785,8 @@ def upload_and_upscale():
     logger.info(f"Uploaded video saved: {input_path}")
 
     # Build output path
-    base_name = os.path.splitext(filename)[0]
     model = flask_request.form.get("model")
     scale = flask_request.form.get("scale")
-    suffix = _target_suffix(target_width)
     output_path = upload_dir / "output" / f"{base_name}_{suffix}{ext}"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

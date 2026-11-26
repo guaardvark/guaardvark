@@ -8,6 +8,7 @@ import os
 import queue
 import threading
 import time
+import uuid
 from contextlib import asynccontextmanager
 from typing import List, Optional
 
@@ -193,10 +194,10 @@ def _submit_watch_job(input_path: str):
     if not _config or not _job_manager:
         return
     basename = os.path.splitext(os.path.basename(input_path))[0]
-    output_path = os.path.join(
+    output_path = _free_output_path(os.path.join(
         _config.watch_output_dir or os.path.dirname(input_path),
         f"{basename}_upscaled.mp4",
-    )
+    ))
     _start_video_job(
         input_path=input_path,
         output_path=output_path,
@@ -227,6 +228,15 @@ def _atomic_imwrite(output_path: str, image) -> bool:
         return False
     os.replace(tmp_path, output_path)
     return True
+
+
+def _free_output_path(path: str) -> str:
+    """``path``, or the same name with a short token before the extension when
+    a file is already there, so an earlier result is never replaced."""
+    if not os.path.exists(path):
+        return path
+    root, ext = os.path.splitext(path)
+    return f"{root}_{uuid.uuid4().hex[:8]}{ext}"
 
 
 def _target_size(img, target_width: Optional[int]):
@@ -897,7 +907,7 @@ def upscale_video_endpoint(req: VideoUpscaleRequest, request: Request):
     output_path = req.output_path
     if not output_path:
         base = os.path.splitext(req.input_path)[0]
-        output_path = f"{base}_{req.suffix}.mp4"
+        output_path = _free_output_path(f"{base}_{req.suffix}.mp4")
 
     job = _start_video_job(
         input_path=req.input_path,
