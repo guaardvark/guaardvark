@@ -344,6 +344,52 @@ def reload_onto_gpu_if_room(model_name: str) -> bool:
     return True
 
 
+# Models this process asked Ollama to load on the CPU because a render or
+# training job held the GPU (full model name -> when). Ollama keeps a runner
+# where it loaded it, so the first chat turn after the job unloads such a model
+# and it loads again under Ollama's own placement.
+_cpu_placed: Dict[str, float] = {}
+
+
+def note_cpu_placement(model_name: str) -> None:
+    """Record that ``model_name`` was requested with ``num_gpu: 0`` for a job on the GPU."""
+    name = _full_model_name(model_name)
+    if not name:
+        return
+    with _placement_lock:
+        _cpu_placed[name] = time.time()
+        # On the CPU by request, not by Ollama's choice: the next reload onto
+        # the GPU must not be read as one that failed.
+        _placement_reloaded.pop(model_name, None)
+        _placement_checked.pop(model_name, None)
+
+
+def release_cpu_placement(model_name: str) -> bool:
+    """Unload ``model_name`` when it still sits wholly on the CPU from
+    :func:`note_cpu_placement`, so the request that follows loads it where
+    Ollama would have put it. True when it was unloaded. Costs nothing for a
+    model that was never placed there.
+    """
+    name = _full_model_name(model_name)
+    with _placement_lock:
+        if name not in _cpu_placed:
+            return False
+        _cpu_placed.pop(name, None)
+    entry = loaded_entry(model_name)
+    if entry is None or int(entry.get("size_vram") or 0) > 0:
+        return False
+    try:
+        requests.post(f"{get_ollama_base_url()}/api/generate",
+                      json={"model": model_name, "keep_alive": 0}, timeout=30)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Could not unload %s from the CPU after the GPU job: %s", model_name, e)
+        return False
+    with _resident_lock:
+        _resident_cache.update(at=0.0, models=[])
+    logger.info("%s was on the CPU for a GPU job that has ended; unloaded so it loads onto the GPU", model_name)
+    return True
+
+
 def get_system_resources() -> Dict[str, float]:
     """
     Get available system memory resources in MB.

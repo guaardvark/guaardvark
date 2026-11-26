@@ -302,6 +302,60 @@ THINK_OFF_LEVEL_BY_ARCH = {
     "gptoss": "low",
 }
 
+# ---------------------------------------------------------------------------
+# The chat model while rendering (render_time_chat)
+# ---------------------------------------------------------------------------
+# While a render or training job holds the GPU, chat answers with a small model
+# on the CPU with thinking off. Only a model measured to answer without
+# reasoning when sent think:false is offered for that: one that reasons anyway
+# spends its reply budget thinking at CPU speed. Keys are a full tag, or a name
+# without a tag for every tag of it; the full tag wins. A model missing here
+# that Ollama lists as thinking is not offered; one Ollama does not list as
+# thinking has nothing to turn off and is.
+#
+# Measured CPU-only (num_gpu 0, think:false, Ollama 0.40.17, Ryzen 7 9800X3D),
+# 2026-11-25: characters of reasoning in a 200-token reply to "In two
+# sentences, what is a LoRA in image generation?".
+THINK_FALSE_HONOURED = {
+    "gemma4": True,        # e2b, e4b, 12b: 0 characters
+    "qwen3.5:4b": True,    # 0 characters
+    "bonsai-2:4b": True,   # 0 characters
+    "lfm3:1.7b": True,     # 0 characters
+    "lfm3-vl:2b": True,    # 0 characters
+    "qwen3-vl": False,     # 4b: 939 characters and no answer; /no_think ignored too
+}
+
+# Models that pass every other check and still do not answer chat here, by
+# name without a tag. Same runs, with chat's own 9,380-character system prompt.
+RENDER_TIME_NOT_OFFERED = {
+    # Ollama turns its replies into native tool calls although the request
+    # offers no tools, so chat's default tool format receives an empty answer:
+    # 3 of 3 (lfm3-vl:2b) and 2 of 3 (lfm3:1.7b) questions came back empty.
+    "lfm3": "answers arrive as native tool calls, empty in chat",
+    "lfm3-vl": "answers arrive as native tool calls, empty in chat",
+    # An OCR model: wrong short answers, echoed the question, no tool call.
+    "glm-ocr": "an OCR model, not a chat model",
+}
+
+# What the "Automatic" choice takes, first one installed. CPU-only with chat's
+# system prompt (2,438 tokens), cold first token / generation speed:
+# gemma4:e4b 5.7 s / 20 tokens a second, gemma4:e2b 1.8 s / 25, qwen3.5:4b
+# 9.1 s / 14. All three answered the document question from its passages;
+# e4b is first for its answers (e2b gave a wrong page in the earlier run).
+RENDER_TIME_PREFERRED_MODELS = ("gemma4:e4b", "gemma4:e2b", "qwen3.5:4b")
+# With none of those, Automatic takes the smallest installed model that
+# qualifies, and none above this many parameters: gemma4:12b (11.9B) on the
+# CPU answered a chat question in 4 min 18 s during a Wan 2.2 render
+# (2026-11-25), which is not an answer anyone waits for. A model a person
+# picks is not held to this.
+RENDER_TIME_AUTO_MAX_PARAMS = 8_000_000_000
+# The window a CPU answer runs at. The system prompt alone is about 2,400
+# tokens, and reading the prompt is the wait before the first word.
+RENDER_TIME_NUM_CTX = 8192
+# How long Ollama keeps the CPU copy after an answer. Short, so it leaves RAM
+# soon after the render; Keep ready's no-timeout is for the chat model itself.
+RENDER_TIME_KEEP_ALIVE = "5m"
+
 # is_vision_model's fallback when the capability resolver cannot be imported.
 VISION_NAME_PATTERNS = [
     r'vl\b', r'vision', r'llava', r'moondream', r'bakllava',

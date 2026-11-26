@@ -166,7 +166,14 @@ def scan(source: str, question: str, *, session_id: Optional[str] = None, model:
     model = model or active_chat_model()
     if not model:
         raise ScanRefused("No chat model is active.")
-    num_ctx = compute_optimal_num_ctx(model)
+    # While a render or training job holds the GPU the scan reads with the chat
+    # model while rendering, like the turn that called it, and keeps that
+    # choice for all of its parts.
+    from backend.services import render_time_chat
+    render_time = render_time_chat.for_turn(model)
+    if render_time:
+        model = render_time.model
+    num_ctx = (render_time.num_ctx if render_time else None) or compute_optimal_num_ctx(model)
     parts, kind = parts_of(source, session_id, part_chars(num_ctx))
     if len(parts) > MAX_PARTS:
         raise ScanRefused(
@@ -187,7 +194,7 @@ def scan(source: str, question: str, *, session_id: Optional[str] = None, model:
                 break
             user = (f"Question: {question}\n\nMemory so far:\n{memory or '(empty)'}\n\n"
                     f"Part {i} of {len(parts)} ({part['where']}):\n{part['text']}")
-            reply = _call(model, system, user, num_ctx)
+            reply = _call(model, system, user, num_ctx, render_time)
             if reply is not None:
                 memory = reply[:MEMORY_MAX_CHARS]
             read = i
@@ -201,7 +208,7 @@ def scan(source: str, question: str, *, session_id: Optional[str] = None, model:
             "spans": [p["where"] for p in parts[:read]]}
 
 
-def _call(model: str, system: str, user: str, num_ctx: int) -> Optional[str]:
+def _call(model: str, system: str, user: str, num_ctx: int, render_time=None) -> Optional[str]:
     from backend.config import get_chat_keep_alive
     from backend.services.nl_control_plane import _client_for
     from backend.utils.ollama_resource_manager import request_options, think_payload
@@ -209,8 +216,9 @@ def _call(model: str, system: str, user: str, num_ctx: int) -> Optional[str]:
         response = _client_for(CALL_TIMEOUT_S).chat(
             model=model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-            options=request_options(model, temperature=0.2, num_ctx=num_ctx, num_predict=REPLY_TOKENS),
-            keep_alive=get_chat_keep_alive(),
+            options=request_options(model, temperature=0.2, num_ctx=num_ctx, num_predict=REPLY_TOKENS,
+                                    **(render_time.options if render_time else {})),
+            keep_alive=render_time.keep_alive if render_time else get_chat_keep_alive(),
             **think_payload(model),
         )
     except Exception as exc:  # noqa: BLE001 - one failed part keeps the memory so far
