@@ -66,8 +66,10 @@
   "taskCount": "{{count}} tasks",
   "flightMode": "Flight Mode",
   "history": {
-    "freeLocal": "Free (local)",
     "cleanUp": "Clean up"
+  },
+  "usage": {
+    "tokens": "{{tokens}} tokens"
   },
   "empty": {
     "title": "No Swarms Running",
@@ -127,7 +129,6 @@
     "progress": "{{done}}/{{total}} tasks",
     "waitingOn": "Waiting: {{reason}}",
     "repository": "Repository this swarm works on",
-    "free": "Free",
     "activeAgents": "{{count}} active",
     "diskUsage": "{{size}} MB",
     "dependencyGraph": "DEPENDENCY GRAPH",

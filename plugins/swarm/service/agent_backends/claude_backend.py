@@ -7,10 +7,12 @@ Output goes to a log file for dashboard viewing. No tmux needed.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +24,8 @@ logger = logging.getLogger("swarm.backend.claude")
 
 COMPLETION_MARKER = "completion.md"
 LOG_FILE = ".swarm-agent.log"
+# The CLI's own JSON report of the run: its reply, token usage and cost.
+RESULT_FILE = ".swarm-result.json"
 
 WRAPPER_SCRIPT = """#!/bin/bash
 cd "{worktree_path}"
@@ -32,8 +36,13 @@ cd "{worktree_path}"
 # agent is declared crashed before it has a chance to do anything.
 rm -f .swarm-status
 
-{claude_command} > "{completion_file}" 2>> "{log_file}"
+{claude_command} > "{result_file}" 2>> "{log_file}"
 EXIT_CODE=$?
+
+# The reply is the "result" field of the report; output that is not such a
+# report (a CLI that printed plain text) is kept as it is.
+{python} -c 'import json, sys; sys.stdout.write(json.load(open(sys.argv[1]))["result"])' \
+    "{result_file}" > "{completion_file}" 2>/dev/null || cp "{result_file}" "{completion_file}"
 
 # Append the response to the log too so the dashboard tails it.
 if [ -s "{completion_file}" ]; then
@@ -84,7 +93,8 @@ class ClaudeBackend(BaseBackend):
         # The wrapper script also does this, but we do it here too so the
         # window between spawn() returning and the wrapper actually executing
         # can't be observed by check_status with stale files in place.
-        for stale in (wt / ".swarm-status", completion_file):
+        result_file = wt / RESULT_FILE
+        for stale in (wt / ".swarm-status", completion_file, result_file):
             try:
                 stale.unlink()
             except FileNotFoundError:
@@ -92,7 +102,8 @@ class ClaudeBackend(BaseBackend):
 
         prompt = self._build_prompt(task)
 
-        claude_parts = self.command_prefix(config) + [prompt]
+        # --output-format json makes the CLI report the tokens the run used.
+        claude_parts = self.command_prefix(config) + ["--output-format", "json", prompt]
         claude_cmd = " ".join(_shell_quote(p) for p in claude_parts)
 
         # write wrapper script
@@ -103,6 +114,8 @@ class ClaudeBackend(BaseBackend):
                 claude_command=claude_cmd,
                 log_file=str(log_file),
                 completion_file=str(completion_file),
+                result_file=str(result_file),
+                python=_shell_quote(sys.executable or "python3"),
             )
         )
         wrapper_path.chmod(0o755)
@@ -125,7 +138,9 @@ class ClaudeBackend(BaseBackend):
             pid=proc.pid,
             worktree_path=worktree_path,
             status=AgentStatus.RUNNING,
-            metadata={"popen": proc},
+            # A run signed in with an API key is billed per token; a signed-in
+            # subscription is not, so the CLI's dollar figure is not its cost.
+            metadata={"popen": proc, "billed_per_token": bool(os.environ.get("ANTHROPIC_API_KEY"))},
         )
 
     def check_status(self, process: AgentProcess) -> AgentStatus:
@@ -209,15 +224,20 @@ class ClaudeBackend(BaseBackend):
         return False
 
     def estimate_cost(self, process: AgentProcess) -> tuple[int, float]:
-        wt = Path(process.worktree_path)
-        completion = wt / COMPLETION_MARKER
-        if not completion.exists():
+        """Tokens and cost as the CLI reported them for this run; zeros when
+        it reported none. Tokens are everything the run sent and received,
+        cached input included. The cost is passed on only for a run billed per
+        token."""
+        try:
+            report = json.loads((Path(process.worktree_path) / RESULT_FILE).read_text())
+            usage = report.get("usage") or {}
+            tokens = sum(int(usage.get(k) or 0) for k in (
+                "input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens"))
+            cost = float(report.get("total_cost_usd") or 0.0)
+        except (OSError, ValueError, TypeError, AttributeError):
             return (0, 0.0)
-
-        content = completion.read_text()
-        estimated_tokens = len(content) // 4
-        cost = estimated_tokens * 0.075 / 1000
-        return (estimated_tokens, cost)
+        billed = isinstance(process.metadata, dict) and process.metadata.get("billed_per_token")
+        return (tokens, cost if billed else 0.0)
 
     def is_available(self) -> bool:
         return shutil.which("claude") is not None

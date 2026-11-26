@@ -49,6 +49,7 @@ import {
   ExpandLess as CollapseIcon,
   Speed as SpeedIcon,
   AttachMoney as CostIcon,
+  DataUsage as TokensIcon,
   Schedule as TimeIcon,
   AccountTree as BranchIcon,
   CheckCircle as DoneIcon,
@@ -719,9 +720,9 @@ const SwarmPage = () => {
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
                       {t("swarm.taskCount", { count: h.task_count })}
                       {h.flight_mode ? ` | ${t("swarm.flightMode")}` : ""}
-                      {h.total_cost_usd > 0
-                        ? ` | $${h.total_cost_usd.toFixed(2)}`
-                        : ` | ${t("swarm.history.freeLocal")}`}
+                      {usageParts(h.usage_reported, h.total_tokens, h.total_cost_usd)
+                        .map((part) => ` | ${part}`)
+                        .join("")}
                     </Typography>
                   </Box>
                   <IconButton
@@ -1201,14 +1202,12 @@ const SwarmCard = ({
           {/* Stats row */}
           <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
             <StatChip icon={<TimeIcon />} label={elapsed} />
-            <StatChip
-              icon={<CostIcon />}
-              label={
-                swarm.total_cost_usd > 0
-                  ? `$${swarm.total_cost_usd.toFixed(2)}`
-                  : t("swarm.card.free")
-              }
-            />
+            {swarm.usage_reported && swarm.total_tokens > 0 && (
+              <StatChip icon={<TokensIcon />} label={formatTokens(swarm.total_tokens)} />
+            )}
+            {swarm.usage_reported && swarm.total_cost_usd > 0 && (
+              <StatChip icon={<CostIcon />} label={formatCost(swarm.total_cost_usd)} />
+            )}
             <StatChip
               icon={<SpeedIcon />}
               label={t("swarm.card.activeAgents", { count: swarm.running_count || 0 })}
@@ -1284,6 +1283,7 @@ const SwarmCard = ({
                 <TaskCard
                   task={task}
                   swarmId={swarm.swarm_id}
+                  usageReported={swarm.usage_reported}
                   onViewTask={onViewTask}
                   onItemContextMenu={onItemContextMenu}
                   theme={theme}
@@ -1300,7 +1300,7 @@ const SwarmCard = ({
 
 // ─── Task Card Component ─────────────────────────────────────────────
 
-const TaskCard = ({ task, swarmId, onViewTask, onItemContextMenu, _theme }) => {
+const TaskCard = ({ task, swarmId, usageReported, onViewTask, onItemContextMenu, _theme }) => {
   const { t } = useUiTranslation();
   const statuses = statusConfig();
   const cfg = statuses[task.status] || statuses.pending;
@@ -1339,8 +1339,9 @@ const TaskCard = ({ task, swarmId, onViewTask, onItemContextMenu, _theme }) => {
         {task.backend_name && (
           <Typography variant="caption" sx={{ color: "text.secondary" }}>
             {task.backend_name} | {task.elapsed || "-"}
-            {task.estimated_cost_usd > 0 &&
-              ` | $${task.estimated_cost_usd.toFixed(2)}`}
+            {usageParts(usageReported, task.token_count, task.estimated_cost_usd)
+              .map((part) => ` | ${part}`)
+              .join("")}
           </Typography>
         )}
 
@@ -1390,6 +1391,16 @@ const StatChip = ({ icon, label }) => (
     </Typography>
   </Stack>
 );
+
+// Token and cost figures are shown only when the agent CLI reported them for
+// the run; a run that reported none shows no figure.
+const formatTokens = (tokens) =>
+  translate("swarm.usage.tokens", { tokens: tokens.toLocaleString() });
+const formatCost = (usd) => (usd < 0.01 ? "<$0.01" : `$${usd.toFixed(2)}`);
+const usageParts = (reported, tokens, costUsd) =>
+  reported
+    ? [tokens > 0 && formatTokens(tokens), costUsd > 0 && formatCost(costUsd)].filter(Boolean)
+    : [];
 
 const formatElapsed = (seconds) => {
   if (!seconds || seconds < 0) return "-";
