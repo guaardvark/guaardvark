@@ -19,8 +19,9 @@ defaults:
 
 # A task that names no backend runs on the first installed backend with
 # requires_internet: false, in priority order. A hosted backend (claude) gets
-# the task and the repository's code, so it runs only for a task that names it:
-# [Backend: claude] or [Model: claude].
+# the task and the repository's code, so it runs only for a task that names it
+# ([Backend: claude] or [Model: claude]) or a launch that names it (Run on in
+# the launch dialog, default_backend in the launch request).
 backends:
   claude:
     command: "claude"

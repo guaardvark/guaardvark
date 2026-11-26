@@ -31,6 +31,7 @@ import {
   MenuItem,
   InputLabel,
   FormControl,
+  FormHelperText,
   Tabs,
   Tab,
 } from "@mui/material";
@@ -162,6 +163,8 @@ const SwarmPage = () => {
   const [dirtyTreeSeen, setDirtyTreeSeen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [launching, setLaunching] = useState(false);
+  // The agent backend picked in the launch dialog; "" until the person picks.
+  const [runOnPick, setRunOnPick] = useState("");
 
   // ─── Data Fetching ─────────────────────────────────────────────
 
@@ -248,6 +251,11 @@ const SwarmPage = () => {
     return () => clearInterval(interval);
   }, [fetchStatus]);
 
+  // Every launch dialog starts with no hosted backend picked.
+  useEffect(() => {
+    if (!launchOpen) setRunOnPick("");
+  }, [launchOpen]);
+
   // ─── Actions ───────────────────────────────────────────────────
 
   // Template dropdown + template card share this handler. Picking a template
@@ -261,6 +269,22 @@ const SwarmPage = () => {
       setPlanPath(picked?.plan_path || `plugins/swarm/templates/${filename}`);
     }
   };
+
+  // Backends this launch could run on: installed, and local when Flight Mode
+  // is on. A local one is what the service uses anyway, so it is preselected;
+  // a hosted one runs only when the person picks it.
+  const runOnOptions = (connectivity?.backends || [])
+    .filter((b) => b.installed && (flightMode ? !b.requires_internet : b.available))
+    // Backends that run on this machine first, then by the service's own order.
+    .sort((a, b) => a.requires_internet - b.requires_internet || a.priority - b.priority);
+  const runOn =
+    runOnOptions.find((b) => b.name === runOnPick) ||
+    runOnOptions.find((b) => !b.requires_internet) ||
+    null;
+  const backendLabel = (b) =>
+    t(b.requires_internet ? "swarm.runOn.hosted" : "swarm.runOn.local", {
+      name: t(`swarm.runOn.names.${b.name}`, { defaultValue: b.name }),
+    });
 
   const handleLaunch = async () => {
     const path = planPath.trim();
@@ -278,6 +302,7 @@ const SwarmPage = () => {
         maxAgents,
         autoMerge,
         acknowledgeDirtyTree: dirtyTreeSeen,
+        defaultBackend: runOn?.name,
       });
       if (res.success !== false) {
         const data = res.data || res;
@@ -786,6 +811,34 @@ const SwarmPage = () => {
               helperText={t("swarm.launchDialog.planPathHelp")}
             />
 
+            {runOnOptions.length > 0 ? (
+              <FormControl fullWidth size="small" required>
+                <InputLabel id="swarm-run-on-label">{t("swarm.runOn.label")}</InputLabel>
+                <Select
+                  labelId="swarm-run-on-label"
+                  value={runOn?.name || ""}
+                  label={t("swarm.runOn.label")}
+                  onChange={(e) => setRunOnPick(e.target.value)}
+                >
+                  {runOnOptions.map((b) => (
+                    <MenuItem key={b.name} value={b.name}>
+                      {backendLabel(b)}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {!runOn && <FormHelperText>{t("swarm.runOn.choose")}</FormHelperText>}
+                {runOn?.requires_internet && (
+                  <FormHelperText>
+                    {t(`swarm.runOn.notes.${runOn.name}`, { defaultValue: t("swarm.runOn.hostedNote") })}
+                  </FormHelperText>
+                )}
+              </FormControl>
+            ) : connectivity && (
+              <Alert severity="warning" variant="outlined">
+                {flightMode ? t("swarm.runOn.noneOffline") : t("swarm.runOn.none")}
+              </Alert>
+            )}
+
             <TextField
               label={t("swarm.launchDialog.repoPath")}
               value={repoPath}
@@ -836,7 +889,7 @@ const SwarmPage = () => {
               />
             </Stack>
 
-            {flightMode && (
+            {flightMode && runOnOptions.length > 0 && (
               <Alert severity="info" variant="outlined">
                 {t("swarm.launchDialog.flightModeInfo")}
               </Alert>
@@ -853,7 +906,7 @@ const SwarmPage = () => {
             {t("swarm.launchDialog.cancel")}
           </Button>
           <ScheduleRequestButton
-            disabled={launching || !planPath.trim()}
+            disabled={launching || !planPath.trim() || !runOn}
             onScheduled={() => setLaunchOpen(false)}
             job={() => ({
               type: "swarm",
@@ -864,6 +917,7 @@ const SwarmPage = () => {
                 flight_mode: flightMode,
                 max_agents: maxAgents,
                 auto_merge: autoMerge,
+                default_backend: runOn?.name,
                 dry_run: false,
                 self_code: false,
                 acknowledge_dirty_tree: false,
@@ -873,7 +927,7 @@ const SwarmPage = () => {
           <Button
             onClick={handleLaunch}
             variant="contained"
-            disabled={launching || !planPath.trim()}
+            disabled={launching || !planPath.trim() || !runOn}
             startIcon={
               launching ? (
                 <CircularProgress size={18} />

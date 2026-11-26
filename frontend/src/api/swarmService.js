@@ -26,6 +26,7 @@ export const launchSwarm = async ({
   dryRun = false,
   selfCode = false,
   acknowledgeDirtyTree = false,
+  defaultBackend,
 }) => {
   const response = await fetch(`${BASE_URL}/launch`, {
     method: "POST",
@@ -39,6 +40,8 @@ export const launchSwarm = async ({
       dry_run: dryRun,
       self_code: selfCode,
       acknowledge_dirty_tree: acknowledgeDirtyTree,
+      // The backend for tasks that name none; unset leaves it to the service.
+      default_backend: defaultBackend || undefined,
     }),
   });
   return handleResponse(response);
