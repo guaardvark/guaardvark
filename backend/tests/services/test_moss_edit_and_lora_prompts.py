@@ -82,3 +82,20 @@ def test_a_lora_batch_skips_the_director_rewrite(monkeypatch):
     req = BatchImageRequest(batch_id="b2", prompts=[q], output_dir="/nonexistent", director_mode=True)
     BatchImageGenerator._apply_director(SimpleNamespace(_remember_typed_prompt=lambda bp: None), req)
     assert q.prompt.startswith("A realistic photograph") and calls
+
+
+def test_a_generation_model_setting_does_not_choose_the_chat_edit_engine(monkeypatch):
+    from backend.services import unified_chat_engine as uce
+    from backend.utils import settings_utils
+
+    setting = {"model": "moss-image"}
+    monkeypatch.setattr(settings_utils, "get_chat_image_model", lambda: setting["model"])
+    for tool in ("edit_image", "inpaint_image"):
+        assert uce.inject_chat_image_model(tool, {"instruction": "x"})["model"] == "auto"
+    assert uce.inject_chat_image_model("generate_image", {"prompt": "x"})["model"] == "moss-image"
+    named = uce.inject_chat_image_model("edit_image", {"instruction": "x", "model": "moss-image-edit"})
+    assert named["model"] == "moss-image-edit"
+    setting["model"] = "zimage-turbo"
+    assert uce.inject_chat_image_model("edit_image", {"instruction": "x"})["model"] == "auto"
+    setting["model"] = "kontext"
+    assert uce.inject_chat_image_model("edit_image", {"instruction": "x"})["model"] == "kontext"
