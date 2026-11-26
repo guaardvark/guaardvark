@@ -1,17 +1,22 @@
+# Frontend JSX Inventory
+
+Map a React frontend: list every JSX file, summarize each one, and compile an
+architecture report. Three agents, one after the other.
+
 ## Inventory Frontend JSX Files
 Assign to: any
-Files: src/**/*.jsx
+Files: docs/jsx-inventory.md
 Deps: []
-Description: Recursively scan the entire frontend source directory (e.g., src/) and list all files ending with the .jsx extension. The output must be a comprehensive list of file paths.
+Description: Recursively scan the frontend source directory (for example frontend/src/) and list every file ending in .jsx. Write the complete list of file paths to docs/jsx-inventory.md and commit it.
 
 ## Summarize Code Contents
 Assign to: any
-Files: (Output of T1)
+Files: docs/jsx-summaries.md
 Deps: [T1]
-Description: For every file path provided in T1, read the file content. Generate a detailed, yet concise, summary for each file, including its primary purpose, the major components it renders, and a brief explanation of its core logic or state management usage.
+Description: Read every file listed in docs/jsx-inventory.md. For each one write a concise summary: its purpose, the main components it renders, and how it handles state or core logic. Write the summaries to docs/jsx-summaries.md and commit it.
 
 ## Generate Final Report
 Assign to: any
-Files: None
+Files: docs/frontend-architecture.md
 Deps: [T2]
-Description: Compile all the individual summaries generated in T2 into a single, high-level markdown report. This report must provide a holistic overview of the entire frontend architecture, grouping related files and summarizing the overall flow of data and components across the application.
+Description: Compile the summaries in docs/jsx-summaries.md into one markdown report, docs/frontend-architecture.md, that gives an overview of the frontend architecture: related files grouped together, and how data and components flow through the application. Commit it.
