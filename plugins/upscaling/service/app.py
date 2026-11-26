@@ -16,7 +16,7 @@ import numpy as np
 import torch
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.background import BackgroundTask
 from pydantic import BaseModel, Field
 
@@ -25,7 +25,7 @@ from service.config import UpscalingConfig, load_config, resolve_default_model
 from service.health import get_health_status
 from service.jobs import JobManager
 from service.model_manager import ModelManager
-from service.upscaler import fit_long_edge, upscale_image
+from service.upscaler import UnusableOutputError, fit_long_edge, upscale_image
 from service.video_pipeline import get_video_info, process_video
 from service.watcher import FolderWatcher
 
@@ -180,6 +180,12 @@ app.add_middleware(guard.BearerTokenASGIMiddleware, name=TOKEN_NAME)
 # this machine's (a page re-pointed at 127.0.0.1) is refused before the token
 # gate, CORS or any route sees it.
 app.add_middleware(guard.HostCheckASGIMiddleware)
+
+
+@app.exception_handler(UnusableOutputError)
+def _unusable_output(request: Request, exc: UnusableOutputError):
+    """A still whose model output is not a picture: the caller gets the reason."""
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
 def _submit_watch_job(input_path: str):

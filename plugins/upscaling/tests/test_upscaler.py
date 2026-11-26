@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import torch
 from service.upscaler import fit_long_edge, upscale_image, _pre_process, _post_process
 
 
@@ -68,3 +69,31 @@ def test_without_a_target_the_scale_decides():
     img = np.random.randint(0, 255, (27, 48, 3), dtype=np.uint8)
     assert _upscale(img).shape == (108, 192, 3)
     assert _upscale(img, outscale=2.0).shape == (54, 96, 3)
+
+
+class _Scaled(torch.nn.Module):
+    """A 4x "model" whose output is its nearest-neighbour upscale times ``factor``."""
+
+    def __init__(self, factor):
+        super().__init__()
+        self.factor = factor
+
+    def forward(self, x):
+        return torch.nn.functional.interpolate(x, scale_factor=4) * self.factor
+
+
+def test_nan_or_black_model_output_is_refused():
+    from service.upscaler import UnusableOutputError
+
+    grey = np.full((8, 8, 3), 120, dtype=np.uint8)
+    for factor in (float("nan"), 0.0):
+        with pytest.raises(UnusableOutputError):
+            upscale_image(grey, _Scaled(factor), 4, device="cpu", precision="fp32")
+
+
+def test_dark_and_black_inputs_still_upscale():
+    for value in (0, 12):
+        frame = np.full((8, 8, 3), value, dtype=np.uint8)
+        out = upscale_image(frame, _Scaled(1.0), 4, device="cpu", precision="fp32", sharpen=0)
+        assert out.shape == (32, 32, 3)
+        assert int(out.max()) == value
