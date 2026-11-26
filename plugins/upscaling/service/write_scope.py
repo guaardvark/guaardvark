@@ -1,10 +1,10 @@
-"""Where this service may write a result.
+"""Which files this service may read and where it may write a result.
 
-Every output path arrives in a request body. Results belong in the install's
-uploads and output folders; a path that really lands anywhere else (``..`` and
-symlinks followed) is refused before a job is made. The watch folder's own
-output is set by the operator's config, not by a request, and is not checked
-here.
+Every path arrives in a request body. Sources and results belong in the
+install's uploads and output folders; a path that really lands anywhere else
+(``..`` and symlinks followed), or in a private output folder, is refused
+before a job is made. The watch folder's paths come from the operator's
+config, not from a request, and are not checked here.
 """
 import os
 from typing import List, Optional
@@ -13,10 +13,13 @@ from typing import List, Optional
 # backend/services/document_path_resolver.py: the folders a source file can sit
 # in when its result is written beside it.
 _INSTALL_OUTPUT_BASES = ("plugins/comfyui/ComfyUI/output",)
+# Kept in step with ``PRIVATE_OUTPUT_FOLDERS`` there: folders under an output
+# root that are never served, so never read from or written to here.
+_PRIVATE_FOLDERS = ("consent", "chat-exports")
 
 
 class OutsideWriteScope(ValueError):
-    """An output path that is not inside a folder results may be written to."""
+    """A path that is not inside a folder this service reads from and writes to."""
 
 
 def _install_root() -> str:
@@ -31,7 +34,7 @@ def _setting(env_var: str, default_relative: str) -> str:
 
 
 def write_roots() -> List[str]:
-    """The real folders a result may be written under."""
+    """The real folders a source may be read from and a result written under."""
     storage = _setting("GUAARDVARK_STORAGE_DIR", "data")
     folders = [
         _setting("GUAARDVARK_UPLOAD_DIR", "data/uploads"),
@@ -50,16 +53,29 @@ def write_roots() -> List[str]:
     return roots
 
 
+def _confined(path: Optional[str], what: str) -> str:
+    if not path or "\x00" in path:
+        raise OutsideWriteScope(f"{what} path is required")
+    real = os.path.realpath(path)
+    for root in write_roots():
+        prefix = root.rstrip(os.sep) + os.sep
+        if real.startswith(prefix):
+            top = real[len(prefix):].split(os.sep)
+            if len(top) > 1 and (top[0] in _PRIVATE_FOLDERS or top[0].startswith(".")):
+                break
+            return real
+    raise OutsideWriteScope(f"{what} must be inside the uploads or output folders")
+
+
 def confined_output(path: Optional[str]) -> str:
-    """The real location of ``path`` when it is inside :func:`write_roots`.
+    """The real location of ``path`` when a result may be written there.
 
     Raises :class:`OutsideWriteScope` otherwise. The returned path is the one to
     write to, so a link swapped in afterwards is not followed.
     """
-    if not path or "\x00" in path:
-        raise OutsideWriteScope("An output path is required")
-    real = os.path.realpath(path)
-    for root in write_roots():
-        if real.startswith(root.rstrip(os.sep) + os.sep):
-            return real
-    raise OutsideWriteScope("Results can only be written to the uploads and output folders")
+    return _confined(path, "The output")
+
+
+def confined_input(path: Optional[str]) -> str:
+    """The real location of ``path`` when it may be read as a source."""
+    return _confined(path, "The input")

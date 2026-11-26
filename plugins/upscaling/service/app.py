@@ -29,7 +29,7 @@ from service.model_manager import ModelManager
 from service.upscaler import UnusableOutputError, fit_long_edge, upscale_image
 from service.video_pipeline import get_video_info, process_video
 from service.watcher import FolderWatcher
-from service.write_scope import OutsideWriteScope, confined_output
+from service.write_scope import OutsideWriteScope, confined_input, confined_output
 
 logging.basicConfig(
     level=logging.INFO,
@@ -782,10 +782,11 @@ def download_model(req: ModelDownloadRequest, request: Request):
 def upscale_image_endpoint(req: ImageUpscaleRequest, request: Request):
     verify_token(request)
     output_path = confined_output(req.output_path)
-    if not os.path.isfile(req.input_path):
+    input_path = confined_input(req.input_path)
+    if not os.path.isfile(input_path):
         raise HTTPException(400, f"Input file not found: {req.input_path}")
 
-    img = cv2.imread(req.input_path, cv2.IMREAD_UNCHANGED)
+    img = cv2.imread(input_path, cv2.IMREAD_UNCHANGED)
     if img is None:
         raise HTTPException(400, f"Could not read image: {req.input_path}")
     _require_installed(req.model)
@@ -884,13 +885,14 @@ def upscale_images_endpoint(req: ImageBatchUpscaleRequest, request: Request):
     if "/" in req.suffix or "\\" in req.suffix or "\x00" in req.suffix:
         raise HTTPException(400, "suffix must not contain a path separator")
 
-    missing = [p for p in req.inputs if not os.path.isfile(p)]
+    inputs = [confined_input(p) for p in req.inputs]
+    missing = [p for p in inputs if not os.path.isfile(p)]
     if missing:
         raise HTTPException(400, f"Input file not found: {missing[0]}")
     _require_installed(req.model)
 
     job = _start_image_batch_job(
-        inputs=req.inputs,
+        inputs=inputs,
         output_dir=output_dir,
         model_name=req.model,
         scale=req.scale,
@@ -907,12 +909,13 @@ def upscale_images_endpoint(req: ImageBatchUpscaleRequest, request: Request):
 @app.post("/upscale/video", status_code=202)
 def upscale_video_endpoint(req: VideoUpscaleRequest, request: Request):
     verify_token(request)
-    if not os.path.isfile(req.input_path):
+    input_path = confined_input(req.input_path)
+    if not os.path.isfile(input_path):
         raise HTTPException(400, f"Input file not found: {req.input_path}")
     if req.output_path:
         output_path = confined_output(req.output_path)
     else:
-        base = os.path.splitext(req.input_path)[0]
+        base = os.path.splitext(input_path)[0]
         output_path = _free_output_path(confined_output(f"{base}_{req.suffix}.mp4"))
     _require_installed(req.model)
 
@@ -921,7 +924,7 @@ def upscale_video_endpoint(req: VideoUpscaleRequest, request: Request):
     # the time this job's turn comes up, the previous one has released it.
 
     job = _start_video_job(
-        input_path=req.input_path,
+        input_path=input_path,
         output_path=output_path,
         model_name=req.model,
         scale=req.scale,

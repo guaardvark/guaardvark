@@ -452,3 +452,21 @@ def test_a_video_result_outside_the_output_folders_is_refused(client, tmp_path_f
     beside = client.post("/upscale/video", json={"input_path": str(outside)}, headers=AUTH_HEADER)
 
     assert (named.status_code, beside.status_code) == (400, 400)
+
+
+def test_a_source_outside_the_stored_folders_is_refused(client, tmp_path_factory, tmp_path):
+    import cv2
+    import numpy as np
+
+    elsewhere = tmp_path_factory.mktemp("elsewhere")
+    (tmp_path / "consent").mkdir()
+    for source in (elsewhere / "in.png", tmp_path / "consent" / "in.png"):
+        cv2.imwrite(str(source), np.zeros((8, 8, 3), np.uint8))
+        still = client.post("/upscale/image", json={"input_path": str(source), "output_path": str(tmp_path / "o.png")},
+                            headers=AUTH_HEADER)
+        batch = client.post("/upscale/images", json={"inputs": [str(source)], "output_dir": str(tmp_path / "out")},
+                            headers=AUTH_HEADER)
+        video = client.post("/upscale/video", json={"input_path": str(source), "output_path": str(tmp_path / "o.mp4")},
+                            headers=AUTH_HEADER)
+        assert (still.status_code, batch.status_code, video.status_code) == (400, 400, 400), source
+    assert not (tmp_path / "o.png").exists() and not (tmp_path / "out").exists()
