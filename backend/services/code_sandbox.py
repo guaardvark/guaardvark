@@ -20,7 +20,8 @@ import logging
 import shutil
 import subprocess
 import sys
-from typing import List, Optional, Tuple
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -90,3 +91,21 @@ def wrap(command: List[str]) -> Tuple[Optional[List[str]], Optional[str]]:
     return None, ("Code the assistant writes runs without internet access, and this machine cannot "
                   f"enforce that. {how} To run it with network access, turn on Web access and "
                   "its \"code it runs\" option in Settings → Chat.")
+
+
+def wrap_confined(command: List[str], folder: Union[str, Path]) -> Tuple[Optional[List[str]], Optional[str]]:
+    """(command to run, None), or (None, why it cannot run): ``command`` with
+    no network and one writable folder.
+
+    For code an agent wrote in a working folder (a swarm task's worktree) and
+    now runs, such as its tests. Everything else on the machine is read-only,
+    /tmp is a fresh empty one, and the command starts in ``folder``. Unlike
+    wrap(), no setting opens the network.
+    """
+    bwrap = _bwrap()
+    if not bwrap:
+        return None, "This machine has no sandbox (bubblewrap) to confine the command to one folder."
+    folder = str(Path(folder).resolve())
+    return [bwrap, "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
+            "--bind", folder, folder, "--chdir", folder,
+            "--unshare-net", "--die-with-parent", "--", *command], None
