@@ -342,6 +342,14 @@ RENDER_TIME_NOT_OFFERED = {
 # gemma4:e4b 5.7 s / 20 tokens a second, gemma4:e2b 1.8 s / 25, qwen3.5:4b
 # 9.1 s / 14. All three answered the document question from its passages;
 # e4b is first for its answers (e2b gave a wrong page in the earlier run).
+#
+# gemma4:e4b through the chat page's own request during a Wan 2.2 I2V
+# Lightning 1280x736 render on a 16 GB card (2026-11-25), first word / whole
+# answer: 25.2 s / 29.5 s for the first question, 30 s into the render (the
+# model loads from disk while the render loads its own); 7.4 s / 10.1 s at
+# 120 s; 8.2 s / 12.1 s for a document question at 200 s, with the right
+# source. 0 MB of it on the GPU throughout, and the render finished in
+# 6 min 58 s against 6 min 44 s with no chat.
 RENDER_TIME_PREFERRED_MODELS = ("gemma4:e4b", "gemma4:e2b", "qwen3.5:4b")
 # With none of those, Automatic takes the smallest installed model that
 # qualifies, and none above this many parameters: gemma4:12b (11.9B) on the
