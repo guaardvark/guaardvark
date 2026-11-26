@@ -492,10 +492,12 @@ const ImageEditPage = () => {
       if (facePhotos.some((p) => !p.consented)) return t("imageEdit.run.needConsent");
       if (!prompts.identity.trim()) return t("imageEdit.run.needPrompt");
     }
+    // Automatic never runs an engine that is chosen by name only; the reason says which one is installed.
+    if (mode === "edit" && engine === "auto" && editCaps.auto_engine === null) return editCaps.auto_reason;
     if (mode === "edit" && !prompts.edit.trim()) return t("imageEdit.run.needPrompt");
     if (mode === "expand" && !Object.values(pad).some((v) => Number(v) > 0)) return t("imageEdit.run.needSides");
     return null;
-  }, [caps, modeCaps, primary, mode, restage, facePhotos, prompts, pad, t]);
+  }, [caps, modeCaps, editCaps, engine, primary, mode, restage, facePhotos, prompts, pad, t]);
 
   const finish = useCallback((snapshot, request) => {
     const outcome = snapshot.result || {};

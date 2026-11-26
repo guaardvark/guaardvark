@@ -42,14 +42,21 @@ def test_edit_graph_is_the_official_template():
     assert s["model"] == ["slg", 0]
 
 
-def test_moss_edit_is_picked_by_name_and_last_on_auto(monkeypatch):
-    for name in ("moss-image-edit", "moss-edit", "moss-image"):
-        assert EditImageTool._pick_edit_backend(name) == "moss"
+def test_moss_edit_is_picked_by_name_and_never_on_auto(monkeypatch):
     installed = {"qwen": False, "kontext": False, "moss": True}
     monkeypatch.setattr(ComfyUIImageGenerator, "qwen_edit_installed", lambda self: installed["qwen"])
     monkeypatch.setattr(ComfyUIImageGenerator, "_kontext_installed", lambda self: installed["kontext"])
     monkeypatch.setattr(ComfyUIImageGenerator, "moss_edit_installed", lambda self: installed["moss"])
-    assert EditImageTool._pick_edit_backend("auto") == "moss"
+    monkeypatch.setattr(ComfyUIImageGenerator, "_registry_installed",
+                        lambda self, model_id: model_id == "moss-image-edit" and installed["moss"])
+    for name in ("moss-image-edit", "moss-edit", "moss-image"):
+        assert EditImageTool._pick_edit_backend(name) == "moss"
+    assert EditImageTool()._edit_backend("moss-image-edit") == "moss"
+    assert EditImageTool._pick_edit_backend("auto") is None
+    refusal = EditImageTool()._edit_backend("auto")
+    assert not refusal.success
+    assert refusal.error.startswith("Image editing needs Qwen-Image-Edit or FLUX.1 Kontext, which is not installed.")
+    assert "MOSS-Image Edit is installed and runs when it is chosen by name" in refusal.error
     installed["kontext"] = True
     assert EditImageTool._pick_edit_backend("auto") == "kontext"
     installed["qwen"] = True
@@ -75,3 +82,19 @@ def test_a_lora_batch_skips_the_director_rewrite(monkeypatch):
     req = BatchImageRequest(batch_id="b2", prompts=[q], output_dir="/nonexistent", director_mode=True)
     BatchImageGenerator._apply_director(SimpleNamespace(_remember_typed_prompt=lambda bp: None), req)
     assert q.prompt.startswith("A realistic photograph") and calls
+
+
+def test_moss_image_as_the_chat_image_model_does_not_choose_moss_edit(monkeypatch):
+    from backend.services import unified_chat_engine as uce
+    from backend.utils import settings_utils
+
+    setting = {"model": "moss-image"}
+    monkeypatch.setattr(settings_utils, "get_chat_image_model", lambda: setting["model"])
+    for tool in ("edit_image", "inpaint_image"):
+        assert uce.inject_chat_image_model(tool, {"instruction": "x"})["model"] == "auto"
+    assert uce.inject_chat_image_model("generate_image", {"prompt": "x"})["model"] == "moss-image"
+    named = uce.inject_chat_image_model("edit_image", {"instruction": "x", "model": "moss-image-edit"})
+    assert named["model"] == "moss-image-edit"
+    for other in ("zimage-turbo", "kontext", "moss-image-edit"):
+        setting["model"] = other
+        assert uce.inject_chat_image_model("edit_image", {"instruction": "x"})["model"] == other

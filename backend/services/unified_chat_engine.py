@@ -2047,7 +2047,11 @@ def inject_chat_image_model(
     params: Dict[str, Any],
     options: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Ensure generate_image / edit_image receive the persisted chat model (force the selected /imagemodel for chat calls, even if LLM provides 'auto' or other)."""
+    """Fill in the /imagemodel setting where a chat image call leaves the model on 'auto'.
+
+    generate_image takes the setting as it is. edit_image and inpaint_image do
+    too, except MOSS-Image; see below.
+    """
     if tool_name not in ("generate_image", "edit_image", "inpaint_image"):
         return params
     out = dict(params or {})
@@ -2058,7 +2062,15 @@ def inject_chat_image_model(
         chat_selected = None
     current = (out.get("model") or "").strip()
     if not current or current.lower() == "auto":
-        out["model"] = chat_selected or resolve_chat_image_model(out, options)
+        chosen = chat_selected or resolve_chat_image_model(out, options)
+        if tool_name != "generate_image":
+            # MOSS-Image set as the generation model is not a choice of MOSS-Image
+            # Edit as the edit engine, which 'auto' never picks, so the edit stays
+            # on 'auto'. 'moss-image-edit' in the setting or the call still names it.
+            from backend.tools.image_tools import is_moss_generation_model
+            if is_moss_generation_model(chosen):
+                chosen = "auto"
+        out["model"] = chosen
     # else keep what was provided (LLM specified a specific one)
     return out
 

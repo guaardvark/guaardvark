@@ -9,7 +9,7 @@ Video one, and never downloads on its own.
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 INSTALL_HINT = "Open Manage Image Models, Image editing, and install it."
 
@@ -41,6 +41,10 @@ PACKS = (
                        "objects and colours, with the rest of the photo kept. Installs MOSS-Image "
                        "when it is not there yet. Apache-2.0.",
         "tools": ("edit_image",),
+        # It keeps the photo for a local change and redraws the whole picture
+        # for a scene-wide instruction, and nothing tells the two apart before
+        # the render, so it runs only when it is chosen by name.
+        "auto_pick": False,
     },
     {
         "id": "pulid-flux",
@@ -98,6 +102,15 @@ def packs_for_tool(tool: str) -> List[dict]:
     return [p for p in PACKS if tool in p["tools"]]
 
 
+def auto_pick(pack_id: str) -> bool:
+    """Whether 'auto' may choose this pack. A pack that declares
+    ``auto_pick: False`` runs only when it is named."""
+    for pack in PACKS:
+        if pack["id"] == pack_id:
+            return bool(pack.get("auto_pick", True))
+    return True
+
+
 def _video_api():
     from backend.api import batch_video_generation_api as video_api
     return video_api
@@ -151,11 +164,23 @@ def tool_ready(tool: str) -> bool:
     return any(pack_installed(p) for p in packs_for_tool(tool))
 
 
-def missing_message(tool: str) -> str:
-    """One sentence shape for every photo tool that lacks its pack."""
+def missing_message(tool: str, installed: Iterable[str] = ()) -> str:
+    """One sentence shape for every photo tool that lacks its pack.
+
+    ``installed`` is the ids of packs that are present. One of them that only
+    runs by name is left out of what to install and named as a choice instead,
+    which is what 'auto' says when it is the only pack on the machine.
+    """
     label = TOOL_LABELS.get(tool, tool)
     packs = packs_for_tool(tool)
     if not packs:
         return f"{label} is not available on this install."
-    names = " or ".join(p["short"] for p in packs)
-    return f"{label} needs {names}, which is not installed. {INSTALL_HINT}"
+    present = set(installed)
+    by_name = [p for p in packs if p["id"] in present and not auto_pick(p["id"])]
+    wanted = [p for p in packs if p not in by_name] or packs
+    names = " or ".join(p["short"] for p in wanted)
+    message = f"{label} needs {names}, which is not installed. {INSTALL_HINT}"
+    for pack in by_name:
+        message += (f" {pack['short']} is installed and runs when it is chosen by name"
+                    f" ('{pack['id']}').")
+    return message

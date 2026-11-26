@@ -156,14 +156,17 @@ def capabilities():
     try:
         from backend.services.comfyui_image_generator import PULID_IDENTITY_DEFAULTS, PULID_MIN_STEPS
         from backend.services.face_reference import MAX_REFERENCES, detector_path
-        from backend.services.image_editing_packs import missing_message
+        from backend.services.image_editing_packs import auto_pick, missing_message
 
         pulid = _pack_state("pulid-flux")
         engines = [dict(_pack_state(pack_id), model=model) for pack_id, model in EDIT_ENGINES]
-        engines = [e for e in engines if e.get("enabled")]
+        engines = [dict(e, auto=auto_pick(e["id"])) for e in engines if e.get("enabled")]
         restage = next((e for e in engines if e["model"] == RESTAGE_ENGINE), {"installed": False})
         qwen = next((e for e in engines if e["id"] == "qwen-image-edit"), {"installed": False})
         any_engine = any(e["installed"] for e in engines)
+        # What Automatic runs: the first installed engine that may be chosen
+        # without being named, in the order chat uses.
+        auto_engine = next((e["model"] for e in engines if e["installed"] and e["auto"]), None)
         bg_packs = [_pack_state("bgremove-birefnet"), _pack_state("bgremove-u2net")]
         expand_ready = qwen["installed"] or any(
             e["installed"] for e in engines if e["id"] == "flux-kontext-dev")
@@ -192,6 +195,9 @@ def capabilities():
                     "reason": None if any_engine else missing_message("edit_image"),
                     "install": "qwen-image-edit",
                     "engines": engines,
+                    "auto_engine": auto_engine,
+                    "auto_reason": None if auto_engine else missing_message(
+                        "edit_image", [e["id"] for e in engines if e["installed"]]),
                     "max_references": 3 if qwen["installed"] else 1,
                 },
                 "expand": {
