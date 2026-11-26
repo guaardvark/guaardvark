@@ -38,7 +38,8 @@ const QUIET_MS = 15000;
 const MAX_POLL_MS = 5 * 60 * 1000;
 const BOOT_DONE_RE = /GPU stack: (?:healthy\.|DEGRADED\b)/;
 
-const RebootProgressModal = ({ open, onClose }) => {
+// mode "fast" restarts with start.sh --fast; anything else is a full restart.
+const RebootProgressModal = ({ open, onClose, mode = 'restart' }) => {
   const { t } = useUiTranslation();
   const _theme = useTheme();
   const [output, setOutput] = useState([]);
@@ -121,7 +122,8 @@ const RebootProgressModal = ({ open, onClose }) => {
       abortRef.current = new AbortController();
       const response = await fetch(`${BASE_URL}/reboot/stream`, {
         method: 'POST',
-        headers: { Accept: 'text/event-stream' },
+        headers: { Accept: 'text/event-stream', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: mode === 'fast' ? 'fast' : 'restart' }),
         signal: abortRef.current.signal,
       });
 

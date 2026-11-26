@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 ANSI_RE = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07')
 
+# start.sh arguments for each restart the UI offers.
+RESTART_MODES = {"restart": [], "fast": ["--fast"]}
+
 # ---------------------------------------------------------------------------
 # GET /api/reboot/log  — fallback log reader (when log server isn't available)
 # ---------------------------------------------------------------------------
@@ -68,7 +71,13 @@ def stream_reboot():
     2. Launches start.sh detached via nohup, output appended to reboot.log.
     3. Streams initial output via SSE, then tells frontend to poll the log server.
     """
-    logger.warning("Reboot requested — starting stream")
+    # "fast" restarts with start.sh --fast: the venv and node_modules are
+    # reused as they are, with no package installs and no frontend build.
+    mode = ((request.get_json(silent=True) or {}).get("mode") or "restart").strip().lower()
+    if mode not in RESTART_MODES:
+        return jsonify({"success": False, "error": f"Unknown restart mode '{mode}'"}), 400
+    start_args = RESTART_MODES[mode]
+    logger.warning("Reboot requested (%s) — starting stream", mode)
 
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     start_script_path = os.path.join(project_root, "start.sh")
@@ -147,7 +156,10 @@ def stream_reboot():
                 log_server_url = None
 
             # -- Launch start.sh (appends to reboot.log) --
-            nohup_cmd = f'nohup stdbuf -oL -eL bash "{start_script_path}" >> "{log_file_path}" 2>&1 &'
+            nohup_cmd = (
+                f'nohup stdbuf -oL -eL bash "{start_script_path}" {" ".join(start_args)} '
+                f'>> "{log_file_path}" 2>&1 &'
+            )
             subprocess.Popen(
                 ["bash", "-c", nohup_cmd],
                 cwd=project_root,
@@ -208,6 +220,42 @@ def stream_reboot():
 @reboot_bp.route("/reboot", methods=["POST"])
 def trigger_service_restart():
     return stream_reboot()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/reboot/shutdown  — stop every service and leave them stopped
+# ---------------------------------------------------------------------------
+
+@reboot_bp.route("/reboot/shutdown", methods=["POST"])
+def shutdown_services():
+    """Runs stop.sh detached. Nothing answers afterwards: starting again is
+    start.sh from a terminal."""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    stop_script_path = os.path.join(project_root, "stop.sh")
+    log_file_path = os.path.join(project_root, "logs", "reboot.log")
+
+    if not os.path.isfile(stop_script_path):
+        return jsonify({"success": False, "error": f"stop.sh not found at {stop_script_path}"}), 500
+
+    logger.warning("Shutdown requested")
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+    try:
+        with open(log_file_path, "w", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%H:%M:%S')}] Shutdown initiated\n")
+        # The one-second wait lets this response reach the browser first.
+        # cwd is outside the install so stop.sh's sweep leaves the launcher alone.
+        subprocess.Popen(
+            ["bash", "-c", f'sleep 1; nohup bash "{stop_script_path}" >> "{log_file_path}" 2>&1 &'],
+            cwd="/",
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            preexec_fn=os.setsid if hasattr(os, "setsid") else None,
+        )
+    except Exception as exc:
+        logger.error(f"Shutdown failed to launch: {exc}", exc_info=True)
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+    return jsonify({"success": True, "start_command": os.path.join(project_root, "start.sh")})
 
 
 # ---------------------------------------------------------------------------

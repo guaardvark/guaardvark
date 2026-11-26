@@ -26,6 +26,8 @@ import { useSearchParams } from 'react-router-dom';
 import PageLayout from '../components/layout/PageLayout';
 import PageStatus, { PagePrimaryAction, StatusChip } from '../components/layout/PageStatus';
 import { useSnackbar } from '../components/common/SnackbarProvider';
+import ResetSettingsButton from '../components/layout/ResetSettingsButton';
+import { clearSavedSettings, readSavedSettings, savedValue, writeSavedSettings } from '../utils/savedSettings';
 import { CardWorkspace } from '../components/board';
 import ImageLightbox from '../components/images/ImageLightbox';
 import useImageBatchQueue, { POLLABLE_STATUSES, TERMINAL_BATCH_STATUSES } from '../hooks/useImageBatchQueue';
@@ -144,6 +146,55 @@ const IMAGE_GEN_LAYOUTS = [
   },
 ];
 
+// The settings the page remembers between visits (utils/savedSettings), with
+// the value each has on a first visit and after Reset settings.
+const SAVED_SETTINGS_PAGE = 'imageGenerator';
+const SETTING_DEFAULTS = {
+  lookAndFeel: '',
+  negativePrompt: '',
+  quantity: 1,
+  directorEnabled: false,
+  directorGuidance: '',
+  selectedPreset: 'auto',
+  autoEnhance: true,
+  enhanceAnatomy: true,
+  enhanceFaces: true,
+  enhanceHands: true,
+};
+const PARAM_DEFAULTS = {
+  model: 'auto',
+  style: 'realistic',
+  quality_preset: 'standard',
+  // Modern family defaults (zimage / auto) — HF Turbo recipe 9/0, not SD-era 512/20/7.5
+  width: 1024,
+  height: 1024,
+  steps: 9,
+  steps_explicit: false,
+  guidance: 0.0,
+  max_workers: 2,
+  preserve_order: true,
+  generate_thumbnails: true,
+  save_metadata: true,
+};
+const plainObject = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : null);
+
+/** The settings to open with: what was saved, each falling back to its default. */
+const openingSettings = () => {
+  const saved = readSavedSettings(SAVED_SETTINGS_PAGE);
+  const settings = {};
+  Object.entries(SETTING_DEFAULTS).forEach(([key, fallback]) => {
+    settings[key] = savedValue(saved, key, fallback);
+  });
+  const params = plainObject(saved?.params) || {};
+  settings.params = { ...PARAM_DEFAULTS };
+  Object.entries(PARAM_DEFAULTS).forEach(([key, fallback]) => {
+    settings.params[key] = savedValue(params, key, fallback);
+  });
+  settings.selectedAdapters = Array.isArray(saved?.selectedAdapters) ? saved.selectedAdapters : [];
+  settings.selectedEncoders = plainObject(saved?.selectedEncoders) || {};
+  return settings;
+};
+
 const BatchImageGeneratorPage = ({ embedded = false }) => {
   const { t, language } = useUiTranslation();
   const theme = useTheme();
@@ -157,11 +208,12 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   // State management
   const [inputMode, setInputMode] = useState('single'); // 'single' (default, whole text as one prompt), 'bulk', 'csv', or 'blueprint'
   const [batchItems, setBatchItems] = useState(''); // Bulk textarea input like FileGenerationPage
-  const [lookAndFeel, setLookAndFeel] = useState(''); // Style/aesthetic to apply to all prompts
-  const [negativePrompt, setNegativePrompt] = useState('');
+  const [opening] = useState(openingSettings);
+  const [lookAndFeel, setLookAndFeel] = useState(opening.lookAndFeel); // Style/aesthetic to apply to all prompts
+  const [negativePrompt, setNegativePrompt] = useState(opening.negativePrompt);
   const [csvFile, setCsvFile] = useState(null);
   const [blueprintFile, setBlueprintFile] = useState(null);
-  const [quantity, setQuantity] = useState(1); // Number of images to generate
+  const [quantity, setQuantity] = useState(opening.quantity); // Number of images to generate
   const [activeBatch, setActiveBatch] = useState(null);
   const [batchHistory, setBatchHistory] = useState([]);
   const [clearedBatchIds, setClearedBatchIds] = useState(() => {
@@ -198,16 +250,16 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const { gpuBusy, blockReason, blockDetail } = useJobsGate({ submitMode: 'queue' });
 
   // Director intelligence (new) — expand high-level concept via media_director (same as MV)
-  const [directorEnabled, setDirectorEnabled] = useState(false);
-  const [directorGuidance, setDirectorGuidance] = useState("");
+  const [directorEnabled, setDirectorEnabled] = useState(opening.directorEnabled);
+  const [directorGuidance, setDirectorGuidance] = useState(opening.directorGuidance);
   const [isExpanding, setIsExpanding] = useState(false);
 
   // Content type + quality enhancement state
-  const [selectedPreset, setSelectedPreset] = useState('auto'); // 'auto' = auto-detect
-  const [autoEnhance, setAutoEnhance] = useState(true);
-  const [enhanceAnatomy, setEnhanceAnatomy] = useState(true);
-  const [enhanceFaces, setEnhanceFaces] = useState(true);
-  const [enhanceHands, setEnhanceHands] = useState(true);
+  const [selectedPreset, setSelectedPreset] = useState(opening.selectedPreset); // 'auto' = auto-detect
+  const [autoEnhance, setAutoEnhance] = useState(opening.autoEnhance);
+  const [enhanceAnatomy, setEnhanceAnatomy] = useState(opening.enhanceAnatomy);
+  const [enhanceFaces, setEnhanceFaces] = useState(opening.enhanceFaces);
+  const [enhanceHands, setEnhanceHands] = useState(opening.enhanceHands);
   // Character casting: selected subject ids whose LoRA + trigger get applied.
   const [castSubjectIds, setCastSubjectIds] = useState([]);
 
@@ -225,21 +277,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   }, [modeParam]);
 
   // Generation parameters
-  const [params, setParams] = useState({
-    model: 'auto',
-    style: 'realistic',
-    quality_preset: 'standard',
-    // Modern family defaults (zimage / auto) — HF Turbo recipe 9/0, not SD-era 512/20/7.5
-    width: 1024,
-    height: 1024,
-    steps: 9,
-    steps_explicit: false,
-    guidance: 0.0,
-    max_workers: 2,
-    preserve_order: true,
-    generate_thumbnails: true,
-    save_metadata: true
-  });
+  const [params, setParams] = useState(opening.params);
 
   // Refs
   const fileInputRef = useRef(null);
@@ -284,14 +322,17 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   // User LoRAs from Manage Image Models: rows from the same models call, and the
   // ids switched on for this run. Sent as adapters; the backend resolves files.
   const [userAdapters, setUserAdapters] = useState([]);
-  const [selectedAdapters, setSelectedAdapters] = useState([]);
+  const [selectedAdapters, setSelectedAdapters] = useState(opening.selectedAdapters);
   // User text encoders (Manage Image Models) and the one picked per slot for
   // this run, {slot: id}; an unpicked slot uses the shipped encoder.
   const [userEncoders, setUserEncoders] = useState([]);
-  const [selectedEncoders, setSelectedEncoders] = useState({});
+  const [selectedEncoders, setSelectedEncoders] = useState(opening.selectedEncoders);
   // Models the backend filtered out (gated, unreachable). Listed read-only with the
   // reason — picking one used to mean a failed run or, worse, silent SD 1.5 output.
   const [unavailableModels, setUnavailableModels] = useState([]);
+  // The model list has been asked for and answered (or failed); settings are
+  // saved only after that, so a restored model is checked against it first.
+  const [modelsChecked, setModelsChecked] = useState(false);
 
   // Z-Image guard: guidance MUST be 0 (the model is CFG-free) and steps must follow
   // its own recipe. Without this, switching in from another family left that family's
@@ -304,6 +345,8 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     setParams(prev => {
       if (!isZimageModel(prev.model)) return prev;
       const wantedSteps = ZIMAGE_PRESET_STEPS[prev.quality_preset] ?? ZIMAGE_STEPS;
+      // A typed step count is the person's choice, restored ones included.
+      if (prev.steps_explicit && prev.guidance === ZIMAGE_GUIDANCE) return prev;
       if (prev.guidance === ZIMAGE_GUIDANCE && prev.steps === wantedSteps) return prev;
       return { ...prev, guidance: ZIMAGE_GUIDANCE, steps: wantedSteps, steps_explicit: false };
     });
@@ -325,6 +368,8 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       debugLog('Failed to load image models', e);
       // Only "Auto" is left to pick from; say why instead of a near-empty list.
       setError(t('imagesBatch.errors.modelsLoadFailed', { error: formatUiError(e) || t('imagesBatch.errors.requestFailed') }));
+    } finally {
+      setModelsChecked(true);
     }
   }, []);
 
@@ -966,6 +1011,44 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     });
   };
 
+  // A restored model the registry no longer lists goes back to Auto, with
+  // Auto's size, steps and guidance.
+  useEffect(() => {
+    if (fetchedModelRows.length === 0 || params.model === 'auto') return;
+    if (!fetchedModelRows.some((m) => m.id === params.model)) handleModelChange('auto');
+  }, [fetchedModelRows, params.model]);
+
+  // Remember the settings for the next visit.
+  useEffect(() => {
+    if (!modelsChecked) return;
+    writeSavedSettings(SAVED_SETTINGS_PAGE, {
+      lookAndFeel, negativePrompt, quantity, directorEnabled, directorGuidance, selectedPreset,
+      autoEnhance, enhanceAnatomy, enhanceFaces, enhanceHands, params, selectedAdapters, selectedEncoders,
+    });
+  }, [modelsChecked, lookAndFeel, negativePrompt, quantity, directorEnabled, directorGuidance,
+    selectedPreset, autoEnhance, enhanceAnatomy, enhanceFaces, enhanceHands, params,
+    selectedAdapters, selectedEncoders]);
+
+  // Reset settings: back to a first visit's values. The prompt, any file and
+  // the cast stay.
+  const resetSettings = () => {
+    clearSavedSettings(SAVED_SETTINGS_PAGE);
+    setLookAndFeel(SETTING_DEFAULTS.lookAndFeel);
+    setNegativePrompt(SETTING_DEFAULTS.negativePrompt);
+    setQuantity(SETTING_DEFAULTS.quantity);
+    setDirectorEnabled(SETTING_DEFAULTS.directorEnabled);
+    setDirectorGuidance(SETTING_DEFAULTS.directorGuidance);
+    setSelectedPreset(SETTING_DEFAULTS.selectedPreset);
+    setAutoEnhance(SETTING_DEFAULTS.autoEnhance);
+    setEnhanceAnatomy(SETTING_DEFAULTS.enhanceAnatomy);
+    setEnhanceFaces(SETTING_DEFAULTS.enhanceFaces);
+    setEnhanceHands(SETTING_DEFAULTS.enhanceHands);
+    setParams({ ...PARAM_DEFAULTS });
+    setSelectedAdapters([]);
+    setSelectedEncoders({});
+    toast?.showMessage(t('layout.savedSettings.resetDone'), 'success');
+  };
+
   // Browsers report CSVs as text/csv, application/vnd.ms-excel, or nothing at
   // all depending on the OS's file associations, so the extension is the
   // reliable signal (the backend re-validates by extension too).
@@ -1557,6 +1640,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           tone={activeInQueue ? 'warn' : 'ok'}
         />
       </PageStatus>
+      <ResetSettingsButton onReset={resetSettings} disabled={loading} />
       <PagePrimaryAction>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Button

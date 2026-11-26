@@ -20,6 +20,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { spacing, typography as typoTokens } from "../../theme/tokens";
 import brand from "../../config/brand";
 import { PageHeaderSlotContext } from "./pageHeaderSlot";
+import PowerMenu from "../power/PowerMenu";
+import { useAppStore } from "../../stores/useAppStore";
+import { NAV_CHROME } from "../../config/navCatalog";
 
 /**
  * Colour for the current route from the active theme's `moduleAccents` map,
@@ -75,6 +78,8 @@ const PageLayout = ({
   // The buttons only step the browser's own history, which the router fills
   // on every navigation, so they are off unless a brand turns them on.
   const showHistoryButtons = brand.pageHistoryButtons === true;
+  // The workspace bar carries its own power button.
+  const showPower = useAppStore((state) => state.navChrome) !== NAV_CHROME.SOFTWARE;
   // A page embedded without a header hands its controls to the header above it.
   const outerSlots = React.useContext(PageHeaderSlotContext);
   const [actionsSlot, setActionsSlot] = useState(null);
@@ -206,6 +211,7 @@ const PageLayout = ({
                   sx={{ fontSize: "0.7rem", height: 24 }}
                 />
               )}
+              {showPower && <PowerMenu />}
             </Box>
           </Box>
           {headerContent}

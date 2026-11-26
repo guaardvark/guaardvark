@@ -125,5 +125,43 @@
     },
     "fullScreen": "Full screen",
     "exitFullScreen": "Exit full screen"
+  },
+  "power": {
+    "button": "Power",
+    "runningNow": "Running now",
+    "gpuJob": "A job is using the GPU",
+    "failed": "Could not do it",
+    "keeps": "documents, chats, media, rules and settings.",
+    "shutdown": {
+      "label": "Shut down",
+      "hint": "Stop every service",
+      "title": "Shut down Guaardvark",
+      "description": "Stops the backend, the workers, ComfyUI and this interface. Every generation, index job and chat reply in flight is lost. Guaardvark stays off until it is started again from a terminal.",
+      "confirm": "Shut down now"
+    },
+    "restart": {
+      "label": "Restart",
+      "hint": "Full restart: checks packages and rebuilds the interface",
+      "title": "Restart Guaardvark",
+      "description": "Restarts the backend, the workers and ComfyUI, checking packages and rebuilding the interface on the way up. Every generation, index job and chat reply in flight is lost, and this page disconnects until the services are back.",
+      "confirm": "Restart now"
+    },
+    "fast": {
+      "label": "Fast restart",
+      "hint": "Skips package checks and the interface build",
+      "title": "Fast restart",
+      "description": "Restarts the backend, the workers and ComfyUI with the installed packages as they are and no interface build. Every generation, index job and chat reply in flight is lost, and this page disconnects until the services are back.",
+      "confirm": "Restart now"
+    },
+    "stopped": {
+      "title": "Guaardvark is shut down",
+      "description": "Every service has been stopped. To start it again, run this in a terminal on the machine that hosts it:",
+      "reload": "Reload this page once it is running."
+    }
+  },
+  "savedSettings": {
+    "reset": "Reset settings",
+    "resetHint": "Reset this page's settings to the defaults. Your choices here are remembered until you do.",
+    "resetDone": "Settings are back to the defaults."
   }
 }
