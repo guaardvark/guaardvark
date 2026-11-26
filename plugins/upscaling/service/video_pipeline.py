@@ -280,6 +280,14 @@ def _drain_and_kill(proc) -> str:
     return err_text
 
 
+def _remove_partial(path: str) -> None:
+    """Delete a part-written encode; a missing file is fine."""
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
 def _open_reader(input_path: str, use_nvdec: bool):
     reader_kwargs = {}
     if use_nvdec:
@@ -458,6 +466,7 @@ def process_video(
                 e, e.frames_written, can_retry,
             )
             if not can_retry:
+                _remove_partial(tmp_output)
                 raise RuntimeError(
                     f"Video encode BrokenPipe with {attempt_vcodec} "
                     f"(output {out_width}x{out_height}, frames_written={e.frames_written}). "
@@ -472,6 +481,12 @@ def process_video(
             ):
                 logger.warning("Encode RuntimeError on NVENC, retrying software: %s", e)
                 continue
+            _remove_partial(tmp_output)
+            raise
+        except BaseException:
+            # The frame processor stopped the job (a bad frame, a cancel): the
+            # part-written file must not stay beside finished results.
+            _remove_partial(tmp_output)
             raise
 
     if last_error is not None:

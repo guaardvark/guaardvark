@@ -57,6 +57,30 @@ def _pre_process(
     return tensor
 
 
+class UnusableOutputError(ValueError):
+    """The model returned something that is not a picture. The message says what."""
+
+
+# An input whose brightest value is at or below this is treated as black, so a
+# black result from it is not a fault.
+_BLACK_INPUT_MAX = 16
+
+
+def _require_picture(output: torch.Tensor, img: np.ndarray) -> None:
+    """Raise UnusableOutputError when the model's output holds NaN or infinity,
+    or is black all over although the input was not."""
+    if not torch.isfinite(output).all():
+        raise UnusableOutputError(
+            "The upscaling model returned no picture (its output is not a number). "
+            "Nothing was saved. Pick another model."
+        )
+    if float(output.max()) * 255.0 < 0.5 and int(img.max()) > _BLACK_INPUT_MAX:
+        raise UnusableOutputError(
+            "The upscaling model returned an all-black picture from an input that "
+            "is not black. Nothing was saved. Pick another model."
+        )
+
+
 def _post_process(tensor: torch.Tensor) -> np.ndarray:
     """Convert NCHW float tensor to HWC uint8 numpy image."""
     output = tensor.squeeze(0).float().clamp(0, 1).cpu().numpy()
@@ -197,6 +221,7 @@ def upscale_image(
             output_tensor = model(output_tensor)
         scale = scale * scale
 
+    _require_picture(output_tensor, img)
     output = _post_process(output_tensor)
 
     if target_size is not None:
