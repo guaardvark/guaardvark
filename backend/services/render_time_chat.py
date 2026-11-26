@@ -155,7 +155,18 @@ def chosen_model(choice: Optional[str] = None) -> Optional[str]:
 
 
 def _job_words(reason: str) -> str:
-    return "a render" if "ComfyUI" in (reason or "") else "a render or training job"
+    """What holds the GPU, for the status line. The lease is shared by renders
+    and training, so a held lease is called a render only when ComfyUI is
+    working on one."""
+    if "ComfyUI" in (reason or ""):
+        return "a render"
+    try:
+        from backend.utils.gpu_check import comfyui_generating
+        if comfyui_generating():
+            return "a render"
+    except Exception as e:  # noqa: BLE001 - the wider wording is still true
+        logger.debug("ComfyUI probe failed: %s", e)
+    return "a render or training job"
 
 
 def for_turn(chat_model: str) -> Optional[RenderTimeTurn]:
