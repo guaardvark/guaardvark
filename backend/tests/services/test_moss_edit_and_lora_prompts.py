@@ -84,7 +84,7 @@ def test_a_lora_batch_skips_the_director_rewrite(monkeypatch):
     assert q.prompt.startswith("A realistic photograph") and calls
 
 
-def test_a_generation_model_setting_does_not_choose_the_chat_edit_engine(monkeypatch):
+def test_moss_image_as_the_chat_image_model_does_not_choose_moss_edit(monkeypatch):
     from backend.services import unified_chat_engine as uce
     from backend.utils import settings_utils
 
@@ -95,7 +95,6 @@ def test_a_generation_model_setting_does_not_choose_the_chat_edit_engine(monkeyp
     assert uce.inject_chat_image_model("generate_image", {"prompt": "x"})["model"] == "moss-image"
     named = uce.inject_chat_image_model("edit_image", {"instruction": "x", "model": "moss-image-edit"})
     assert named["model"] == "moss-image-edit"
-    setting["model"] = "zimage-turbo"
-    assert uce.inject_chat_image_model("edit_image", {"instruction": "x"})["model"] == "auto"
-    setting["model"] = "kontext"
-    assert uce.inject_chat_image_model("edit_image", {"instruction": "x"})["model"] == "kontext"
+    for other in ("zimage-turbo", "kontext", "moss-image-edit"):
+        setting["model"] = other
+        assert uce.inject_chat_image_model("edit_image", {"instruction": "x"})["model"] == other

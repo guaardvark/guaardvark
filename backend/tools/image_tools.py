@@ -32,16 +32,14 @@ _QWEN_EDIT_MODEL_IDS = frozenset({
 _MOSS_EDIT_MODEL_IDS = frozenset({
     "moss-image-edit", "moss-edit", "moss-image",
 })
-# Ids above that are also an image generation model.
-_GENERATION_MODEL_IDS_AMONG_EDIT_IDS = frozenset({"moss-image"})
+# The id above that is the MOSS-Image generation model as well.
+_MOSS_GENERATION_MODEL_IDS = frozenset({"moss-image"})
 
 
-def names_edit_engine(model: str) -> bool:
-    """Whether ``model`` names an editing pack and nothing else. 'moss-image'
-    is the generation model too, so it does not count."""
-    m = (model or "").strip().lower()
-    return (m in _QWEN_EDIT_MODEL_IDS | _KONTEXT_MODEL_IDS | _MOSS_EDIT_MODEL_IDS
-            and m not in _GENERATION_MODEL_IDS_AMONG_EDIT_IDS)
+def is_moss_generation_model(model: str) -> bool:
+    """Whether ``model`` is the MOSS-Image generation model's id, which an edit
+    also reads as a name for MOSS-Image Edit."""
+    return (model or "").strip().lower() in _MOSS_GENERATION_MODEL_IDS
 
 # What the media-input parameters accept (rules: backend/utils/media_inputs.py).
 _SERVED_FORMS = (
@@ -2316,8 +2314,8 @@ class EditImageTool(BaseTool):
             description=(
                 "Image model/backend. Default 'auto': Qwen-Image-Edit when installed, else FLUX.1 "
                 "Kontext; with neither installed the call is refused and names the pack to install. "
-                "In chat, 'auto' follows the /imagemodel setting only when that names an editing "
-                "pack; a generation model set there does not choose the edit engine. 'qwen-image-edit', "
+                "In chat, 'auto' is replaced by the /imagemodel setting, except that MOSS-Image set "
+                "there for generation does not choose MOSS-Image Edit. 'qwen-image-edit', "
                 "'kontext' and 'moss-image-edit' name a pack; MOSS-Image Edit runs only when named, "
                 "never on 'auto'. Any other downloaded image model runs a light img2img pass "
                 "that keeps most of the picture."
