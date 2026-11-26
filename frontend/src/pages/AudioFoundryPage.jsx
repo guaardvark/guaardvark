@@ -54,6 +54,9 @@ import { confirmVoiceClipConsent, voiceClipAudioUrl } from "../api/audioFoundryS
 import SettingsIcon from "@mui/icons-material/Settings";
 import lazyWithReload from "../utils/lazyWithReload";
 import { useUiTranslation, translate, Trans } from "../i18n";
+import ResetSettingsButton from "../components/layout/ResetSettingsButton";
+import { useOpeningSettings, useSaveSettings } from "../hooks/useSavedSettings";
+import { clearSavedSettings } from "../utils/savedSettings";
 import { CardWorkspace } from "../components/board";
 
 const AudioFoundryModelsModal = lazyWithReload(() => import("../components/modals/AudioFoundryModelsModal"));
@@ -319,9 +322,24 @@ const lockSummary = (locks) => {
   return parts.join(", ");
 };
 
+// The settings the page remembers between visits (utils/savedSettings), with
+// the value each has on a first visit and after Reset settings.
+const SAVED_SETTINGS_PAGE = "audioFoundry";
+const SETTING_DEFAULTS = {
+  activeTab: 0,
+  duration: DEFAULT_SONG_SECONDS,
+  fxDuration: 10,
+  musicModel: "ace-step",
+  musicInstrumental: false,
+  musicArrange: false,
+  voiceBackend: "auto",
+  voiceId: DEFAULT_VOICE,
+};
+
 const AudioFoundryPage = () => {
   const { t, language: uiLanguage } = useUiTranslation();
-  const [activeTab, setActiveTab] = useState(0);
+  const opening = useOpeningSettings(SAVED_SETTINGS_PAGE, SETTING_DEFAULTS);
+  const [activeTab, setActiveTab] = useState([0, 1, 2].includes(opening.activeTab) ? opening.activeTab : 0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
@@ -333,9 +351,9 @@ const AudioFoundryPage = () => {
   // Form States
   const [voiceText, setVoiceText] = useState("");
   const [fxPrompt, setFxPrompt] = useState("");
-  const [duration, setDuration] = useState(60);
+  const [duration, setDuration] = useState(opening.duration);
   // FX Lab has its own length: Music runs 10-240 s, Stable Audio Open stops at 47 s.
-  const [fxDuration, setFxDuration] = useState(10);
+  const [fxDuration, setFxDuration] = useState(opening.fxDuration);
 
   // Music tab — Suno-style chip composition + LLM polish.
   // `musicGenres/Moods/Instruments` are arrays of selected chip labels.
@@ -349,15 +367,18 @@ const AudioFoundryPage = () => {
   const [musicMoods, setMusicMoods] = useState([]);
   const [musicInstruments, setMusicInstruments] = useState([]);
   const [musicExtra, setMusicExtra] = useState("");
-  const [musicInstrumental, setMusicInstrumental] = useState(false);
+  const [musicInstrumental, setMusicInstrumental] = useState(opening.musicInstrumental);
   // Music backend: the sidecar's ACE-Step v1, the sidecar's optional
   // ACE-Step 1.5, or MiniMax Music 3 through ComfyUI, which sings tagged lyrics.
   // The optional ones are offered only when installed (the registry says),
   // otherwise the option names the modal. The page opens on the catalog's
   // default (an installed model when there is one) until a model is picked
   // here or a retry fills one in.
-  const [musicModel, setMusicModel] = useState("ace-step");
-  const musicModelPicked = useRef(false);
+  const [musicModel, setMusicModel] = useState(opening.musicModel);
+  // A restored model counts as picked while the catalog still has it installed.
+  const musicModelPicked = useRef(opening.restored);
+  const defaultMusicModel = useRef(SETTING_DEFAULTS.musicModel);
+  const [catalogChecked, setCatalogChecked] = useState(false);
   const [musicLyrics, setMusicLyrics] = useState("");
   const [catalog, setCatalog] = useState([]);
   const [pluginInfo, setPluginInfo] = useState({ running: false, enabled: false, status: "unknown" });
@@ -372,10 +393,16 @@ const AudioFoundryPage = () => {
       .then(({ data }) => {
         if (!data?.success) return;
         setCatalog(data.models || []);
-        if (!musicModelPicked.current && data.defaults?.music) setMusicModel(data.defaults.music);
+        setMusicModel((current) => {
+          const row = (data.models || []).find((m) => m.id === current);
+          if (row && !row.installed) musicModelPicked.current = false;
+          return !musicModelPicked.current && data.defaults?.music ? data.defaults.music : current;
+        });
+        defaultMusicModel.current = data.defaults?.music || SETTING_DEFAULTS.musicModel;
         setPluginInfo(data.plugin || { running: false, enabled: false, status: "unknown" });
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCatalogChecked(true));
   }, []);
   useEffect(() => { refreshCatalog(); }, [refreshCatalog]);
   // Plugin list pushes keep the tile, banner and Generate current however
@@ -429,7 +456,7 @@ const AudioFoundryPage = () => {
   const [arranging, setArranging] = useState(false);
   // On: ACE-Step's planner rewrites the song (Advanced). Off: the text and the
   // fields below go straight to the model.
-  const [musicArrange, setMusicArrange] = useState(false);
+  const [musicArrange, setMusicArrange] = useState(opening.musicArrange);
   const [directFields, setDirectFields] = useState({ ...DIRECT_DEFAULTS });
   // Who set each 1.5 field: "you" or "polisher". Editing the text clears only
   // the polisher's values; yours stay.
@@ -439,8 +466,26 @@ const AudioFoundryPage = () => {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const instrumental = musicInstrumental
     || (!musicLyrics.trim() && !(musicModel === "ace-step-1.5" && musicArrange));
-  const [voiceBackend, setVoiceBackend] = useState("auto");
-  const [voiceId, setVoiceId] = useState(DEFAULT_VOICE);
+  const [voiceBackend, setVoiceBackend] = useState(["auto", "chatterbox", "kokoro"].includes(opening.voiceBackend) ? opening.voiceBackend : "auto");
+  const [voiceId, setVoiceId] = useState(opening.voiceId);
+  // Saved once the catalog has had its say on a restored music model.
+  useSaveSettings(
+    SAVED_SETTINGS_PAGE,
+    { activeTab, duration, fxDuration, musicModel, musicInstrumental, musicArrange, voiceBackend, voiceId },
+    catalogChecked,
+  );
+  // Reset settings: back to a first visit's values; text, lyrics and tags stay.
+  const resetSettings = () => {
+    clearSavedSettings(SAVED_SETTINGS_PAGE);
+    musicModelPicked.current = false;
+    setDuration(SETTING_DEFAULTS.duration);
+    setFxDuration(SETTING_DEFAULTS.fxDuration);
+    setMusicModel(defaultMusicModel.current);
+    setMusicInstrumental(SETTING_DEFAULTS.musicInstrumental);
+    setMusicArrange(SETTING_DEFAULTS.musicArrange);
+    setVoiceBackend(SETTING_DEFAULTS.voiceBackend);
+    setVoiceId(SETTING_DEFAULTS.voiceId);
+  };
   const [voiceGroups, setVoiceGroups] = useState(FALLBACK_VOICES);
 
   // Chatterbox reference clips for zero-shot voice cloning. `referenceClip`
@@ -625,6 +670,12 @@ const AudioFoundryPage = () => {
         const groups = res.data?.kokoro?.groups;
         if (Array.isArray(groups) && groups.length > 0) {
           setVoiceGroups(groups);
+          // A restored voice the catalog no longer lists gives way to the default.
+          setVoiceId((current) => (
+            current === DEFAULT_VOICE || groups.some((g) => (g.voices || []).some((v) => v.id === current))
+              ? current
+              : DEFAULT_VOICE
+          ));
         }
       })
       .catch(() => {
@@ -1260,6 +1311,7 @@ const AudioFoundryPage = () => {
         <ActionButton onClick={() => openModels()}>{t("audio.page.manageModels")}</ActionButton>
       }
     >
+      <ResetSettingsButton onReset={resetSettings} disabled={loading} />
       <Box sx={{ mt: 2, px: 2 }}>
         <DashboardStrip>
           <DashboardTile
