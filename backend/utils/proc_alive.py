@@ -19,6 +19,31 @@ import subprocess
 from typing import Any, Optional
 
 
+def _windows_pid_running(pid: int) -> bool:
+    """Windows has no signal 0: os.kill(pid, 0) sends CTRL_C_EVENT to a process
+    group. Open the process and ask whether it has exited instead."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel32.WaitForSingleObject.restype = wintypes.DWORD
+        kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        synchronize, query_limited = 0x00100000, 0x1000
+        handle = kernel32.OpenProcess(synchronize | query_limited, False, pid)
+        if not handle:
+            return ctypes.get_last_error() == 5  # ERROR_ACCESS_DENIED: it exists
+        try:
+            return kernel32.WaitForSingleObject(handle, 0) == 0x102  # WAIT_TIMEOUT: still running
+        finally:
+            kernel32.CloseHandle(handle)
+    except Exception:  # noqa: BLE001 - cannot tell: never signal, report not running
+        return False
+
+
 def _proc_state(pid: int) -> Optional[str]:
     """The process state letter (R, S, Z, ...), or None when it cannot be read.
 
@@ -67,6 +92,8 @@ def pid_alive(pid: Any) -> bool:
         return False
     if pid == os.getpid():
         return True
+    if os.name == "nt":
+        return _windows_pid_running(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
