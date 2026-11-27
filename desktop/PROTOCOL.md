@@ -28,8 +28,12 @@ and prints exactly what it always has.
   `GUAARDVARK_APP_MODE` asks for one. A client that shows its own window passes
   `--no-browser` so neither can.
 - `start.sh` asks for a `sudo` password on a terminal the first time it installs
-  system packages. A client with no terminal needs passwordless `sudo` for that
-  first run, or a root-only machine with `GUAARDVARK_ALLOW_ROOT=1`.
+  system packages. With a progress file and stdin that is not a terminal (a
+  client), it never asks: `sudo` runs as `sudo -n`, and if startup then fails
+  after a refusal, `failed` has the label "First-time setup needs your password"
+  and a `detail` that says to run `./start.sh` once in a terminal. Warm starts
+  need no `sudo`. Passwordless `sudo`, or a root-only machine with
+  `GUAARDVARK_ALLOW_ROOT=1`, lets a client do the first run itself.
 
 ## The file
 

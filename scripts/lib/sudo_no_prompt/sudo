@@ -1,0 +1,26 @@
+#!/bin/sh
+# start.sh puts this folder first on PATH when nobody can type a sudo password:
+# it was run with --progress-file (the desktop app) and stdin is not a terminal.
+# Every sudo then runs as `sudo -n`, so a command that needs the password fails
+# at once instead of waiting on a prompt nobody sees. A refusal is appended to
+# $GUAARDVARK_SUDO_REFUSED, which start.sh names when startup fails.
+case "${GUAARDVARK_REAL_SUDO:-}" in
+    ""|*/sudo_no_prompt/sudo) echo "sudo: GUAARDVARK_REAL_SUDO does not name the system sudo" >&2; exit 1 ;;
+esac
+"$GUAARDVARK_REAL_SUDO" -n "$@" && exit 0
+rc=$?
+[ -n "${GUAARDVARK_SUDO_REFUSED:-}" ] || exit "$rc"
+# Only a refused command is worth naming, not a probe (`sudo -v`, `sudo -n true`).
+all="$*"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -p|-u|-g|-C|-D|-U|-r|-t|-T) shift 2 ;;
+        -*) shift ;;
+        *) break ;;
+    esac
+done
+case "${1:-true}" in true) exit "$rc" ;; esac
+if ! "$GUAARDVARK_REAL_SUDO" -n true 2>/dev/null; then
+    printf '%s\n' "$all" >> "$GUAARDVARK_SUDO_REFUSED" 2>/dev/null
+fi
+exit "$rc"

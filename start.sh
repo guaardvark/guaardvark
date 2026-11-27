@@ -183,6 +183,24 @@ fi
 echo $$ > "$START_PID_FILE"
 trap 'progress_on_exit; _vader_fx_stop; start_lock_drop_pidfile; start_lock_release' EXIT
 
+# Run by the desktop app (progress file, stdin not a terminal), nobody can answer
+# a sudo password prompt. sudo still asks on a controlling terminal if there is
+# one, and would wait there forever, so every sudo, in child scripts and
+# installers too, runs without prompting; progress_failed names what was refused.
+_no_prompt_dir="$SCRIPT_DIR/scripts/lib/sudo_no_prompt"
+if progress_on && [ ! -t 0 ] && command -v sudo >/dev/null 2>&1; then
+    case ":$PATH:" in
+        *":$_no_prompt_dir:"*) ;;   # a re-run of this script with exec
+        *)
+            GUAARDVARK_REAL_SUDO=$(command -v sudo)
+            GUAARDVARK_SUDO_REFUSED="$SCRIPT_DIR/.start_cache/sudo-refused"
+            : > "$GUAARDVARK_SUDO_REFUSED"
+            PATH="$_no_prompt_dir:$PATH"
+            export GUAARDVARK_REAL_SUDO GUAARDVARK_SUDO_REFUSED PATH
+            ;;
+    esac
+fi
+
 vader_boot_banner
 
 # ── Platform detection (detect → route to a per-OS backend) ──────────────────
