@@ -3366,8 +3366,8 @@ export VITE_PORT
 # watch/HMR — if we skip the build, it happily serves whatever stale bundle is on disk.
 # The earlier mtime-gated check is a best-effort optimization; this is the guarantee.
 # On build failure the behavior is HONEST, not silent:
-#   - if a previous dist exists, we serve it but scream loudly (better than a dead
-#     frontend on a local workstation) so the operator knows the code is stale;
+#   - if a previous dist exists, it is kept and the failure is reported loudly; the
+#     dev server still serves the current src/, so what is stale is only dist/;
 #   - if there is NO dist at all, we abort the launch, except when the build was
 #     killed for lack of memory (exit 137): that says nothing about the code, and
 #     the dev server serves src/ without a dist, so it launches with a warning.
@@ -3435,8 +3435,8 @@ elif [ "${FRONTEND_BUILD_RC:-}" = 137 ] && [ ! -f "$FRONTEND_BUILD_STAMP" ]; the
     progress_end skip "Not enough memory to finish the build check; the interface runs from source and the check runs again next start."
 elif [ -f "$FRONTEND_DIR/dist/index.html" ]; then
     frontend_build_failure_note "$FRONTEND_BUILD_RC"
-    vader_error "Frontend build FAILED — serving the LAST-GOOD (stale) dist. Code is NOT current. Fix the build; see $FRONTEND_LOG_FILE"
-    progress_end fail "The build failed; the previous build is kept."
+    vader_error "Frontend build FAILED — frontend/dist still holds the last good build, which is older than the code. The interface is served from the current source by the dev server, where an error in the code shows too. Fix the build; see $FRONTEND_LOG_FILE"
+    progress_end fail "The interface's build check failed; it is served from the current source. See the log."
 else
     frontend_build_failure_note "$FRONTEND_BUILD_RC"
     vader_error "Frontend build FAILED and no prior dist exists — cannot serve frontend. See $FRONTEND_LOG_FILE"

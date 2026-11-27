@@ -62,7 +62,7 @@ Ignore fields you do not know. Show a step id you do not know by its `label`.
   it (`detail` says which). Not an error.
 - `fail`: the step had a problem. If the `failed` line follows, startup stopped
   here. If it does not, startup carried on (for example a failed interface build
-  when an earlier build can still be served).
+  check: the interface is still served from source).
 
 Steps do not overlap: a step's `ok`, `skip` or `fail` line comes before the next
 step's `start`.
@@ -85,7 +85,7 @@ step's `start`.
 | `migrations`      | Updating the database                 | 72    | Brings the database schema up to date. `skip` when already current |
 | `backend`         | Starting the backend                  | 76    | Starts the API server and waits for its port |
 | `celery`          | Starting the background workers       | 84    | Starts the task workers |
-| `frontend_build`  | Building the interface                | 88    | Production build of the interface. `skip` when nothing changed since the last build |
+| `frontend_build`  | Building the interface                | 88    | Production build check of the interface (the interface itself is served from source). `skip` when nothing changed since the last build, or when the build ran out of memory |
 | `frontend`        | Starting the interface                | 93    | Starts the web server and waits for its port |
 | `health`          | Checking that everything answers      | 96    | Backend, interface and worker health checks |
 | `plugins`         | Starting plugins                      | 98    | Starts the plugins set to start with Guaardvark |
