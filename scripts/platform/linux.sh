@@ -237,10 +237,16 @@ _linux_ensure_node_via_binary() {
         aarch64|arm64) arch="linux-arm64" ;;
         x86_64|amd64) arch="linux-x64" ;;
     esac
-    local tarball="node-${ver}-${arch}.tar.xz"
+    # The .tar.xz is smaller, but container and minimal server images often lack
+    # xz, which tar needs to unpack it; gzip is always there.
+    local ext=tar.gz unpack=-xz
+    if command -v xz >/dev/null 2>&1; then
+        ext=tar.xz unpack=-xJ
+    fi
+    local tarball="node-${ver}-${arch}.${ext}"
     local url="https://nodejs.org/dist/${ver}/${tarball}"
     mkdir -p "$HOME/.local"
-    if ! curl -fsSL "$url" | tar -xJ -C "$HOME/.local" 2>/dev/null; then
+    if ! curl -fsSL "$url" | tar "$unpack" -C "$HOME/.local" 2>/dev/null; then
         vader_error "Failed to download Node.js from nodejs.org"
         return 1
     fi
