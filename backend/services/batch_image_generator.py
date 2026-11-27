@@ -2079,6 +2079,8 @@ class BatchImageGenerator:
                     GpuBusyError,
                     GpuCapacityError,
                     GpuQueuedError,
+                    SystemLoadBusyError,
+                    SystemRamCapacityError,
                     get_gate,
                     gpu_holder_label,
                 )
@@ -2165,9 +2167,11 @@ class BatchImageGenerator:
                         # The estimate cannot fit this card at all. Waiting is
                         # not a strategy; fail now with the honest reason.
                         batch_status.gpu_wait_reason = None
+                        batch_status.error_kind = _kind_of(e)
                         self._fail_batch_gpu_busy(
                             batch_id, batch_status, output_dir, request,
-                            f"Could not acquire GPU / system RAM headroom: {e}",
+                            str(e) if isinstance(e, SystemRamCapacityError)
+                            else f"Could not acquire GPU / system RAM headroom: {e}",
                         )
                         return
                     except GpuBusyError as e:
@@ -2181,10 +2185,20 @@ class BatchImageGenerator:
                         remaining = deadline - time.time()
                         if remaining <= 0:
                             batch_status.gpu_wait_reason = None
+                            # Name the resource that refused last: the system
+                            # load gate (RAM, swap, CPU) is not VRAM.
+                            if isinstance(e, SystemLoadBusyError):
+                                timeout_text = (
+                                    f"The system did not free up after waiting "
+                                    f"{int(admit_deadline_s)}s: {e.detail}"
+                                )
+                            else:
+                                timeout_text = (
+                                    f"Could not acquire enough free VRAM after waiting "
+                                    f"{int(admit_deadline_s)}s: {e}"
+                                )
                             self._fail_batch_gpu_busy(
-                                batch_id, batch_status, output_dir, request,
-                                f"Could not acquire enough free VRAM after waiting "
-                                f"{int(admit_deadline_s)}s: {e}",
+                                batch_id, batch_status, output_dir, request, timeout_text,
                             )
                             return
 

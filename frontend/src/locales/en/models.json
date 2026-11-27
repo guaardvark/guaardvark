@@ -125,7 +125,18 @@
     "removeKeeps": "the shipped Image Models list",
     "yourEncoders": "Your text encoders",
     "encoderChip": "Text encoder · {{slot}} · {{family}}",
-    "sharedFile": "Uses a file that is already installed; nothing extra to download."
+    "sharedFile": "Uses a file that is already installed; nothing extra to download.",
+    "ramChip": "{{size}} RAM",
+    "vramChip": "{{size}} VRAM",
+    "ramChipTooltip": "System RAM a render on this model needs. This system has {{total}}.",
+    "ramWarnTitle": "{{name}} needs more RAM than this system has",
+    "ramWarnDescription": "Image Gen refuses a render whose RAM need plus the safety floor is more than all the RAM this system has, so this model will not run here until the machine has more RAM. You can still download it.",
+    "ramWarnWsl": "Under WSL the RAM that counts is what Ubuntu sees, and WSL gives Ubuntu half of the PC's RAM unless memory= is set. To give it more, add memory=<size>GB under [wsl2] in %UserProfile%\\.wslconfig, run wsl --shutdown in PowerShell, then start Guaardvark again. You can still download the model now.",
+    "ramWarnNeeds": "Needs",
+    "ramWarnNeedsValue": "{{need}} of RAM plus a {{floor}} floor",
+    "ramWarnHas": "This system has",
+    "ramWarnHasWsl": "Ubuntu sees",
+    "installAnyway": "Install anyway"
   },
   "infographicModels": {
     "title": "Infographic Models",

@@ -1248,6 +1248,35 @@ class OfflineImageGenerator:
             base += extra_mp * slope
         return base
 
+    def model_ram_need_gb(self, model_key: str) -> Optional[float]:
+        """System RAM a render on catalog key ``model_key`` is admitted at, at its
+        default canvas: the registry figure admission uses. None for the ComfyUI
+        router row (its engine is not known until it routes) and unknown keys."""
+        model_id = self.available_models.get(model_key or "")
+        if not model_id or model_key == "comfyui":
+            return None
+        return self._ram_estimate_gb(model_id)
+
+    def model_fits_ram(self, model_key: str, total_gb: Optional[float] = None) -> bool:
+        """False only when ``model_key``'s RAM need can never be admitted on this
+        machine (system_load_gate.ram_fits_machine); unknown counts as fitting."""
+        from backend.services.system_load_gate import ram_fits_machine
+        try:
+            need = self.model_ram_need_gb(model_key)
+        except Exception as e:  # noqa: BLE001 — no figure: never refuse on a guess
+            logger.debug("RAM need for %s unavailable: %s", model_key, e)
+            need = None
+        return ram_fits_machine(need, total_gb) is not False
+
+    def model_vram_need_mb(self, model_key: str) -> Optional[int]:
+        """VRAM a render on ``model_key`` is booked at on this card at its default
+        canvas (the registry price admission uses); None for the ComfyUI router
+        row and unknown keys."""
+        model_id = self.available_models.get(model_key or "")
+        if not model_id or model_key == "comfyui":
+            return None
+        return int(self._vram_estimate_mb(model_id))
+
     def _ensure_vram_for_pipeline(
         self, model_id: str, width: Optional[int] = None, height: Optional[int] = None
     ) -> None:
@@ -1337,17 +1366,17 @@ class OfflineImageGenerator:
         expires while a job runs for minutes — nothing guarded the denoise
         itself. On breach we RAISE (never pipeline._interrupt: interrupt skips
         remaining steps but still runs the VAE decode — potentially the very
-        allocation being fled). Floor: GUAARDVARK_MIN_FREE_RAM_GB, default
-        max(8GB, 6% of total). Returns None when psutil is unavailable.
+        allocation being fled). Floor: system_load_gate.render_ram_stop_gb
+        (GUAARDVARK_MIN_FREE_RAM_GB, else 15% of total RAM capped at 8 GB, a
+        share with a cap like the admission floor). Returns None when psutil
+        is unavailable.
         """
         try:
             import psutil
         except Exception:
             return None
-        try:
-            floor_gb = float(os.environ["GUAARDVARK_MIN_FREE_RAM_GB"])
-        except (KeyError, ValueError):
-            floor_gb = max(8.0, 0.06 * psutil.virtual_memory().total / (1024 ** 3))
+        from backend.services.system_load_gate import render_ram_stop_gb
+        floor_gb = render_ram_stop_gb()
 
         def _cb(pipe, step, timestep, callback_kwargs):
             avail_gb = psutil.virtual_memory().available / (1024 ** 3)
@@ -1572,18 +1601,32 @@ class OfflineImageGenerator:
         else:  # general / complex
             prefs = [lead, second, "sd-xl", "realistic-vision"]
 
-        for key in prefs:
-            model_id = self.available_models.get(key)
-            if model_id and self._is_model_downloaded(model_id):
+        def _installed():
+            for key in prefs:
+                model_id = self.available_models.get(key)
+                if model_id and self._is_model_downloaded(model_id):
+                    yield key
+            # Nothing preferred is downloaded — fall back to any downloaded model.
+            for key, model_id in self.available_models.items():
+                if key in prefs or key in self.comfy_only_models:
+                    continue  # comfy-only: sentinel id, nothing on disk to load
+                if self._is_model_downloaded(model_id):
+                    yield key
+
+        # An installed model whose RAM need this machine can never hold would be
+        # refused at admission; the next installed one that fits renders instead.
+        # With none that fits, the first stays, so the refusal says why.
+        from backend.services.system_load_gate import total_ram_gb
+        total_ram = total_ram_gb()
+        first_installed = None
+        for key in _installed():
+            first_installed = first_installed or key
+            if self.model_fits_ram(key, total_ram):
                 logger.info(f"Auto-router selected '{key}' for prompt: {prompt[:60]}...")
                 return key
-
-        # Nothing preferred is downloaded — fall back to any downloaded model.
-        for key, model_id in self.available_models.items():
-            if key in self.comfy_only_models:
-                continue  # sentinel id, nothing on disk to load
-            if self._is_model_downloaded(model_id):
-                return key
+            logger.info("Auto: skipping %r, its RAM need does not fit this machine", key)
+        if first_installed:
+            return first_installed
         # Genuinely nothing on disk. Returning a model that isn't there would only
         # push the failure downstream, so let the caller report it honestly.
         return None

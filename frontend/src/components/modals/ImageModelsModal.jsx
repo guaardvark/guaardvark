@@ -28,6 +28,9 @@ import { translate, useUiTranslation, Trans } from "../../i18n";
 const modelMatchesDownload = (model, currentModel) =>
   !!currentModel && (currentModel === model.path || currentModel === model.id);
 
+// "21 GB", "10.7 GB": one decimal, none when it is whole.
+const gbLabel = (gb) => `${Number(gb.toFixed(1))} GB`;
+
 // installModelId: opened from a page's Install button. That row is brought into
 // view and its install started, as if the person had clicked Install on it.
 const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
@@ -39,6 +42,11 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
   const [editing, setEditing] = useState([]);
   const [addOpen, setAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState(null);
+  // A model whose RAM need this system can never hold, waiting on the
+  // person's "Install anyway" (fits_ram from /batch-image/models).
+  const [ramWarnTarget, setRamWarnTarget] = useState(null);
+  // The RAM this system sees and the admission floor (the list's `machine`).
+  const [machine, setMachine] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloadStatus, setDownloadStatus] = useState({
     is_downloading: false,
@@ -73,6 +81,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
         setAdapters(res.data.data.adapters || []);
         setEncoders(res.data.data.encoders || []);
         setEditing(res.data.data.editing || []);
+        setMachine(res.data.data.machine || null);
         setUnavailable(check ? res.data.data.unavailable_models || [] : []);
         setChecked(check);
       } else {
@@ -156,6 +165,12 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
     }
   };
 
+  // Install, after a warning when the model needs more RAM than this system has.
+  const requestInstall = (model) => {
+    if (model.fits_ram === false) setRamWarnTarget(model);
+    else handleDownload(model);
+  };
+
   // Waits for the list and the first status read, so a download that is
   // already running shows its progress instead of being started twice.
   useEffect(() => {
@@ -171,7 +186,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
       }
       return;
     }
-    handleDownload(target);
+    requestInstall(target);
   }, [open, installModelId, loading, statusRead, models, downloadStatus]);
 
   const handleRemove = async () => {
@@ -256,7 +271,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
             variant="outlined"
             size="small"
             startIcon={<CloudDownloadIcon />}
-            onClick={() => handleDownload(model)}
+            onClick={() => requestInstall(model)}
             disabled={isDownloading}
           >
             {t("dialogs.shared.install")}
@@ -323,6 +338,24 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                         {model.user && <Chip label={t("models.imageModels.yours", { family: model.family || t("models.imageModels.modelFallback") })} size="small" variant="outlined" />}
                         {model.size_gb > 0 && (
                           <Chip label={`${model.size_gb} GB`} size="small" variant="outlined" />
+                        )}
+                        {model.ram_gb > 0 && (
+                          <Chip
+                            label={t("models.imageModels.ramChip", { size: gbLabel(model.ram_gb) })}
+                            title={machine?.total_ram_gb
+                              ? t("models.imageModels.ramChipTooltip", { total: gbLabel(machine.total_ram_gb) })
+                              : undefined}
+                            size="small"
+                            color={model.fits_ram === false ? "warning" : "default"}
+                            variant="outlined"
+                          />
+                        )}
+                        {model.vram_mb > 0 && (
+                          <Chip
+                            label={t("models.imageModels.vramChip", { size: gbLabel(model.vram_mb / 1024) })}
+                            size="small"
+                            variant="outlined"
+                          />
                         )}
                         {checked && !model.is_downloaded && (
                           <Chip
@@ -566,6 +599,36 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
         confirmLabel={t("dialogs.shared.remove")}
         onClose={() => setRemoveTarget(null)}
         onConfirm={handleRemove}
+      />
+      <ConfirmActionDialog
+        open={Boolean(ramWarnTarget)}
+        reversible
+        title={t("models.imageModels.ramWarnTitle", { name: ramWarnTarget?.name || ramWarnTarget?.id || "" })}
+        description={
+          machine?.wsl ? t("models.imageModels.ramWarnWsl") : t("models.imageModels.ramWarnDescription")
+        }
+        facts={[
+          {
+            label: t("models.imageModels.ramWarnNeeds"),
+            value: t("models.imageModels.ramWarnNeedsValue", {
+              need: gbLabel(ramWarnTarget?.ram_gb || 0),
+              floor: gbLabel(machine?.ram_floor_gb || 0),
+            }),
+          },
+          ...(machine?.total_ram_gb
+            ? [{
+                label: machine.wsl ? t("models.imageModels.ramWarnHasWsl") : t("models.imageModels.ramWarnHas"),
+                value: gbLabel(machine.total_ram_gb),
+              }]
+            : []),
+        ]}
+        confirmLabel={t("models.imageModels.installAnyway")}
+        onClose={() => setRamWarnTarget(null)}
+        onConfirm={() => {
+          const target = ramWarnTarget;
+          setRamWarnTarget(null);
+          if (target) handleDownload(target);
+        }}
       />
     </Dialog>
   );

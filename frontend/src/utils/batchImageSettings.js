@@ -297,7 +297,9 @@ export function imageModelOption(m) {
  * A picked model that is not installed blocks Generate: the run would be
  * refused. Auto chooses among installed models, so it never blocks; when no
  * listed model is installed it names the recommended one so the page can
- * offer Install (a ComfyUI route may still render without it).
+ * offer Install (a ComfyUI route may still render without it). The list API
+ * moves `recommended` to a model whose RAM need this machine can hold when the
+ * catalog's choice can't be admitted here.
  */
 export function modelInstallNeed(options, value) {
   if (!value || value === 'auto') {
