@@ -138,6 +138,8 @@ function create(opts = {}) {
   const version = opts.guaardvarkVersion || readGuaardvarkVersion();
   const fetchImpl = opts.fetch || image.pickFetch();
   const store = createStateStore(path.join(appDir, 'setup-state.json'));
+  // A stop in progress (see runStop).
+  const stopMarker = path.join(appDir, 'stopping.json');
   // What turning keep-alive on changed in .wslconfig; read by the uninstaller too.
   const keepAliveRecord = path.join(appDir, 'keep-alive.json');
 
@@ -149,7 +151,7 @@ function create(opts = {}) {
   }
 
   const runner = createRunner({ tools, env, log });
-  const session = { started: false, holder: null, tail: null, starter: null, lastLog: null };
+  const session = { started: false, stopping: false, holder: null, tail: null, starter: null, lastLog: null };
 
   function uncPath(linuxPath) {
     return linuxPath ? `\\\\wsl.localhost\\${DISTRO}${linuxPath.replace(/\//g, '\\')}` : null;
@@ -642,17 +644,93 @@ function create(opts = {}) {
       return;
     }
     const st = store.read();
-    if (session.tail) { session.tail.kill(); session.tail = null; }
-    if (!force && st.keepAlive && keepAlive.isKeepAlive(userProfile)) {
-      log('stop: keep-alive is on; Guaardvark keeps running in the background');
-    } else {
-      log('---- stop');
-      const res = await inDistro('cd "$1" && ./stop.sh', [st.root], { timeoutMs: 180000 });
-      fs.appendFileSync(startLog, `\n--- stop.sh (exit ${res.code})\n${res.stdout}${res.stderr}`);
-      await runner.run('wsl', ['--terminate', DISTRO], { timeoutMs: 60000 });
+    session.stopping = true;
+    try {
+      if (session.tail) { session.tail.kill(); session.tail = null; }
+      if (!force && st.keepAlive && keepAlive.isKeepAlive(userProfile)) {
+        log('stop: keep-alive is on; Guaardvark keeps running in the background');
+      } else {
+        log('---- stop');
+        await runStop(st.root);
+      }
+      if (session.holder) { session.holder.kill(); session.holder = null; }
+      session.started = false;
+    } finally {
+      session.stopping = false;
     }
-    if (session.holder) { session.holder.kill(); session.holder = null; }
-    session.started = false;
+  }
+
+  // A stop is stop.sh inside the distribution, then `wsl --terminate`. While
+  // it runs, stopping.json says which phase it is in, so a launch after the
+  // app was closed or killed part-way knows a stop was cut short; starting
+  // into a half-stopped Guaardvark would fail in odd ways. stop.sh runs by
+  // its full path so it can be found in the distribution's process list.
+  const STOP_SCRIPT = 'cd "$1" && exec "$1/stop.sh"';
+  const STOP_PENDING_TIMEOUT_MS = 180000;
+
+  function readStopMarker() {
+    try {
+      return JSON.parse(fs.readFileSync(stopMarker, 'utf8'));
+    } catch {
+      return null;
+    }
+  }
+
+  function writeStopMarker(root, phase) {
+    fs.mkdirSync(appDir, { recursive: true });
+    fs.writeFileSync(stopMarker, `${JSON.stringify({ root, phase, at: new Date().toISOString(), appPid: process.pid })}\n`);
+  }
+
+  async function runStop(root, timeoutMs = STOP_PENDING_TIMEOUT_MS) {
+    writeStopMarker(root, 'stop');
+    const res = await inDistro(STOP_SCRIPT, [root], { timeoutMs });
+    fs.appendFileSync(startLog, `\n--- stop.sh (exit ${res.code})\n${res.stdout}${res.stderr}`);
+    writeStopMarker(root, 'terminate');
+    await runner.run('wsl', ['--terminate', DISTRO], { timeoutMs: 60000 });
+    fs.rmSync(stopMarker, { force: true });
+    return res;
+  }
+
+  // Truthy when an earlier run of the app began a stop and did not see it
+  // finish. Synchronous: it only reads stopping.json.
+  function pendingWork() {
+    const m = readStopMarker();
+    if (!m) return null;
+    if (m.appPid === process.pid && session.stopping) return null;
+    return 'stopping';
+  }
+
+  // Finishes a stop that was cut short: waits for a stop.sh still running in
+  // the distribution, runs stop.sh again (it does nothing when everything is
+  // already down) unless the earlier one had completed, then stops the
+  // distribution. Rejects with a plain "failed" event after the timeout.
+  async function waitForPendingWork({ timeoutMs = STOP_PENDING_TIMEOUT_MS, report } = {}) {
+    const m = readStopMarker();
+    if (!m) return;
+    const emit = makeReporter(report);
+    const deadline = Date.now() + timeoutMs;
+    log(`---- an earlier stop was cut short in phase ${m.phase} (${m.at}); finishing it`);
+    emit(event('stop_pending', 'start', { detail: 'Guaardvark was still stopping when the app closed.' }));
+    const giveUp = () => fail(emit, 'stop_pending', 'Guaardvark did not finish stopping',
+      `It was still stopping after ${Math.round(timeoutMs / 1000)} seconds. Restart Windows, or in PowerShell run: wsl --terminate ${DISTRO}. Then open Guaardvark again.`);
+    if (m.phase === 'stop') {
+      for (;;) {
+        // pgrep exits 0 while a matching process runs, 1 when none does.
+        const left = deadline - Date.now();
+        if (left <= 0) giveUp();
+        const res = await inDistro('pgrep -f -- "$1/stop.sh" >/dev/null', [m.root], { timeoutMs: Math.min(left, 60000), login: false });
+        if (res.code !== 0) break;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      const left = deadline - Date.now();
+      if (left <= 0) giveUp();
+      const res = await inDistro(STOP_SCRIPT, [m.root], { timeoutMs: left });
+      if (res.code === null) giveUp();
+      fs.appendFileSync(startLog, `\n--- stop.sh, finishing an earlier stop (exit ${res.code})\n${res.stdout}${res.stderr}`);
+    }
+    await runner.run('wsl', ['--terminate', DISTRO], { timeoutMs: 60000 });
+    fs.rmSync(stopMarker, { force: true });
+    emit(event('stop_pending', 'ok'));
   }
 
   function logPath() {
@@ -749,6 +827,8 @@ function create(opts = {}) {
     logPath,
     wasStartedByApp,
     getApiKey,
+    pendingWork,
+    waitForPendingWork,
     planInstall,
     restartComputer,
     isResumeLaunch,
