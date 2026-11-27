@@ -16,4 +16,7 @@ echo "installing $(git -C "$src/checkout" rev-parse HEAD) ($REF), version $(cat 
 export GUAARDVARK_REPO_URL="$REPO"
 export GUAARDVARK_BRANCH="$REF"
 export GUAARDVARK_BOOTSTRAP_MODELS=0
+set -a
+. /usr/lib/guaardvark-image/image.env
+set +a
 bash "$src/checkout/install.sh"

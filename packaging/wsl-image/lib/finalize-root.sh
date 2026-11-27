@@ -38,6 +38,10 @@ if [ -f "$ENV_FILE" ]; then
     chown "$USER_NAME:$USER_NAME" "$ENV_FILE.new"
     chmod 600 "$ENV_FILE.new"
     mv "$ENV_FILE.new" "$ENV_FILE"
+    # The image's fixed settings (lib/image.env), the values the build ran with.
+    grep -E '^[A-Z_]+=' /usr/lib/guaardvark-image/image.env | while IFS= read -r line; do
+        grep -q "^${line%%=*}=" "$ENV_FILE" || echo "$line" >> "$ENV_FILE"
+    done
     say ".env keys kept: $(cut -d= -f1 "$ENV_FILE" | grep -v '^#' | grep -v '^$' | tr '\n' ' ')"
 fi
 
@@ -61,6 +65,16 @@ fi
 rm -f "$pristine"
 grep -q '^requirepass ' /etc/redis/redis.conf && { say "redis.conf still has a password"; exit 1; }
 systemctl disable redis-server 2>/dev/null || true
+
+# ── Build-time nvidia-smi stand-in ───────────────────────────────────────────
+# Gone before export: under WSL the real one comes from /usr/lib/wsl/lib. The GPU
+# sudoers rule start.sh wrote names the stand-in's path; start.sh writes it again
+# for the real binary on a machine with a card.
+if grep -q 'Build-time stand-in for nvidia-smi' /usr/local/bin/nvidia-smi 2>/dev/null; then
+    rm -f /usr/local/bin/nvidia-smi
+    say "nvidia-smi stand-in removed"
+fi
+rm -f /etc/sudoers.d/gpu-guaardvark
 
 # ── Per-machine identity ─────────────────────────────────────────────────────
 rm -rf "$HOME_DIR/.guaardvark"                       # hardware.json, node_id, first-start note

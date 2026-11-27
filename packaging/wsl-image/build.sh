@@ -3,9 +3,14 @@
 # Guaardvark installed by its own public installer, minus model weights and
 # minus every per-machine secret. See README.md in this directory.
 #
-#   packaging/wsl-image/build.sh --out DIR [--ref main] [--repo URL]
-#                                [--compress gz|xz|zst|all|none] [--icon FILE.ico] [--keep]
+#   packaging/wsl-image/build.sh --out DIR [--ref main] [--repo URL] [--torch cuda|cpu]
+#                                [--measure xz,zst] [--icon FILE.ico] [--keep]
 #                                [--stop-after install]   (leave the installed container running to inspect it)
+#
+# Output: guaardvark-wsl-<version>-x64.tar.gz split into parts under 2 GiB, and the
+# manifest guaardvark-wsl-<version>-x64.json the desktop app reads
+# (desktop/platform/wsl/image.js). --measure also writes other compressions of the
+# same tar, for comparison only.
 #
 # Runs entirely in docker: no published ports, no GPU, capped memory and CPU.
 
@@ -23,21 +28,25 @@ PUBLIC_REPO="https://github.com/guaardvark/guaardvark.git"
 REPO="$PUBLIC_REPO"
 REF="main"
 OUT=""
-COMPRESS="gz"
+TORCH="cuda"
+MEASURE=""
+# GitHub release assets must be under 2 GiB; parts stay well below it.
+PART_BYTES=$((1900 * 1024 * 1024))
 ICON=""
 KEEP=0
 STOP_AFTER=""
 MEMORY="${GV_WSL_BUILD_MEMORY:-12g}"
 CPUS="${GV_WSL_BUILD_CPUS:-6}"
 
-usage() { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --out) OUT="$2"; shift 2 ;;
         --ref) REF="$2"; shift 2 ;;
         --repo) REPO="$2"; shift 2 ;;
-        --compress) COMPRESS="$2"; shift 2 ;;
+        --torch) TORCH="$2"; shift 2 ;;
+        --measure) MEASURE="$2"; shift 2 ;;
         --icon) ICON="$2"; shift 2 ;;
         --keep) KEEP=1; shift ;;
         --stop-after) STOP_AFTER="$2"; KEEP=1; shift 2 ;;
@@ -46,14 +55,12 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ -n "$OUT" ] || { echo "--out DIR is required" >&2; exit 2; }
-case "$COMPRESS" in gz|xz|zst|all|none) ;; *) echo "--compress must be gz, xz, zst, all or none" >&2; exit 2 ;; esac
+case "$TORCH" in cuda|cpu) ;; *) echo "--torch must be cuda or cpu" >&2; exit 2 ;; esac
 [ -n "$ICON" ] || { [ -f "$REPO_ROOT/desktop/build/icon.ico" ] && ICON="$REPO_ROOT/desktop/build/icon.ico"; } || true
 
 command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 mkdir -p "$OUT/base" "$OUT/logs"
 OUT="$(cd "$OUT" && pwd)"
-SAFE_REF="$(printf '%s' "$REF" | tr -c 'A-Za-z0-9._-' '-')"
-NAME="guaardvark-wsl-${SAFE_REF}"
 CONTAINER="gv-wsl-build-$$"
 IMG_USER=guaardvark
 IMG_HOME="/home/${IMG_USER}"
@@ -103,6 +110,12 @@ log "systemd: ${state:-unknown}"
 docker exec "$CONTAINER" mkdir -p /usr/lib/guaardvark-image
 docker cp "$HERE/lib/." "$CONTAINER:/usr/lib/guaardvark-image/"
 [ -n "$ICON" ] && docker cp "$ICON" "$CONTAINER:/usr/lib/guaardvark-image/guaardvark.ico"
+# The app supports NVIDIA cards only. install.sh chooses PyTorch from what nvidia-smi
+# reports, so a stand-in answers as a current NVIDIA card under WSL for the length of
+# the build (lib/nvidia-smi-build); finalize removes it. CUDA PyTorch also runs on CPU.
+if [ "$TORCH" = cuda ]; then
+    docker exec "$CONTAINER" install -m 0755 /usr/lib/guaardvark-image/nvidia-smi-build /usr/local/bin/nvidia-smi
+fi
 phase_end
 
 # 3. The default user, sudo, /etc/wsl.conf and /etc/wsl-distribution.conf.
@@ -117,6 +130,10 @@ docker exec -u "$IMG_USER" -w "$IMG_HOME" -e HOME="$IMG_HOME" "$CONTAINER" \
     || { log "install.sh failed; see $OUT/logs/install.log"; tail -n 40 "$OUT/logs/install.log"; exit 1; }
 phase_end
 tail -n 25 "$OUT/logs/install.log"
+VERSION="$(docker exec "$CONTAINER" cat "$IMG_HOME/guaardvark/VERSION" | tr -dc 'A-Za-z0-9._-')"
+NAME="guaardvark-wsl-${VERSION:-unknown}-x64"
+docker exec -u "$IMG_USER" "$CONTAINER" "$IMG_HOME/guaardvark/backend/venv/bin/python" -c \
+    'import torch; print("torch", torch.__version__, "cuda", torch.version.cuda)' | tee "$OUT/logs/torch.txt"
 if [ "$STOP_AFTER" = install ]; then
     log "stopped after install; container left running: $CONTAINER"
     exit 0
@@ -147,19 +164,50 @@ docker export "$CONTAINER" | python3 -I "$HERE/lib/rewrite_rootfs.py" --base "$B
     --out "$TAR" --report "$OUT/logs/size-report.txt"
 phase_end
 
-compress() {  # $1 = gz|xz|zst
-    case "$1" in
-        gz)  phase_start "compress gzip";  pigz -9 -p "$CPUS" -k -c "$TAR" > "$TAR.gz" 2>/dev/null || gzip -9 -k -c "$TAR" > "$TAR.gz" ;;
-        xz)  phase_start "compress xz";    xz -6 -T "$CPUS" -k -c "$TAR" > "$TAR.xz" ;;
-        zst) phase_start "compress zstd";  zstd -19 -T"$CPUS" -q -k -c "$TAR" > "$TAR.zst" ;;
-    esac
-    phase_end
+phase_start "compress gzip"
+pigz -9 -p "$CPUS" -c "$TAR" > "$TAR.gz" 2>/dev/null || gzip -9 -c "$TAR" > "$TAR.gz"
+phase_end
+
+# Parts and manifest in the format desktop/platform/wsl/image.js reads. Part names
+# are relative to the manifest; joined in order they are the .tar.gz.
+phase_start "split + manifest"
+rm -f "$TAR.gz".[0-9][0-9][0-9]
+split -b "$PART_BYTES" -d -a 3 --numeric-suffixes=1 "$TAR.gz" "$TAR.gz."
+python3 -I - "$OUT" "$NAME" "$VERSION" "$(stat -c %s "$TAR")" <<'PY'
+import hashlib, json, os, sys
+out, name, version, installed = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
+def sha(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+whole = os.path.join(out, f"{name}.tar.gz")
+parts = sorted(p for p in os.listdir(out) if p.startswith(f"{name}.tar.gz.") and p[-3:].isdigit())
+manifest = {
+    "schema": 1, "version": version, "arch": "x64", "format": "tar.gz",
+    "size": os.path.getsize(whole), "sha256": sha(whole),
+    # Bytes of the uncompressed root filesystem tar: what the import unpacks.
+    "installedSize": installed,
+    "parts": [{"name": p, "size": os.path.getsize(os.path.join(out, p)),
+               "sha256": sha(os.path.join(out, p))} for p in parts],
 }
-case "$COMPRESS" in
-    all) compress gz; compress xz; compress zst ;;
-    none) ;;
-    *) compress "$COMPRESS" ;;
-esac
+assert sum(p["size"] for p in manifest["parts"]) == manifest["size"]
+assert all(p["size"] < 2 * 1024**3 for p in manifest["parts"])
+with open(os.path.join(out, f"{name}.json"), "w") as f:
+    json.dump(manifest, f, indent=2)
+    f.write("\n")
+print(json.dumps(manifest, indent=2))
+PY
+phase_end
+
+for m in ${MEASURE//,/ }; do
+    case "$m" in
+        xz)  phase_start "measure xz";   xz -6 -T "$CPUS" -c "$TAR" > "$TAR.xz"; phase_end ;;
+        zst) phase_start "measure zstd"; zstd -19 -T"$CPUS" -q -c "$TAR" > "$TAR.zst"; phase_end ;;
+        *) log "unknown --measure format: $m" ;;
+    esac
+done
 
 ( cd "$OUT" && sha256sum "$NAME".tar* > "$NAME.sha256" )
 TOTAL=$(( $(date +%s) - BUILD_T0 ))
