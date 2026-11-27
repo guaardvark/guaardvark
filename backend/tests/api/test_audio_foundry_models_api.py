@@ -170,3 +170,28 @@ def test_download_status_idle(client):
     assert payload["success"] is True
     assert payload["is_downloading"] is False
     assert payload["status"] == "idle"
+
+
+def test_delegated_status_says_it_is_the_video_downloaders_run(client, monkeypatch):
+    # The frontend reads both routes; the flag lets it count the run once.
+    from backend.api import batch_video_generation_api as video_api
+
+    def fake_start(model_id):
+        return SimpleNamespace(get_json=lambda: {"success": True, "data": {}}), 200
+
+    monkeypatch.setattr(video_api, "start_video_model_download", fake_start)
+    monkeypatch.setattr(video_api, "_video_model_download_status", {
+        "is_downloading": True,
+        "current_model": "minimax-music3-dit",
+        "progress": 12,
+        "status": "downloading",
+        "downloaded_gb": 1.3,
+        "total_gb": 11.09,
+    })
+    assert client.post("/api/audio-foundry/models/download", json={"id": "minimax-music3-int8"}).status_code == 200
+
+    payload = client.get("/api/audio-foundry/models/download-status").get_json()
+    assert payload["is_downloading"] is True
+    assert payload["progress"] == 12
+    assert payload["delegated_to"] == "video"
+

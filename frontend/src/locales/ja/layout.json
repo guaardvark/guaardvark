@@ -19,6 +19,7 @@
       "video_gen": "ビデオ生成",
       "video_render": "ビデオ生成",
       "upscale": "アップスケール",
+      "model_download": "モデルのダウンロード",
       "csv_processing": "CSV生成",
       "file_generation": "ファイル生成",
       "analysis": "分析",
@@ -62,6 +63,9 @@
     "showJobs": "進行中の全ジョブを表示",
     "entryNamed": "{{label}} · {{name}}",
     "entryWaiting": "{{entry}} — 待機中",
+    "downloadProgress": "{{name}} · {{done}} / {{total}}",
+    "downloadStarting": "{{name}} · 開始中",
+    "downloadInstalling": "{{name}} · セットアップ中",
     "renderError": "進捗バーのエラー - コンソールを確認してください"
   },
   "systemMetrics": {

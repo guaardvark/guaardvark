@@ -19,6 +19,7 @@
       "video_gen": "Gén. Vidéo",
       "video_render": "Gén. Vidéo",
       "upscale": "Upscale",
+      "model_download": "Téléchargement de modèle",
       "csv_processing": "Gén. CSV",
       "file_generation": "Gén. Fichier",
       "analysis": "Analyse",
@@ -62,6 +63,9 @@
     "showJobs": "Afficher chaque tâche en cours",
     "entryNamed": "{{label}} · {{name}}",
     "entryWaiting": "{{entry}} — en attente",
+    "downloadProgress": "{{name}} · {{done}} sur {{total}}",
+    "downloadStarting": "{{name}} · démarrage",
+    "downloadInstalling": "{{name}} · configuration",
     "renderError": "Erreur de barre de progression - vérifier la console"
   },
   "systemMetrics": {

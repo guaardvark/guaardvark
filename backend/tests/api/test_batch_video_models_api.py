@@ -256,3 +256,14 @@ def test_user_add_without_url_refuses_unwired(client, tmp_path, monkeypatch):
     payload = client.post("/api/batch-video/models/user", json=body).get_json()
     assert payload["success"] is False
     assert "not wired" in ((payload.get("error") or {}).get("message") or "").lower()
+
+
+def test_install_of_a_model_already_on_disk_says_so(client, monkeypatch):
+    # The model dialogs skip progress tracking on this flag.
+    monkeypatch.setattr(api, "_check_model_downloaded", lambda _m: True)
+    monkeypatch.setattr("backend.services.comfyui_version.refusal", lambda *_a, **_k: None)
+    model_id = next(iter(api.VIDEO_MODEL_REGISTRY))
+    res = client.post("/api/batch-video/models/download", json={"model_id": model_id})
+    assert res.status_code == 200
+    assert res.get_json()["data"]["already_installed"] is True
+

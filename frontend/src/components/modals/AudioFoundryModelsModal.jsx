@@ -27,6 +27,31 @@ import { ActionButton, StatusPill } from "../settings/ui";
 import { enablePlugin, pluginGateRefusal, startPlugin } from "../../api/pluginsService";
 import { startPluginsForRoute } from "../../hooks/useGpuIntent";
 import { translate, useUiTranslation, Trans } from "../../i18n";
+import {
+  useDownloadStatus,
+  useInstallAllPending,
+  useModelDownloadsStore,
+  useModelsChanged,
+} from "../../stores/useModelDownloadsStore";
+
+const IDLE_DOWNLOAD = {
+  is_downloading: false,
+  current_id: null,
+  progress: 0,
+  status: "idle",
+  speed_mbps: 0,
+  downloaded_gb: 0,
+  total_gb: 0,
+  error: null,
+};
+
+const startingStatus = (assetId, sizeGb) => ({
+  ...IDLE_DOWNLOAD,
+  is_downloading: true,
+  current_id: assetId,
+  status: "starting",
+  total_gb: sizeGb || 0,
+});
 
 const groupLabels = () => ({
   voice: translate("models.audioFoundryModels.groups.voice"),
@@ -63,16 +88,12 @@ const AudioFoundryModelsModal = ({
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState(null);
-  const [dl, setDl] = useState({
-    is_downloading: false,
-    current_id: null,
-    progress: 0,
-    status: "idle",
-    speed_mbps: 0,
-    downloaded_gb: 0,
-    total_gb: 0,
-    error: null,
-  });
+  // Followed by the shared store, so the dialog can close mid-download.
+  const dl = useDownloadStatus("audio", IDLE_DOWNLOAD);
+  const refreshDownload = useModelDownloadsStore((s) => s.refresh);
+  const markStarted = useModelDownloadsStore((s) => s.markStarted);
+  const installAll = useModelDownloadsStore((s) => s.installAll);
+  const installAllPending = useInstallAllPending("audio");
   const highlightRef = useRef(null);
   const showMessageRef = useRef(showMessage);
   useEffect(() => {
@@ -97,47 +118,21 @@ const AudioFoundryModelsModal = ({
     }
   }, []);
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await axios.get("/api/audio-foundry/models/download-status");
-      if (res.data?.success) {
-        const next = res.data;
-        setDl((prev) => {
-          if (prev.is_downloading && !next.is_downloading) {
-            if (next.status === "completed") {
-              showMessageRef.current?.(translate("models.shared.modelInstalled"), "success");
-              fetchModels();
-              onChanged?.();
-            } else if (next.status === "failed") {
-              showMessageRef.current?.(translate("models.shared.downloadFailed", { error: next.error || translate("models.shared.unknown") }), "error");
-              fetchModels();
-            }
-          }
-          return next;
-        });
-      }
-    } catch {
-      /* transient */
-    }
-  }, [fetchModels, onChanged]);
-
   useEffect(() => {
     if (open) {
       fetchModels();
-      fetchStatus();
+      refreshDownload("audio");
     } else {
       setModels([]);
       setError(null);
     }
-  }, [open, fetchModels, fetchStatus]);
+  }, [open, fetchModels, refreshDownload]);
 
-  useEffect(() => {
-    let id;
-    if (open && dl.is_downloading) {
-      id = setInterval(fetchStatus, 1000);
-    }
-    return () => clearInterval(id);
-  }, [open, dl.is_downloading, fetchStatus]);
+  // A download ended (the store toasts how): show the new install state. The
+  // host page follows the store itself, so onChanged is not needed here.
+  useModelsChanged("audio", () => {
+    if (open) fetchModels();
+  });
 
   useEffect(() => {
     if (open && highlightModelId && !loading && highlightRef.current) {
@@ -157,16 +152,7 @@ const AudioFoundryModelsModal = ({
         }
         const asset = models.find((m) => m.id === assetId);
         showMessageRef.current?.(t("models.shared.startedDownloading", { name: asset?.name || assetId }), "info");
-        setDl({
-          is_downloading: true,
-          current_id: assetId,
-          progress: 0,
-          status: "starting",
-          speed_mbps: 0,
-          downloaded_gb: 0,
-          total_gb: asset?.size_gb || 0,
-          error: null,
-        });
+        markStarted("audio", startingStatus(assetId, asset?.size_gb), asset?.name || assetId);
       } else {
         showMessageRef.current?.(res.data?.error || t("models.shared.failedToStart"), "error");
       }
@@ -187,26 +173,12 @@ const AudioFoundryModelsModal = ({
   const missing = models.filter((m) => !m.installed && !m.optional);
   const missingTotalGb = missing.reduce((sum, m) => sum + (m.size_gb || 0), 0);
 
-  const handleInstallAllMissing = async () => {
-    if (!missing.length) return;
-    for (const m of missing) {
-      await handleInstall(m.id);
-      await new Promise((resolve) => {
-        const check = setInterval(async () => {
-          try {
-            const res = await axios.get("/api/audio-foundry/models/download-status");
-            if (res.data?.success && !res.data.is_downloading) {
-              clearInterval(check);
-              resolve();
-            }
-          } catch {
-            /* keep waiting */
-          }
-        }, 700);
-      });
-    }
-    fetchModels();
-    onChanged?.();
+  // One after another, started by the store as each ends, dialog open or not.
+  const handleInstallAllMissing = () => {
+    installAll(
+      "audio",
+      missing.map((m) => ({ body: { id: m.id }, name: m.name || m.id, status: startingStatus(m.id, m.size_gb) })),
+    );
   };
 
   // Returns why the plugin did not start, or null once it runs.
@@ -360,7 +332,7 @@ const AudioFoundryModelsModal = ({
   return (
     <Dialog
       open={open}
-      onClose={() => !dl.is_downloading && !starting && onClose()}
+      onClose={onClose}
       maxWidth="md"
       fullWidth
     >
@@ -375,6 +347,11 @@ const AudioFoundryModelsModal = ({
       </DialogTitle>
 
       <DialogContent dividers>
+        {dl.is_downloading && (
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary", mb: 1 }}>
+            {t("models.shared.continuesInBackground")}
+          </Typography>
+        )}
         {error && (
           <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
@@ -426,16 +403,14 @@ const AudioFoundryModelsModal = ({
         {missingTotalGb > 0 && (
           <Button
             onClick={handleInstallAllMissing}
-            disabled={dl.is_downloading || loading || starting}
+            disabled={dl.is_downloading || installAllPending || loading || starting}
             startIcon={<CloudDownloadIcon />}
           >
             {t("models.shared.installAllMissing", { size: missingTotalGb.toFixed(1) })}
           </Button>
         )}
         <Box sx={{ flex: 1 }} />
-        <Button onClick={onClose} disabled={dl.is_downloading || starting}>
-          {dl.is_downloading ? t("models.shared.downloading") : t("dialogs.shared.close")}
-        </Button>
+        <Button onClick={onClose}>{t("dialogs.shared.close")}</Button>
       </DialogActions>
     </Dialog>
   );

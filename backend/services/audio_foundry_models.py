@@ -705,6 +705,8 @@ def _video_status_as_audio(fallback: Dict[str, Any]) -> Dict[str, Any]:
         "downloaded_gb": vs.get("downloaded_gb") or 0,
         "total_gb": vs.get("total_gb") or fallback.get("total_gb") or 0,
         "error": vs.get("error"),
+        # The video downloader's run, so a reader of both routes counts it once.
+        "delegated_to": "video",
     }
 
 

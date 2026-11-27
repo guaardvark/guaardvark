@@ -26,6 +26,7 @@ import { useSearchParams } from 'react-router-dom';
 import PageLayout from '../components/layout/PageLayout';
 import PageStatus, { PagePrimaryAction, StatusChip } from '../components/layout/PageStatus';
 import { useSnackbar } from '../components/common/SnackbarProvider';
+import { useModelsChanged } from '../stores/useModelDownloadsStore';
 import ResetSettingsButton from '../components/layout/ResetSettingsButton';
 import { clearSavedSettings, readSavedSettings, savedValue, writeSavedSettings } from '../utils/savedSettings';
 import { CardWorkspace } from '../components/board';
@@ -372,6 +373,8 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       setModelsChecked(true);
     }
   }, []);
+  // A model download can finish after its dialog closed.
+  useModelsChanged('image', loadImageModels);
 
   useEffect(() => {
     loadImageModels();

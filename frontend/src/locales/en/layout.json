@@ -19,6 +19,7 @@
       "video_gen": "Video Gen",
       "video_render": "Video Gen",
       "upscale": "Upscale",
+      "model_download": "Model download",
       "csv_processing": "CSV Gen",
       "file_generation": "File Gen",
       "analysis": "Analysis",
@@ -62,6 +63,9 @@
     "showJobs": "Show every job in progress",
     "entryNamed": "{{label}} · {{name}}",
     "entryWaiting": "{{entry}} — waiting",
+    "downloadProgress": "{{name}} · {{done}} of {{total}}",
+    "downloadStarting": "{{name}} · starting",
+    "downloadInstalling": "{{name}} · setting up",
     "renderError": "Progress bar error - check console"
   },
   "systemMetrics": {

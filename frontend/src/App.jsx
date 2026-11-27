@@ -82,6 +82,7 @@ const CastMemberPage = lazyWithReload(() => import("./pages/CastMemberPage"));
 import Sidebar from "./components/layout/Sidebar";
 import SoftwareNav from "./components/layout/SoftwareNav";
 import ProgressFooterBar from "./components/layout/ProgressFooterBar";
+import ModelDownloadTracker from "./components/layout/ModelDownloadTracker";
 import { StatusProvider } from "./contexts/StatusContext";
 import { HealthProvider } from "./contexts/HealthContext";
 import BackendOfflineBanner from "./components/common/BackendOfflineBanner";
@@ -266,6 +267,7 @@ const AppContainer = () => {
               <VoiceSessionProvider>
                 <SnackbarProvider>
                   <UncleNotificationListener />
+                  <ModelDownloadTracker />
                   <ApiKeyRefusalNotice />
                   <ErrorProvider>
                     <FirstRunProfileDialog />
