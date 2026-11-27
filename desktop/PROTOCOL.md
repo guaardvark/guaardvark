@@ -17,6 +17,8 @@ do the same; the flag wins. Without either, `start.sh` writes no progress file
 and prints exactly what it always has.
 
 - Use a new path for every launch. Two `start.sh` runs must never share a file.
+- Never run a second `start.sh` for an install while one is running: the second
+  ends the first (which writes `failed`) and starts everything again.
 - A relative path is taken from the directory `start.sh` was run in.
 - The file is created (mode 600) or emptied as soon as the options are read,
   before anything else happens. Its directory is created if missing.
