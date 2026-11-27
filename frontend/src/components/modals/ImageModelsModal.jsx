@@ -309,8 +309,8 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                   </ListItemIcon>
                   <ListItemText
                     primary={
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+                        <Typography variant="body1" sx={{ fontWeight: 500, flexShrink: 0, maxWidth: "100%" }}>
                           {model.name || model.id}
                         </Typography>
                         {model.recommended && (
