@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'">
+  <title>Guaardvark</title>
+  <link rel="stylesheet" href="loading.css">
+</head>
+<body>
+  <main>
+    <img class="logo" src="assets/icon-256.png" alt="" width="128" height="128">
+
+    <section id="starting" hidden>
+      <h1 id="label">Starting Guaardvark</h1>
+      <div class="bar" id="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="fill"></div></div>
+      <p class="detail" id="detail"></p>
+      <ol class="steps" id="steps"></ol>
+      <p class="elapsed" id="elapsed"></p>
+    </section>
+
+    <section id="failed" hidden>
+      <h1 id="fail-label">Guaardvark did not start</h1>
+      <p class="detail" id="fail-detail"></p>
+      <ol class="steps" id="fail-steps"></ol>
+      <div class="buttons">
+        <button id="retry" class="primary">Try again</button>
+        <button id="show-log">Show log</button>
+        <button id="quit">Close</button>
+      </div>
+    </section>
+
+    <section id="stopping" hidden>
+      <h1>Stopping Guaardvark...</h1>
+      <div class="bar busy"><div></div></div>
+    </section>
+  </main>
+  <script src="loading.js"></script>
+</body>
+</html>
