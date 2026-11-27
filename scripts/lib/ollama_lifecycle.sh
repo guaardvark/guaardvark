@@ -16,6 +16,9 @@
 # GUAARDVARK_STOP_DRY_RUN=1 reports every action without performing it. Output goes through
 # `ollama_log` (vader_info when the caller defines it, plain echo otherwise).
 
+# shellcheck source=scripts/lib/proc_owner.sh
+command -v proc_alive >/dev/null 2>&1 || . "$(dirname "${BASH_SOURCE[0]}")/proc_owner.sh"
+
 ollama_log() {
     if command -v vader_info >/dev/null 2>&1; then vader_info "$1"; else echo "  · $1"; fi
 }
@@ -49,11 +52,11 @@ _ollama_kill() {
     fi
     kill -TERM "$pid" 2>/dev/null
     sleep 1
-    if kill -0 "$pid" 2>/dev/null; then
+    if proc_alive "$pid"; then
         kill -KILL "$pid" 2>/dev/null
         sleep 1
     fi
-    ! kill -0 "$pid" 2>/dev/null
+    ! proc_alive "$pid"
 }
 
 stop_ollama() {
@@ -66,21 +69,30 @@ stop_ollama() {
     fi
 
     # 1. The instance start.sh launched, by PID file.
+    local launched=0
     if [ -f "$pid_file" ]; then
         local pid
         pid=$(cat "$pid_file" 2>/dev/null)
-        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && [ -n "$root" ] \
+        if [ -n "$pid" ] && proc_alive "$pid" && [ -n "$root" ] \
            && command -v proc_in_install >/dev/null 2>&1 && ! proc_in_install "$pid" "$root"; then
             ollama_log "PID $pid from the Ollama pid file is not this install's process; leaving it running."
-        elif [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        elif [ -n "$pid" ] && proc_alive "$pid"; then
+            launched=1
             ollama_log "Stopping Ollama started by start.sh (PID: $pid)..."
-            _ollama_kill "$pid" && ollama_killed=$((ollama_killed + 1))
+            if _ollama_kill "$pid"; then
+                ollama_killed=$((ollama_killed + 1))
+            else
+                ollama_log "Ollama (PID: $pid) is still running after SIGKILL."
+            fi
+        elif [ -n "$pid" ]; then
+            # start.sh launched it and it has already exited.
+            launched=1
         fi
         [ "${GUAARDVARK_STOP_DRY_RUN:-0}" = 1 ] || rm -f "$pid_file"
     fi
 
     if [ "$mode" = owned ]; then
-        if [ "$ollama_killed" -eq 0 ]; then
+        if [ "$launched" -eq 0 ]; then
             ollama_log "Ollama was not started by start.sh; leaving it as it is (./stop.sh --all stops every instance)."
         fi
         return 0

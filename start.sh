@@ -4,6 +4,9 @@
 # Pinned boot feed: palette, mascot, phase board. See scripts/lib/terminal_ui.sh.
 # shellcheck source=scripts/lib/terminal_ui.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/lib/terminal_ui.sh"
+# Startup progress for the desktop app; does nothing unless --progress-file is given.
+# shellcheck source=scripts/lib/start_progress.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/lib/start_progress.sh"
 
 START_TIME=$(date +%s)
 export START_TIME
@@ -27,9 +30,14 @@ REQUESTED_PROFILE=""
 EXPECT_PROFILE=0
 VOICE_FLAG_GIVEN=0
 EXTERNAL_OLLAMA_FLAG=0
+PROGRESS_FILE="${GUAARDVARK_PROGRESS_FILE:-}"
+EXPECT_PROGRESS_FILE=0
 for arg in "$@"; do
   if [ "$EXPECT_PROFILE" = 1 ]; then
     REQUESTED_PROFILE="$arg"; EXPECT_PROFILE=0; continue
+  fi
+  if [ "$EXPECT_PROGRESS_FILE" = 1 ]; then
+    PROGRESS_FILE="$arg"; EXPECT_PROGRESS_FILE=0; continue
   fi
   case "$arg" in
     --help|-h)
@@ -62,6 +70,8 @@ for arg in "$@"; do
       echo "                     written to .env so it persists. See backend/profiles/README.md"
       echo "  --wsl-keep-alive   WSL only: keep Guaardvark running after the terminal closes"
       echo "                     (writes two idle timeouts to your Windows .wslconfig, then exits)"
+      echo "  --progress-file PATH  Also write startup progress to PATH as JSON Lines, for the"
+      echo "                     desktop app's loading screen (see desktop/PROTOCOL.md)"
       echo "  --help, -h         Show this help"
       exit 0
       ;;
@@ -85,8 +95,19 @@ for arg in "$@"; do
     --no-browser) LAUNCH_BROWSER=0 ;;
     --discord) START_DISCORD=1 ;;
     --plugins) START_ALL_PLUGINS=1 ;;
+    --progress-file) EXPECT_PROGRESS_FILE=1 ;;
+    --progress-file=*) PROGRESS_FILE="${arg#--progress-file=}" ;;
   esac
 done
+if [ "$EXPECT_PROGRESS_FILE" = 1 ]; then
+  echo "--progress-file needs a path" >&2
+  exit 1
+fi
+if [ -n "$PROGRESS_FILE" ]; then
+  progress_init "$PROGRESS_FILE"
+  trap 'progress_on_exit' EXIT
+  progress_step preflight "Checking this computer" 2
+fi
 
 # GUAARDVARK_CI_BOOT=1 is the CI job that boots the app on purpose (ci.yml, macos-boot).
 if { [ -n "$CI" ] || [ -n "$CODEX_ENV" ]; } && [ "${GUAARDVARK_CI_BOOT:-0}" != 1 ]; then
@@ -115,10 +136,11 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # + npm + ollama pulls) saturate the link until systemd-resolved DNS lookups
 # time out (Observed on the 24.04 client box install: registry.ollama.ai i/o
 # timeout on 127.0.0.53 while cudnn/nccl wheels pulled at 40MB/s).
-# PID file + liveness check rather than flock: daemons we spawn would inherit
-# a lock fd and block legitimate restarts after this script exits.
-# stop.sh reaps this lock (including Ctrl+Z / STAT=T leftovers). A stopped or
-# foreign pidfile is not a live overlap — take it over.
+# The run lock is a kernel lock where flock exists (scripts/lib/start_lock.sh);
+# the pidfile names the running start.sh for this message and for stop.sh, and
+# is the guard by itself where flock does not exist (macOS). The lock is held
+# until Guaardvark is ready; a start.sh run after that restarts it.
+# A stopped (Ctrl+Z) or foreign pidfile is not a live overlap — take it over.
 START_PID_FILE="$SCRIPT_DIR/.start_cache/start.sh.pid"
 mkdir -p "$SCRIPT_DIR/.start_cache"
 # shellcheck source=scripts/lib/proc_owner.sh
@@ -126,26 +148,49 @@ mkdir -p "$SCRIPT_DIR/.start_cache"
 # shellcheck source=scripts/lib/start_lock.sh
 . "$SCRIPT_DIR/scripts/lib/start_lock.sh"
 . "$SCRIPT_DIR/scripts/lib/venv_pins.sh"
+. "$SCRIPT_DIR/scripts/lib/apt_install.sh"   # gv_apt_install
 # shellcheck source=scripts/lib/ollama_lifecycle.sh
 . "$SCRIPT_DIR/scripts/lib/ollama_lifecycle.sh"   # ollama_flag_on
-if [ -f "$START_PID_FILE" ]; then
-    _prev_pid=$(cat "$START_PID_FILE" 2>/dev/null)
-    if [ "$(start_lock_guard_decision "$_prev_pid")" = "live" ]; then
-        vader_error "Another ./start.sh (PID $_prev_pid) is still running — refusing to overlap."
-        vader_error "Concurrent runs corrupt installs and starve DNS while big downloads compete."
-        vader_info "Wait for it to finish (watch: tail -f logs/setup.log), or stop everything first: ./stop.sh"
-        exit 1
-    fi
-    if [ -n "$_prev_pid" ] && [ "$_prev_pid" != "$$" ] \
-       && start_lock_is_our_script "$_prev_pid"; then
-        # Abandoned (stopped/zombie) copy of this script — reap so the pid
-        # cannot race us after we write the new pidfile.
+start_lock_acquire
+_prev_pid=$(cat "$START_PID_FILE" 2>/dev/null)
+if [ "$START_LOCK_HELD" = busy ]; then
+    _lock_owner=$(start_lock_owner)
+    [ -n "$_lock_owner" ] && _prev_pid=$_lock_owner
+    if [ -n "$_prev_pid" ] && start_lock_is_our_script "$_prev_pid" && ! start_lock_is_runnable "$_prev_pid"; then
+        # A stopped start.sh still holds the lock through its helper.
         start_lock_kill_pid "$_prev_pid"
+        start_lock_kill_orphan_helper
         vader_info "Reaped abandoned start.sh (PID $_prev_pid)."
+        start_lock_acquire
     fi
 fi
+if [ "$START_LOCK_HELD" = busy ] || [ "$(start_lock_guard_decision "$_prev_pid")" = "live" ]; then
+    start_lock_release
+    vader_error "Another ./start.sh${_prev_pid:+ (PID $_prev_pid)} is still running — refusing to overlap."
+    vader_error "Concurrent runs corrupt installs and starve DNS while big downloads compete."
+    vader_info "Wait for it to finish (watch: tail -f logs/setup.log), or stop everything first: ./stop.sh"
+    progress_failed "Guaardvark is already starting" \
+        "Another start.sh${_prev_pid:+ (PID $_prev_pid)} is starting Guaardvark from this folder. Wait for it to finish, or run ./stop.sh to stop it, then start again."
+    exit 1
+fi
+if [ -n "$_prev_pid" ] && [ "$_prev_pid" != "$$" ] \
+   && start_lock_is_our_script "$_prev_pid"; then
+    # Abandoned (stopped/zombie) copy of this script — reap so the pid
+    # cannot race us after we write the new pidfile.
+    start_lock_kill_pid "$_prev_pid"
+    vader_info "Reaped abandoned start.sh (PID $_prev_pid)."
+fi
 echo $$ > "$START_PID_FILE"
-trap '_vader_fx_stop; rm -f "$START_PID_FILE" 2>/dev/null' EXIT
+trap 'progress_on_exit; _vader_fx_stop; start_lock_drop_pidfile; start_lock_release' EXIT
+
+# Run by the desktop app, nobody can answer a sudo password prompt: sudo never
+# asks in this script and its setup scripts (scripts/lib/sudo_no_prompt.sh), and
+# progress_failed names what was refused.
+# shellcheck source=scripts/lib/sudo_no_prompt.sh
+. "$SCRIPT_DIR/scripts/lib/sudo_no_prompt.sh"
+if [ "$GV_SUDO_NO_PROMPT" = 1 ] && [ -z "${GUAARDVARK_SELF_EDIT_RETRY:-}" ]; then
+    : > "$GV_SUDO_REFUSED_FILE"
+fi
 
 vader_boot_banner
 
@@ -236,6 +281,7 @@ LOGS_DIR="$SCRIPT_DIR/logs"
 mkdir -p "$LOGS_DIR"
 SETUP_LOG="$LOGS_DIR/setup.log"
 _vader_set_log "$SETUP_LOG"
+progress_log "$SETUP_LOG"
 
 if [ -n "$GUAARDVARK_ROOT" ] && [ "$GUAARDVARK_ROOT" != "$SCRIPT_DIR" ]; then
   vader_warn "Ignoring GUAARDVARK_ROOT override ('$GUAARDVARK_ROOT'); using script directory '$SCRIPT_DIR'."
@@ -715,7 +761,7 @@ kill_process() {
                 if _ours "$pid"; then
                     kill -15 "$pid" 2>/dev/null
                     sleep 1
-                    if kill -0 "$pid" 2>/dev/null; then
+                    if proc_alive "$pid"; then
                         kill -9 "$pid" 2>/dev/null
                     fi
                     confirmed_stopped=1
@@ -733,10 +779,10 @@ kill_process() {
         if [ -n "$pid_file" ] && [ -f "$pid_file" ]; then
             local saved_pid=$(cat "$pid_file" 2>/dev/null)
             # A pid file outlives a crash or reboot; its number may now be someone else's.
-            if [ -n "$saved_pid" ] && kill -0 "$saved_pid" 2>/dev/null && _ours "$saved_pid"; then
+            if [ -n "$saved_pid" ] && proc_alive "$saved_pid" && _ours "$saved_pid"; then
                 kill -15 "$saved_pid" 2>/dev/null
                 sleep 2
-                if kill -0 "$saved_pid" 2>/dev/null; then
+                if proc_alive "$saved_pid"; then
                     kill -9 "$saved_pid" 2>/dev/null
                 fi
                 confirmed_stopped=1
@@ -760,7 +806,7 @@ kill_process() {
                 done
                 sleep 2
                 for pid in $env_pids; do
-                    if kill -0 "$pid" 2>/dev/null; then
+                    if proc_alive "$pid"; then
                         kill -9 "$pid" 2>/dev/null
                     fi
                 done
@@ -835,7 +881,7 @@ free_ports_or_refuse() {
             fi
             kill -15 "$pid" 2>/dev/null
             sleep 1
-            if kill -0 "$pid" 2>/dev/null; then
+            if proc_alive "$pid"; then
                 kill -9 "$pid" 2>/dev/null
             fi
         done < <(port_foreign_listeners "$port")
@@ -1015,7 +1061,7 @@ relaunch_backend_if_dead() {
     nohup env GUAARDVARK_ROOT="$SCRIPT_DIR" FLASK_PORT="$port" VITE_PORT="$VITE_PORT" GUAARDVARK_MIGRATIONS_VERIFIED="${GUAARDVARK_MIGRATIONS_VERIFIED:-}" "$VENV_DIR/bin/python" -m backend.app >> "$BACKEND_STARTUP_LOG_FILE" 2>&1 &
     local spawned=$!
     if ! is_port_listening "$port" 90 "Backend (self-heal)"; then
-        if [ -n "$spawned" ] && kill -0 "$spawned" 2>/dev/null; then
+        if [ -n "$spawned" ] && proc_alive "$spawned"; then
             kill -9 "$spawned" > /dev/null 2>&1
         fi
         return 1
@@ -1467,7 +1513,7 @@ pip_install_requirements() {
             if command_exists apt-get; then
                 vader_info "Auto-fix: installing python3.12-dev via apt, then retrying $(basename "$req")..."
                 _vader_sudo_v "install the Python 3.12 headers" || true
-                _vader_run "$SETUP_LOG" -- sudo apt-get install -y python3.12-dev python3.12-venv || true
+                _vader_run "$SETUP_LOG" -- gv_apt_install python3.12-dev python3.12-venv || true
                 devheaders_fixed=1
                 continue
             fi
@@ -1480,7 +1526,7 @@ pip_install_requirements() {
             if command_exists apt-get; then
                 vader_info "Auto-fix: installing build-essential via apt, then retrying $(basename "$req")..."
                 _vader_sudo_v "install a C compiler" || true
-                _vader_run "$SETUP_LOG" -- sudo apt-get install -y build-essential || true
+                _vader_run "$SETUP_LOG" -- gv_apt_install build-essential || true
                 compiler_fixed=1
                 continue
             fi
@@ -1577,6 +1623,7 @@ ensure_backend_python_environment() {
         fi
         unset _gv_proxy
         vader_info "Python environment incomplete or first-time setup — bootstrapping dependencies (logged to $SETUP_LOG)..."
+        progress_info "Installing Python packages. The first run takes several minutes."
         source "$VENV_DIR/bin/activate" || { vader_error "Failed to activate venv for bootstrap"; return 1; }
 
         # MUST precede every pip call below (requirements-base, requirements,
@@ -1641,6 +1688,7 @@ ensure_backend_python_environment() {
         # gracefully if the policy module or backend venv is not ready yet.
         if [ -f "$SCRIPT_DIR/scripts/install_pytorch.sh" ]; then
             _VADER_ACTIVITY="installing PyTorch"
+            progress_info "Installing PyTorch"
             GUAARDVARK_TORCH_CHANNEL="$("$VENV_DIR/bin/python" -m backend.services.hardware_policy torch_channel 2>/dev/null || true)" \
                 _vader_run "$SETUP_LOG" -- bash "$SCRIPT_DIR/scripts/install_pytorch.sh"
             local _pt_rc=$?
@@ -1684,6 +1732,7 @@ ensure_backend_python_environment() {
         # passed" over a half-installed venv).
         if [ -x "$VENV_DIR/bin/python" ]; then
             _VADER_ACTIVITY="reconciling dependencies"
+            progress_info "Checking the installed Python packages"
             if ! _vader_run "$SETUP_LOG" -- "$VENV_DIR/bin/python" "$SCRIPT_DIR/scripts/dep_reconciler.py" --force --only backend_venv,cli_venv --repo-root "$SCRIPT_DIR"; then
                 vader_error "Dependency reconciler FAILED:"
                 tail -n 200 "$SETUP_LOG" | grep -A4 "Reconciliation failed for:" | sed 's/^/      /'
@@ -1757,6 +1806,7 @@ ensure_frontend_deps() {
             return 0
         fi
         vader_info "Ensuring frontend dependencies (using npm ci for lockfile safety)..."
+        progress_info "Installing the interface's packages (npm ci)"
         if _vader_run "$SETUP_LOG" -- bash -c 'cd "$1" && npm ci' _ "$FRONTEND_DIR"; then
             printf '%s\n' "$cur_node" > "$stamp" 2>/dev/null || true
             GUAARDVARK_NODE_REPLACED=0
@@ -1807,11 +1857,11 @@ wait "$_kp_flask" "$_kp_vite"
 
 if [ -f "$SCRIPT_DIR/pids/celery.pid" ]; then
     celery_pid=$(cat "$SCRIPT_DIR/pids/celery.pid" 2>/dev/null)
-    if [ -n "$celery_pid" ] && kill -0 "$celery_pid" 2>/dev/null; then
+    if [ -n "$celery_pid" ] && proc_alive "$celery_pid"; then
         if _ours "$celery_pid"; then
             kill -15 "$celery_pid" 2>/dev/null
             sleep 2
-            if kill -0 "$celery_pid" 2>/dev/null; then
+            if proc_alive "$celery_pid"; then
                 kill -9 "$celery_pid" 2>/dev/null
             fi
         fi
@@ -1826,7 +1876,7 @@ if [ -n "$celery_pids" ]; then
         if _ours "$pid" cwd; then
             kill -15 "$pid" 2>/dev/null
             sleep 1
-            if kill -0 "$pid" 2>/dev/null; then
+            if proc_alive "$pid"; then
                 kill -9 "$pid" 2>/dev/null
             fi
         fi
@@ -1834,6 +1884,7 @@ if [ -n "$celery_pids" ]; then
 fi
 vader_separator
 
+progress_step system_packages "Checking system packages" 5
 # ── macOS bootstrap (Darwin only — NO-OP on Linux / Pi / WSL) ────────────────
 # Can't use apt/systemd on a Mac. Ensure Python 3.12 (Homebrew) BEFORE the gate
 # below, install system deps via brew + start pg/redis as brew services, and skip
@@ -1849,6 +1900,7 @@ fi
 # ── Linux bootstrap (auto Python 3.12 + node/npm before version gates) ───────
 if [ "${GUAARDVARK_OS:-linux}" = linux ] && [ -f "$SCRIPT_DIR/scripts/platform/linux.sh" ]; then
     vader_info "Linux detected — ensuring Python 3.12..."
+    command_exists python3.12 || progress_info "Installing Python 3.12"
     if platform_ensure_python; then
         rm -f "$CACHE_DIR/python_check" 2>/dev/null || true
     else
@@ -1871,6 +1923,7 @@ if ! check_with_cache "python_check" check_python_version; then
     exit 1
 fi
 if [ "${GUAARDVARK_OS:-linux}" = linux ] && declare -F ensure_node_npm >/dev/null 2>&1; then
+    command_exists node || progress_info "Installing Node.js"
     ensure_node_npm || { vader_error "Node.js/npm setup failed. Exiting."; exit 1; }
     rm -f "$CACHE_DIR/node_check" "$CACHE_DIR/npm_check" 2>/dev/null || true
 fi
@@ -1895,10 +1948,11 @@ if ! command_exists "ollama"; then
     vader_warn "ollama command line tool not found."
     if command_exists apt-get && [ "$FAST_START" -ne 1 ] && [ "$OLLAMA_INSTALL_WANTED" -eq 1 ]; then
         # Ollama installer's tarball is zstd-compressed — extraction silently fails on minimal images without it.
+        progress_info "Installing Ollama"
         _vader_sudo_v "install Ollama" || true
         if ! command_exists zstd; then
             vader_info "Installing zstd (required by ollama installer)..."
-            sudo apt-get install -y zstd >/dev/null 2>&1 || vader_warn "zstd install failed; ollama install likely will too."
+            gv_apt_install zstd >>"$SETUP_LOG" 2>&1 || vader_warn "zstd install failed; ollama install likely will too."
         fi
         # Judge the result by the binary, not the installer's exit code: the
         # installer puts ollama in place and starts its service before it fetches
@@ -1911,7 +1965,7 @@ if ! command_exists "ollama"; then
         _ollama_install_rc=0
         mkdir -p "$LOGS_DIR"
         _vader_run "$SETUP_LOG" -- curl -fsSL https://ollama.com/install.sh -o "$_ollama_installer" \
-            && _vader_run "$SETUP_LOG" -- sh "$_ollama_installer" \
+            && _vader_run "$SETUP_LOG" -- gv_sudo_external sh "$_ollama_installer" \
             || _ollama_install_rc=$?
         hash -r
         if command_exists "ollama"; then
@@ -1941,6 +1995,7 @@ _ffmpeg_libs_missing() {
 if ! command_exists ffmpeg || _ffmpeg_libs_missing; then
     if command_exists apt-get && [ "$FAST_START" -ne 1 ]; then
         vader_info "Installing FFmpeg (voice features and audio file I/O need it)"
+        progress_info "Installing FFmpeg"
         _vader_sudo_v "install ffmpeg" || true
         if _vader_run "$SETUP_LOG" -- sudo apt-get update && _vader_run "$SETUP_LOG" -- sudo apt-get install -y ffmpeg; then
             vader_success "FFmpeg installed successfully"
@@ -2012,7 +2067,7 @@ mitigate_nic_quirks() {
             _asked=1
         fi
         if ! command_exists ethtool; then
-            $_sudo apt-get install -y ethtool >> "$SETUP_LOG" 2>&1 \
+            GV_APT_SUDO="$_sudo" gv_apt_install ethtool >> "$SETUP_LOG" 2>&1 \
                 || { vader_warn "ethtool unavailable — cannot apply NIC fix. Manual: sudo ethtool -K $iface tso off gso off gro off"; continue; }
         fi
         if $_sudo ethtool -K "$iface" tso off gso off gro off >> "$SETUP_LOG" 2>&1; then
@@ -2028,6 +2083,7 @@ mitigate_nic_quirks
 
 vader_separator
 
+progress_step redis "Starting Redis" 10
 vader_step 3 "Ensuring Redis service is running..."
 _vader_run "$SETUP_LOG" -- "$(dirname "$0")/start_redis.sh" || { vader_error "Redis failed to start"; exit 1; }
 # start_redis.sh rewrites REDIS_URL when an alt port dies — pick it up immediately
@@ -2043,7 +2099,8 @@ _redis_check_port=$(echo "$_redis_check_url" | sed -nE 's|^redis://([^@]*@)?[^:]
 _redis_check_pass=$(echo "$_redis_check_url" | sed -n 's|^redis://:\([^@]*\)@.*|\1|p')
 [ -n "$_redis_check_port" ] || _redis_check_port=6379
 if [ -n "$_redis_check_pass" ]; then
-  _redis_pong=$(redis-cli -p "$_redis_check_port" -a "$_redis_check_pass" --no-auth-warning ping 2>/dev/null || true)
+  # REDISCLI_AUTH, not -a: an argument shows the password in every user's ps.
+  _redis_pong=$(REDISCLI_AUTH="$_redis_check_pass" redis-cli -p "$_redis_check_port" ping 2>/dev/null || true)
 else
   _redis_pong=$(redis-cli -p "$_redis_check_port" ping 2>/dev/null || true)
 fi
@@ -2055,6 +2112,7 @@ fi
 vader_success "Redis broker PING ok (:${_redis_check_port})"
 vader_separator
 
+progress_step postgres "Starting the database" 14
 vader_step 4 "Ensuring PostgreSQL database is ready..."
 _vader_run "$SETUP_LOG" -- "$(dirname "$0")/start_postgres.sh" || { vader_error "PostgreSQL setup failed"; exit 1; }
 if [ -f "$SCRIPT_DIR/.env" ]; then
@@ -2064,6 +2122,7 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
 fi
 vader_separator
 
+progress_step python_env "Setting up the Python environment" 18
 vader_step 5 "Setting up Python environment..."
 ensure_venv_python_version
 FIRST_SETUP_DONE=1
@@ -2179,6 +2238,7 @@ if [ "$FAST_START" -ne 1 ]; then
             1)
                 if [ "$AUTO_BUILD_FRONTEND" -eq 1 ]; then
                     vader_info "Frontend changes detected - rebuilding..."
+                    progress_step frontend_build "Building the interface"
                     if (cd "$FRONTEND_DIR" && $NPM_CMD run build >> "$SETUP_LOG" 2>&1); then
                         vader_success "Frontend rebuilt successfully"
                     else
@@ -2191,6 +2251,7 @@ if [ "$FAST_START" -ne 1 ]; then
             2)
                 if [ "$AUTO_BUILD_FRONTEND" -eq 1 ]; then
                     vader_info "Frontend dist missing - building..."
+                    progress_step frontend_build "Building the interface"
                     if (cd "$FRONTEND_DIR" && $NPM_CMD run build >> "$SETUP_LOG" 2>&1); then
                         vader_success "Frontend built successfully"
                     else
@@ -2219,6 +2280,7 @@ if is_macos && [ -f "$SCRIPT_DIR/scripts/platform/strip_appledouble.sh" ]; then
 fi
 vader_separator
 
+progress_step ollama "Starting Ollama" 45
 vader_step 6 "Ensuring Ollama service is running..."
 
 # Set up passwordless Ollama + nvidia-smi control (one-time, during first-run setup)
@@ -2382,6 +2444,7 @@ if ollama_flag_on "${GUAARDVARK_OLLAMA_EXTERNAL:-}" && [ "$OLLAMA_ENABLED" != "F
         vader_success "Using external Ollama on 127.0.0.1:11434 (GUAARDVARK_OLLAMA_EXTERNAL=1; never started or stopped by these scripts)"
     elif [ "${GUAARDVARK_OLLAMA_OPTIONAL:-0}" = "1" ]; then
         vader_warn "External Ollama is not answering on 127.0.0.1:11434 — continuing because GUAARDVARK_OLLAMA_OPTIONAL=1."
+        progress_end skip "Your own Ollama is not answering; chat will not work until it runs."
     else
         vader_error "GUAARDVARK_OLLAMA_EXTERNAL=1 but nothing answers on 127.0.0.1:11434. Start your Ollama (ollama serve) and re-run ./start.sh,"
         vader_error "or remove GUAARDVARK_OLLAMA_EXTERNAL from .env to let start.sh manage it."
@@ -2450,6 +2513,7 @@ elif [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ "$OLLAMA_ENABLED" != "False" ]; then
             if [ "${GUAARDVARK_OLLAMA_OPTIONAL:-0}" = "1" ]; then
                 vader_warn "Ollama failed to start — continuing because GUAARDVARK_OLLAMA_OPTIONAL=1. Chat/RAG features will be unavailable."
                 vader_info "Check $LOGS_DIR/ollama_serve.log or start manually: ollama serve"
+                progress_end skip "Ollama did not start; chat will not work."
             else
                 vader_error "Ollama failed to start: nothing is listening on 127.0.0.1:11434 after systemctl AND direct-serve attempts."
                 vader_error "Chat and RAG cannot work in this state, so startup is stopping here."
@@ -2467,8 +2531,10 @@ elif [ "$OLLAMA_ENABLED" = "False" ]; then
     # client box for a full day of debugging.
     vader_warn "Ollama plugin is DISABLED — skipping startup. Chat/RAG will not work."
     vader_info "Re-enable: Settings → Plugins → Ollama (or edit data/plugin_state.json), then re-run ./start.sh"
+    progress_end skip "The Ollama plugin is off; chat will not work."
 else
     vader_warn "Ollama CLI not available; skipping service check."
+    progress_end skip "Ollama is not installed; chat will not work."
 fi
 
 # `ollama pull` with retry/backoff. Single-shot pulls failed on the 24.04
@@ -2505,6 +2571,8 @@ ollama_pull_retry() {
 # Models are per-machine (Ollama-local, under data/ for this box) — NOT synced via
 # the Interconnector, so every node bootstraps its own. Guarded by
 # GUAARDVARK_BOOTSTRAP_MODELS (default on; set =0 to skip pulls entirely).
+progress_step models "Checking AI models" 50
+_models_checked=0
 if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ "$OLLAMA_ENABLED" != "False" ] \
    && [ "${GUAARDVARK_BOOTSTRAP_MODELS:-1}" != "0" ] \
    && curl -sf --max-time 3 http://127.0.0.1:11434/ >/dev/null 2>&1; then
@@ -2565,12 +2633,14 @@ except Exception:
     [ -n "${GUAARDVARK_DEFAULT_LLM:-}" ] && BOOT_CHAT_MODEL="$GUAARDVARK_DEFAULT_LLM"
     [ -n "${GUAARDVARK_EMBEDDING_MODEL:-}" ] && BOOT_EMBED_MODEL="$GUAARDVARK_EMBEDDING_MODEL"
 
+    _models_checked=1
     BOOT_LIST="$(timeout 10 ollama list 2>/dev/null || true)"
     # Each installed model is a chat or an embedding model by what Ollama
     # reports for it (ollama_model_kinds). Detect absence of either class.
     BOOT_KINDS="$(printf '%s\n' "$BOOT_LIST" | ollama_model_kinds)"
     if ! printf '%s\n' "$BOOT_KINDS" | grep -q "	chat	"; then
         vader_info "No chat model found — pulling $BOOT_CHAT_MODEL (one-time, ~minutes)..."
+        progress_info "Downloading the chat model $BOOT_CHAT_MODEL"
         ollama_pull_retry "$BOOT_CHAT_MODEL" \
             && vader_success "Chat model ready: $BOOT_CHAT_MODEL" \
             || vader_warn "Failed to pull $BOOT_CHAT_MODEL after retries (non-critical; see logs/ollama_bootstrap.log). Pull manually: ollama pull $BOOT_CHAT_MODEL"
@@ -2579,6 +2649,7 @@ except Exception:
     fi
     if ! printf '%s\n' "$BOOT_KINDS" | grep -q "	embedding	"; then
         vader_info "No embedding model found — pulling $BOOT_EMBED_MODEL (one-time)..."
+        progress_info "Downloading the embedding model $BOOT_EMBED_MODEL"
         ollama_pull_retry "$BOOT_EMBED_MODEL" \
             && vader_success "Embedding model ready: $BOOT_EMBED_MODEL" \
             || vader_warn "Failed to pull $BOOT_EMBED_MODEL after retries (non-critical; RAG stays disabled until present). Pull manually: ollama pull $BOOT_EMBED_MODEL"
@@ -2587,7 +2658,11 @@ except Exception:
     fi
 elif [ "${GUAARDVARK_BOOTSTRAP_MODELS:-1}" = "0" ]; then
     vader_info "Model bootstrap disabled (GUAARDVARK_BOOTSTRAP_MODELS=0)"
+    _models_checked=1
+    progress_end skip "Model downloads are turned off (GUAARDVARK_BOOTSTRAP_MODELS=0)."
 fi
+[ "$_models_checked" = 1 ] || progress_end skip "Ollama is not running, so no models were checked."
+unset _models_checked
 vader_separator
 
 # ── ComfyUI detection (on-demand start for video generation) ──
@@ -2614,9 +2689,11 @@ vader_separator
 
 
 
+progress_step voice "Checking voice tools" 58
 vader_step 7 "Checking Whisper.cpp voice processing..."
 if [ "$VOICE_CHECK" -eq 0 ]; then
     vader_info "Voice check disabled (--no-voice, or the active profile). Skipping Whisper.cpp build."
+    progress_end skip "The voice check is turned off."
 else
     WHISPER_DIR="$BACKEND_DIR/tools/voice/whisper.cpp"
     WHISPER_BUILD_DIR="$WHISPER_DIR/build"
@@ -2635,6 +2712,7 @@ else
 
     if [ ! -d "$WHISPER_DIR" ]; then
         vader_warn "Whisper.cpp folder missing. Install via Settings > Voice to enable speech recognition."
+        progress_end skip "Speech recognition is not installed. Add it in Settings > Voice."
         VOICE_AVAILABLE=0
     else
         if [ ! -f "$WHISPER_CLI" ] || ! _whisper_lib_present; then
@@ -2656,6 +2734,7 @@ else
                     cd "$WHISPER_DIR" || { vader_warn "Failed to cd to Whisper.cpp directory"; cd "$SCRIPT_DIR"; VOICE_AVAILABLE=0; }
                     if [ "$VOICE_AVAILABLE" -eq 1 ]; then
                         vader_info "Building Whisper.cpp from source..."
+                        progress_info "Building Whisper.cpp for speech recognition"
                         if make build >/dev/null 2>&1 || cmake --build . >/dev/null 2>&1; then
                             if [ -f "$WHISPER_CLI" ] && _whisper_lib_present; then
                                 vader_success "Whisper.cpp built successfully"
@@ -2672,6 +2751,7 @@ else
                 fi
             else
                 vader_warn "Whisper.cpp source not found (placeholder only). Install via Settings > Voice to enable speech recognition."
+                progress_end skip "Speech recognition is not installed. Add it in Settings > Voice."
                 VOICE_AVAILABLE=0
             fi
         else
@@ -2716,6 +2796,7 @@ if [ "${GUAARDVARK_USE_WHISPER_SERVER:-0}" = "1" ]; then
     fi
 fi
 
+progress_step workspace "Preparing the workspace" 59
 vader_step 8 "Setting up backend..."
 cd "$BACKEND_DIR" || { vader_error "Failed to cd to $BACKEND_DIR"; exit 1; }
 
@@ -2795,6 +2876,7 @@ if [ -f "$HOME/.guaardvark/hardware.json" ]; then
     export CLUSTER_NODE_ID
 fi
 
+progress_step node_env "Preparing the interface's packages" 60
 vader_info "Setting up frontend..."
 cd "$FRONTEND_DIR" || { vader_error "Failed to cd to $FRONTEND_DIR"; exit 1; }
 
@@ -2823,6 +2905,7 @@ fi
 cd "$SCRIPT_DIR"
 vader_separator
 
+progress_step checks "Checking the installation" 66
 vader_step 9 "Starting backend Flask server..."
 check_gpu_optimizations
 if [ ! -f "$VENV_DIR/bin/activate" ]; then
@@ -2850,6 +2933,7 @@ _vader_spin_bg_stop
 if [ "$_POST_BOOTSTRAP_RC" -ne 0 ]; then
     vader_error "Post-bootstrap validation failed:"
     printf '%s\n' "$_POST_BOOTSTRAP_ERR"
+    progress_note_error "${_POST_BOOTSTRAP_ERR##*$'\n'}"
     vader_info "(Often a missing synced module — not necessarily numpy/flask.)"
     vader_info "See $SETUP_LOG. Run one of:"
     vader_info "  ./scripts/dep_reconciler.py --force"
@@ -2987,6 +3071,7 @@ except Exception:
     pass
 EOF
 
+progress_step migrations "Updating the database" 72
 vader_info "Syncing database schema..."
 
 # Re-source .env to pick up the DATABASE_URL that start_postgres.sh may have written/updated.
@@ -3005,9 +3090,11 @@ SCHEMA_SYNC_SCRIPT="$GUAARDVARK_ROOT/scripts/schema_sync.py"
 
 if [ -n "$GUAARDVARK_SKIP_MIGRATIONS" ]; then
     vader_info "Database schema sync skipped (GUAARDVARK_SKIP_MIGRATIONS set)"
+    progress_end skip "The schema check is turned off."
 elif [ -f "$SCHEMA_SYNC_SCRIPT" ]; then
     if migration_fingerprint_matches; then
         vader_success "Database schema: up to date (fingerprint match)"
+        progress_end skip "Already up to date."
     else
         sync_output=$("$VENV_DIR/bin/python" "$SCHEMA_SYNC_SCRIPT" 2>&1)
         sync_exit=$?
@@ -3034,6 +3121,8 @@ export GUAARDVARK_MIGRATIONS_VERIFIED=1
 # somehow still serving this port (started outside start.sh, or a kill that failed), ADOPT
 # it instead of stacking a duplicate. A duplicate would die on EADDRINUSE and overwrite
 # pids/backend.pid with its own dead PID — the historical "500-on-relaunch" bug.
+progress_step backend "Starting the backend" 76
+progress_log "$BACKEND_STARTUP_LOG_FILE"
 BACKEND_ADOPTED=0
 if check_backend_health "$FLASK_PORT" 1; then
     existing_pid=$(repo_listener_pids "$FLASK_PORT" | awk '{print $1}')
@@ -3081,7 +3170,7 @@ if [ "$BACKEND_ADOPTED" -eq 0 ]; then
         fi
         # Only kill the process WE spawned, and only if it's still alive — never a healthy
         # adopted/older backend.
-        if [ -n "$BACKEND_PID" ] && kill -0 "$BACKEND_PID" 2>/dev/null; then
+        if [ -n "$BACKEND_PID" ] && proc_alive "$BACKEND_PID"; then
             kill -9 "$BACKEND_PID" > /dev/null 2>&1
         fi
         # A change Guaardvark made to its own backend code, still waiting for its
@@ -3114,6 +3203,8 @@ deactivate
 cd "$SCRIPT_DIR"
 vader_separator
 
+progress_step celery "Starting the background workers" 84
+progress_log "$LOGS_DIR/celery.log"
 vader_step 10 "Starting enhanced Celery workers..."
 if [ -f "$SCRIPT_DIR/start_celery.sh" ]; then
     _vader_run "$LOGS_DIR/celery.log" -- bash "$SCRIPT_DIR/start_celery.sh" || true
@@ -3154,6 +3245,8 @@ fi
 cd "$SCRIPT_DIR"
 vader_separator
 
+progress_step frontend_build "Building the interface" 88
+progress_log "$FRONTEND_LOG_FILE"
 vader_step 11 "Launching Frontend..."
 cd "$FRONTEND_DIR" || { vader_error "Failed to cd to $FRONTEND_DIR"; exit 1; }
 
@@ -3243,16 +3336,20 @@ FRONTEND_FP="$(code_fingerprint "$(sha256sum "$FRONTEND_DIR/package-lock.json" 2
 if [ "$FORCE_CLEAN" -eq 0 ] && [ -n "$FRONTEND_FP" ] && [ -f "$FRONTEND_DIR/dist/index.html" ] \
    && [ "$(cat "$FRONTEND_BUILD_STAMP" 2>/dev/null)" = "$FRONTEND_FP" ]; then
     vader_info "Frontend unchanged since the last good build — skipping the build"
+    progress_end skip "Unchanged since the last build."
 elif vader_info "Building frontend (production) before serving..." \
    && _vader_run "$FRONTEND_LOG_FILE" -- bash -c 'cd "$1" && exec "$2" run build' _ "$FRONTEND_DIR" "$NPM_CMD"; then
     vader_success "Frontend build complete"
     [ -n "$FRONTEND_FP" ] && printf '%s\n' "$FRONTEND_FP" > "$FRONTEND_BUILD_STAMP"
 elif [ -f "$FRONTEND_DIR/dist/index.html" ]; then
     vader_error "Frontend build FAILED — serving the LAST-GOOD (stale) dist. Code is NOT current. Fix the build; see $FRONTEND_LOG_FILE"
+    progress_end fail "The build failed; the previous build is kept."
 else
     vader_error "Frontend build FAILED and no prior dist exists — cannot serve frontend. See $FRONTEND_LOG_FILE"
     FRONTEND_CAN_SERVE=0
+    progress_end fail "The build failed and there is no earlier build."
 fi
+progress_step frontend "Starting the interface" 93
 
 if [ "$FRONTEND_CAN_SERVE" -eq 1 ]; then
     # Serve via the Vite DEV server (not `vite preview`). The dev server's
@@ -3279,12 +3376,15 @@ fi
 
 if [ "$FRONTEND_CAN_SERVE" -ne 1 ]; then
     vader_warn "Frontend not launched (no servable dist). Backend continues; fix the build then re-run."
-elif ! kill -0 $FRONTEND_PID > /dev/null 2>&1; then
+    progress_end skip "Not started: there is no build to serve."
+elif ! proc_alive "$FRONTEND_PID"; then
     vader_error "Frontend process exited unexpectedly. Check $FRONTEND_LOG_FILE."
+    progress_end fail "The interface server exited as soon as it started."
     cd "$SCRIPT_DIR"
 else
     if ! is_port_listening "$VITE_PORT" 20 "Frontend"; then
         vader_warn "Frontend failed to start listening on port $VITE_PORT after 20 seconds. Check $FRONTEND_LOG_FILE."
+        progress_end fail "Not listening on port $VITE_PORT after 20 seconds."
     else
         vader_success "Frontend is running"
     fi
@@ -3292,9 +3392,10 @@ fi
 cd "$SCRIPT_DIR"
 vader_separator
 
+progress_step health "Checking that everything answers" 96
 vader_info "Running health checks..."
 if [ "$TEST_MODE" -eq 1 ]; then
-    run_health_checks
+    run_health_checks || progress_end fail "A critical health check failed."
 else
     vader_info "Running basic health checks..."
     # If the backend isn't answering by now, try a single bounded self-heal before reporting
@@ -3313,6 +3414,7 @@ else
         fi
     else
         vader_warn "Some health checks failed. Run with --test for detailed diagnostics."
+        progress_end fail "The backend, the interface or the workers did not answer."
     fi
 fi
 vader_separator
@@ -3329,6 +3431,7 @@ fi
 
 vader_separator
 
+progress_step plugins "Starting plugins" 98
 # ── Start plugins ──
 # Plugins with auto_start:true + enabled:true always start.
 # --discord forces Discord bot. --plugins forces ALL enabled plugins.
@@ -3594,6 +3697,21 @@ if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && [ -n "$LAN_IPS_PRINTED" ] \
     LAN_IPS_PRINTED=""
 fi
 
+# The one terminal line of the progress file: "ready" only when both addresses
+# answer, so a reader that opens them on "ready" finds the studio there.
+if progress_on; then
+    progress_log "$BACKEND_STARTUP_LOG_FILE"
+    if ! curl -sf --max-time 5 --retry 5 --retry-delay 1 --retry-connrefused -o /dev/null "http://localhost:$FLASK_PORT/api/health" 2>/dev/null; then
+        progress_failed "Guaardvark started, but its backend is not answering" \
+            "http://localhost:$FLASK_PORT/api/health did not answer. Run ./stop.sh before trying again."
+    elif ! curl -sf --max-time 5 --retry 5 --retry-delay 1 --retry-connrefused -o /dev/null "http://localhost:$VITE_PORT/" 2>/dev/null; then
+        progress_failed "Guaardvark started, but its interface is not answering" \
+            "http://localhost:$VITE_PORT did not answer. Run ./stop.sh before trying again." "$FRONTEND_LOG_FILE"
+    else
+        progress_ready "http://localhost:$VITE_PORT" "http://localhost:$FLASK_PORT"
+    fi
+fi
+
 vader_ready_card "$DURATION" \
     "http://localhost:$VITE_PORT" \
     "http://localhost:$FLASK_PORT" \
@@ -3638,6 +3756,11 @@ if [ "$TEST_MODE" -eq 0 ] && [ ! -e "$FIRST_START_MARKER" ]; then
     echo ""
     mkdir -p "${HOME}/.guaardvark" && : > "$FIRST_START_MARKER" 2>/dev/null || true
 fi
+
+# Startup is complete: from here a new ./start.sh restarts Guaardvark rather
+# than waiting on this one.
+start_lock_drop_pidfile
+start_lock_release
 
 # Advisory GPU-stack verification — never blocks boot.
 # Checks that each venv (backend + isolated audio/video) can run a real CUDA

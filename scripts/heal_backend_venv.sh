@@ -27,6 +27,8 @@ LOG_FILE="$LOG_DIR/heal_backend_venv.log"
 . "$SCRIPT_DIR/lib/venv_pins.sh"
 # shellcheck source=lib/ollama_lifecycle.sh
 . "$SCRIPT_DIR/lib/ollama_lifecycle.sh"   # ollama_flag_on
+# shellcheck source=lib/apt_install.sh
+. "$SCRIPT_DIR/lib/apt_install.sh"   # gv_apt_install
 
 SKIP_CV=0
 COMFYUI_ONLY=0
@@ -88,7 +90,7 @@ ensure_python_headers() {
     log "Python dev headers missing (Python.h) — native wheels (evdev) cannot build."
     if command -v apt-get >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
         log "Installing python3.12-dev + python3.12-venv via apt..."
-        sudo -n apt-get install -y python3.12-dev python3.12-venv >/dev/null 2>&1 || true
+        GV_APT_SUDO="sudo -n" gv_apt_install python3.12-dev python3.12-venv >> "$LOG_FILE" 2>&1 || true
         inc=$("$VENV_PYTHON" -c 'import sysconfig; print(sysconfig.get_paths()["include"])' 2>/dev/null || true)
         if [ -n "$inc" ] && [ -f "$inc/Python.h" ]; then
             log "Python dev headers installed."

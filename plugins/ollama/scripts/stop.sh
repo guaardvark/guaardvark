@@ -39,18 +39,18 @@ if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE" 2>/dev/null)
     # The number may since belong to another process, or the file to another install's
     # Ollama: only this install's is signalled.
-    if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null && ! proc_in_install "$PID" "$PROJECT_ROOT"; then
+    if [ -n "$PID" ] && proc_alive "$PID" && ! proc_in_install "$PID" "$PROJECT_ROOT"; then
         owner=$(proc_install_root "$PID")
         if [ -n "$owner" ]; then
             echo "Ollama PID $PID belongs to the Guaardvark install at $owner, not this one; leaving it running."
         else
             echo "PID $PID is not this install's Ollama (the pid file is stale); leaving it running."
         fi
-    elif [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+    elif [ -n "$PID" ] && proc_alive "$PID"; then
         echo "Stopping ollama via PID file (PID: $PID)..."
         kill -TERM "$PID" 2>/dev/null || true
         sleep 2
-        if kill -0 "$PID" 2>/dev/null; then
+        if proc_alive "$PID"; then
             kill -KILL "$PID" 2>/dev/null || true
             sleep 1
         fi
@@ -72,7 +72,7 @@ if [ -n "$ollama_pids" ]; then
         echo "Killing user-owned ollama serve (PID: $pid)..."
         kill -TERM "$pid" 2>/dev/null || true
         sleep 1
-        if kill -0 "$pid" 2>/dev/null; then
+        if proc_alive "$pid"; then
             kill -KILL "$pid" 2>/dev/null || true
         fi
         stopped=1

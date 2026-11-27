@@ -51,18 +51,20 @@ _linux_ensure_python_headers() {
     # Best-effort: verify headers for $1, apt-install the matching -dev (+venv)
     # package when absent. Returns 1 only when headers are missing AND unfixable
     # here, so platform_ensure_python can fall through to uv (bundles headers).
-    local py="$1" pyver
+    local py="$1" pyver log="${SETUP_LOG:-${SCRIPT_DIR:-.}/logs/setup.log}" tried=""
     _linux_python_headers_ok "$py" && return 0
     pyver=$("$py" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "3.12")
     if command -v apt-get >/dev/null 2>&1 && _linux_sudo_available; then
         vader_info "Python dev headers missing (Python.h) — installing python${pyver}-dev + python${pyver}-venv via apt..."
-        sudo apt-get install -y "python${pyver}-dev" "python${pyver}-venv" >/dev/null 2>&1 || true
+        mkdir -p "$(dirname "$log")" 2>/dev/null
+        gv_apt_install "python${pyver}-dev" "python${pyver}-venv" >> "$log" 2>&1 || true
+        tried=" apt's output: $log"
         if _linux_python_headers_ok "$py"; then
             vader_success "Python ${pyver} dev headers installed (native wheels like evdev can build now)"
             return 0
         fi
     fi
-    vader_warn "Python dev headers still missing for $py — pip will fail building native wheels (evdev: 'Python.h: No such file or directory')."
+    vader_warn "Python dev headers still missing for $py — pip will fail building native wheels (evdev: 'Python.h: No such file or directory').$tried"
     vader_info "Fix manually: sudo apt-get install -y python${pyver}-dev python${pyver}-venv"
     return 1
 }
@@ -237,10 +239,16 @@ _linux_ensure_node_via_binary() {
         aarch64|arm64) arch="linux-arm64" ;;
         x86_64|amd64) arch="linux-x64" ;;
     esac
-    local tarball="node-${ver}-${arch}.tar.xz"
+    # The .tar.xz is smaller, but container and minimal server images often lack
+    # xz, which tar needs to unpack it; gzip is always there.
+    local ext=tar.gz unpack=-xz
+    if command -v xz >/dev/null 2>&1; then
+        ext=tar.xz unpack=-xJ
+    fi
+    local tarball="node-${ver}-${arch}.${ext}"
     local url="https://nodejs.org/dist/${ver}/${tarball}"
     mkdir -p "$HOME/.local"
-    if ! curl -fsSL "$url" | tar -xJ -C "$HOME/.local" 2>/dev/null; then
+    if ! curl -fsSL "$url" | tar "$unpack" -C "$HOME/.local" 2>/dev/null; then
         vader_error "Failed to download Node.js from nodejs.org"
         return 1
     fi
@@ -300,8 +308,18 @@ ensure_node_npm() {
         return 1
     fi
 
-    vader_info "Installing Node.js and npm via apt..."
     sudo apt-get update -qq >/dev/null 2>&1 || true
+    # Ubuntu 24.04 and older carry a Node below the floor; installing it would
+    # only add packages that the ~/.local/node install then shadows.
+    local candidate
+    candidate=$(apt-cache policy nodejs 2>/dev/null | awk '/Candidate:/{print $2}')
+    candidate="${candidate#*:}"
+    if [ -n "$candidate" ] && [ "$candidate" != "(none)" ] && ! node_version_supported "$candidate"; then
+        vader_info "apt offers Node.js ${candidate%%[+~-]*}, older than the frontend needs ($GUAARDVARK_NODE_FLOOR_TEXT)."
+        _linux_ensure_node_via_binary || return 1
+        return 0
+    fi
+    vader_info "Installing Node.js and npm via apt..."
     if sudo apt-get install -y nodejs npm >/dev/null 2>&1; then
         # Re-check the VERSION, not just presence: Ubuntu 24.04's apt ships Node 18,
         # which fails the frontend's Node floor. Without this the function reports
@@ -313,7 +331,7 @@ ensure_node_npm() {
             return 0
         fi
     fi
-    vader_error "Failed to install nodejs/npm via apt."
+    vader_warn "apt did not provide Node.js $GUAARDVARK_NODE_FLOOR_TEXT."
     _linux_ensure_node_via_binary || return 1
     return 0
 }

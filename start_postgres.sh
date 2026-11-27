@@ -9,6 +9,10 @@ ENV_FILE="$SCRIPT_DIR/.env"
 
 # shellcheck source=scripts/lib/terminal_ui.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/lib/terminal_ui.sh"
+# shellcheck source=scripts/lib/apt_install.sh
+. "$SCRIPT_DIR/scripts/lib/apt_install.sh"
+# shellcheck source=scripts/lib/sudo_no_prompt.sh
+. "$SCRIPT_DIR/scripts/lib/sudo_no_prompt.sh"   # sudo never prompts under the desktop app
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
@@ -229,7 +233,7 @@ install_pgvector_package() {
     return 1
   fi
   vader_info "Installing pgvector (postgresql-${major}-pgvector)..."
-  if sudo apt-get install -y "postgresql-${major}-pgvector" >/dev/null 2>&1; then
+  if gv_apt_install "postgresql-${major}-pgvector" >/dev/null 2>&1; then
     vader_success "pgvector installed."
     return 0
   fi

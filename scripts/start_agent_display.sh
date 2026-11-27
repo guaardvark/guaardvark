@@ -973,7 +973,7 @@ stop() {
         pid_file="$PID_DIR/${proc}.pid"
         if [ -f "$pid_file" ]; then
             pid=$(tr -dc '0-9' < "$pid_file" 2>/dev/null)
-            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            if [ -n "$pid" ] && proc_alive "$pid"; then
                 if proc_in_install "$pid" "$GUAARDVARK_ROOT" || on_our_display "$pid" \
                         || runs_our_profile "$pid" || [[ " $OUR_XVFB " == *" $pid "* ]]; then
                     kill "$pid" 2>/dev/null && echo "  Stopped $proc (PID $pid)" || true

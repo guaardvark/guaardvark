@@ -1,0 +1,25 @@
+#!/bin/sh
+# sudo for start.sh's setup when nobody can type a password (the desktop app); see
+# scripts/lib/sudo_no_prompt.sh, which calls this. Runs the real sudo as `sudo -n`,
+# so a command that needs the password fails at once instead of waiting on a
+# prompt nobody sees, and appends a refusal to $GUAARDVARK_SUDO_REFUSED.
+case "${GUAARDVARK_REAL_SUDO:-}" in
+    ""|*/sudo_no_prompt/sudo) echo "sudo: GUAARDVARK_REAL_SUDO does not name the system sudo" >&2; exit 1 ;;
+esac
+"$GUAARDVARK_REAL_SUDO" -n "$@" && exit 0
+rc=$?
+[ -n "${GUAARDVARK_SUDO_REFUSED:-}" ] || exit "$rc"
+# Only a refused command is worth naming, not a probe (`sudo -v`, `sudo -n true`).
+all="$*"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -p|-u|-g|-C|-D|-U|-r|-t|-T) shift 2 ;;
+        -*) shift ;;
+        *) break ;;
+    esac
+done
+case "${1:-true}" in true) exit "$rc" ;; esac
+if ! "$GUAARDVARK_REAL_SUDO" -n true 2>/dev/null; then
+    printf '%s\n' "$all" >> "$GUAARDVARK_SUDO_REFUSED" 2>/dev/null
+fi
+exit "$rc"

@@ -9,6 +9,8 @@ set -uo pipefail
 HEALTH_URL="http://127.0.0.1:11434/"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$PROJECT_ROOT/scripts/lib/proc_owner.sh"   # proc_alive
 PIDS_DIR="$PROJECT_ROOT/pids"
 LOGS_DIR="$PROJECT_ROOT/logs"
 PID_FILE="$PIDS_DIR/ollama.pid"
@@ -75,7 +77,7 @@ echo "Warning: Ollama may not have started (health check timed out after 20s)"
 # Clean up PID file if process didn't respond
 if [ -f "$PID_FILE" ]; then
     pid=$(cat "$PID_FILE" 2>/dev/null)
-    if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+    if [ -n "$pid" ] && ! proc_alive "$pid"; then
         rm -f "$PID_FILE"
     fi
 fi

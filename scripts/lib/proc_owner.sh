@@ -11,8 +11,27 @@
 #   proc_in_install PID ROOT [cwd]   true when PID runs from ROOT and not from an install nested
 #                                    inside it; same sources and "cwd" as proc_install_root
 #   port_listener_pids PORT          PIDs listening on TCP PORT, one per line
+#   proc_alive PID                   true while PID runs (a zombie has stopped running)
 #
 # Every lookup prints nothing when it cannot tell, and callers treat that as "not ours".
+
+# kill -0 also succeeds for a zombie: a process that has exited but whose parent has
+# not collected its exit status yet (a container whose PID 1 never does, for one).
+proc_alive() {
+    local pid="$1" st=""
+    kill -0 "$pid" 2>/dev/null || return 1
+    if [ -r "/proc/$pid/stat" ]; then
+        st=$(cat "/proc/$pid/stat" 2>/dev/null)
+        st=${st##*) }
+    else
+        st=$(ps -o stat= -p "$pid" 2>/dev/null)
+        st=${st#"${st%%[! ]*}"}
+    fi
+    case "$st" in
+        Z*) return 1 ;;
+    esac
+    return 0
+}
 
 proc_cwd() {
     local pid="$1" cwd=""
