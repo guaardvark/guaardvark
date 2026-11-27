@@ -7,6 +7,8 @@
 
 PORT=${REDIS_PORT:-6379}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$SCRIPT_DIR/scripts/lib/proc_owner.sh"   # proc_alive
 # shellcheck source=scripts/lib/sudo_no_prompt.sh
 . "$SCRIPT_DIR/scripts/lib/sudo_no_prompt.sh"   # sudo never prompts under the desktop app
 ENV_FILE="$SCRIPT_DIR/.env"
@@ -105,7 +107,7 @@ clear_redis_pid_if_dead() {
   if [ -f "$REDIS_PID_FILE" ]; then
     local old
     old=$(cat "$REDIS_PID_FILE" 2>/dev/null || true)
-    if [ -z "$old" ] || ! kill -0 "$old" 2>/dev/null; then
+    if [ -z "$old" ] || ! proc_alive "$old"; then
       rm -f "$REDIS_PID_FILE"
     fi
   fi

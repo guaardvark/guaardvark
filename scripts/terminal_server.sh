@@ -16,6 +16,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$PROJECT_ROOT/scripts/lib/proc_owner.sh"   # proc_alive
 PID_FILE="$PROJECT_ROOT/pids/terminal.pid"
 AUTH_FILE="$PROJECT_ROOT/data/terminal/.terminal_auth"
 CSS_FILE="$PROJECT_ROOT/data/terminal/vader-terminal.css"
@@ -45,7 +47,7 @@ get_pid() {
     if [ -f "$PID_FILE" ]; then
         local pid
         pid=$(cat "$PID_FILE")
-        if kill -0 "$pid" 2>/dev/null; then
+        if proc_alive "$pid"; then
             echo "$pid"
             return 0
         fi
@@ -107,7 +109,7 @@ HTMLEOF
     echo "$pid" > "$PID_FILE"
     sleep 1
 
-    if kill -0 "$pid" 2>/dev/null; then
+    if proc_alive "$pid"; then
         echo '{"status":"started","pid":'"$pid"',"port":'"$TERMINAL_PORT"'}'
     else
         rm -f "$PID_FILE"
@@ -120,7 +122,7 @@ cmd_stop() {
     if pid=$(get_pid); then
         kill "$pid" 2>/dev/null
         sleep 1
-        if kill -0 "$pid" 2>/dev/null; then
+        if proc_alive "$pid"; then
             kill -9 "$pid" 2>/dev/null
         fi
         rm -f "$PID_FILE"

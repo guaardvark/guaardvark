@@ -761,7 +761,7 @@ kill_process() {
                 if _ours "$pid"; then
                     kill -15 "$pid" 2>/dev/null
                     sleep 1
-                    if kill -0 "$pid" 2>/dev/null; then
+                    if proc_alive "$pid"; then
                         kill -9 "$pid" 2>/dev/null
                     fi
                     confirmed_stopped=1
@@ -779,10 +779,10 @@ kill_process() {
         if [ -n "$pid_file" ] && [ -f "$pid_file" ]; then
             local saved_pid=$(cat "$pid_file" 2>/dev/null)
             # A pid file outlives a crash or reboot; its number may now be someone else's.
-            if [ -n "$saved_pid" ] && kill -0 "$saved_pid" 2>/dev/null && _ours "$saved_pid"; then
+            if [ -n "$saved_pid" ] && proc_alive "$saved_pid" && _ours "$saved_pid"; then
                 kill -15 "$saved_pid" 2>/dev/null
                 sleep 2
-                if kill -0 "$saved_pid" 2>/dev/null; then
+                if proc_alive "$saved_pid"; then
                     kill -9 "$saved_pid" 2>/dev/null
                 fi
                 confirmed_stopped=1
@@ -806,7 +806,7 @@ kill_process() {
                 done
                 sleep 2
                 for pid in $env_pids; do
-                    if kill -0 "$pid" 2>/dev/null; then
+                    if proc_alive "$pid"; then
                         kill -9 "$pid" 2>/dev/null
                     fi
                 done
@@ -881,7 +881,7 @@ free_ports_or_refuse() {
             fi
             kill -15 "$pid" 2>/dev/null
             sleep 1
-            if kill -0 "$pid" 2>/dev/null; then
+            if proc_alive "$pid"; then
                 kill -9 "$pid" 2>/dev/null
             fi
         done < <(port_foreign_listeners "$port")
@@ -1061,7 +1061,7 @@ relaunch_backend_if_dead() {
     nohup env GUAARDVARK_ROOT="$SCRIPT_DIR" FLASK_PORT="$port" VITE_PORT="$VITE_PORT" GUAARDVARK_MIGRATIONS_VERIFIED="${GUAARDVARK_MIGRATIONS_VERIFIED:-}" "$VENV_DIR/bin/python" -m backend.app >> "$BACKEND_STARTUP_LOG_FILE" 2>&1 &
     local spawned=$!
     if ! is_port_listening "$port" 90 "Backend (self-heal)"; then
-        if [ -n "$spawned" ] && kill -0 "$spawned" 2>/dev/null; then
+        if [ -n "$spawned" ] && proc_alive "$spawned"; then
             kill -9 "$spawned" > /dev/null 2>&1
         fi
         return 1
@@ -1857,11 +1857,11 @@ wait "$_kp_flask" "$_kp_vite"
 
 if [ -f "$SCRIPT_DIR/pids/celery.pid" ]; then
     celery_pid=$(cat "$SCRIPT_DIR/pids/celery.pid" 2>/dev/null)
-    if [ -n "$celery_pid" ] && kill -0 "$celery_pid" 2>/dev/null; then
+    if [ -n "$celery_pid" ] && proc_alive "$celery_pid"; then
         if _ours "$celery_pid"; then
             kill -15 "$celery_pid" 2>/dev/null
             sleep 2
-            if kill -0 "$celery_pid" 2>/dev/null; then
+            if proc_alive "$celery_pid"; then
                 kill -9 "$celery_pid" 2>/dev/null
             fi
         fi
@@ -1876,7 +1876,7 @@ if [ -n "$celery_pids" ]; then
         if _ours "$pid" cwd; then
             kill -15 "$pid" 2>/dev/null
             sleep 1
-            if kill -0 "$pid" 2>/dev/null; then
+            if proc_alive "$pid"; then
                 kill -9 "$pid" 2>/dev/null
             fi
         fi
@@ -3169,7 +3169,7 @@ if [ "$BACKEND_ADOPTED" -eq 0 ]; then
         fi
         # Only kill the process WE spawned, and only if it's still alive — never a healthy
         # adopted/older backend.
-        if [ -n "$BACKEND_PID" ] && kill -0 "$BACKEND_PID" 2>/dev/null; then
+        if [ -n "$BACKEND_PID" ] && proc_alive "$BACKEND_PID"; then
             kill -9 "$BACKEND_PID" > /dev/null 2>&1
         fi
         # A change Guaardvark made to its own backend code, still waiting for its
@@ -3376,7 +3376,7 @@ fi
 if [ "$FRONTEND_CAN_SERVE" -ne 1 ]; then
     vader_warn "Frontend not launched (no servable dist). Backend continues; fix the build then re-run."
     progress_end skip "Not started: there is no build to serve."
-elif ! kill -0 $FRONTEND_PID > /dev/null 2>&1; then
+elif ! proc_alive "$FRONTEND_PID"; then
     vader_error "Frontend process exited unexpectedly. Check $FRONTEND_LOG_FILE."
     progress_end fail "The interface server exited as soon as it started."
     cd "$SCRIPT_DIR"

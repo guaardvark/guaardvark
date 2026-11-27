@@ -4,6 +4,8 @@
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/lib/terminal_ui.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$SCRIPT_DIR/scripts/lib/proc_owner.sh"   # proc_alive
 BACKEND_DIR="$SCRIPT_DIR/backend"
 VENV_DIR="$BACKEND_DIR/venv"
 LOGS_DIR="$SCRIPT_DIR/logs"
@@ -70,7 +72,7 @@ start_worker() {
   # moment and verify the process is actually alive (catches immediate crashes:
   # bad broker URL, import error, port clash) before announcing success.
   sleep 2
-  if kill -0 "$pid" 2>/dev/null; then
+  if proc_alive "$pid"; then
     vader_success "Worker $worker_name started (PID: $pid)"
   else
     vader_error "Worker $worker_name FAILED to start (died immediately) — see $LOGS_DIR/celery_${worker_name}.log"
@@ -154,7 +156,7 @@ start_beat() {
   # verify liveness via the PID we hold rather than trusting the file's existence.
   local beat_pid=$!
   sleep 2
-  if kill -0 "$beat_pid" 2>/dev/null; then
+  if proc_alive "$beat_pid"; then
     vader_success "Celery beat started (PID: $beat_pid)"
     return 0
   fi
@@ -174,7 +176,7 @@ start_beat() {
     >> "$LOGS_DIR/celery_beat.log" 2>&1 &
   beat_pid=$!
   sleep 2
-  if kill -0 "$beat_pid" 2>/dev/null; then
+  if proc_alive "$beat_pid"; then
     vader_success "Celery beat started after schedule reset (PID: $beat_pid)"
     return 0
   fi
