@@ -37,6 +37,7 @@ from typing import Optional
 
 from backend.services.video_model_registry import (
     VIDEO_MODEL_REGISTRY,
+    _MIN_VRAM_GRACE_MB,
     declared_canvas,
     family_spec,
     model_capabilities,
@@ -365,6 +366,24 @@ def resolve_fps(model_id: str, requested, family: Optional[str] = None):
 def min_vram_gb(model_id: str, family: Optional[str] = None) -> int:
     """Total VRAM (GB) a model needs to run at all; 0 when nothing is declared."""
     return int(limits_for(model_id, _family_of(model_id, family)).get("min_vram_gb") or 0)
+
+
+def card_vram_floor_gb(model_id: str) -> int:
+    """The VRAM floor a model card shows: ``min_vram_gb`` above (what the
+    preflight refuses a smaller card on), else the floor a row outside the
+    capability contract declares itself (MiniMax H3 Stills). 0 when none is
+    known. ``vram_mb`` is what a render is booked for, not this."""
+    entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
+    return min_vram_gb(model_id) or int(entry.get("min_vram_gb") or 0)
+
+
+def card_below_vram_floor(model_id: str, total_vram_mb) -> bool:
+    """True when a card of ``total_vram_mb`` is under the model's floor, with
+    the preflight's half-GB grace. An unread card (0 or None) is never marked."""
+    floor_gb = card_vram_floor_gb(model_id)
+    if not floor_gb or not total_vram_mb:
+        return False
+    return float(total_vram_mb) + _MIN_VRAM_GRACE_MB < floor_gb * 1024
 
 
 def text_encoder_device(model_id: str, total_vram_mb: Optional[int] = None,

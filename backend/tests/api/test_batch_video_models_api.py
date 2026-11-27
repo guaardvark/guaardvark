@@ -83,6 +83,42 @@ def test_bigger_builds_have_no_defaults_for_a_smaller_card(client):
     assert rows["minimax-h3-bf16"]["tier_defaults"] == {}
 
 
+def _rows_on_card(client, monkeypatch, total_mb):
+    from backend.services import comfyui_version
+    monkeypatch.setattr(api, "_detected_total_vram_mb", lambda: total_mb)
+    monkeypatch.setattr(comfyui_version, "offered", lambda *_a, **_k: True)
+    payload = client.get("/api/batch-video/models").get_json()
+    assert payload["success"]
+    return payload["data"], {m["id"]: m for m in payload["data"]["models"]}
+
+
+def test_rows_carry_the_preflight_floor_beside_the_booking(client, monkeypatch):
+    data, rows = _rows_on_card(client, monkeypatch, 12282)
+    assert data["total_vram_mb"] == 12282
+    # Undeclared floor falls back to the family's; declared ones win.
+    assert (rows["wan22-14b"]["vram_mb"], rows["wan22-14b"]["min_vram_gb"]) == (11000, 16)
+    assert rows["wan22-14b-i2v"]["min_vram_gb"] == 8
+    assert rows["wan22-5b"]["min_vram_gb"] == 6
+    # A row outside the capability contract keeps its own declared floor.
+    assert rows["minimax-h3-t2i"]["min_vram_gb"] == 16
+    assert rows["wan-vae"]["min_vram_gb"] == 0 and rows["flux-dev"]["min_vram_gb"] == 0
+
+
+def test_a_12gb_card_is_marked_under_the_16gb_floor_only(client, monkeypatch):
+    _, rows = _rows_on_card(client, monkeypatch, 12282)
+    for model_id in ("wan22-14b", "hunyuan-t2v", "hunyuan-i2v", "ltx25-distilled-int8", "minimax-h3-t2i"):
+        assert rows[model_id]["below_card_floor"] is True, model_id
+    # 12282 MB is within the half-GB grace of a 12 GB floor.
+    for model_id in ("wan22-5b", "wan22-14b-i2v", "minimax-music3-int8", "flux-dev", "wan-vae"):
+        assert rows[model_id]["below_card_floor"] is False, model_id
+
+
+def test_an_unread_card_marks_nothing(client, monkeypatch):
+    data, rows = _rows_on_card(client, monkeypatch, 0)
+    assert data["total_vram_mb"] == 0
+    assert not any(r["below_card_floor"] for r in rows.values())
+
+
 def test_loras_name_the_models_they_apply_to(client):
     rows = _rows(client)
     lora = rows["minimax-h3-fl2v-turbo-8step"]

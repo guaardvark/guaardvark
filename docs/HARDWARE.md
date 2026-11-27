@@ -13,7 +13,7 @@ something is untested we say so and under-promise.
 | Tier | GPU VRAM | What to expect |
 |------|----------|----------------|
 | **A — CPU-only / no NVIDIA GPU** | none | Chat + RAG (keyword-first retrieval), voice in and out, the parallel coding-agent Swarm, the video editor, MCP. No image, video, or music generation; no upscaling. |
-| **B — Entry GPU** | 8–12 GB | Everything above, plus vector RAG, screen agents, SD/SDXL-class image generation, upscaling, and (at 12 GB) music generation. Video: the Wan 2.2 5B renders on cards from 8 GB; every other video family needs 16 GB. |
+| **B — Entry GPU** | 8–12 GB | Everything above, plus vector RAG, screen agents, SD/SDXL-class image generation, upscaling, and (at 12 GB) music generation. Video: the Wan 2.2 TI2V-5B renders from 6 GB (held whole on 12 GB) and the Wan 2.2 14B image-to-video from 8 GB; every other video model needs 16 GB. |
 | **C — Design target** | 16 GB | The whole studio: every image model, every video model except the two larger MiniMax H3 builds (24 GB and 48 GB), music, sound effects and voices, LoRA training, Film Crew, music videos. |
 | **D — Headroom** | 20–24 GB+ | Concurrency and quality upgrades: two resident LLMs, heavier image models preferred automatically, text encoders stay on-GPU, larger agent step budgets, full-batch LoRA training. |
 
@@ -22,10 +22,11 @@ is partial — see the sections at the end.
 
 The canonical question — **"can I run this on a 12 GB card?"** — has a clean
 answer: yes for chat, RAG, screen agents, SD/SDXL images, upscaling, music, and
-voice; for video, the Wan 2.2 5B, which renders on cards from 8 GB. The video
-preflight checks total VRAM against each model's floor, with ~0.5 GB of grace;
-the Wan 14B, LTX, Hunyuan, CogVideoX and MiniMax models need 16 GB (so "16 GB"
-cards that report 15.9 GB pass).
+voice; for video, the Wan 2.2 TI2V-5B (held whole on a 12 GB card) and the
+Wan 2.2 14B image-to-video. The video preflight checks total VRAM against each
+model's floor, with ~0.5 GB of grace; the Wan 14B text-to-video, LTX, Hunyuan,
+CogVideoX and MiniMax models need 16 GB (so "16 GB" cards that report 15.9 GB
+pass).
 
 On first run, `./start.sh` detects your hardware (written to
 `~/.guaardvark/hardware.json`) and derives the PyTorch build, Ollama server
@@ -71,10 +72,18 @@ What works, and how the system adapts:
 - **Music generation** (ACE-Step, ~10 GB, runs exclusively) fits on 12 GB —
   the orchestrator evicts everything else first — but not on 8 GB. FX
   generation (~6 GB) and TTS (≤ 2 GB) are fine on both.
-- **Video generation runs the Wan 2.2 TI2V-5B** on cards from 8 GB. Below
-  16 GB its weights stay in system memory and pass through the card as it
-  samples. Every other family (Wan 2.2 14B, LTX-2.3/2.5, Hunyuan, CogVideoX-5B,
-  MiniMax) requires a 16 GB-class card. The Low
+- **Video generation runs two Wan 2.2 models** on these cards. The TI2V-5B
+  renders on cards from 6 GB and is held whole on 12 GB cards; below that its
+  weights stay in system memory and pass through the card as it samples. The
+  14B image-to-video (and first-and-last-frame) renders from 8 GB, with the
+  weights the card cannot hold kept in system memory. Both floors were
+  measured on a 16 GB card with a second process holding all but 8 GB (and
+  6 GB for the 5B) and 59 GB of system memory, not on a real 6 or 8 GB card.
+  Less system memory has not been tried; under Windows/WSL, how much Ubuntu
+  gets depends on the WSL memory cap (`memory=` in `.wslconfig`).
+- **The Wan 2.2 14B text-to-video needs 16 GB**; whether it can page the way
+  the image-to-video model does has not been measured. LTX-2.3/2.5, Hunyuan,
+  CogVideoX-5B and MiniMax also require a 16 GB-class card. The Low
   VRAM preset reduces frames/resolution/steps but does not bypass this gate —
   it exists to keep 16 GB cards inside budget.
 

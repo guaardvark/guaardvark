@@ -1407,6 +1407,7 @@ def list_video_models():
         active_t2v, _ = resolve_active_video_model("t2v", comfyui_down_ok=True)
         active_i2v, _ = resolve_active_video_model("i2v", comfyui_down_ok=True)
         from backend.services.comfyui_version import comfyui_version, offered
+        from backend.services.video_render_limits import card_below_vram_floor, card_vram_floor_gb
         comfy_ver = comfyui_version()
         for model_id, info in VIDEO_MODEL_REGISTRY.items():
             # A model whose graph needs a newer ComfyUI than this install runs
@@ -1422,7 +1423,11 @@ def list_video_models():
                 "description": info["description"],
                 "type": info["type"],
                 "size_gb": info["size_gb"],
+                # vram_mb is what a render is booked for (typical use);
+                # min_vram_gb is the card size the preflight refuses below.
                 "vram_mb": info["vram_mb"],
+                "min_vram_gb": card_vram_floor_gb(model_id),
+                "below_card_floor": card_below_vram_floor(model_id, total_vram_mb),
                 # UI/SSOT dimension helpers (mirror videoGeneratorPresets MODEL_OPTIONS).
                 "dimension_alignment": info.get("dimension_alignment"),
                 "max_pixel_area": info.get("max_pixel_area"),
@@ -1462,7 +1467,12 @@ def list_video_models():
                 "encoder_swap": info.get("type") in TEXT_ENCODER_SWAP_TYPES,
                 "lora_stack": info.get("type") in LORA_STACK_TYPES,
             })
-        return success_response({"models": models, "active_t2v": active_t2v, "active_i2v": active_i2v})
+        return success_response({
+            "models": models, "active_t2v": active_t2v, "active_i2v": active_i2v,
+            # This machine's card, 0 when unread; the page names it in the
+            # warning on a model the card is under.
+            "total_vram_mb": total_vram_mb,
+        })
     except Exception as e:
         logger.error(f"Error listing video models: {e}")
         return error_response(str(e), 500)

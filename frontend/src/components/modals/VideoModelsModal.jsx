@@ -70,6 +70,10 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
   const [addOpen, setAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState(null);
   const [removeBusy, setRemoveBusy] = useState(false);
+  // This machine's card total (MB, 0 when unread) and the model whose Install
+  // was clicked although the card is under its floor.
+  const [totalVramMb, setTotalVramMb] = useState(0);
+  const [belowCardTarget, setBelowCardTarget] = useState(null);
 
   // The parent passes a fresh `showMessage` closure on every render. Keep it in a
   // ref so our fetch callbacks (and the effects that depend on them) stay stable —
@@ -86,6 +90,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
       const res = await axios.get("/api/batch-video/models");
       if (res.data.success) {
         setModels(res.data.data.models);
+        setTotalVramMb(res.data.data.total_vram_mb || 0);
       } else {
         setError(translate("models.videoModels.failedToLoad"));
       }
@@ -193,6 +198,18 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
     }
   };
 
+  // A card under the model's floor gets a warning first; the download still
+  // goes ahead if the user confirms (they may be moving to a bigger card).
+  const requestInstall = (model) => {
+    if (model.below_card_floor) {
+      setBelowCardTarget(model);
+    } else {
+      handleDownload(model.id);
+    }
+  };
+
+  const cardGb = totalVramMb > 0 ? Math.round(totalVramMb / 1024) : 0;
+
   const isDownloading = downloadStatus.is_downloading;
   const currentModel = downloadStatus.current_model;
 
@@ -205,6 +222,10 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
     const isThis = isDownloading && currentModel === model.id;
     const isHighlight = !!highlightModelId && model.id === highlightModelId;
     const typeLabel = model.user && model.type === "encoder" ? t("models.videoModels.types.textEncoder") : labels[model.type] || model.type;
+    // The chip leads with the floor the preflight checks (the smallest card the
+    // model runs on); vram_mb is what a render typically books, shown beside it.
+    const floorGb = model.min_vram_gb || 0;
+    const typicalGb = model.vram_mb > 0 ? Math.round(model.vram_mb / 1024) : 0;
     return (
       <ListItem
         key={model.id}
@@ -235,13 +256,31 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
               </Typography>
               <Chip label={typeLabel} size="small" variant="outlined" sx={{ height: 20, fontSize: "0.65rem" }} />
               <Chip label={`${model.size_gb} GB`} size="small" variant="outlined" />
-              {model.vram_mb > 0 && (
-                <Chip
-                  icon={<MemoryIcon />}
-                  label={`${(model.vram_mb / 1024).toFixed(0)}GB VRAM`}
-                  size="small"
-                  variant="outlined"
-                />
+              {floorGb > 0 ? (
+                <>
+                  <Chip
+                    icon={<MemoryIcon />}
+                    label={t("models.videoModels.vramFloor", { gb: floorGb })}
+                    title={model.below_card_floor && cardGb ? t("models.videoModels.belowCard", { gb: cardGb }) : undefined}
+                    size="small"
+                    variant="outlined"
+                    color={model.below_card_floor ? "warning" : "default"}
+                  />
+                  {typicalGb > 0 && typicalGb !== floorGb && (
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      {t("models.videoModels.vramTypical", { gb: typicalGb })}
+                    </Typography>
+                  )}
+                </>
+              ) : (
+                typicalGb > 0 && (
+                  <Chip
+                    icon={<MemoryIcon />}
+                    label={t("models.videoModels.vramTypicalOnly", { gb: typicalGb })}
+                    size="small"
+                    variant="outlined"
+                  />
+                )
               )}
               {model.license?.name && (
                 <Chip
@@ -328,11 +367,16 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                 variant="outlined"
                 size="small"
                 startIcon={<CloudDownloadIcon />}
-                onClick={() => handleDownload(model.id)}
+                onClick={() => requestInstall(model)}
                 disabled={isDownloading}
               >
                 {model.install_size_gb ? t("models.videoModels.installWithSize", { size: model.install_size_gb }) : t("dialogs.shared.install")}
               </Button>
+              {model.below_card_floor && cardGb > 0 && (
+                <Typography variant="caption" noWrap sx={{ color: "warning.main" }}>
+                  {t("models.videoModels.belowCard", { gb: cardGb })}
+                </Typography>
+              )}
               {model.user && (
                 <ActionButton
                   kind="destructive"
@@ -457,6 +501,23 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
           fetchModels();
           fetchDownloadStatus();
         }}
+      />
+      <ConfirmActionDialog
+        open={Boolean(belowCardTarget)}
+        reversible
+        title={t("models.videoModels.belowCardTitle", { name: belowCardTarget?.name || t("models.videoModels.thisModel") })}
+        description={t("models.videoModels.belowCardDescription", {
+          need: belowCardTarget?.min_vram_gb || 0,
+          have: cardGb,
+          size: belowCardTarget?.install_size_gb || belowCardTarget?.size_gb || 0,
+        })}
+        confirmLabel={t("models.videoModels.installAnyway")}
+        onConfirm={() => {
+          const id = belowCardTarget?.id;
+          setBelowCardTarget(null);
+          if (id) handleDownload(id);
+        }}
+        onClose={() => setBelowCardTarget(null)}
       />
       <ConfirmActionDialog
         open={Boolean(removeTarget)}
