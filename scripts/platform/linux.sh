@@ -51,18 +51,20 @@ _linux_ensure_python_headers() {
     # Best-effort: verify headers for $1, apt-install the matching -dev (+venv)
     # package when absent. Returns 1 only when headers are missing AND unfixable
     # here, so platform_ensure_python can fall through to uv (bundles headers).
-    local py="$1" pyver
+    local py="$1" pyver log="${SETUP_LOG:-${SCRIPT_DIR:-.}/logs/setup.log}" tried=""
     _linux_python_headers_ok "$py" && return 0
     pyver=$("$py" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "3.12")
     if command -v apt-get >/dev/null 2>&1 && _linux_sudo_available; then
         vader_info "Python dev headers missing (Python.h) — installing python${pyver}-dev + python${pyver}-venv via apt..."
-        gv_apt_install "python${pyver}-dev" "python${pyver}-venv" >/dev/null 2>&1 || true
+        mkdir -p "$(dirname "$log")" 2>/dev/null
+        gv_apt_install "python${pyver}-dev" "python${pyver}-venv" >> "$log" 2>&1 || true
+        tried=" apt's output: $log"
         if _linux_python_headers_ok "$py"; then
             vader_success "Python ${pyver} dev headers installed (native wheels like evdev can build now)"
             return 0
         fi
     fi
-    vader_warn "Python dev headers still missing for $py — pip will fail building native wheels (evdev: 'Python.h: No such file or directory')."
+    vader_warn "Python dev headers still missing for $py — pip will fail building native wheels (evdev: 'Python.h: No such file or directory').$tried"
     vader_info "Fix manually: sudo apt-get install -y python${pyver}-dev python${pyver}-venv"
     return 1
 }

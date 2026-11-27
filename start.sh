@@ -2067,7 +2067,7 @@ mitigate_nic_quirks() {
             _asked=1
         fi
         if ! command_exists ethtool; then
-            $_sudo apt-get install -y ethtool >> "$SETUP_LOG" 2>&1 \
+            GV_APT_SUDO="$_sudo" gv_apt_install ethtool >> "$SETUP_LOG" 2>&1 \
                 || { vader_warn "ethtool unavailable — cannot apply NIC fix. Manual: sudo ethtool -K $iface tso off gso off gro off"; continue; }
         fi
         if $_sudo ethtool -K "$iface" tso off gso off gro off >> "$SETUP_LOG" 2>&1; then

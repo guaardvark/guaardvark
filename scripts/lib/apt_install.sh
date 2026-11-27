@@ -10,12 +10,14 @@
 #   sudo apt-get install -y PKG...; when that fails, refresh the package lists
 #   once per run (shared with child scripts through _GV_APT_REFRESHED) and try
 #   again. Returns apt-get's status. Output goes wherever the caller sends it.
+#   GV_APT_SUDO="sudo -n" makes a caller that must never prompt say so.
 gv_apt_install() {
     command -v apt-get >/dev/null 2>&1 || return 1
-    sudo apt-get install -y "$@" && return 0
+    local as_root="${GV_APT_SUDO:-sudo}"
+    $as_root apt-get install -y "$@" && return 0
     [ "${_GV_APT_REFRESHED:-0}" = 1 ] && return 1
     _GV_APT_REFRESHED=1
     export _GV_APT_REFRESHED
-    sudo apt-get update -qq || return 1
-    sudo apt-get install -y "$@"
+    $as_root apt-get update -qq || return 1
+    $as_root apt-get install -y "$@"
 }
