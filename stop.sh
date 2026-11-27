@@ -61,19 +61,19 @@ kill_and_cleanup() {
         local pid=$(cat "$pid_file")
         vader_info "Stopping $service_name (PID: $pid)..."
         
-        if kill -0 "$pid" 2>/dev/null && ! _ours "$pid"; then
+        if proc_alive "$pid" && ! _ours "$pid"; then
             _not_ours_note "$service_name" "$pid"
-        elif kill -0 "$pid" 2>/dev/null; then
+        elif proc_alive "$pid"; then
             kill -TERM "$pid" 2>/dev/null
             sleep 2
             
-            if kill -0 "$pid" 2>/dev/null; then
+            if proc_alive "$pid"; then
                 vader_warn "$service_name still running, using SIGKILL..."
                 kill -KILL "$pid" 2>/dev/null
                 sleep 1
             fi
             
-            if ! kill -0 "$pid" 2>/dev/null; then
+            if ! proc_alive "$pid"; then
                 vader_success "$service_name stopped successfully."
             else
                 vader_error "Failed to stop $service_name."
@@ -155,7 +155,7 @@ PY
 # ── Helper: check if a plugin is actually running (PID file + process alive) ──
 _plugin_running() {
     local pid_file="$PIDS_DIR/$1.pid"
-    [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null
+    [ -f "$pid_file" ] && proc_alive "$(cat "$pid_file" 2>/dev/null)"
 }
 
 # ── Cancel in-flight VideoGen batches (backend may still be up) ──
@@ -209,18 +209,18 @@ else
     # 2. Kill via PID file (in case the stop script didn't handle it)
     if [ -f "$PIDS_DIR/comfyui.pid" ]; then
         comfyui_pid=$(cat "$PIDS_DIR/comfyui.pid" 2>/dev/null)
-        if [ -n "$comfyui_pid" ] && kill -0 "$comfyui_pid" 2>/dev/null && ! _ours "$comfyui_pid"; then
+        if [ -n "$comfyui_pid" ] && proc_alive "$comfyui_pid" && ! _ours "$comfyui_pid"; then
             _not_ours_note "ComfyUI" "$comfyui_pid"
-        elif [ -n "$comfyui_pid" ] && kill -0 "$comfyui_pid" 2>/dev/null; then
+        elif [ -n "$comfyui_pid" ] && proc_alive "$comfyui_pid"; then
             vader_info "Stopping ComfyUI (PID: $comfyui_pid)..."
             kill -TERM "$comfyui_pid" 2>/dev/null
             sleep 2
-            if kill -0 "$comfyui_pid" 2>/dev/null; then
+            if proc_alive "$comfyui_pid"; then
                 vader_warn "ComfyUI still running, using SIGKILL..."
                 kill -KILL "$comfyui_pid" 2>/dev/null
                 sleep 1
             fi
-            if ! kill -0 "$comfyui_pid" 2>/dev/null; then
+            if ! proc_alive "$comfyui_pid"; then
                 vader_success "ComfyUI stopped (PID: $comfyui_pid)"
                 comfyui_stopped=true
             else
@@ -253,7 +253,7 @@ if [ "$COMFYUI_EXTERNAL" != 1 ] && command -v lsof >/dev/null 2>&1; then
             vader_info "Killing orphaned ComfyUI process on port $COMFYUI_PORT (PID: $pid)..."
             kill -TERM "$pid" 2>/dev/null
             sleep 1
-            if kill -0 "$pid" 2>/dev/null; then
+            if proc_alive "$pid"; then
                 kill -KILL "$pid" 2>/dev/null
             fi
         done
@@ -279,9 +279,9 @@ vader_step 3 "Studio"
 # whose PID we recorded in pids/redis.pid when start_redis.sh launched a sidecar.
 if [ -f "$PIDS_DIR/redis.pid" ]; then
     redis_pid=$(cat "$PIDS_DIR/redis.pid" 2>/dev/null)
-    if [ -n "$redis_pid" ] && kill -0 "$redis_pid" 2>/dev/null && ! _ours "$redis_pid"; then
+    if [ -n "$redis_pid" ] && proc_alive "$redis_pid" && ! _ours "$redis_pid"; then
         _not_ours_note "Redis sidecar" "$redis_pid"
-    elif [ -n "$redis_pid" ] && kill -0 "$redis_pid" 2>/dev/null; then
+    elif [ -n "$redis_pid" ] && proc_alive "$redis_pid"; then
         # Extra safety: only stop if the process looks like redis-server and is
         # not the distro service bound solely as the system unit (we check cmdline).
         redis_cmd=$(ps -p "$redis_pid" -o args= 2>/dev/null || true)
@@ -289,10 +289,10 @@ if [ -f "$PIDS_DIR/redis.pid" ]; then
             vader_info "Stopping Guaardvark Redis sidecar (PID: $redis_pid)..."
             kill -TERM "$redis_pid" 2>/dev/null
             sleep 1
-            if kill -0 "$redis_pid" 2>/dev/null; then
+            if proc_alive "$redis_pid"; then
                 kill -KILL "$redis_pid" 2>/dev/null
             fi
-            if ! kill -0 "$redis_pid" 2>/dev/null; then
+            if ! proc_alive "$redis_pid"; then
                 vader_success "Redis sidecar stopped."
             else
                 vader_warn "Redis sidecar PID $redis_pid still running."
@@ -328,7 +328,7 @@ if [ -n "$flask_pids" ]; then
             vader_info "Force killing Flask/SocketIO process (PID: $pid) from this environment..."
             kill -TERM "$pid" 2>/dev/null
             sleep 2
-            if kill -0 "$pid" 2>/dev/null; then
+            if proc_alive "$pid"; then
                 kill -KILL "$pid" 2>/dev/null
             fi
         fi
@@ -357,7 +357,7 @@ if [ -n "$celery_pids" ]; then
         sleep 3
 
         for pid in "${env_celery_pids[@]}"; do
-            if kill -0 "$pid" 2>/dev/null; then
+            if proc_alive "$pid"; then
                 vader_warn "Celery process (PID: $pid) still running, using SIGKILL..."
                 kill -KILL "$pid" 2>/dev/null
             fi
@@ -386,7 +386,7 @@ for port in $VITE_PORT 4173 5173 5174 5175 5176 5177; do
                     vader_info "Force killing node/vite process on port $port (PID: $pid) from this environment..."
                     kill -TERM "$pid" 2>/dev/null
                     sleep 1
-                    if kill -0 "$pid" 2>/dev/null; then
+                    if proc_alive "$pid"; then
                         kill -KILL "$pid" 2>/dev/null
                     fi
                 fi
@@ -402,7 +402,7 @@ if [ -n "$vite_pids" ]; then
             vader_info "Force killing Vite process (PID: $pid) from this environment..."
             kill -TERM "$pid" 2>/dev/null
             sleep 1
-            if kill -0 "$pid" 2>/dev/null; then
+            if proc_alive "$pid"; then
                 kill -KILL "$pid" 2>/dev/null
             fi
         fi
@@ -484,7 +484,7 @@ rm -f "$PIDS_DIR/ollama.pid"
 for pid_file in "$PIDS_DIR"/*.pid; do
     [ -f "$pid_file" ] || continue
     pid=$(tr -dc '0-9' < "$pid_file" 2>/dev/null)
-    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && _ours "$pid"; then
+    if [ -n "$pid" ] && proc_alive "$pid" && _ours "$pid"; then
         vader_warn "$(basename "$pid_file" .pid) is still running (pid $pid); keeping its pid file."
     else
         rm -f "$pid_file"
