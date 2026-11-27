@@ -113,9 +113,10 @@ start_lock_file() {
 #   yes   taken (or already held by this process before it re-ran itself with exec)
 #   busy  another start.sh holds it
 #   none  this system has no flock command
-# Waits up to 3 s, time for the helper of a start.sh that was just killed to exit.
+# While the start.sh named in the lock file runs, the answer comes at once; else it
+# waits up to 3 s, time for the helper of a start.sh that was just killed to exit.
 start_lock_acquire() {
-    local lf
+    local lf owner wait_opt="-w 3"
     lf=$(start_lock_file)
     if ! command -v flock >/dev/null 2>&1; then
         START_LOCK_HELD=none
@@ -127,8 +128,12 @@ start_lock_acquire() {
         START_LOCK_HELD=yes
         return 0
     fi
+    owner=$(start_lock_owner)
+    if [ -n "$owner" ] && [ "$owner" != "$$" ] && proc_alive "$owner" && start_lock_is_runnable "$owner"; then
+        wait_opt="-n"
+    fi
     START_LOCK_TOKEN="$$-$RANDOM$RANDOM"
-    flock -w 3 -o -E 75 "$lf" bash "$SCRIPT_DIR/scripts/lib/start_lock_watch.sh" "$$" "$START_LOCK_TOKEN" "$lf" \
+    flock $wait_opt -o -E 75 "$lf" bash "$SCRIPT_DIR/scripts/lib/start_lock_watch.sh" "$$" "$START_LOCK_TOKEN" "$lf" \
         </dev/null >/dev/null 2>&1 &
     START_LOCK_HELPER=$!
     export START_LOCK_TOKEN START_LOCK_HELPER
