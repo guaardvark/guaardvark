@@ -2687,6 +2687,7 @@ else
 
     if [ ! -d "$WHISPER_DIR" ]; then
         vader_warn "Whisper.cpp folder missing. Install via Settings > Voice to enable speech recognition."
+        progress_end skip "Speech recognition is not installed. Add it in Settings > Voice."
         VOICE_AVAILABLE=0
     else
         if [ ! -f "$WHISPER_CLI" ] || ! _whisper_lib_present; then
@@ -2725,6 +2726,7 @@ else
                 fi
             else
                 vader_warn "Whisper.cpp source not found (placeholder only). Install via Settings > Voice to enable speech recognition."
+                progress_end skip "Speech recognition is not installed. Add it in Settings > Voice."
                 VOICE_AVAILABLE=0
             fi
         else
