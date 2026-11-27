@@ -464,6 +464,27 @@ def test_the_suggestion_stays_when_nothing_fits(client, monkeypatch):
     assert [m["id"] for m in rows if m["recommended"]] == ["zimage-turbo"]
 
 
+@pytest.mark.parametrize("availability, says", [
+    ("comfyui_down", "ComfyUI is not running"),
+    ("no_engine", "ComfyUI is running but has no image engine"),
+])
+def test_the_comfyui_router_row_says_which_of_its_two_reasons(client, monkeypatch, availability, says):
+    from backend.services import user_image_models as uim
+
+    gen = api.get_batch_image_generator().image_generator
+    gen.get_available_models = lambda probe_remote=True: {
+        "comfyui": {"id": "comfy:comfyui", "downloaded": False, "availability": availability,
+                    "selectable": False, "label": "ComfyUI (auto backend)", "description": "",
+                    "recommended": False, "user": False, "family": None, "order": 1, "engine": "comfy"},
+    }
+    monkeypatch.setattr(uim, "catalog_rows", lambda _g: [])
+    monkeypatch.setattr(uim, "family_choices", lambda: [])
+    data = client.get("/api/batch-image/models").get_json()["data"]
+    (row,) = data["unavailable_models"]
+    assert row["reason"].startswith(says)
+    assert "could not be reached" not in row["reason"]
+
+
 def test_dir_bytes_counts_dest_including_incomplete(tmp_path):
     dest = tmp_path / "unet"
     dest.mkdir()

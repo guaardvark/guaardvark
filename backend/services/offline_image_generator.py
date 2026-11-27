@@ -754,6 +754,19 @@ class OfflineImageGenerator:
         except Exception:
             return False
 
+    @staticmethod
+    def _comfyui_router_availability() -> str:
+        """Why the "ComfyUI (auto backend)" row is not ready: ``comfyui_down``
+        when ComfyUI does not answer, ``no_engine`` when it runs without an
+        image engine this row can route to. Reads the /object_info answer
+        _comfyui_assets_present just cached, so no further request is made."""
+        try:
+            from backend.services.comfyui_image_generator import ComfyUIImageGenerator
+            info = ComfyUIImageGenerator()._object_info()
+        except Exception:  # noqa: BLE001
+            info = None
+        return "comfyui_down" if info is None else "no_engine"
+
     def is_comfy_only_model(self, model_key: str) -> bool:
         key = (model_key or "").strip().lower()
         if key in getattr(self, "comfy_only_models", set()) or key.startswith("flux"):
@@ -4301,6 +4314,8 @@ Negative Prompt: {negative_prompt}""",
           ``downloadable``   not on disk but fetchable — Install fetches it; selecting it does not
           ``needs_token``    gated repo and no HF_TOKEN configured
           ``unreachable``    not on disk and the repo could not be reached
+          ``comfyui_down``   the ComfyUI router row: ComfyUI is not answering
+          ``no_engine``      the ComfyUI router row: ComfyUI runs, with no image engine
 
         A row's ``gated`` is true when a probe found the repo gated while a token is
         configured: still downloadable, with the terms checked at download time.
@@ -4351,6 +4366,10 @@ Negative Prompt: {negative_prompt}""",
                 user_entry = (getattr(self, "user_entries", None) or {}).get(model_key) or {}
                 if user_entry.get("engine") == "comfy" and user_entry.get("role") == "generation":
                     availability = "downloadable"
+                elif model_key == "comfyui":
+                    # The router row has nothing of its own to download: it is
+                    # ready when ComfyUI runs an image engine (_comfyui_assets_present).
+                    availability = self._comfyui_router_availability()
                 else:
                     try:
                         from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY

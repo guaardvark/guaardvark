@@ -255,7 +255,24 @@ _AVAILABILITY_REASONS = {
         "Not downloaded and the source could not be reached. Check network access, "
         "or install the weights manually."
     ),
+    # The "ComfyUI (auto backend)" row (offline_image_generator._comfyui_router_availability).
+    "no_engine": (
+        "ComfyUI is running but has no image engine this row can route to. "
+        "Install FLUX.1 Dev from Manage Image Models."
+    ),
 }
+
+
+def _availability_reason(availability: str) -> str:
+    """The sentence for a model kept out of the picker. A stopped ComfyUI gets
+    the sentence every tool gives for it (plugin_bridge.service_down_message)."""
+    if availability == "comfyui_down":
+        try:
+            from backend.services.plugin_bridge import service_down_message
+            return service_down_message("comfyui", context="image")
+        except Exception:  # noqa: BLE001
+            return "ComfyUI is not running. Start the ComfyUI plugin on the Plugins page."
+    return _AVAILABILITY_REASONS.get(availability, "Unavailable on this machine.")
 
 
 def _suggested_model_id(rows: list, fits) -> Optional[str]:
@@ -871,9 +888,7 @@ def list_models():
             if info.get("selectable", True):
                 models.append(row)
             else:
-                row["reason"] = _AVAILABILITY_REASONS.get(
-                    row["availability"], "Unavailable on this machine."
-                )
+                row["reason"] = _availability_reason(row["availability"])
                 unavailable.append(row)
 
         # The suggestion follows this machine's RAM: where the catalog's

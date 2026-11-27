@@ -247,3 +247,15 @@ def test_the_router_row_has_no_ram_figure(monkeypatch):
     gen = _gen(monkeypatch, downloaded=set(), total_ram=15.0)
     assert gen.model_ram_need_gb("comfyui") is None
     assert gen.model_fits_ram("comfyui", 15.0) is True
+
+
+# --- the ComfyUI router row's reason (#449) -----------------------------------
+
+@pytest.mark.parametrize("object_info, availability", [(None, "comfyui_down"), ({}, "no_engine"),
+                                                       ({"UNETLoader": {}}, "no_engine")])
+def test_router_row_says_whether_comfyui_is_down_or_has_no_engine(monkeypatch, object_info, availability):
+    from backend.services import comfyui_image_generator as cig
+    from backend.services.offline_image_generator import OfflineImageGenerator
+    monkeypatch.setattr(cig.ComfyUIImageGenerator, "_object_info",
+                        lambda self, fresh=False: object_info)
+    assert OfflineImageGenerator._comfyui_router_availability() == availability
