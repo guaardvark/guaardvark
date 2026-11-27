@@ -1133,6 +1133,8 @@ def get_download_status():
                 # is the pack, so report the pack. A finished run is reported
                 # once, then forgotten, so reopening the modal stays quiet.
                 vstatus["current_model"] = _DELEGATED_PACK
+                # Tells a reader of both routes it is one run, not two.
+                vstatus["delegated_to"] = "video"
                 if not vstatus.get("is_downloading"):
                     _DELEGATED_PACK = None
                 return success_response(vstatus)
@@ -1142,6 +1144,7 @@ def get_download_status():
                 str(vstatus.get("current_model") or "").startswith("flux")
                 and float(vstatus.get("updated_at") or 0) >= float(status.get("updated_at") or 0)
             ):
+                vstatus["delegated_to"] = "video"
                 return success_response(vstatus)
         return success_response(status)
     except Exception as e:

@@ -480,3 +480,28 @@ def test_user_add_encoder_is_listed_with_its_slot(client, monkeypatch):
         assert [(r["id"], r["slot_label"], r["is_downloaded"]) for r in rows] == [(mid, "T5-XXL", False)]
     finally:
         uim.remove_user_model(api.get_batch_image_generator().image_generator, mid)
+
+
+def test_status_of_a_pack_handed_to_the_video_downloader_says_so(client, monkeypatch):
+    # The frontend reads both routes; the flag lets it count the run once.
+    from backend.api import batch_video_generation_api as video_api
+
+    monkeypatch.setattr(api, "model_download_status", api._idle_image_download_status())
+    monkeypatch.setattr(api, "_DELEGATED_PACK", "qwen-edit")
+    monkeypatch.setattr(video_api, "_video_model_download_status", {
+        "is_downloading": True,
+        "current_model": "qwen-edit-vae",
+        "progress": 20,
+        "status": "downloading",
+        "updated_at": time.time(),
+    })
+    data = client.get("/api/batch-image/models/download-status").get_json()["data"]
+    assert data["current_model"] == "qwen-edit"
+    assert data["delegated_to"] == "video"
+
+    # The image downloader's own run carries no flag.
+    monkeypatch.setattr(api, "_DELEGATED_PACK", None)
+    monkeypatch.setattr(video_api, "_video_model_download_status", {"is_downloading": False, "status": "idle", "updated_at": 0})
+    data = client.get("/api/batch-image/models/download-status").get_json()["data"]
+    assert "delegated_to" not in data
+

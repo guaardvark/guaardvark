@@ -1538,7 +1538,7 @@ def start_video_model_download(model_id):
         plan = _resolve_download_plan(model_id)
         pending = [eid for eid in plan if not _check_model_downloaded(eid)]
         if not pending:
-            return success_response({"message": f"{model_id} is already installed"})
+            return success_response({"message": f"{model_id} is already installed", "already_installed": True})
 
         with _video_model_download_lock:
             now = time.time()
