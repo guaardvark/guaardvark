@@ -164,6 +164,23 @@ _TOOL_SIGNATURE_RE = re.compile(r"^[\[\-\s]*([A-Za-z_]\w*)\(\s*[A-Za-z_]\w*\s*:\
 _TOOL_MARKERS = ("[tool_call]", "[tool]", "<tool_call>", "<tool>")
 
 
+def _chat_model_resident(model_name: Optional[str]) -> Optional[bool]:
+    """Whether Ollama has ``model_name`` loaded (its /api/ps), None when unknown.
+
+    Asked once before a turn's first LLM call so a cold load reads as
+    "Loading <model> into memory..." instead of a long "Calling LLM...". The
+    short timeout and the None on any failure keep the check from ever
+    holding up the chat."""
+    if not model_name:
+        return None
+    try:
+        from backend.services.chat_keep_ready import _loaded_entry
+        return _loaded_entry(model_name, timeout=1.0) is not None
+    except Exception as e:  # noqa: BLE001
+        logger.debug("Chat model residency check skipped: %s", e)
+        return None
+
+
 def _split_pending_tool_marker(buf: str):
     """Split ``buf`` into text safe to emit and a tail that may open tool markup.
 
@@ -3562,9 +3579,17 @@ class UnifiedChatEngine:
 
             # 6a. Emit thinking
             _render_time = getattr(self, "_render_time", None)
+            if _render_time:
+                _status = _render_time.status
+            else:
+                _status = "Calling LLM..."
+                if iteration == 1:
+                    _chat_model = getattr(self.llm, "model", None)
+                    if _chat_model_resident(_chat_model) is False:
+                        _status = f"Loading {_chat_model} into memory..."
             emit_fn("chat:thinking", {
                 "iteration": iteration,
-                "status": _render_time.status if _render_time else "Calling LLM...",
+                "status": _status,
             })
 
             # 6b. Call LLM with streaming
