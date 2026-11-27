@@ -89,6 +89,31 @@ write_redis_env_urls() {
   chmod 600 "$ENV_FILE"
 }
 
+# The password the system Redis boots with: `requirepass` in $REDIS_CONF. The
+# file is root/redis-only (0640), so it is read with sudo -n when needed; empty
+# when there is none or it cannot be read without a prompt.
+redis_conf_password() {
+  local line
+  if [ -r "$REDIS_CONF" ]; then
+    line=$(grep -E '^[[:space:]]*requirepass[[:space:]]' "$REDIS_CONF" 2>/dev/null | tail -1)
+  else
+    line=$(sudo -n grep -E '^[[:space:]]*requirepass[[:space:]]' "$REDIS_CONF" 2>/dev/null | tail -1)
+  fi
+  echo "$line" | awk '{ print $2 }' | tr -d "\"'"
+}
+
+# True when Redis on the port refuses unauthenticated commands and accepts this
+# password. A passwordless server also answers PONG to `redis-cli -a`, so the
+# NOAUTH check is what tells the two apart.
+redis_accepts_password() {  # $1 = password, $2 = port
+  [ -n "$1" ] && redis_auth_required "${2:-$PORT}" && redis_ping "$1" "${2:-$PORT}"
+}
+
+system_redis_unit_present() {
+  [ -d /run/systemd/system ] && command_exists systemctl \
+    && systemctl cat redis-server.service >/dev/null 2>&1
+}
+
 write_redis_pid() {
   local port="$1"
   local rpid=""
@@ -260,7 +285,26 @@ fi
 
 REDIS_PASS=$(get_redis_password)
 ENV_REDIS_PORT=$(get_redis_url_port)
+CONF_PASS=$(redis_conf_password)
+REDIS_CONF_WRITTEN=0
 clear_redis_pid_if_dead
+
+# .env must carry the password the system Redis boots with. When it does not,
+# the two can still agree today (a Redis started before the password was
+# written, or a passwordless sidecar on 6380) and then part ways at the next
+# boot, when Celery is locked out of :6379.
+if command_exists redis-cli && [ -n "$CONF_PASS" ] && [ "$CONF_PASS" != "$REDIS_PASS" ]; then
+  if ! redis_auth_required "$PORT" && redis_ping "" "$PORT" && system_redis_unit_present; then
+    vader_info "Redis on :$PORT is running without the password in $REDIS_CONF; restarting it with its config."
+    sudo -n systemctl restart redis-server >/dev/null 2>&1 && sleep 1
+  fi
+  if redis_accepts_password "$CONF_PASS" "$PORT"; then
+    write_redis_env_urls "redis://:${CONF_PASS}@localhost:${PORT}/0"
+    REDIS_PASS="$CONF_PASS"
+    ENV_REDIS_PORT="$PORT"
+    vader_success "Redis credentials in .env now match $REDIS_CONF."
+  fi
+fi
 
 if command_exists redis-cli; then
   # Stale .env port (e.g. 6380 down) but default PORT alive → rewrite .env now.
@@ -296,6 +340,7 @@ if command_exists redis-cli; then
   if redis_port_listening "$PORT"; then
     if redis_auth_required "$PORT" && [ -z "$REDIS_PASS" ]; then
       vader_warn "Redis on port $PORT requires authentication but .env has no password."
+      vader_info "If that is the Redis this script configured, run 'sudo -v' and start again so its password can be read from $REDIS_CONF."
       start_redis_alt_port && exit 0
       exit 1
     fi
@@ -341,6 +386,14 @@ sudo_can_write_dir() {
 
 # ─── Step 3: Provision Redis authentication if not already configured ────────
 
+# A password already in the config is the one the system Redis will run with.
+if [ -z "$CONF_PASS" ]; then
+  CONF_PASS=$(redis_conf_password)
+fi
+if [ -n "$CONF_PASS" ]; then
+  REDIS_PASS="$CONF_PASS"
+fi
+
 if [ -z "$REDIS_PASS" ]; then
   vader_info "Provisioning Redis authentication..."
   REDIS_PASS=$(openssl rand -hex 20)
@@ -361,6 +414,7 @@ REDISEOF
     sudo chown redis:redis /var/lib/redis 2>/dev/null
     sudo chmod 640 "$REDIS_CONF"
     sudo chown redis:redis "$REDIS_CONF" 2>/dev/null
+    REDIS_CONF_WRITTEN=1
     vader_success "Redis config written to $REDIS_CONF"
   else
     vader_warn "Cannot write $REDIS_CONF (no sudo). Redis will run without auth."
@@ -372,24 +426,14 @@ REDISEOF
     REDIS_PASS=""
   fi
 
-  # Update .env with Redis credentials
-  if [ -n "$REDIS_PASS" ] && [ -f "$ENV_FILE" ]; then
-    REDIS_URL="redis://:${REDIS_PASS}@localhost:${PORT}/0"
-
-    # Append or update each key
-    for key in REDIS_URL CELERY_BROKER_URL CELERY_RESULT_BACKEND; do
-      if grep -q "^${key}=" "$ENV_FILE"; then
-        sed -i "s|^${key}=.*|${key}=${REDIS_URL}|" "$ENV_FILE"
-      else
-        echo "${key}=${REDIS_URL}" >> "$ENV_FILE"
-      fi
-    done
-
-    chmod 600 "$ENV_FILE"
+  # Update .env with Redis credentials (creating .env if needed: a password
+  # only in redis.conf locks Celery out at the next boot).
+  if [ -n "$REDIS_PASS" ]; then
+    write_redis_env_urls "redis://:${REDIS_PASS}@localhost:${PORT}/0"
     vader_success "Redis credentials written to .env"
   fi
-elif [ ! -f "$REDIS_CONF" ] || ! grep -q "^requirepass" "$REDIS_CONF" 2>/dev/null; then
-  # Password exists in .env but Redis config is missing — recreate it
+elif [ -z "$CONF_PASS" ]; then
+  # Password exists in .env but Redis config has none (or is missing) — recreate it
   vader_info "Restoring Redis config from .env credentials..."
   if sudo_can_write_dir "$(dirname "$REDIS_CONF")" || [ -w "$(dirname "$REDIS_CONF")" ]; then
     sudo mkdir -p "$(dirname "$REDIS_CONF")"
@@ -406,11 +450,21 @@ REDISEOF
     sudo chown redis:redis /var/lib/redis 2>/dev/null
     sudo chmod 640 "$REDIS_CONF"
     sudo chown redis:redis "$REDIS_CONF" 2>/dev/null
+    REDIS_CONF_WRITTEN=1
     vader_success "Redis config restored to $REDIS_CONF"
   fi
 fi
 
 # ─── Step 4: Start Redis service ─────────────────────────────────────────────
+
+# A Redis already running (the package starts one on install) keeps the config
+# it started with; after a config write it must restart, or it stays
+# passwordless until the next boot while .env is rewritten to match it.
+if [ "$REDIS_CONF_WRITTEN" = 1 ] && system_redis_unit_present \
+   && systemctl is-active --quiet redis-server 2>/dev/null; then
+  vader_info "Restarting redis service to load the new config..."
+  sudo -n systemctl restart redis-server >/dev/null 2>&1 && sleep 1
+fi
 
 if command_exists systemctl; then
   vader_info "Attempting to start redis service via systemctl..."
