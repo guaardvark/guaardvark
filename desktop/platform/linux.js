@@ -36,6 +36,7 @@ function stateDir() {
 const PROGRESS_PREFIX = 'start-progress-';
 const outputLog = () => path.join(stateDir(), 'start-output.log');
 const markerFile = () => path.join(stateDir(), 'started.json');
+const stopMarkerFile = () => path.join(stateDir(), 'stopping.json');
 
 function readDotEnv(root) {
   const values = {};
@@ -200,12 +201,36 @@ function newProgressFile() {
   return path.join(dir, `${PROGRESS_PREFIX}${Date.now()}.jsonl`);
 }
 
-function isStartScript(pid, root) {
+function isScript(pid, root, name) {
   try {
-    return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').includes(path.join(root, 'start.sh'));
+    return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').includes(path.join(root, name));
   } catch {
     return false;
   }
+}
+
+const isStartScript = (pid, root) => isScript(pid, root, 'start.sh');
+
+// A stop.sh an earlier run of the app began and did not see finish (the app
+// was closed or killed while it ran). Starting, or trusting the health check,
+// before it is done would meet a half-stopped Guaardvark.
+function pendingWork() {
+  let marker;
+  try {
+    marker = JSON.parse(fs.readFileSync(stopMarkerFile(), 'utf8'));
+  } catch {
+    return null;
+  }
+  const root = installRoot();
+  if (marker && marker.installRoot === root && Number.isInteger(marker.pid) && isScript(marker.pid, root, 'stop.sh')) {
+    return 'stopping';
+  }
+  fs.rmSync(stopMarkerFile(), { force: true });
+  return null;
+}
+
+async function waitForPendingWork() {
+  while (pendingWork()) await new Promise((resolve) => setTimeout(resolve, 300));
 }
 
 // The start.sh still running for this install, if any: the one this run
@@ -358,10 +383,12 @@ function stop({ force = false } = {}) {
     const out = fs.openSync(path.join(stateDir(), 'stop-output.log'), 'w');
     const child = spawn('bash', [path.join(root, 'stop.sh')], { cwd: root, stdio: ['ignore', out, out] });
     fs.closeSync(out);
+    if (child.pid) fs.writeFileSync(stopMarkerFile(), JSON.stringify({ installRoot: root, pid: child.pid }));
     const done = () => {
       clearTimeout(timer);
       startedByApp = false;
       clearMarker();
+      fs.rmSync(stopMarkerFile(), { force: true });
       resolve(true);
     };
     const timer = setTimeout(() => { child.kill('SIGKILL'); }, STOP_TIMEOUT_MS);
@@ -376,5 +403,5 @@ function logPath() {
 
 module.exports = {
   describe, isInstalled, install, isRunning, start, stop, logPath,
-  wasStartedByApp, getApiKey,
+  wasStartedByApp, getApiKey, pendingWork, waitForPendingWork,
 };

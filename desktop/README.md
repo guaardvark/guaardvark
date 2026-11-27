@@ -50,6 +50,9 @@ installer again from the new place.
   **Keep it running**, closes only the window. An instance the app started and left running
   (for example after the app was killed) is recognised by the backend's boot id on the next
   launch and is stopped on close like any other it started.
+- **Opened again while stopping.** The stopping screen says Guaardvark will start again, and
+  when `stop.sh` is done the same window starts it. If the app was killed while `stop.sh` ran,
+  the next launch waits for that `stop.sh` to exit before it checks or starts anything.
 - **Keep running after closing (Windows).** The app menu has *Keep Guaardvark running after
   closing* when the platform module has `getKeepAlive()`. It explains that the setting covers
   every Linux system on the PC and asks before changing anything or restarting the Linux layer.
@@ -61,7 +64,8 @@ installer again from the new place.
   window in instead: it reads `GUAARDVARK_API_KEY` from the install's `.env` (`getApiKey()` in
   the platform module) and sends it to `POST /api/auth/session` on the loopback backend, the
   route Settings → Access uses, which answers with the session cookie. The key is not logged,
-  shown or saved by the app. If that fails, the studio asks for the key as it does in a browser.
+  shown or saved by the app. It is tried once per run; if the backend refuses it, the studio asks
+  for the key as it does in a browser.
 
 ## Network
 
