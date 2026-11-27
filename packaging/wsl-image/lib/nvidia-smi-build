@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Build-time stand-in for nvidia-smi. Installed at /usr/local/bin/nvidia-smi only
+# while the image is being built, and removed before export.
+#
+# The Windows app supports NVIDIA cards only, so the image must carry the PyTorch
+# build install.sh gives an NVIDIA PC. install.sh picks that build from what
+# nvidia-smi reports, and the build container has no GPU; this answers the queries
+# the installers make as an RTX 5060 Ti (Blackwell, compute 12.0) on a current
+# Windows driver would through WSL. hardware_policy.torch_channel maps any Turing or
+# newer card on driver 580+ to the same channel (cu132), so the choice of card here
+# only pins the channel, not anything card-specific.
+# Power and persistence settings are not available under WSL; they report [N/A].
+# Values are overridable for a different target: GV_SMI_NAME, GV_SMI_MEM_MB,
+# GV_SMI_DRIVER, GV_SMI_CC, GV_SMI_CUDA.
+
+NAME="${GV_SMI_NAME:-NVIDIA GeForce RTX 5060 Ti}"
+MEM="${GV_SMI_MEM_MB:-16311}"
+DRIVER="${GV_SMI_DRIVER:-581.57}"
+CC="${GV_SMI_CC:-12.0}"
+CUDA="${GV_SMI_CUDA:-13.0}"
+
+query="" units=1
+for a in "$@"; do
+    case "$a" in
+        --query-gpu=*) query="${a#--query-gpu=}" ;;
+        --format=*) case "$a" in *nounits*) units=0 ;; esac ;;
+        -pl|-pm|--power-limit*|--persistence-mode*) echo "Changing power settings is not supported in WSL." >&2; exit 3 ;;
+    esac
+done
+
+if [ -z "$query" ]; then
+    # Plain `nvidia-smi`: the header line installers grep for.
+    printf '+-----------------------------------------------------------------------------------------+\n'
+    printf '| NVIDIA-SMI %-14s Driver Version: %-10s CUDA Version: %-5s       |\n' "$DRIVER" "$DRIVER" "$CUDA"
+    printf '|   0  %-40s                                       |\n' "$NAME"
+    exit 0
+fi
+
+out=()
+IFS=',' read -ra fields <<< "$query"
+for f in "${fields[@]}"; do
+    case "$f" in
+        name) out+=("$NAME") ;;
+        memory.total) [ "$units" = 1 ] && out+=("$MEM MiB") || out+=("$MEM") ;;
+        memory.used) [ "$units" = 1 ] && out+=("0 MiB") || out+=("0") ;;
+        memory.free) [ "$units" = 1 ] && out+=("$MEM MiB") || out+=("$MEM") ;;
+        driver_version) out+=("$DRIVER") ;;
+        compute_cap) out+=("$CC") ;;
+        utilization.gpu) [ "$units" = 1 ] && out+=("0 %") || out+=("0") ;;
+        temperature.gpu) out+=("40") ;;
+        index) out+=("0") ;;
+        *) out+=("[N/A]") ;;
+    esac
+done
+(IFS=','; echo "${out[*]}" | sed 's/,/, /g')
