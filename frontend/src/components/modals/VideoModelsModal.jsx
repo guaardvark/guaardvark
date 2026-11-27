@@ -26,6 +26,17 @@ import { GENERATION_TYPES } from "../../constants/videoGeneratorPresets";
 import { ActionButton, ConfirmActionDialog, SettingChip } from "../settings/ui";
 import AddVideoModelDialog from "./AddVideoModelDialog";
 import { translate, useUiTranslation } from "../../i18n";
+import { useDownloadStatus, useModelDownloadsStore, useModelsChanged } from "../../stores/useModelDownloadsStore";
+
+const IDLE_DOWNLOAD = {
+  is_downloading: false,
+  current_model: null,
+  progress: 0,
+  status: "idle",
+  speed_mbps: 0,
+  downloaded_gb: 0,
+  total_gb: 0,
+};
 
 const typeLabels = () => ({
   wan: translate("models.videoModels.types.video"),
@@ -57,15 +68,10 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
   // When the parent opens us pointed at a specific model (because the user tried
   // to generate with an uninstalled one), scroll it into view and pulse it.
   const highlightRef = useRef(null);
-  const [downloadStatus, setDownloadStatus] = useState({
-    is_downloading: false,
-    current_model: null,
-    progress: 0,
-    status: "idle",
-    speed_mbps: 0,
-    downloaded_gb: 0,
-    total_gb: 0,
-  });
+  // Followed by the shared store, so the dialog can close mid-download.
+  const downloadStatus = useDownloadStatus("video", IDLE_DOWNLOAD);
+  const refreshDownload = useModelDownloadsStore((s) => s.refresh);
+  const markStarted = useModelDownloadsStore((s) => s.markStarted);
   const [error, setError] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState(null);
@@ -96,47 +102,22 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
     }
   }, []);
 
-  const fetchDownloadStatus = useCallback(async () => {
-    try {
-      const res = await axios.get("/api/batch-video/models/download-status");
-      if (res.data.success) {
-        const status = res.data.data;
-        setDownloadStatus(status);
-        if (!status.is_downloading && status.status === "completed") {
-          showMessageRef.current?.(translate("models.shared.downloadCompleted"), "success");
-          fetchModels();
-          setDownloadStatus((prev) => ({ ...prev, status: "idle", current_model: null }));
-        } else if (!status.is_downloading && status.status === "failed") {
-          // A stall, a backend restart, or a real error all land here now (issue
-          // #36) — surface the reason and refresh so the model's true install
-          // state shows and the Install button is live again for a retry.
-          showMessageRef.current?.(translate("models.shared.downloadFailed", { error: status.error || translate("models.shared.unknownError") }), "error");
-          fetchModels();
-          setDownloadStatus((prev) => ({ ...prev, status: "idle", current_model: null }));
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch download status", err);
-    }
-  }, [fetchModels]);
-
   useEffect(() => {
     if (open) {
       fetchModels();
-      fetchDownloadStatus();
+      refreshDownload("video");
     } else {
       setModels([]);
       setError(null);
     }
-  }, [open, fetchModels, fetchDownloadStatus]);
+  }, [open, fetchModels, refreshDownload]);
 
-  useEffect(() => {
-    let interval;
-    if (open && downloadStatus.is_downloading) {
-      interval = setInterval(fetchDownloadStatus, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [open, downloadStatus.is_downloading, fetchDownloadStatus]);
+  // A download ended, a stall or backend restart included (issue #36); the
+  // store toasts the reason. Refresh so the true install state shows and
+  // Install is live again for a retry.
+  useModelsChanged("video", () => {
+    if (open) fetchModels();
+  });
 
   // Once the model list is rendered, bring the highlighted row into view.
   useEffect(() => {
@@ -169,18 +150,22 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
   const handleDownload = async (modelId) => {
     try {
       const res = await axios.post("/api/batch-video/models/download", { model_id: modelId });
-      if (res.data.success) {
+      if (res.data.success && res.data.data?.already_installed) {
+        fetchModels();
+      } else if (res.data.success) {
         const model = models.find((m) => m.id === modelId);
         showMessageRef.current?.(t("models.shared.startedDownloadingDots", { name: model?.name || modelId }), "info");
-        setDownloadStatus({
-          is_downloading: true,
-          current_model: modelId,
-          progress: 0,
-          status: "starting",
-          speed_mbps: 0,
-          downloaded_gb: 0,
-          total_gb: model?.size_gb || 0,
-        });
+        markStarted(
+          "video",
+          {
+            ...IDLE_DOWNLOAD,
+            is_downloading: true,
+            current_model: modelId,
+            status: "starting",
+            total_gb: model?.size_gb || 0,
+          },
+          model?.name || modelId,
+        );
       } else {
         showMessageRef.current?.(res.data.error || t("models.shared.failedToStartDownload"), "error");
       }
@@ -384,9 +369,14 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
   };
 
   return (
-    <Dialog open={open} onClose={() => !isDownloading && onClose()} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t("models.videoModels.title")}</DialogTitle>
       <DialogContent dividers>
+        {isDownloading && (
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary", mb: 1 }}>
+            {t("models.shared.continuesInBackground")}
+          </Typography>
+        )}
         {error && (
           <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
@@ -444,9 +434,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
         <ActionButton onClick={() => setAddOpen(true)} disabled={isDownloading}>
           {t("models.shared.addNewModel")}
         </ActionButton>
-        <Button onClick={onClose} disabled={isDownloading}>
-          {isDownloading ? t("models.shared.downloadingDots") : t("dialogs.shared.close")}
-        </Button>
+        <Button onClick={onClose}>{t("dialogs.shared.close")}</Button>
       </DialogActions>
       <AddVideoModelDialog
         open={addOpen}
@@ -455,7 +443,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
         showMessage={showMessageRef.current}
         onAdded={() => {
           fetchModels();
-          fetchDownloadStatus();
+          refreshDownload("video");
         }}
       />
       <ConfirmActionDialog

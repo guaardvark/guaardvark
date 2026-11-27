@@ -58,6 +58,7 @@ import ResetSettingsButton from "../components/layout/ResetSettingsButton";
 import { useOpeningSettings, useSaveSettings } from "../hooks/useSavedSettings";
 import { clearSavedSettings } from "../utils/savedSettings";
 import { CardWorkspace } from "../components/board";
+import { useModelsChanged } from "../stores/useModelDownloadsStore";
 
 const AudioFoundryModelsModal = lazyWithReload(() => import("../components/modals/AudioFoundryModelsModal"));
 
@@ -405,6 +406,8 @@ const AudioFoundryPage = () => {
       .finally(() => setCatalogChecked(true));
   }, []);
   useEffect(() => { refreshCatalog(); }, [refreshCatalog]);
+  // A model download can finish after the models dialog closed.
+  useModelsChanged("audio", refreshCatalog);
   // Plugin list pushes keep the tile, banner and Generate current however
   // Audio Foundry is started or stopped; the read above is the first value.
   useEffect(() => {

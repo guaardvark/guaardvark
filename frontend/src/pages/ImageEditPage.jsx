@@ -63,6 +63,7 @@ import { useOpeningSettings, useSaveSettings } from "../hooks/useSavedSettings";
 import { clearSavedSettings } from "../utils/savedSettings";
 import { CardWorkspace } from "../components/board";
 import PageStatus, { StatusChip } from "../components/layout/PageStatus";
+import { useModelsChanged } from "../stores/useModelDownloadsStore";
 
 const ImageModelsModal = lazyWithReload(() => import("../components/modals/ImageModelsModal"));
 
@@ -427,6 +428,8 @@ const ImageEditPage = () => {
       setCapsError(err.message);
     }
   }, []);
+  // A model download can finish after its install dialog closed.
+  useModelsChanged("image", loadCaps);
 
   useEffect(() => {
     loadCaps();

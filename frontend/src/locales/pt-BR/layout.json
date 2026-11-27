@@ -19,6 +19,7 @@
       "video_gen": "Geração de Vídeo",
       "video_render": "Geração de Vídeo",
       "upscale": "Upscale",
+      "model_download": "Download de modelo",
       "csv_processing": "Geração de CSV",
       "file_generation": "Geração de Arquivo",
       "analysis": "Análise",
@@ -62,6 +63,9 @@
     "showJobs": "Mostrar cada tarefa em progresso",
     "entryNamed": "{{label}} · {{name}}",
     "entryWaiting": "{{entry}} — aguardando",
+    "downloadProgress": "{{name}} · {{done}} de {{total}}",
+    "downloadStarting": "{{name}} · iniciando",
+    "downloadInstalling": "{{name}} · configurando",
     "renderError": "Erro na barra de progresso - verifique o console"
   },
   "systemMetrics": {

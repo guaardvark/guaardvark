@@ -19,6 +19,7 @@
       "video_gen": "Videogenerierung",
       "video_render": "Videogenerierung",
       "upscale": "Hochskalierung",
+      "model_download": "Modell-Download",
       "csv_processing": "CSV-Gen",
       "file_generation": "Datei-Gen",
       "analysis": "Analyse",
@@ -62,6 +63,9 @@
     "showJobs": "Alle laufenden Aufträge anzeigen",
     "entryNamed": "{{label}} · {{name}}",
     "entryWaiting": "{{entry}} — wartet",
+    "downloadProgress": "{{name}} · {{done}} von {{total}}",
+    "downloadStarting": "{{name}} · startet",
+    "downloadInstalling": "{{name}} · wird eingerichtet",
     "renderError": "Fortschrittsbalken-Fehler - Konsole prüfen"
   },
   "systemMetrics": {

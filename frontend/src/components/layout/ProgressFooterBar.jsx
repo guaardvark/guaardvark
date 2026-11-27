@@ -7,11 +7,13 @@ import { Box, LinearProgress, Popover, Typography, Divider, useTheme } from '@mu
 import { useUnifiedProgress } from '../../contexts/UnifiedProgressContext';
 import TaskQueueIndicator from './TaskQueueIndicator';
 import { useAppStore } from '../../stores/useAppStore';
+import { downloadModelOf, useModelDownloadsStore } from '../../stores/useModelDownloadsStore';
 import { navChromeWidth } from '../../config/navCatalog';
 import { listActiveJobs } from '../../api/jobsService';
 import {
     activeVideoJobs,
     buildFooterEntries,
+    downloadEntries,
     footerView,
     processType,
     statusLine,
@@ -71,9 +73,17 @@ const ProgressFooterBar = () => {
     const videoJobs = useMemo(() => activeVideoJobs(unifiedJobs, seed), [unifiedJobs, seed]);
     useEffect(() => setVideoSeedWanted(videoJobs.length > 0), [videoJobs.length]);
 
+    // Model downloads keep running after their dialog closes; they show here.
+    const downloadStatuses = useModelDownloadsStore((s) => s.statuses);
+    const downloadNames = useModelDownloadsStore((s) => s.names);
+    const videoMirrored = useModelDownloadsStore((s) => s.videoMirrored);
     const entries = useMemo(
-        () => buildFooterEntries(activeProcesses.values(), videoJobs),
-        [activeProcesses, videoJobs, language],
+        () => buildFooterEntries(
+            activeProcesses.values(),
+            videoJobs,
+            downloadEntries(downloadStatuses, downloadNames, videoMirrored, downloadModelOf),
+        ),
+        [activeProcesses, videoJobs, downloadStatuses, downloadNames, videoMirrored, language],
     );
     const view = footerView(entries);
 

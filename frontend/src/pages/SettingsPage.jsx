@@ -92,6 +92,7 @@ import IndexProfileEditDialog from "../components/settings/IndexProfileEditDialo
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTheme, useMediaQuery } from "@mui/material";
 import { useSnackbar } from "../components/common/SnackbarProvider";
+import { useModelsChanged } from "../stores/useModelDownloadsStore";
 import { formatUiError } from "../utils/uiError";
 import * as interconnectorApi from "../api/interconnectorService";
 import { useVoice } from "../contexts/VoiceContext";
@@ -543,6 +544,9 @@ const SettingsPage = () => {
       setIsVoiceLoading(false);
     }
   };
+  // Clears the voice settings' install prompt when a download ends, even
+  // after the Voice models dialog was closed mid-download.
+  useModelsChanged("voice", loadVoiceConfiguration);
 
   const testVoice = async (voiceId) => {
     setIsVoiceTestPlaying(true);

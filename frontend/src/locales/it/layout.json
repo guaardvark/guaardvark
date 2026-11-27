@@ -19,6 +19,7 @@
       "video_gen": "Gen Video",
       "video_render": "Gen Video",
       "upscale": "Upscale",
+      "model_download": "Download modello",
       "csv_processing": "Gen CSV",
       "file_generation": "Gen File",
       "analysis": "Analisi",
@@ -62,6 +63,9 @@
     "showJobs": "Mostra ogni lavoro in corso",
     "entryNamed": "{{label}} · {{name}}",
     "entryWaiting": "{{entry}} — in attesa",
+    "downloadProgress": "{{name}} · {{done}} di {{total}}",
+    "downloadStarting": "{{name}} · avvio",
+    "downloadInstalling": "{{name}} · configurazione",
     "renderError": "Errore barra di avanzamento - controlla la console"
   },
   "systemMetrics": {

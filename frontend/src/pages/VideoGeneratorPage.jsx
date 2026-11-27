@@ -97,6 +97,7 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import lazyWithReload from "../utils/lazyWithReload";
 import PageStatus, { PagePrimaryAction, StatusChip } from "../components/layout/PageStatus";
 import { useSnackbar } from "../components/common/SnackbarProvider";
+import { useModelsChanged } from "../stores/useModelDownloadsStore";
 import { useUiTranslation, uiLocale, Trans } from "../i18n";
 import ResetSettingsButton from "../components/layout/ResetSettingsButton";
 import { clearSavedSettings, readSavedSettings, savedValue, writeSavedSettings } from "../utils/savedSettings";
@@ -569,6 +570,11 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       setModelsChecked(true);
     }
   }, []);
+  // A model download can finish after its dialog closed.
+  useModelsChanged("video", () => {
+    refreshModels();
+    refreshFaceRestoreStatus();
+  });
 
   useEffect(() => {
     refreshModels();

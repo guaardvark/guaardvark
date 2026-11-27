@@ -19,6 +19,7 @@
       "video_gen": "Генерация видео",
       "video_render": "Генерация видео",
       "upscale": "Апскейл",
+      "model_download": "Загрузка модели",
       "csv_processing": "Генерация CSV",
       "file_generation": "Генерация файлов",
       "analysis": "Анализ",
@@ -62,6 +63,9 @@
     "showJobs": "Показывать каждую задачу в процессе",
     "entryNamed": "{{label}} · {{name}}",
     "entryWaiting": "{{entry}} — ожидание",
+    "downloadProgress": "{{name}} · {{done}} из {{total}}",
+    "downloadStarting": "{{name}} · запуск",
+    "downloadInstalling": "{{name}} · настройка",
     "renderError": "Ошибка индикатора прогресса — проверьте консоль"
   },
   "systemMetrics": {

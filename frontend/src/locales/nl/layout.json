@@ -19,6 +19,7 @@
       "video_gen": "Video Gen",
       "video_render": "Video Gen",
       "upscale": "Upscale",
+      "model_download": "Modeldownload",
       "csv_processing": "CSV Gen",
       "file_generation": "Bestandsgen",
       "analysis": "Analyse",
@@ -62,6 +63,9 @@
     "showJobs": "Toon elke taak in uitvoering",
     "entryNamed": "{{label}} · {{name}}",
     "entryWaiting": "{{entry}} — wachten",
+    "downloadProgress": "{{name}} · {{done}} van {{total}}",
+    "downloadStarting": "{{name}} · starten",
+    "downloadInstalling": "{{name}} · instellen",
     "renderError": "Voortgangsbalkfout - controleer console"
   },
   "systemMetrics": {

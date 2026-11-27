@@ -19,6 +19,7 @@
       "video_gen": "비디오 생성",
       "video_render": "비디오 생성",
       "upscale": "업스케일",
+      "model_download": "모델 다운로드",
       "csv_processing": "CSV 생성",
       "file_generation": "파일 생성",
       "analysis": "분석",
@@ -62,6 +63,9 @@
     "showJobs": "진행 중인 모든 작업 표시",
     "entryNamed": "{{label}} · {{name}}",
     "entryWaiting": "{{entry}} — 대기 중",
+    "downloadProgress": "{{name}} · {{done}} / {{total}}",
+    "downloadStarting": "{{name}} · 시작 중",
+    "downloadInstalling": "{{name}} · 설정 중",
     "renderError": "진행 표시줄 오류 - 콘솔 확인"
   },
   "systemMetrics": {

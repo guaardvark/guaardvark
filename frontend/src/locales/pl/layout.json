@@ -19,6 +19,7 @@
       "video_gen": "Generowanie wideo",
       "video_render": "Generowanie wideo",
       "upscale": "Upscale",
+      "model_download": "Pobieranie modelu",
       "csv_processing": "Generowanie CSV",
       "file_generation": "Generowanie plików",
       "analysis": "Analiza",
@@ -62,6 +63,9 @@
     "showJobs": "Pokaż każde zadanie w toku",
     "entryNamed": "{{label}} · {{name}}",
     "entryWaiting": "{{entry}} — oczekiwanie",
+    "downloadProgress": "{{name}} · {{done}} z {{total}}",
+    "downloadStarting": "{{name}} · uruchamianie",
+    "downloadInstalling": "{{name}} · konfigurowanie",
     "renderError": "Błąd paska postępu — sprawdź konsolę"
   },
   "systemMetrics": {

@@ -18,6 +18,7 @@ vi.mock("../../../stores/useAppStore", () => ({
 }));
 
 const { default: ProgressFooterBar } = await import("../ProgressFooterBar");
+const { useModelDownloadsStore, resetModelDownloads } = await import("../../../stores/useModelDownloadsStore");
 
 const renderBar = () =>
   render(
@@ -60,6 +61,7 @@ describe("ProgressFooterBar", () => {
     listActiveJobs.mockResolvedValue({ jobs: [] });
     progress.activeProcesses = new Map();
     progress.unifiedJobs = new Map();
+    resetModelDownloads();
   });
 
   it("stays hidden with nothing in flight and seeds video batches on connect", async () => {
@@ -133,5 +135,21 @@ describe("ProgressFooterBar", () => {
     renderBar();
     await act(async () => {});
     expect(screen.getByText("Video Gen: Queued behind Image Gen — needs ~9.0 GB, 3.0 GB free")).toBeInTheDocument();
+  });
+
+  it("shows a model download whose dialog was closed", async () => {
+    useModelDownloadsStore.setState({
+      statuses: {
+        image: { is_downloading: true, current_model: "Tongyi-MAI/Z-Image-Turbo", status: "downloading", progress: 25, downloaded_gb: 7.65, total_gb: 30.6 },
+        video: null,
+        voice: null,
+        audio: null,
+      },
+      names: { image: "Z-Image Turbo", video: null, voice: null, audio: null },
+    });
+    renderBar();
+    await act(async () => {});
+    expect(screen.getByText("Model download: Z-Image Turbo · 7.7 GB of 30.6 GB")).toBeInTheDocument();
+    expect(screen.getByText("25%")).toBeInTheDocument();
   });
 });

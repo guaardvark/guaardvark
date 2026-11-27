@@ -24,6 +24,30 @@ import axios from "axios";
 import { ActionButton, ConfirmActionDialog, SettingChip } from "../settings/ui";
 import AddImageModelDialog from "./AddImageModelDialog";
 import { translate, useUiTranslation, Trans } from "../../i18n";
+import {
+  useDownloadStatus,
+  useInstallAllPending,
+  useModelDownloadsStore,
+  useModelsChanged,
+} from "../../stores/useModelDownloadsStore";
+
+const IDLE_DOWNLOAD = {
+  is_downloading: false,
+  current_model: null,
+  progress: 0,
+  status: "idle",
+  speed_mbps: 0,
+  downloaded_gb: 0,
+  total_gb: 0,
+};
+
+const startingStatus = (currentModel, sizeGb) => ({
+  ...IDLE_DOWNLOAD,
+  is_downloading: true,
+  current_model: currentModel,
+  status: "starting",
+  total_gb: sizeGb || 0,
+});
 
 const modelMatchesDownload = (model, currentModel) =>
   !!currentModel && (currentModel === model.path || currentModel === model.id);
@@ -40,15 +64,13 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
   const [addOpen, setAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [downloadStatus, setDownloadStatus] = useState({
-    is_downloading: false,
-    current_model: null,
-    progress: 0,
-    status: "idle",
-    speed_mbps: 0,
-    downloaded_gb: 0,
-    total_gb: 0,
-  });
+  // The download runs on the server and the shared store follows it, so this
+  // dialog can close mid-download and pick the progress back up on reopen.
+  const downloadStatus = useDownloadStatus("image", IDLE_DOWNLOAD);
+  const refreshDownload = useModelDownloadsStore((s) => s.refresh);
+  const markStarted = useModelDownloadsStore((s) => s.markStarted);
+  const installAll = useModelDownloadsStore((s) => s.installAll);
+  const installAllPending = useInstallAllPending("image");
   const [error, setError] = useState(null);
   const [unavailable, setUnavailable] = useState([]);
   const [checked, setChecked] = useState(false);
@@ -56,11 +78,6 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
   const [statusRead, setStatusRead] = useState(false);
   const installStartedRef = useRef(false);
   const installRowRef = useRef(null);
-
-  const showMessageRef = useRef(showMessage);
-  useEffect(() => {
-    showMessageRef.current = showMessage;
-  }, [showMessage]);
 
   // check: ask Hugging Face whether each model not on disk can be fetched. Only
   // on the person's click; listing the models never contacts anyone.
@@ -85,65 +102,33 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
     }
   }, []);
 
-  const fetchDownloadStatus = useCallback(async () => {
-    try {
-      const res = await axios.get("/api/batch-image/models/download-status");
-      if (res.data.success) {
-        const status = res.data.data;
-        setDownloadStatus(status);
-        if (!status.is_downloading && status.status === "completed") {
-          showMessageRef.current?.(translate("models.shared.downloadCompleted"), "success");
-          fetchModels();
-          setDownloadStatus((prev) => ({ ...prev, status: "idle", current_model: null }));
-        } else if (!status.is_downloading && status.status === "failed") {
-          showMessageRef.current?.(translate("models.shared.downloadFailed", { error: status.error }), "error");
-          fetchModels();
-          setDownloadStatus((prev) => ({ ...prev, status: "idle", current_model: null }));
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch download status", err);
-    } finally {
-      setStatusRead(true);
-    }
-  }, [fetchModels]);
-
   useEffect(() => {
     if (open) {
       fetchModels();
-      fetchDownloadStatus();
+      refreshDownload("image").finally(() => setStatusRead(true));
     } else {
       setModels([]);
       setError(null);
       setStatusRead(false);
       installStartedRef.current = false;
     }
-  }, [open, fetchModels, fetchDownloadStatus]);
+  }, [open, fetchModels, refreshDownload]);
 
-  useEffect(() => {
-    let interval;
-    if (open && downloadStatus.is_downloading) {
-      interval = setInterval(fetchDownloadStatus, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [open, downloadStatus.is_downloading, fetchDownloadStatus]);
+  // A download ended (the store toasts how): show the new install state.
+  useModelsChanged("image", () => {
+    if (open) fetchModels();
+  });
 
   const handleDownload = async (model) => {
     const modelRef = model.path || model.id;
     try {
       const res = await axios.post("/api/batch-image/models/download", { model_path: modelRef });
-      if (res.data.success) {
+      if (res.data.success && res.data.data?.already_installed) {
+        fetchModels();
+      } else if (res.data.success) {
         const startedPath = res.data.data?.model_path || modelRef;
         showMessage?.(t("models.shared.startedDownloadingDots", { name: model.name || model.id }), "info");
-        setDownloadStatus({
-          is_downloading: true,
-          current_model: startedPath,
-          progress: 0,
-          status: "starting",
-          speed_mbps: 0,
-          downloaded_gb: 0,
-          total_gb: model.size_gb || 0,
-        });
+        markStarted("image", startingStatus(startedPath, model.size_gb), model.name || model.id);
       } else {
         showMessage?.(res.data.error || t("models.shared.failedToStartDownload"), "error");
       }
@@ -199,29 +184,20 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
   const editingMissing = editing.filter((p) => !p.installed);
   const editingMissingGb = editingMissing.reduce((sum, p) => sum + (p.download_gb || 0), 0);
 
-  // One pack after another: the downloader takes one plan at a time.
-  const waitForDownloadEnd = () =>
-    new Promise((resolve) => {
-      const check = setInterval(async () => {
-        try {
-          const res = await axios.get("/api/batch-image/models/download-status");
-          if (res.data?.success && !res.data.data?.is_downloading) {
-            clearInterval(check);
-            resolve();
-          }
-        } catch {
-          /* keep waiting */
-        }
-      }, 1000);
-    });
-
-  const handleInstallAllEditing = async () => {
-    for (const pack of editingMissing) {
-      await handleDownload(pack);
-      await new Promise((r) => setTimeout(r, 1500));
-      await waitForDownloadEnd();
-    }
-    fetchModels();
+  // One pack after another: the downloader takes one plan at a time. The
+  // store starts each when the one before it ends, dialog open or not.
+  const handleInstallAllEditing = () => {
+    installAll(
+      "image",
+      editingMissing.map((pack) => {
+        const ref = pack.path || pack.id;
+        return {
+          body: { model_path: ref },
+          name: pack.name || pack.id,
+          status: startingStatus(ref, pack.download_gb || pack.size_gb),
+        };
+      }),
+    );
   };
 
   // Install / Installed / progress cell, shared by model rows and LoRA rows.
@@ -281,9 +257,14 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
   };
 
   return (
-    <Dialog open={open} onClose={() => !isDownloading && onClose()} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t("models.imageModels.title")}</DialogTitle>
       <DialogContent dividers>
+        {isDownloading && (
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary", mb: 1 }}>
+            {t("models.shared.continuesInBackground")}
+          </Typography>
+        )}
         {error && (
           <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
@@ -460,7 +441,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                     size="small"
                     startIcon={<CloudDownloadIcon />}
                     onClick={handleInstallAllEditing}
-                    disabled={isDownloading}
+                    disabled={isDownloading || installAllPending}
                   >
                     {t("models.imageModels.installAllEditing", { size: editingMissingGb.toFixed(1) })}
                   </Button>
@@ -538,9 +519,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
           {t("models.imageModels.checkAccess")}
         </ActionButton>
         <Box sx={{ flex: 1 }} />
-        <Button onClick={onClose} disabled={isDownloading}>
-          {isDownloading ? t("models.shared.downloadingDots") : t("dialogs.shared.close")}
-        </Button>
+        <Button onClick={onClose}>{t("dialogs.shared.close")}</Button>
       </DialogActions>
       <AddImageModelDialog
         open={addOpen}
@@ -548,7 +527,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
         showMessage={showMessage}
         onAdded={() => {
           fetchModels();
-          fetchDownloadStatus();
+          refreshDownload("image");
         }}
       />
       <ConfirmActionDialog

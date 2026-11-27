@@ -19,6 +19,7 @@
       "video_gen": "视频生成",
       "video_render": "视频生成",
       "upscale": "超分辨率",
+      "model_download": "模型下载",
       "csv_processing": "CSV 生成",
       "file_generation": "文件生成",
       "analysis": "分析",
@@ -62,6 +63,9 @@
     "showJobs": "显示所有正在进行的任务",
     "entryNamed": "{{label}} · {{name}}",
     "entryWaiting": "{{entry}} — 等待中",
+    "downloadProgress": "{{name}} · {{done}} / {{total}}",
+    "downloadStarting": "{{name}} · 正在开始",
+    "downloadInstalling": "{{name}} · 正在设置",
     "renderError": "进度条错误 - 请检查控制台"
   },
   "systemMetrics": {

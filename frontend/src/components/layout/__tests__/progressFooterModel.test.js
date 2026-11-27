@@ -3,6 +3,7 @@ import {
   activeVideoJobs,
   buildFooterEntries,
   chipText,
+  downloadEntries,
   footerView,
   statusLine,
   typeLabel,
@@ -247,5 +248,48 @@ describe("footerView and chips", () => {
     expect(chipText(entry)).toBe("Image: waiting for the system");
     expect(statusLine(entry)).toBe("Image Gen: Waiting for the system: RAM low");
     expect(footerView([])).toBe(null);
+  });
+});
+
+describe("model downloads in the footer", () => {
+  const modelOf = (kind, st) => (kind === "audio" ? st.current_id : st.current_model);
+  const statuses = {
+    image: { is_downloading: true, current_model: "Tongyi-MAI/Z-Image-Turbo", status: "downloading", progress: 41.6, downloaded_gb: 12.34, total_gb: 30.6 },
+    video: null,
+    voice: { is_downloading: true, current_model: "tiny.en", status: "starting", progress: 0, downloaded_mb: 0, total_mb: 75 },
+    audio: { is_downloading: false, current_id: "fx", status: "completed" },
+  };
+
+  it("lists each running download with its name and size", () => {
+    const entries = downloadEntries(statuses, { image: "Z-Image Turbo" }, false, modelOf);
+    expect(entries.map((e) => e.key)).toEqual(["model-download-image", "model-download-voice"]);
+    expect(statusLine(entries[0])).toBe("Model download: Z-Image Turbo · 12.3 GB of 30.6 GB");
+    expect(entries[0].progress).toBe(41.6);
+    // No display name (a reload since it started): the model id stands in.
+    expect(entries[1].text).toBe("tiny.en · starting");
+  });
+
+  it("says when Audio Foundry is building its environment", () => {
+    const [entry] = downloadEntries(
+      { audio: { is_downloading: true, current_id: "ace-step", status: "installing", progress: 0 } },
+      {}, false, modelOf,
+    );
+    expect(entry.text).toBe("ace-step · setting up");
+  });
+
+  it("leaves out the video downloader's view of a run another kind reports", () => {
+    const both = {
+      image: { ...statuses.image, delegated_to: "video" },
+      video: { is_downloading: true, current_model: "qwen-edit-vae", status: "downloading", progress: 41.6 },
+    };
+    expect(downloadEntries(both, {}, true, modelOf).map((e) => e.key)).toEqual(["model-download-image"]);
+    expect(downloadEntries(both, {}, false, modelOf)).toHaveLength(2);
+  });
+
+  it("follows a running generation and shows the download as a chip", () => {
+    const downloads = downloadEntries(statuses, { image: "Z-Image Turbo" }, false, modelOf).slice(0, 1);
+    const view = footerView(buildFooterEntries([], [videoJob()], downloads));
+    expect(view.primary.type).toBe("video_gen");
+    expect(view.chips.map((c) => c.text)).toEqual(["Model download: Z-Image Turbo · 12.3 GB of 30.6… · 42%"]);
   });
 });

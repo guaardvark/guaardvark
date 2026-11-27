@@ -26,22 +26,28 @@ import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import axios from "axios";
 import { translate, useUiTranslation } from "../../i18n";
+import { useDownloadStatus, useModelDownloadsStore, useModelsChanged } from "../../stores/useModelDownloadsStore";
+
+const IDLE_DOWNLOAD = {
+  is_downloading: false,
+  current_model: null,
+  progress: 0,
+  status: "idle",
+  speed_mbps: 0,
+  downloaded_gb: 0,
+  total_gb: 0,
+  error: null,
+};
 
 const InfographicModelsModal = ({ open, onClose, showMessage }) => {
   const { t } = useUiTranslation();
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [dl, setDl] = useState({
-    is_downloading: false,
-    current_model: null,
-    progress: 0,
-    status: "idle",
-    speed_mbps: 0,
-    downloaded_gb: 0,
-    total_gb: 0,
-    error: null,
-  });
+  // The image downloader's run, followed by the shared store.
+  const dl = useDownloadStatus("image", IDLE_DOWNLOAD);
+  const refreshDownload = useModelDownloadsStore((s) => s.refresh);
+  const markStarted = useModelDownloadsStore((s) => s.markStarted);
 
   const fetchModels = useCallback(async () => {
     try {
@@ -60,63 +66,40 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
     }
   }, []);
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await axios.get("/api/batch-image/models/download-status");
-      if (res.data?.success) {
-        const next = res.data.data || {};
-        setDl((prev) => {
-          // Refresh list when a download flips to completed / failed
-          if (prev.is_downloading && !next.is_downloading) {
-            if (next.status === "completed") {
-              showMessage?.(translate("models.shared.modelInstalled"), "success");
-              fetchModels();
-            } else if (next.status === "failed") {
-              showMessage?.(translate("models.shared.downloadFailed", { error: next.error || translate("models.shared.unknown") }), "error");
-            }
-          }
-          return next;
-        });
-      }
-    } catch {
-      /* transient, ignore */
-    }
-  }, [fetchModels, showMessage]);
-
   useEffect(() => {
     if (open) {
       fetchModels();
-      fetchStatus();
+      refreshDownload("image");
     } else {
       setModels([]);
       setError(null);
     }
-  }, [open, fetchModels, fetchStatus]);
+  }, [open, fetchModels, refreshDownload]);
 
-  useEffect(() => {
-    let id;
-    if (open && dl.is_downloading) {
-      id = setInterval(fetchStatus, 1000);
-    }
-    return () => clearInterval(id);
-  }, [open, dl.is_downloading, fetchStatus]);
+  // A download ended (the store toasts how): show the new install state.
+  useModelsChanged("image", () => {
+    if (open) fetchModels();
+  });
 
   const handleInstall = async (assetId) => {
     try {
       const res = await axios.post("/api/batch-image/models/download", { model_path: assetId });
-      if (res.data?.success) {
+      if (res.data?.success && res.data.data?.already_installed) {
+        fetchModels();
+      } else if (res.data?.success) {
         const asset = models.find((m) => m.id === assetId);
         showMessage?.(t("models.shared.startedDownloading", { name: asset?.name || assetId }), "info");
-        setDl({
-          is_downloading: true,
-          current_model: assetId,
-          progress: 0,
-          status: "starting",
-          speed_mbps: 0,
-          downloaded_gb: 0,
-          total_gb: asset?.size_gb || 0,
-          error: null,
-        });
+        markStarted(
+          "image",
+          {
+            ...IDLE_DOWNLOAD,
+            is_downloading: true,
+            current_model: assetId,
+            status: "starting",
+            total_gb: asset?.size_gb || 0,
+          },
+          asset?.name || assetId,
+        );
       } else {
         showMessage?.(res.data?.error || t("models.shared.failedToStart"), "error");
       }
@@ -130,7 +113,7 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
   };
 
   return (
-    <Dialog open={open} onClose={() => !dl.is_downloading && onClose()} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <AutoAwesomeIcon />
@@ -142,6 +125,11 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
       </DialogTitle>
 
       <DialogContent dividers>
+        {dl.is_downloading && (
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary", mb: 1 }}>
+            {t("models.shared.continuesInBackground")}
+          </Typography>
+        )}
         {error && (
           <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
@@ -236,9 +224,7 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
 
       <DialogActions>
         <Box sx={{ flex: 1 }} />
-        <Button onClick={onClose} disabled={dl.is_downloading}>
-          {dl.is_downloading ? t("models.shared.downloading") : t("dialogs.shared.close")}
-        </Button>
+        <Button onClick={onClose}>{t("dialogs.shared.close")}</Button>
       </DialogActions>
     </Dialog>
   );

@@ -23,21 +23,27 @@ import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import axios from "axios";
 import { translate, useUiTranslation } from "../../i18n";
+import { useDownloadStatus, useModelDownloadsStore, useModelsChanged } from "../../stores/useModelDownloadsStore";
+
+const IDLE_DOWNLOAD = {
+  is_downloading: false,
+  current_model: null,
+  model_type: null,
+  progress: 0,
+  status: "idle",
+  speed_mbps: 0,
+  downloaded_mb: 0,
+  total_mb: 0,
+};
 
 const VoiceModelsModal = ({ open, onClose, showMessage }) => {
   const { t } = useUiTranslation();
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [downloadStatus, setDownloadStatus] = useState({
-    is_downloading: false,
-    current_model: null,
-    model_type: null,
-    progress: 0,
-    status: "idle",
-    speed_mbps: 0,
-    downloaded_mb: 0,
-    total_mb: 0,
-  });
+  // Followed by the shared store, so the dialog can close mid-download.
+  const downloadStatus = useDownloadStatus("voice", IDLE_DOWNLOAD);
+  const refreshDownload = useModelDownloadsStore((s) => s.refresh);
+  const markStarted = useModelDownloadsStore((s) => s.markStarted);
   const [error, setError] = useState(null);
 
   const fetchModels = useCallback(async () => {
@@ -56,51 +62,20 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
     }
   }, []);
 
-  const fetchDownloadStatus = useCallback(async () => {
-    try {
-      const res = await axios.get("/api/voice/models/download-status");
-      if (res.data.success) {
-        const status = res.data.data;
-        setDownloadStatus(status);
-        if (!status.is_downloading && status.status === "completed") {
-          showMessage?.(translate("models.voiceModels.completed"), "success");
-          fetchModels();
-          setDownloadStatus((prev) => ({
-            ...prev,
-            status: "idle",
-            current_model: null,
-          }));
-        } else if (!status.is_downloading && status.status === "failed") {
-          showMessage?.(translate("models.shared.downloadFailed", { error: status.error }), "error");
-          setDownloadStatus((prev) => ({
-            ...prev,
-            status: "idle",
-            current_model: null,
-          }));
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch voice download status", err);
-    }
-  }, [fetchModels, showMessage]);
-
   useEffect(() => {
     if (open) {
       fetchModels();
-      fetchDownloadStatus();
+      refreshDownload("voice");
     } else {
       setModels([]);
       setError(null);
     }
-  }, [open, fetchModels, fetchDownloadStatus]);
+  }, [open, fetchModels, refreshDownload]);
 
-  useEffect(() => {
-    let interval;
-    if (open && downloadStatus.is_downloading) {
-      interval = setInterval(fetchDownloadStatus, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [open, downloadStatus.is_downloading, fetchDownloadStatus]);
+  // A download ended (the store toasts how): show the new install state.
+  useModelsChanged("voice", () => {
+    if (open) fetchModels();
+  });
 
   const handleDownload = async (modelId, modelType) => {
     try {
@@ -116,16 +91,18 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
           t("models.shared.startedDownloadingDots", { name: model?.name || modelId }),
           "info"
         );
-        setDownloadStatus({
-          is_downloading: true,
-          current_model: modelId,
-          model_type: modelType,
-          progress: 0,
-          status: "starting",
-          speed_mbps: 0,
-          downloaded_mb: 0,
-          total_mb: model?.size_mb || 0,
-        });
+        markStarted(
+          "voice",
+          {
+            ...IDLE_DOWNLOAD,
+            is_downloading: true,
+            current_model: modelId,
+            model_type: modelType,
+            status: "starting",
+            total_mb: model?.size_mb || 0,
+          },
+          model?.name || modelId,
+        );
       } else {
         showMessage?.(res.data.error || t("models.shared.failedToStartDownload"), "error");
       }
@@ -224,12 +201,17 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
   return (
     <Dialog
       open={open}
-      onClose={() => !isDownloading && onClose()}
+      onClose={onClose}
       maxWidth="sm"
       fullWidth
     >
       <DialogTitle>{t("models.voiceModels.title")}</DialogTitle>
       <DialogContent dividers>
+        {isDownloading && (
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary", mb: 1 }}>
+            {t("models.shared.continuesInBackground")}
+          </Typography>
+        )}
         {error && (
           <Box sx={{ mb: 2 }}>
             <Typography color="error">{error}</Typography>
@@ -280,9 +262,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={isDownloading}>
-          {isDownloading ? t("models.shared.downloadingDots") : t("dialogs.shared.close")}
-        </Button>
+        <Button onClick={onClose}>{t("dialogs.shared.close")}</Button>
       </DialogActions>
     </Dialog>
   );

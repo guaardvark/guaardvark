@@ -1,7 +1,8 @@
 // What the progress footer shows, built from both progress feeds:
 // activeProcesses (job_progress: image batches, indexing, a clip's ComfyUI
 // steps as video_render) and unifiedJobs (job:event: video batches, whose
-// queued / GPU-wait / keyframe / post stages only arrive there).
+// queued / GPU-wait / keyframe / post stages only arrive there). Model
+// downloads come from useModelDownloadsStore through downloadEntries.
 
 import { videoGenStageLabel } from "../videogen/stageLabels";
 import { translate } from "../../i18n";
@@ -15,6 +16,7 @@ export const processTypeLabels = () => ({
   video_gen: translate("layout.progressFooter.types.video_gen"),
   video_render: translate("layout.progressFooter.types.video_render"),
   upscale: translate("layout.progressFooter.types.upscale"),
+  model_download: translate("layout.progressFooter.types.model_download"),
   csv_processing: translate("layout.progressFooter.types.csv_processing"),
   file_generation: translate("layout.progressFooter.types.file_generation"),
   analysis: translate("layout.progressFooter.types.analysis"),
@@ -45,7 +47,7 @@ const chipLabels = () => ({
 
 // Which running job leads when several run at once; waiting jobs always follow running ones.
 const PRIORITY = [
-  "production", "indexing", "video_gen", "video_render", "image_generation", "upscale", "csv_processing",
+  "production", "indexing", "video_gen", "video_render", "image_generation", "upscale", "model_download", "csv_processing",
   "file_generation", "analysis", "upload", "llm_processing", "web_scraping", "outreach", "backup",
   "training", "lora_train", "task_processing", "voice_processing", "document_processing",
   "wordpress_pull", "wordpress_push", "wordpress_processing", "code", "processing",
@@ -187,16 +189,57 @@ function foldIndexingEntries(entries) {
 const WORK_KINDS = { video_gen: "video", video_render: "video" };
 const workKind = (type) => WORK_KINDS[type] || type;
 
+const sizeText = (value, unit) =>
+  `${(Number(value) || 0).toFixed(unit === "MB" ? 0 : 1)} ${unit}`;
+
+/**
+ * One entry per model download in flight.
+ * @param {Object<string, object|null>} statuses  useModelDownloadsStore statuses, by kind
+ * @param {Object<string, string|null>} names     display names, by kind
+ * @param {boolean} videoMirrored  another kind reports the video downloader's run
+ * @param {(kind: string, status: object) => string|null} modelOf  the model a status names
+ * @returns {Array<object>} footer entries of type model_download
+ */
+export function downloadEntries(statuses, names, videoMirrored, modelOf) {
+  const entries = [];
+  for (const [kind, st] of Object.entries(statuses || {})) {
+    if (!st?.is_downloading) continue;
+    if (kind === "video" && videoMirrored) continue;
+    const name = names?.[kind] || modelOf?.(kind, st) || "";
+    // Voice reports megabytes, the others gigabytes.
+    const mb = st.total_mb != null || st.downloaded_mb != null;
+    const done = mb ? sizeText(st.downloaded_mb, "MB") : sizeText(st.downloaded_gb, "GB");
+    const total = mb ? sizeText(st.total_mb, "MB") : sizeText(st.total_gb, "GB");
+    let text;
+    if (st.status === "starting") text = translate("layout.progressFooter.downloadStarting", { name });
+    else if (st.status === "installing") text = translate("layout.progressFooter.downloadInstalling", { name });
+    else text = translate("layout.progressFooter.downloadProgress", { name, done, total });
+    entries.push({
+      key: `model-download-${kind}`,
+      type: "model_download",
+      name,
+      waiting: false,
+      waitKind: null,
+      text,
+      progress: clampPct(st.progress) ?? 0,
+      itemCount: null,
+      timestamp: (Number(st.updated_at) || 0) * 1000,
+    });
+  }
+  return entries;
+}
+
 /**
  * One entry per job in flight, running ones first. A clip's video_render steps
  * fold into their batch, matched by batch_id or by the batch's current item.
  * Fallback entries (GPU work with no report of its own) show unless an entry of the same kind of work does.
  * @param {Iterable<object>} processes  activeProcesses values
  * @param {Array<object>} videoJobs     activeVideoJobs(...)
+ * @param {Array<object>} [downloads]   downloadEntries(...)
  * @returns {Array<object>} {key, type, name, waiting, waitKind, text, progress, itemCount, timestamp}
  */
-export function buildFooterEntries(processes, videoJobs) {
-  const entries = [];
+export function buildFooterEntries(processes, videoJobs, downloads = []) {
+  const entries = [...downloads];
   const byBatch = new Map();
   const byItem = new Map();
   for (const job of videoJobs || []) {
