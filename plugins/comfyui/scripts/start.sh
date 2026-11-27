@@ -7,6 +7,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 COMFYUI_DIR="$PLUGIN_ROOT/ComfyUI"
+
+# Everything this script prints also lands in the plugin's log as it happens.
+# The Plugins page Logs panel reads logs/comfyui.log, and a first start
+# installs custom nodes and Python packages for minutes before ComfyUI writes
+# a line. stdout and stderr stay separate for the plugin runner (errors go to
+# stderr, see err() below; stdout is scanned for "Warning:" lines). ComfyUI
+# below appends to the same file directly, so its output is not teed twice.
+LOG_DIR="$PROJECT_ROOT/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/comfyui.log"
+exec > >(tee -a "$LOG_FILE") 2> >(tee -a "$LOG_FILE" >&2)
+echo "--- ComfyUI start script, $(date '+%Y-%m-%d %H:%M:%S') ---"
+
 VENV_PYTHON="$PROJECT_ROOT/backend/venv/bin/python"
 # GUAARDVARK_COMFYUI_OWN_VENV=1 runs ComfyUI from its own environment on a newer
 # PyTorch (scripts/setup_venv.sh builds it); the backend keeps backend/venv.
@@ -87,6 +100,10 @@ fi
 # Install ComfyUI + custom-node deps into backend/venv (shared — no plugin venv)
 # shellcheck source=install_deps.sh
 source "$SCRIPT_DIR/install_deps.sh"
+if [ ! -f "$PLUGIN_ROOT/.custom_nodes_installed" ] || [ ! -f "$PLUGIN_ROOT/.requirements_installed" ]; then
+    echo "Installing ComfyUI's custom nodes and Python packages."
+    echo "A first start can take several minutes; progress follows below."
+fi
 install_comfyui_python_deps
 
 # Comfy-Org/ComfyUI#15441: comfy-kitchen>=0.2.28 annotates torch.library
@@ -233,11 +250,6 @@ src = src.replace(old, new, 1)
 open(path, "w").write(src)
 print("Applied comfy/float.py kitchen-import guard (except Exception)")
 PYEOF
-
-# Log file
-LOG_DIR="$PROJECT_ROOT/logs"
-mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/comfyui.log"
 
 echo "Starting ComfyUI..."
 echo "Dir: $COMFYUI_DIR"

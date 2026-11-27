@@ -14,6 +14,18 @@ if [ -f "$PROJECT_ROOT/.env" ]; then
 fi
 export GUAARDVARK_ROOT="$PROJECT_ROOT"
 
+# Everything this script prints also lands in the plugin's log as it happens.
+# The Plugins page Logs panel reads logs/audio_foundry.log, and a first start
+# spends 10-20 minutes building two venvs and PyTorch before uvicorn writes a
+# line. stdout and stderr stay separate for the plugin runner, which returns
+# them in the start response and scans stdout for "Warning:" lines. uvicorn
+# below appends to the same file directly, so its output is not teed twice.
+LOG_DIR="$PROJECT_ROOT/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/audio_foundry.log"
+exec > >(tee -a "$LOG_FILE") 2> >(tee -a "$LOG_FILE" >&2)
+echo "--- Audio Foundry start script, $(date '+%Y-%m-%d %H:%M:%S') ---"
+
 # Check if already running — idempotent re-start
 PID_FILE="$PROJECT_ROOT/pids/audio_foundry.pid"
 # True when PID $1 is alive and its command line contains $2. A PID file
@@ -130,6 +142,11 @@ print("ok")
 PLUGIN_VENV="$PLUGIN_ROOT/venv"
 MUSIC_VENV="$PLUGIN_ROOT/venv-music"
 
+if [ ! -f "$PLUGIN_VENV/.deps_installed" ] || [ ! -f "$MUSIC_VENV/.deps_installed" ]; then
+    echo "Setting up Audio Foundry's Python environments (voice, music and PyTorch)."
+    echo "A first start can take 10-20 minutes; progress follows below."
+fi
+
 ensure_venv "$MUSIC_VENV"   "$PLUGIN_ROOT/requirements-music.txt"  "audio_foundry-music"
 
 # Main venv. torch goes in first (install_pytorch.sh, the channel that fits
@@ -200,11 +217,6 @@ fi
 # subprocess by backends/music_gen_acestep.py.
 # shellcheck disable=SC1091
 source "$PLUGIN_VENV/bin/activate"
-
-# Log setup
-LOG_DIR="$PROJECT_ROOT/logs"
-mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/audio_foundry.log"
 
 echo "Starting Audio Foundry..."
 echo "Plugin dir: $PLUGIN_ROOT"
