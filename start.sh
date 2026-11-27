@@ -3251,7 +3251,9 @@ export VITE_PORT
 # On build failure the behavior is HONEST, not silent:
 #   - if a previous dist exists, we serve it but scream loudly (better than a dead
 #     frontend on a local workstation) so the operator knows the code is stale;
-#   - if there is NO dist at all, there is nothing to serve — we abort the launch.
+#   - if there is NO dist at all, we abort the launch, except when the build was
+#     killed for lack of memory (exit 137): that says nothing about the code, and
+#     the dev server serves src/ without a dist, so it launches with a warning.
 FRONTEND_CAN_SERVE=1
 # Belt-and-suspenders: make sure node_modules are present before the guaranteed build
 ensure_frontend_deps
@@ -3304,6 +3306,9 @@ elif vader_info "Building frontend (production) before serving..." \
    && { _vader_run "$FRONTEND_LOG_FILE" -- bash -c 'cd "$1" && exec "$2" run build' _ "$FRONTEND_DIR" "$NPM_CMD"; FRONTEND_BUILD_RC=$?; [ "$FRONTEND_BUILD_RC" -eq 0 ]; }; then
     vader_success "Frontend build complete"
     [ -n "$FRONTEND_FP" ] && printf '%s\n' "$FRONTEND_FP" > "$FRONTEND_BUILD_STAMP"
+elif [ "${FRONTEND_BUILD_RC:-}" = 137 ] && [ ! -f "$FRONTEND_DIR/dist/index.html" ]; then
+    frontend_build_failure_note "$FRONTEND_BUILD_RC"
+    vader_warn "The production build check could not finish for lack of memory, so frontend/dist was not created. The interface is still served from source by the dev server; the check runs again on the next start."
 elif [ -f "$FRONTEND_DIR/dist/index.html" ]; then
     frontend_build_failure_note "$FRONTEND_BUILD_RC"
     vader_error "Frontend build FAILED — serving the LAST-GOOD (stale) dist. Code is NOT current. Fix the build; see $FRONTEND_LOG_FILE"
