@@ -283,14 +283,35 @@ is_systemd_running() {
   [ -d /run/systemd/system ]
 }
 
+# Whether the server this install is configured for accepts connections. Asks
+# the server itself rather than systemd: on Debian/Ubuntu `postgresql.service`
+# is a oneshot wrapper that stays "active (exited)" while the real cluster unit
+# (postgresql@<ver>-<cluster>.service) is down.
 pg_is_running() {
-  if is_systemd_running && command_exists systemctl; then
-    systemctl is-active --quiet postgresql
-  elif command_exists pg_isready; then
-    pg_isready -h "$PG_HOST" -p "$PG_PORT" >/dev/null 2>&1
-  else
-    return 1
-  fi
+  command_exists pg_isready && pg_isready -h "$PG_HOST" -p "$PG_PORT" >/dev/null 2>&1
+}
+
+pg_host_is_local() {
+  case "$PG_HOST" in
+    ""|localhost|127.0.0.1|::1|/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# The Debian/Ubuntu cluster that listens on $PG_PORT, as "<ver> <name> <logfile>".
+# Empty when pg_lsclusters is absent or no cluster uses that port.
+pg_local_cluster() {
+  command_exists pg_lsclusters || return 0
+  pg_lsclusters --no-header 2>/dev/null | awk -v p="$PG_PORT" '$3 == p { print $1, $2, $7; exit }'
+}
+
+pg_wait_ready() {  # $1 = seconds
+  local i
+  for i in $(seq 1 "$1"); do
+    pg_is_running && return 0
+    sleep 1
+  done
+  pg_is_running
 }
 
 if pg_is_running && { [ -n "$_configured_url" ] || [ -f "$ENV_FILE" ]; }; then
@@ -469,52 +490,56 @@ fi
 
 # ─── Step 2: Ensure PostgreSQL service is running + enabled on boot ───────────
 
-if is_systemd_running && command_exists systemctl; then
-  if ! systemctl is-active --quiet postgresql; then
-    if sudo systemctl start postgresql >/dev/null 2>&1; then
-      sleep 2
-      vader_success "PostgreSQL service started."
-    else
-      vader_error "Failed to start PostgreSQL service."
-      diagnose_postgres_error "service failed to start"
-      exit 1
-    fi
+# Start the cluster that serves $PG_PORT, not just the wrapper unit: starting an
+# already-"active" postgresql.service does nothing for a stopped cluster.
+if pg_is_running; then
+  vader_success "PostgreSQL is accepting connections on ${PG_HOST}:${PG_PORT}."
+elif ! pg_host_is_local; then
+  vader_error "PostgreSQL is not answering on ${PG_HOST}:${PG_PORT}, and that host is not this machine."
+  vader_info "Start that server, fix DATABASE_URL in .env, or start with --skip-postgres."
+  exit 1
+else
+  read -r PG_CLUSTER_VER PG_CLUSTER_NAME PG_CLUSTER_LOG <<< "$(pg_local_cluster)"
+  PG_START_WHAT="PostgreSQL"
+  PG_STATUS_HINT="sudo systemctl status postgresql"
+  if [ -n "$PG_CLUSTER_VER" ] && is_systemd_running && command_exists systemctl; then
+    PG_UNIT="postgresql@${PG_CLUSTER_VER}-${PG_CLUSTER_NAME}"
+    PG_START_WHAT="PostgreSQL cluster ${PG_CLUSTER_VER}/${PG_CLUSTER_NAME} (${PG_UNIT})"
+    PG_STATUS_HINT="sudo systemctl status ${PG_UNIT}"
+    vader_info "Starting ${PG_START_WHAT}..."
+    sudo systemctl start "$PG_UNIT" >/dev/null 2>&1
+  elif is_systemd_running && command_exists systemctl; then
+    # No Debian cluster tooling, or no cluster on this port: the distro unit.
+    vader_info "Starting the PostgreSQL service..."
+    sudo systemctl start postgresql >/dev/null 2>&1
+  elif [ -n "$PG_CLUSTER_VER" ] && command_exists pg_ctlcluster; then
+    # No systemd: containers, WSL without systemd, minimal installs.
+    PG_START_WHAT="PostgreSQL cluster ${PG_CLUSTER_VER}/${PG_CLUSTER_NAME}"
+    PG_STATUS_HINT="pg_lsclusters"
+    vader_info "Starting ${PG_START_WHAT} via pg_ctlcluster (no systemd detected)..."
+    sudo pg_ctlcluster "$PG_CLUSTER_VER" "$PG_CLUSTER_NAME" start >/dev/null 2>&1
   else
-    vader_success "PostgreSQL service already running."
+    vader_error "PostgreSQL is not running on ${PG_HOST}:${PG_PORT}, and there is no systemd or Debian cluster on that port to start."
+    vader_info "Start PostgreSQL yourself and re-run, or start with --skip-postgres."
+    exit 1
   fi
 
-  # Enable auto-start on boot so we never need sudo for this again
-  if ! systemctl is-enabled --quiet postgresql 2>/dev/null; then
-    if sudo systemctl enable postgresql >/dev/null 2>&1; then
-      vader_success "PostgreSQL enabled to start on boot (no sudo needed next time)."
-    fi
-  fi
-else
-  # No systemd — typical for containers / WSL1 / minimal installs.
-  # Use pg_ctlcluster directly if a cluster exists, else fall back to a connectivity check.
-  if pg_isready -h "$PG_HOST" -p "$PG_PORT" >/dev/null 2>&1; then
-    vader_success "PostgreSQL is running."
+  if pg_wait_ready 15; then
+    vader_success "${PG_START_WHAT} started."
   else
-    PG_CLUSTER_VERSION=$(ls /etc/postgresql/ 2>/dev/null | head -1)
-    if [ -n "$PG_CLUSTER_VERSION" ] && command_exists pg_ctlcluster; then
-      vader_info "Starting PostgreSQL cluster ${PG_CLUSTER_VERSION} via pg_ctlcluster (no systemd detected)..."
-      if sudo pg_ctlcluster "$PG_CLUSTER_VERSION" main start >/dev/null 2>&1; then
-        sleep 2
-        if pg_isready -h "$PG_HOST" -p "$PG_PORT" >/dev/null 2>&1; then
-          vader_success "PostgreSQL cluster ${PG_CLUSTER_VERSION} started."
-        else
-          vader_error "pg_ctlcluster reported success but pg_isready still fails. Check /var/log/postgresql/."
-          exit 1
-        fi
-      else
-        vader_error "Failed to start PostgreSQL via pg_ctlcluster ${PG_CLUSTER_VERSION} main."
-        diagnose_postgres_error "service failed to start"
-        exit 1
-      fi
-    else
-      vader_error "PostgreSQL is not running and no systemd or pg_ctlcluster available. Start PostgreSQL manually."
-      exit 1
-    fi
+    vader_error "${PG_START_WHAT} did not start: nothing answers on ${PG_HOST}:${PG_PORT}."
+    vader_info "Status: ${PG_STATUS_HINT}"
+    [ -n "$PG_CLUSTER_LOG" ] && vader_info "Server log: ${PG_CLUSTER_LOG}"
+    exit 1
+  fi
+fi
+
+# Enable auto-start on boot so we never need sudo for this again. On Debian/Ubuntu
+# the wrapper unit pulls in every cluster whose start.conf says "auto".
+if is_systemd_running && command_exists systemctl && pg_host_is_local \
+   && ! systemctl is-enabled --quiet postgresql 2>/dev/null; then
+  if sudo systemctl enable postgresql >/dev/null 2>&1; then
+    vader_success "PostgreSQL enabled to start on boot (no sudo needed next time)."
   fi
 fi
 
