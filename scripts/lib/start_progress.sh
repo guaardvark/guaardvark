@@ -96,10 +96,18 @@ progress_init() {
     if declare -F vader_error >/dev/null 2>&1 && ! declare -F _progress_wrapped_vader_error >/dev/null 2>&1; then
         eval "_progress_wrapped_$(declare -f vader_error)"
         vader_error() {
-            _PROGRESS_ERRORS="${_PROGRESS_ERRORS:+$_PROGRESS_ERRORS }${1:-}"
+            progress_note_error "${1:-}"
             _progress_wrapped_vader_error "$@"
         }
     fi
+}
+
+# progress_note_error TEXT — error text that reached the terminal some other way
+# than vader_error, kept for the "failed" line.
+progress_note_error() {
+    progress_on || return 0
+    [ -n "${1:-}" ] || return 0
+    _PROGRESS_ERRORS="${_PROGRESS_ERRORS:+$_PROGRESS_ERRORS }$1"
 }
 
 # progress_log PATH — the log to name if startup fails from here on.

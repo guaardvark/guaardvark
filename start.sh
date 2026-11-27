@@ -2908,6 +2908,7 @@ _vader_spin_bg_stop
 if [ "$_POST_BOOTSTRAP_RC" -ne 0 ]; then
     vader_error "Post-bootstrap validation failed:"
     printf '%s\n' "$_POST_BOOTSTRAP_ERR"
+    progress_note_error "${_POST_BOOTSTRAP_ERR##*$'\n'}"
     vader_info "(Often a missing synced module — not necessarily numpy/flask.)"
     vader_info "See $SETUP_LOG. Run one of:"
     vader_info "  ./scripts/dep_reconciler.py --force"
