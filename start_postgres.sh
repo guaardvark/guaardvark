@@ -507,24 +507,25 @@ else
     PG_START_WHAT="PostgreSQL cluster ${PG_CLUSTER_VER}/${PG_CLUSTER_NAME} (${PG_UNIT})"
     PG_STATUS_HINT="sudo systemctl status ${PG_UNIT}"
     vader_info "Starting ${PG_START_WHAT}..."
-    sudo systemctl start "$PG_UNIT" >/dev/null 2>&1
+    sudo systemctl start "$PG_UNIT" >/dev/null 2>&1; PG_START_RC=$?
   elif is_systemd_running && command_exists systemctl; then
     # No Debian cluster tooling, or no cluster on this port: the distro unit.
     vader_info "Starting the PostgreSQL service..."
-    sudo systemctl start postgresql >/dev/null 2>&1
+    sudo systemctl start postgresql >/dev/null 2>&1; PG_START_RC=$?
   elif [ -n "$PG_CLUSTER_VER" ] && command_exists pg_ctlcluster; then
     # No systemd: containers, WSL without systemd, minimal installs.
     PG_START_WHAT="PostgreSQL cluster ${PG_CLUSTER_VER}/${PG_CLUSTER_NAME}"
     PG_STATUS_HINT="pg_lsclusters"
     vader_info "Starting ${PG_START_WHAT} via pg_ctlcluster (no systemd detected)..."
-    sudo pg_ctlcluster "$PG_CLUSTER_VER" "$PG_CLUSTER_NAME" start >/dev/null 2>&1
+    sudo pg_ctlcluster "$PG_CLUSTER_VER" "$PG_CLUSTER_NAME" start >/dev/null 2>&1; PG_START_RC=$?
   else
     vader_error "PostgreSQL is not running on ${PG_HOST}:${PG_PORT}, and there is no systemd or Debian cluster on that port to start."
     vader_info "Start PostgreSQL yourself and re-run, or start with --skip-postgres."
     exit 1
   fi
 
-  if pg_wait_ready 15; then
+  # A start command that already failed gets a short grace, not the full wait.
+  if pg_wait_ready "$([ "$PG_START_RC" = 0 ] && echo 15 || echo 2)"; then
     vader_success "${PG_START_WHAT} started."
   else
     vader_error "${PG_START_WHAT} did not start: nothing answers on ${PG_HOST}:${PG_PORT}."
