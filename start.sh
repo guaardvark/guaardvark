@@ -896,10 +896,28 @@ frontend_build_fp() {
     } 2>/dev/null | sha256sum | cut -d' ' -f1
 }
 
-frontend_build_stamp_write() {
-    local fp
+# Records a production build attempt for /api/health/frontend in
+# .start_cache/frontend_build.json: running, skipped (dist already matches the
+# code), 0 for success, or the failing exit code. On success the dist stamp is
+# written last, so a dist without .build_fp comes from a build that did not finish.
+frontend_build_record() {
+    local what="$1" fp state rc=null skipped=false out="$SCRIPT_DIR/.start_cache/frontend_build.json"
     fp="$(frontend_build_fp)"
-    [ -n "$fp" ] && printf '%s\n' "$fp" > "$FRONTEND_DIR/dist/.build_fp"
+    fp="${fp:-unfingerprinted}"
+    case "$what" in
+        running) state=running ;;
+        skipped) state=ok; rc=0; skipped=true ;;
+        0) state=ok; rc=0 ;;
+        *) state=failed; rc="$what" ;;
+    esac
+    mkdir -p "$SCRIPT_DIR/.start_cache"
+    printf '{"state":"%s","exit_code":%s,"at":"%s","fingerprint":"%s","skipped":%s}\n' \
+        "$state" "$rc" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$fp" "$skipped" > "$out.tmp" \
+        && mv -f "$out.tmp" "$out"
+    if [ "$what" = 0 ] && [ -f "$FRONTEND_DIR/dist/index.html" ]; then
+        printf '%s\n' "$fp" > "$FRONTEND_DIR/dist/.build_fp.tmp" \
+            && mv -f "$FRONTEND_DIR/dist/.build_fp.tmp" "$FRONTEND_DIR/dist/.build_fp"
+    fi
     return 0
 }
 
@@ -2233,11 +2251,13 @@ if [ "$FAST_START" -ne 1 ]; then
                 ;;
             1)
                 if [ "$AUTO_BUILD_FRONTEND" -eq 1 ]; then
+                    frontend_build_record running
                     vader_info "Frontend changes detected - rebuilding..."
                     if (cd "$FRONTEND_DIR" && $NPM_CMD run build >> "$SETUP_LOG" 2>&1); then
                         vader_success "Frontend rebuilt successfully"
-                        frontend_build_stamp_write
+                        frontend_build_record 0
                     else
+                        frontend_build_record $?
                         vader_warn "Frontend rebuild failed. See $SETUP_LOG"
                     fi
                 else
@@ -2246,11 +2266,13 @@ if [ "$FAST_START" -ne 1 ]; then
                 ;;
             2)
                 if [ "$AUTO_BUILD_FRONTEND" -eq 1 ]; then
+                    frontend_build_record running
                     vader_info "Frontend dist missing - building..."
                     if (cd "$FRONTEND_DIR" && $NPM_CMD run build >> "$SETUP_LOG" 2>&1); then
                         vader_success "Frontend built successfully"
-                        frontend_build_stamp_write
+                        frontend_build_record 0
                     else
+                        frontend_build_record $?
                         vader_warn "Frontend build failed. See $SETUP_LOG"
                     fi
                 else
@@ -3301,14 +3323,19 @@ FRONTEND_BUILD_STAMP="$FRONTEND_DIR/dist/.build_fp"
 FRONTEND_FP="$(frontend_build_fp)"
 if [ "$FORCE_CLEAN" -eq 0 ] && [ -n "$FRONTEND_FP" ] && [ -f "$FRONTEND_DIR/dist/index.html" ] \
    && [ "$(cat "$FRONTEND_BUILD_STAMP" 2>/dev/null)" = "$FRONTEND_FP" ]; then
+    frontend_build_record skipped
     vader_info "Frontend unchanged since the last good build — skipping the build"
 elif vader_info "Building frontend (production) before serving..." \
-   && { _vader_run "$FRONTEND_LOG_FILE" -- bash -c 'cd "$1" && exec "$2" run build' _ "$FRONTEND_DIR" "$NPM_CMD"; FRONTEND_BUILD_RC=$?; [ "$FRONTEND_BUILD_RC" -eq 0 ]; }; then
+   && { frontend_build_record running
+        _vader_run "$FRONTEND_LOG_FILE" -- bash -c 'cd "$1" && exec "$2" run build' _ "$FRONTEND_DIR" "$NPM_CMD"
+        FRONTEND_BUILD_RC=$?
+        frontend_build_record "$FRONTEND_BUILD_RC"
+        [ "$FRONTEND_BUILD_RC" -eq 0 ]; }; then
     vader_success "Frontend build complete"
-    [ -n "$FRONTEND_FP" ] && printf '%s\n' "$FRONTEND_FP" > "$FRONTEND_BUILD_STAMP"
-elif [ "${FRONTEND_BUILD_RC:-}" = 137 ] && [ ! -f "$FRONTEND_DIR/dist/index.html" ]; then
+elif [ "${FRONTEND_BUILD_RC:-}" = 137 ] && [ ! -f "$FRONTEND_BUILD_STAMP" ]; then
+    # No finished dist: none existed, or the killed build had already emptied it.
     frontend_build_failure_note "$FRONTEND_BUILD_RC"
-    vader_warn "The production build check could not finish for lack of memory, so frontend/dist was not created. The interface is still served from source by the dev server; the check runs again on the next start."
+    vader_warn "The production build check could not finish for lack of memory, so frontend/dist is missing or incomplete. The interface is still served from source by the dev server; the check runs again on the next start."
 elif [ -f "$FRONTEND_DIR/dist/index.html" ]; then
     frontend_build_failure_note "$FRONTEND_BUILD_RC"
     vader_error "Frontend build FAILED — serving the LAST-GOOD (stale) dist. Code is NOT current. Fix the build; see $FRONTEND_LOG_FILE"
