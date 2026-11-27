@@ -85,7 +85,7 @@
     "notRunningAlert": "Audio Foundryが実行されていません。プラグインを起動してから、不足しているウェイトをインストールしてください。",
     "start": "開始",
     "startingAlert": "Audio Foundryを起動しています。初回の起動では環境を構築するため、数分かかることがあります。",
-    "downloadModel": "{{name}} をダウンロード",
+    "downloadModel": "{{name}}をインストール...",
     "notInstalledAlert": "<bold>{{name}} がインストールされていません。</bold> 生成時にバックグラウンドでダウンロードされることはありません。先にインストールしてください。",
     "voiceTab": "音声",
     "musicTab": "音楽",

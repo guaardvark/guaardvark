@@ -193,7 +193,7 @@ def _model_size_mb(model: str) -> Optional[int]:
     return None
 
 
-def _loaded_entry(model: str) -> Optional[dict]:
+def _loaded_entry(model: str, timeout: float = 5) -> Optional[dict]:
     """The model's /api/ps entry, None when it is not loaded. Raises when
     Ollama does not answer.
 
@@ -201,7 +201,7 @@ def _loaded_entry(model: str) -> Optional[dict]:
     ``sha256-<digest>:latest``, so an entry also matches by build when the name
     resolves to exactly one. Matching by name alone reloaded such a model on
     every pass."""
-    running = requests.get(f"{_ollama_url()}/api/ps", timeout=5).json().get("models", [])
+    running = requests.get(f"{_ollama_url()}/api/ps", timeout=timeout).json().get("models", [])
     for entry in running:
         if same_model(entry.get("name"), model):
             return entry

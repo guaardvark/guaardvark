@@ -140,7 +140,7 @@
     "title": "Generowanie wideo"
   },
   "notReady": {
-    "download": "Pobierz {{name}}",
+    "download": "Zainstaluj {{name}}...",
     "alert": "<bold>{{name}} nie jest w pełni zainstalowane.</bold> Generowanie teraz po cichu przełączyłoby się na model niższej jakości — dlatego jest zablokowane. Najpierw je zainstaluj{{missing}}, a potem wygeneruj ponownie.",
     "missingFiles_few": "(Brakuje {{count}} plików)",
     "missingFiles_many": "(Brakuje {{count}} plików)",

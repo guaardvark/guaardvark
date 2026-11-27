@@ -409,6 +409,32 @@ def test_dir_bytes_counts_dest_including_incomplete(tmp_path):
     assert api._dir_bytes(hub) == 1_000_000
 
 
+def test_bytes_fetched_counts_an_sd_transfer_once(tmp_path):
+    # from_pretrained fills the hub cache, save_pretrained then writes the same
+    # weights into the install folder: one transfer, two copies on disk.
+    dest = tmp_path / "Realistic_Vision_V5.1_noVAE"
+    hub = tmp_path / "hub" / "models--SG161222--Realistic_Vision_V5.1_noVAE"
+    hub.mkdir(parents=True)
+    (hub / "unet.safetensors").write_bytes(b"x" * 4000)
+    assert api._bytes_fetched([dest], 0, hub, 0) == 4000
+
+    dest.mkdir()
+    (dest / "unet.safetensors").write_bytes(b"x" * 2000)  # fp32 saved as fp16
+    assert api._bytes_fetched([dest], 0, hub, 0) == 4000
+
+    (hub / "unet.safetensors").unlink()  # the install removes the cache copy
+    assert api._bytes_fetched([dest], 0, hub, 0) == 2000
+
+
+def test_bytes_fetched_without_a_hub_cache_sums_the_install_folders(tmp_path):
+    unet, vae = tmp_path / "unet", tmp_path / "vae"
+    unet.mkdir()
+    vae.mkdir()
+    (unet / "model.safetensors").write_bytes(b"x" * 300)
+    (vae / "ae.safetensors").write_bytes(b"y" * 50)
+    assert api._bytes_fetched([unet, vae], 100, None, 0) == 250
+
+
 def test_download_409_while_thread_still_marked_running(client, monkeypatch):
     monkeypatch.setattr(
         api, "_resolve_catalog_model",

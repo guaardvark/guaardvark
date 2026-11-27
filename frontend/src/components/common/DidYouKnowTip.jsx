@@ -33,7 +33,8 @@ import { useUiTranslation } from "../../i18n";
 
 // Long enough for the page to settle before anything else asks for attention.
 export const TIP_DELAY_MS = 6000;
-// After a render finishes, long enough for the result to land on screen first.
+// After the person leaves the page a render finished on, long enough for the
+// next page to settle first.
 export const STAR_ASK_AFTER_WIN_MS = 4000;
 const DIALOG_RETRY_MS = 5000;
 const GAP = 16;
@@ -59,9 +60,11 @@ export const TIP_ACTIONS = {
  * navigation, the footer bar, the update notice and chat pages, and sits below
  * dialogs. Settings → General turns it off, as does "Don't show tips".
  *
- * The same card slot asks, at most twice ever, for a star on GitHub: right
- * after a render finishes when no card is showing, or in place of the session's
- * tip once a render has finished or on the third day of use (starAskModel.js).
+ * The same card slot asks, at most twice ever, for a star on GitHub: after a
+ * render finishes when no card is showing, or in place of the session's tip
+ * once a render has finished or on the third day of use (starAskModel.js). A
+ * render's result is on screen where it finished, so the ask waits until the
+ * person moves on from that page.
  *
  * @param {{tips?: Array<object>, delayMs?: number, starRepoUrl?: string|null, starDelayMs?: number}} props
  *   All four are test seams.
@@ -89,8 +92,12 @@ const DidYouKnowTip = ({
     );
   const [tip, setTip] = useState(null);
   const [starAsk, setStarAsk] = useState(false);
+  // The page a render just finished on; the ask is held while it is open.
+  const [heldWinPath, setHeldWinPath] = useState(null);
   const onChatPage = isFloatingChatHiddenRoute(pathname, chatSurfacesFor(profile));
   const hiddenRoutes = profile?.hidden_routes;
+  const latest = useRef({});
+  latest.current = { tipsEnabled, ready, tip, starAsk, onChatPage, updateNoticeVisible, pathname, heldWinPath };
 
   const showStarAsk = useCallback(() => {
     markTipShownThisSession();
@@ -111,6 +118,10 @@ const DidYouKnowTip = ({
         return;
       }
       if (starRepoUrl && starAskDue()) {
+        if (latest.current.heldWinPath === latest.current.pathname) {
+          timer = setTimeout(attempt, DIALOG_RETRY_MS);
+          return;
+        }
         showStarAsk();
         return;
       }
@@ -124,27 +135,26 @@ const DidYouKnowTip = ({
     return () => clearTimeout(timer);
   }, [tipsEnabled, ready, tip, starAsk, onChatPage, tips, hiddenRoutes, delayMs, starRepoUrl, showStarAsk]);
 
-  // A finished render asks right away when the slot is free; otherwise the
-  // next session's card does.
-  const latest = useRef({});
-  latest.current = { tipsEnabled, ready, tip, starAsk, onChatPage, updateNoticeVisible };
+  // A finished render asks once the person has left the page it finished on
+  // (its result is on screen there) and the slot is free; otherwise the next
+  // session's card does.
   useEffect(() => {
     if (!starRepoUrl) return undefined;
-    let timer = null;
-    const onWin = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        const s = latest.current;
-        const slotFree = s.tipsEnabled && s.ready && !s.tip && !s.starAsk && !s.onChatPage && !s.updateNoticeVisible;
-        if (slotFree && !dialogOpen() && starAskDue()) showStarAsk();
-      }, starDelayMs);
-    };
+    const onWin = () => setHeldWinPath(latest.current.pathname);
     window.addEventListener(STAR_ASK_WIN_EVENT, onWin);
-    return () => {
-      window.removeEventListener(STAR_ASK_WIN_EVENT, onWin);
-      clearTimeout(timer);
-    };
-  }, [starRepoUrl, starDelayMs, showStarAsk]);
+    return () => window.removeEventListener(STAR_ASK_WIN_EVENT, onWin);
+  }, [starRepoUrl]);
+
+  useEffect(() => {
+    if (!starRepoUrl || heldWinPath === null || pathname === heldWinPath) return undefined;
+    const timer = setTimeout(() => {
+      setHeldWinPath(null);
+      const s = latest.current;
+      const slotFree = s.tipsEnabled && s.ready && !s.tip && !s.starAsk && !s.onChatPage && !s.updateNoticeVisible;
+      if (slotFree && !dialogOpen() && starAskDue()) showStarAsk();
+    }, starDelayMs);
+    return () => clearTimeout(timer);
+  }, [starRepoUrl, heldWinPath, pathname, starDelayMs, showStarAsk]);
 
   const close = useCallback(() => setTip(null), []);
 

@@ -85,7 +85,7 @@
     "notRunningAlert": "Audio Foundry draait niet. Start de plugin en installeer daarna de ontbrekende gewichten.",
     "start": "Starten",
     "startingAlert": "Audio Foundry wordt gestart. De eerste start richt de omgevingen in en kan enkele minuten duren.",
-    "downloadModel": "Download {{name}}",
+    "downloadModel": "{{name}} installeren...",
     "notInstalledAlert": "<bold>{{name}} is niet geïnstalleerd.</bold> Genereren zal het niet op de achtergrond downloaden — installeer het eerst.",
     "voiceTab": "Stem",
     "musicTab": "Muziek",

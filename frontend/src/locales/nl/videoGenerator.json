@@ -139,7 +139,7 @@
     "title": "Video Generatie"
   },
   "notReady": {
-    "download": "Download {{name}}",
+    "download": "{{name}} installeren...",
     "alert": "<bold>{{name}} is niet volledig geïnstalleerd.</bold> Genereren zou nu ongemerkt terugvallen naar een model van lagere kwaliteit — daarom is het geblokkeerd. Installeer het eerst{{missing}}, en genereer dan opnieuw.",
     "missingFiles_one": "(1 bestand ontbreekt)",
     "missingFiles_other": "(({{count}} bestanden ontbreken))"

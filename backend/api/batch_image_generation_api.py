@@ -134,6 +134,20 @@ def _hf_cache_repo_dir(repo_id: str) -> Optional[Path]:
         return None
 
 
+def _bytes_fetched(dests: List[Path], dest_baseline: int,
+                   hf_cache: Optional[Path], cache_baseline: int) -> int:
+    """Bytes a download has added on disk, each transferred byte counted once.
+
+    SD and SDXL fill the hub cache, then save_pretrained writes the same
+    weights into the install folder before the cache is removed, so for a
+    while one transfer sits on disk twice. The larger growth is the transfer.
+    Every other install writes only its own folders and the cache stays put.
+    """
+    dest_growth = max(0, sum(_dir_bytes(d) for d in dests) - dest_baseline)
+    cache_growth = max(0, _dir_bytes(hf_cache) - cache_baseline) if hf_cache is not None else 0
+    return max(dest_growth, cache_growth)
+
+
 def _image_download_dest(img, catalog_key: str, hf_model_id: str) -> Path:
     """Directory whose growth is the download — Comfy unet/loras, or the snapshot path."""
     from backend.services.user_image_models import user_download_dir
@@ -982,8 +996,8 @@ def _start_image_model_download(model_path: str):
             total_bytes = int(total_gb * 1024**3) if total_gb else 1
             dests = _image_download_watch_dirs(generator.image_generator, catalog_key, hf_model_id)
             hf_cache = _hf_cache_repo_dir(hf_model_id)
-            watched = [d for d in (*dests, hf_cache) if d is not None]
-            baseline = sum(_dir_bytes(d) for d in watched)
+            dest_baseline = sum(_dir_bytes(d) for d in dests)
+            cache_baseline = _dir_bytes(hf_cache) if hf_cache is not None else 0
             stalled = threading.Event()
 
             try:
@@ -1003,12 +1017,18 @@ def _start_image_model_download(model_path: str):
                 def _monitor_progress():
                     last_bytes = -1
                     last_change = time.time()
+                    # Shown bytes never go backwards: removing the SD hub cache
+                    # at the end leaves only the install folder's copy, which
+                    # can be smaller than the transfer (fp32 saved as fp16).
+                    peak = 0
                     while not stop_monitor.is_set():
                         try:
-                            downloaded = max(0, sum(_dir_bytes(d) for d in watched) - baseline)
+                            on_disk = _bytes_fetched(dests, dest_baseline, hf_cache, cache_baseline)
+                            peak = max(peak, on_disk)
+                            downloaded = peak
                             now_m = time.time()
-                            if downloaded != last_bytes:
-                                last_bytes = downloaded
+                            if on_disk != last_bytes:
+                                last_bytes = on_disk
                                 last_change = now_m
                             elif (now_m - last_change) > _DOWNLOAD_STALL_SECONDS:
                                 stalled.set()

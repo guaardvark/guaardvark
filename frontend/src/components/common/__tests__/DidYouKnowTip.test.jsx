@@ -1,7 +1,7 @@
 import React from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import DidYouKnowTip from "../DidYouKnowTip";
 import { SHOW_SHORTCUTS_EVENT } from "../KeyboardShortcutsOverlay";
@@ -20,8 +20,16 @@ const DELAY = 100;
 
 function Where() {
   const { pathname } = useLocation();
-  return <div data-testid="where">{pathname}</div>;
+  const navigate = useNavigate();
+  return (
+    <div>
+      <div data-testid="where">{pathname}</div>
+      <button type="button" onClick={() => navigate("/elsewhere")}>Leave page</button>
+    </div>
+  );
 }
+
+const leavePage = () => fireEvent.click(screen.getByRole("button", { name: "Leave page" }));
 
 const REPO = "https://github.com/guaardvark/guaardvark";
 
@@ -228,14 +236,33 @@ describe("DidYouKnowTip star ask", () => {
     expect(screen.queryByRole("region", STAR)).toBeNull();
   });
 
-  it("asks right after a render finishes when no card is showing", () => {
+  it("asks once the person leaves the page a render finished on", () => {
     renderTip();
     wait();
     fireEvent.click(screen.getByRole("button", { name: "Close tip" }));
     act(() => {
       recordWin("image_generation");
     });
+    wait();
+    // The fresh result is on this page: the card holds while it is open.
+    wait(DELAY * 50);
     expect(screen.queryByRole("region", STAR)).toBeNull();
+    leavePage();
+    expect(screen.queryByRole("region", STAR)).toBeNull();
+    wait();
+    expect(screen.getByRole("region", STAR)).toBeInTheDocument();
+  });
+
+  it("holds the session's ask on the page a render just finished on", () => {
+    renderTip();
+    act(() => {
+      recordWin("image_generation");
+    });
+    wait();
+    wait(10000);
+    expect(screen.queryByRole("region", STAR)).toBeNull();
+    expect(screen.queryByText("First tip text.")).toBeNull();
+    leavePage();
     wait();
     expect(screen.getByRole("region", STAR)).toBeInTheDocument();
   });

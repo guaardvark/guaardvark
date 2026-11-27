@@ -138,7 +138,7 @@
     "title": "视频生成"
   },
   "notReady": {
-    "download": "下载 {{name}}",
+    "download": "安装 {{name}}...",
     "alert": "<bold>{{name}} 未完全安装。</bold>现在生成将静默回退到较低质量的模型 —— 因此已被拦截。请先安装它{{missing}}，然后再重新生成。",
     "missingFiles_other": "({{count}} 个文件缺失)"
   },

@@ -158,22 +158,36 @@ check_venv "audio_foundry-music" "$REPO_ROOT/plugins/audio_foundry/venv-music/bi
 check_venv "video_editor"        "$REPO_ROOT/plugins/video_editor/venv/bin/python"
 
 # ComfyUI: is the service reachable on its plugin port and serving the GUI?
-# The port is read from the plugin manifest so local overrides are respected.
-COMFY_PORT=$(python3 - "$REPO_ROOT" <<'PY'
-import json, sys
-root = sys.argv[1]
-for name in ("plugin.local.json", "plugin.json"):
-    path = f"{root}/plugins/comfyui/{name}"
-    try:
-        print(int(json.load(open(path))["port"]))
-        break
-    except Exception:
-        continue
-else:
-    print(8188)
+# It is off by default and installed from the Plugins page, so only an enabled,
+# installed ComfyUI that does not answer counts as degraded. Enabled comes from
+# backend/plugins/boot_autostart.py (stdlib only, loaded by path the way start.sh
+# loads it); it also merges plugin.local.json, so a local port override holds.
+# Prints "<port> <enabled 1|0>"; any failure falls back to the default port and
+# "enabled", the old behaviour.
+COMFY_STATE=$(python3 - "$REPO_ROOT" <<'PY' 2>/dev/null
+import importlib.util, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location(
+    "boot_autostart", root / "backend" / "plugins" / "boot_autostart.py")
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+manifest = mod._manifest(root)
+state = mod._load_json(root / "data" / "plugin_state.json")
+try:
+    port = int(manifest.get("port") or mod.DEFAULT_PORT)
+except (TypeError, ValueError):
+    port = mod.DEFAULT_PORT
+print(port, 1 if mod.effective_enabled(root, state, manifest) else 0)
 PY
 )
-if curl -sf --max-time 3 "http://localhost:${COMFY_PORT}/" >/dev/null 2>&1; then
+read -r COMFY_PORT COMFY_ENABLED <<<"${COMFY_STATE:-8188 1}"
+COMFY_PORT="${COMFY_PORT:-8188}"
+COMFY_ENABLED="${COMFY_ENABLED:-1}"
+if [ ! -f "$REPO_ROOT/plugins/comfyui/ComfyUI/comfyui_version.py" ]; then
+    gpu_row skip "comfyui" "not installed; install it from the Plugins page"
+elif [ "$COMFY_ENABLED" != 1 ]; then
+    gpu_row skip "comfyui" "off"
+elif curl -sf --max-time 3 "http://localhost:${COMFY_PORT}/" >/dev/null 2>&1; then
     gpu_row ok "comfyui" "reachable on port ${COMFY_PORT}"
 else
     gpu_row bad "comfyui" "not reachable on port ${COMFY_PORT} (start with: bash $REPO_ROOT/plugins/comfyui/scripts/start.sh)"
