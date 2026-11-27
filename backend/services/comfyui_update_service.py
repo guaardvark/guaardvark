@@ -373,6 +373,7 @@ class ComfyUIUpdateService:
         health_poll_s: float = 2.0,
         clone_timeout_s: float = 900.0,
         pip_timeout_s: float = 1800.0,
+        heartbeat_s: float = 30.0,
     ):
         self.plugin_root = Path(plugin_root) if plugin_root else DEFAULT_PLUGIN_ROOT
         self.python = Path(python) if python else comfyui_python(plugin_root)
@@ -389,6 +390,7 @@ class ComfyUIUpdateService:
         self.health_poll_s = health_poll_s
         self.clone_timeout_s = clone_timeout_s
         self.pip_timeout_s = pip_timeout_s
+        self.heartbeat_s = heartbeat_s
         repair = self.needs_repair()
         if repair:
             logger.warning("ComfyUI update needs repair: %s", repair)
@@ -774,6 +776,34 @@ class ComfyUIUpdateService:
         self._set(epoch, phase=name, phase_label=label, percent=percent)
         self._log(epoch, f"[{name}] {label}")
 
+    def start_plugin_logged(self, epoch: int) -> Dict[str, Any]:
+        """``controller.start()`` with lines in the progress log while it runs.
+
+        Starting runs plugins/comfyui/scripts/start.sh, which on a first start
+        installs custom nodes and their Python packages for minutes before
+        ComfyUI answers. That output goes to comfyui.log, so the progress log
+        names it and keeps saying the start is still going.
+        """
+        from backend.utils.display_paths import display_path
+
+        comfy_log = display_path(self.log_path.parent / "comfyui.log")
+        self._log(epoch, "starting the ComfyUI plugin; a first start installs custom nodes and "
+                         f"Python packages and can take several minutes (live output: {comfy_log})")
+        done = threading.Event()
+        began = time.monotonic()
+
+        def beat() -> None:
+            while not done.wait(self.heartbeat_s):
+                self._log(epoch, f"still starting ComfyUI ({int(time.monotonic() - began)} s); see {comfy_log}")
+
+        beat_thread = threading.Thread(target=beat, name="comfyui-start-heartbeat", daemon=True)
+        beat_thread.start()
+        try:
+            return self.controller.start() or {}
+        finally:
+            done.set()
+            beat_thread.join(timeout=5)
+
     def _finish(self, epoch: int, state: str, message: str) -> None:
         fields: Dict[str, Any] = {"state": state, "message": message, "finished_at": _utc_now()}
         if state == "succeeded":
@@ -826,7 +856,7 @@ class ComfyUIUpdateService:
             enabled = self.controller.enable() or {}
             if not enabled.get("success"):
                 raise UpdateError(f"the ComfyUI plugin could not be turned on: {enabled.get('error') or enabled}")
-            started = self.controller.start() or {}
+            started = self.start_plugin_logged(epoch)
             if not started.get("success"):
                 raise UpdateError(f"ComfyUI did not start: {started.get('error') or started}")
             self.wait_healthy()
@@ -1129,7 +1159,7 @@ class _Transition:
         self._phase("start")
         self.started = True
         self.save_journal()
-        result = svc.controller.start() or {}
+        result = svc.start_plugin_logged(self.epoch)
         if not result.get("success"):
             raise UpdateError(f"could not start ComfyUI: {result.get('error') or result}")
         svc.wait_healthy()

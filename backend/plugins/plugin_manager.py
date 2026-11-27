@@ -277,6 +277,27 @@ def _combine_script_output(stderr: str | None, stdout: str | None, *, cap: int =
     return combined
 
 
+def _script_output_tail(stdout: str | None, stderr: str | None, *,
+                        max_lines: int = 15, cap: int = 2000) -> str:
+    """The last lines a start script printed, for a failure that has no exit code.
+
+    A start that times out or never answers its health check would otherwise
+    say only "timeout", while the cause (a pip error, a slow download) is at
+    the end of the script's output. Paths are shown in display form.
+    """
+    from backend.utils.display_paths import display_text
+
+    parts = []
+    for chunk in (stdout, stderr):
+        lines = [ln for ln in (chunk or "").splitlines() if ln.strip()]
+        if lines:
+            parts.append("\n".join(lines[-max_lines:]))
+    tail = display_text("\n".join(parts))
+    if len(tail) > cap:
+        tail = "..." + tail[-(cap - 3):]
+    return tail
+
+
 def _run_plugin_script(argv: list, cwd: str, timeout: int) -> dict:
     """Run a plugin script via the sidecar runner if available, else fall back
     to direct subprocess.run.
@@ -297,7 +318,7 @@ def _run_plugin_script(argv: list, cwd: str, timeout: int) -> dict:
 
     # Fallback: direct subprocess.run (risks CUDA corruption — only used if sidecar is dead)
     try:
-        from backend.services.plugin_runner import service_env
+        from backend.services.plugin_runner import service_env, timeout_output
         result = subprocess.run(
             argv,
             capture_output=True,
@@ -316,8 +337,8 @@ def _run_plugin_script(argv: list, cwd: str, timeout: int) -> dict:
         return {
             "ok": False,
             "rc": -1,
-            "stdout": (e.stdout or "") if isinstance(e.stdout, str) else "",
-            "stderr": (e.stderr or "") if isinstance(e.stderr, str) else "",
+            "stdout": timeout_output(e.stdout),
+            "stderr": timeout_output(e.stderr),
             "error": f"timeout after {e.timeout}s",
         }
     except Exception as e:
@@ -1190,6 +1211,9 @@ class PluginManager:
                 if not result.get('ok'):
                     self._plugin_status[plugin_id] = PluginStatus.ERROR
                     err = result.get('error', 'unknown error')
+                    tail = _script_output_tail(result.get('stdout'), result.get('stderr'))
+                    if tail:
+                        err = f"{err}. Last output:\n{tail}"
                     logger.error(f"Failed to start plugin {plugin_id}: {err}")
                     return self._fail_plugin_start(
                         plugin_id, {'success': False, 'error': f'Start script failed: {err}'}
@@ -1243,16 +1267,15 @@ class PluginManager:
                 # Check if process is still running
                 # (Simple check: if we can't connect after retries, assume failure)
                 self._plugin_status[plugin_id] = PluginStatus.ERROR
-                return self._fail_plugin_start(
-                    plugin_id,
-                    {
-                        'success': False,
-                        'error': (
-                            f'Not started: {problem}' if problem
-                            else 'Plugin started but health check failed (timeout)'
-                        ),
-                    },
-                )
+                if problem:
+                    error = f'Not started: {problem}'
+                else:
+                    error = 'Plugin started but health check failed (timeout)'
+                    tail = _script_output_tail(result.get('stdout'), result.get('stderr'))
+                    if tail:
+                        error = f"{error}. Start script output:\n{tail}"
+                    logger.error(f"Failed to start plugin {plugin_id}: {error}")
+                return self._fail_plugin_start(plugin_id, {'success': False, 'error': error})
 
             except Exception as e:
                 self._plugin_status[plugin_id] = PluginStatus.ERROR

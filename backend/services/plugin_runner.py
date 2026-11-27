@@ -88,6 +88,17 @@ def service_env(base: Optional[dict] = None) -> dict:
     return env
 
 
+def timeout_output(value) -> str:
+    """What a timed-out command printed before it was killed, as text.
+
+    subprocess.TimeoutExpired carries the output read so far as bytes even
+    when the command ran with text=True, so a str check alone drops it.
+    """
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value if isinstance(value, str) else ""
+
+
 # ============================================================================
 # SIDECAR (runs when this file is invoked as `python plugin_runner.py --sidecar`)
 # ============================================================================
@@ -140,8 +151,8 @@ def _sidecar_main() -> None:
                     "id": req_id,
                     "ok": False,
                     "error": f"timeout after {e.timeout}s",
-                    "stdout": (e.stdout or "") if isinstance(e.stdout, str) else "",
-                    "stderr": (e.stderr or "") if isinstance(e.stderr, str) else "",
+                    "stdout": timeout_output(e.stdout),
+                    "stderr": timeout_output(e.stderr),
                     "rc": -1,
                 }
             except Exception as e:
