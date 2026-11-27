@@ -43,6 +43,8 @@ function draw(ui) {
     $('fail-label').textContent = ui.label;
     $('fail-detail').textContent = ui.detail || '';
     drawSteps($('fail-steps'), ui.steps);
+  } else if (view === 'stopping') {
+    $('stopping-detail').textContent = ui.reopening ? 'It will start again as soon as it has stopped.' : '';
   } else if (view === 'install') {
     drawSteps($('install-steps'), ui.plan.steps, Infinity);
     $('install-notes').replaceChildren(...ui.plan.notes.map((note) => {

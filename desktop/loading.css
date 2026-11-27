@@ -120,6 +120,9 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 
 #fail-detail { user-select: text; }
 
+#stopping-detail { margin: 0 0 16px; }
+#stopping-detail:empty { display: none; }
+
 .detail.warn { color: var(--warn); }
 .detail.warn:empty { display: none; }
 

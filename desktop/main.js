@@ -50,6 +50,8 @@ let quitState = 'no';         // no | asking | stopping | done
 let studioUrl = null;
 let launching = false;        // a launch() is between its first and last step
 let installApproved = false;  // the person pressed Install on the plan screen
+let reopenAfterStop = false;  // the app was opened again while it was stopping Guaardvark
+let signInRefused = false;    // the backend turned the install's key down in this run
 
 // What the loading page draws. Sent whole on every change, and handed to the
 // page when it (re)loads, so the page keeps no state of its own.
@@ -360,10 +362,13 @@ async function signInOwnWindow(url) {
     const status = await ses.fetch(`${url}/api/auth/status`, { credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(5000) });
     if (!status.ok) return;
     const { key_required: keyRequired, session_ok: signedIn } = await status.json();
-    if (!keyRequired || signedIn) return;
+    if (!keyRequired || signedIn || signInRefused) return;
     const key = await platform.getApiKey();
     if (!key) return;
-    await ses.fetch(`${url}/api/auth/session`, {
+    // One try per run: a key the backend refuses (the .env changed without a
+    // restart, say) is not sent again.
+    signInRefused = true;
+    const answer = await ses.fetch(`${url}/api/auth/session`, {
       method: 'POST',
       credentials: 'include',
       cache: 'no-store',
@@ -371,6 +376,7 @@ async function signInOwnWindow(url) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key }),
     });
+    signInRefused = !answer.ok;
   } catch {
     // The studio's own sign-in prompt covers it.
   }
@@ -459,6 +465,14 @@ async function runLaunch() {
       await platform.install((evt) => current() && applyProgress(evt));
     }
     if (!current()) return;
+
+    // An earlier run of the app may have left a stop still going.
+    if (typeof platform.pendingWork === 'function' && platform.pendingWork()) {
+      setUi({ view: 'starting', startedAt: Date.now(), steps: [], label: 'Waiting for Guaardvark to finish stopping', detail: 'It starts again as soon as that is done.' });
+      await showLoadingPage();
+      await platform.waitForPendingWork();
+      if (!current()) return;
+    }
 
     if (await platform.isRunning()) {
       if (current()) await showStudio(platform.describe().webUrl);
@@ -560,7 +574,16 @@ async function beginQuit() {
   try {
     await platform.stop({ force });
   } finally {
-    finishQuit();
+    if (reopenAfterStop && win && !win.isDestroyed()) {
+      // Opened again while stopping: carry on as a fresh launch in this window.
+      reopenAfterStop = false;
+      quitState = 'no';
+      // A launch that was cut short by the quit may still be unwinding.
+      const again = () => (launching ? setTimeout(again, 200) : launch());
+      again();
+    } else {
+      finishQuit();
+    }
   }
 }
 
@@ -581,6 +604,11 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', () => {
     if (!win || win.isDestroyed()) return;
+    if (quitState === 'stopping' && !reopenAfterStop) {
+      reopenAfterStop = true;
+      setUi({ view: 'stopping', reopening: true });
+      if (!onLoadingPage) showLoadingPage().catch(() => {});
+    }
     if (win.isMinimized()) win.restore();
     win.show();
     win.focus();
