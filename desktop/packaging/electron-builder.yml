@@ -1,0 +1,55 @@
+# Windows installer for the desktop app. Build it with packaging/build.js,
+# which fills in the version and runs this on Linux without wine.
+appId: com.guaardvark.desktop
+productName: Guaardvark
+copyright: Copyright (c) 2025-2026 Albenze, Inc.
+
+directories:
+  output: dist
+  # Icons and installer resources; not copied into the app.
+  buildResources: build
+
+files:
+  - package.json
+  - main.js
+  - preload.js
+  - loading.html
+  - loading.css
+  - loading.js
+  - assets/**
+  - platform/**
+
+asar: true
+# Nothing native to rebuild, and the app has no runtime dependencies.
+npmRebuild: false
+# No update feed: a new version comes from a new installer.
+publish: null
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  # Unsigned for now; Windows SmartScreen warns on first run. To sign, add
+  # signtoolOptions or azureSignOptions here.
+  signAndEditExecutable: true
+  verifyUpdateCodeSignature: false
+
+nsis:
+  # One click, for the current user only: no administrator prompt to install.
+  # Turning on WSL asks for permission later, from inside the app.
+  oneClick: true
+  perMachine: false
+  runAfterFinish: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Guaardvark
+  uninstallDisplayName: Guaardvark
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  # The window's own profile (%APPDATA%\Guaardvark) stays; the Linux system
+  # is asked about in installer.nsh.
+  deleteAppDataOnUninstall: false
+  differentialPackage: false
+  include: packaging/installer.nsh
+  artifactName: Guaardvark-Setup-${version}-x64.${ext}
