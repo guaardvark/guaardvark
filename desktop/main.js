@@ -35,7 +35,12 @@ app.enableSandbox();
 // desktop shows one icon for both.
 if (process.platform === 'linux') app.setDesktopName('guaardvark.desktop');
 
-const platform = require('./platform').load();
+// Development only: GUAARDVARK_DESKTOP_PLATFORM_MODULE names a file that
+// exports a platform object, so another system's module (built around
+// stand-in tools) can be driven through the real window. A packaged app
+// ignores it.
+const platformOverride = !app.isPackaged && process.env.GUAARDVARK_DESKTOP_PLATFORM_MODULE;
+const platform = platformOverride ? require(path.resolve(platformOverride)) : require('./platform').load();
 
 let win = null;
 let startedThisRun = false;   // start() was called in this run of the app
@@ -43,6 +48,8 @@ let onLoadingPage = false;
 let attempt = 0;              // bumped by every launch(); stale results are dropped
 let quitState = 'no';         // no | asking | stopping | done
 let studioUrl = null;
+let launching = false;        // a launch() is between its first and last step
+let installApproved = false;  // the person pressed Install on the plan screen
 
 // What the loading page draws. Sent whole on every change, and handed to the
 // page when it (re)loads, so the page keeps no state of its own.
@@ -241,13 +248,27 @@ function createWindow() {
   });
 }
 
+// Only a platform that can keep Guaardvark running without the window (the
+// Windows module) has the keep-alive calls.
+const hasKeepAlive = typeof platform.getKeepAlive === 'function' && typeof platform.setKeepAlive === 'function';
+
 function buildMenu() {
+  const keepAliveItems = hasKeepAlive ? [
+    {
+      label: 'Keep Guaardvark running after closing',
+      type: 'checkbox',
+      checked: Boolean(platform.getKeepAlive()),
+      click: () => changeKeepAlive(),
+    },
+    { type: 'separator' },
+  ] : [];
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
       label: 'Guaardvark',
       submenu: [
         { label: 'Reload', accelerator: 'CmdOrCtrl+R', click: () => win && win.webContents.reload() },
         { type: 'separator' },
+        ...keepAliveItems,
         { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => beginQuit() },
       ],
     },
@@ -262,6 +283,54 @@ function buildMenu() {
       ],
     },
   ]));
+}
+
+// Turning keep-alive on or off rewrites a Windows setting every Linux system
+// on the PC shares, and applying it at once restarts all of them, so nothing
+// is changed before the person has read that and chosen.
+async function changeKeepAlive() {
+  const turnOn = !platform.getKeepAlive();
+  buildMenu();   // the click already flipped the tick; draw the real state until it changes
+  if (!win || win.isDestroyed() || quitState !== 'no') return;
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'question',
+    title: 'Guaardvark',
+    message: turnOn ? 'Keep Guaardvark running after this window closes?' : 'Stop Guaardvark when this window closes?',
+    detail: [
+      turnOn
+        ? 'Guaardvark will stay available in your browser, and work in progress will carry on, after you close this window.'
+        : 'Closing this window will stop Guaardvark again.',
+      turnOn
+        ? 'For that, Windows is told not to shut its Linux layer down when it is idle. The setting covers every Linux system on this PC, not only Guaardvark.'
+        : 'Windows goes back to shutting its Linux layer down when it is idle. The setting covers every Linux system on this PC, not only Guaardvark.',
+      'The change takes effect when the Linux layer restarts. Restarting it now stops every Linux system that is running on this PC, Guaardvark included; Guaardvark starts again straight away.',
+    ].join('\n\n'),
+    buttons: ['Change it and restart the Linux layer now', 'Change it at the next Windows restart', 'Cancel'],
+    defaultId: 1,
+    cancelId: 2,
+    noLink: true,
+  });
+  if (response === 2) return;
+  let result;
+  try {
+    result = await platform.setKeepAlive(turnOn);
+  } catch (err) {
+    dialog.showMessageBox(win, {
+      type: 'error',
+      title: 'Guaardvark',
+      message: 'The setting could not be changed.',
+      detail: String(err.message || err),
+      buttons: ['OK'],
+    });
+    return;
+  } finally {
+    buildMenu();
+  }
+  if (response !== 0 || !result || !result.needsWslRestart || typeof platform.applyWslSettings !== 'function') return;
+  setUi({ view: 'starting', startedAt: Date.now(), steps: [], label: 'Restarting the Linux layer', detail: '' });
+  await showLoadingPage();
+  await platform.applyWslSettings();
+  launch();
 }
 
 // ------------------------------------------------------------ loading page
@@ -288,12 +357,15 @@ async function showStudio(url) {
   }
 }
 
+// The failed line names the step startup stopped at (`at`); without that it
+// is the step that was running. Steps that only warned stay warnings.
 async function showFailure(evt) {
+  const steps = (ui.steps || []).map((s) => (s.state === 'running' || s.step === evt.at ? { ...s, state: 'failed' } : s));
   setUi({
     view: 'failed',
     label: evt.label || 'Guaardvark did not start',
     detail: evt.detail || '',
-    steps: (ui.steps || []).map((s) => (s.state === 'running' ? { ...s, state: 'failed' } : s)),
+    steps,
   });
   await showLoadingPage();
 }
@@ -303,7 +375,9 @@ function applyProgress(evt) {
   if (!evt || typeof evt !== 'object' || ui.view !== 'starting') return;
   const steps = ui.steps.slice();
   const next = { ...ui, steps };
-  const stateName = { start: 'running', ok: 'done', skip: 'skipped', fail: 'failed' }[evt.state];
+  // A step's `fail` is a warning while startup carries on; only the terminal
+  // `failed` line turns it into the failure (showFailure).
+  const stateName = { start: 'running', ok: 'done', skip: 'skipped', fail: 'warned' }[evt.state];
   if (stateName && evt.step && evt.step !== 'ready' && evt.step !== 'failed') {
     const at = steps.findIndex((s) => s.step === evt.step);
     const entry = { step: evt.step, label: evt.label || (at >= 0 ? steps[at].label : evt.step), state: stateName };
@@ -319,12 +393,36 @@ function applyProgress(evt) {
 
 // ----------------------------------------------------------------- startup
 
+// One launch at a time: start.sh must never run twice at once, and a second
+// click on a button must not begin a second pass.
 async function launch() {
+  if (launching) return;
+  launching = true;
+  try {
+    await runLaunch();
+  } finally {
+    launching = false;
+  }
+}
+
+async function runLaunch() {
   const mine = ++attempt;
   const current = () => mine === attempt && quitState === 'no';
   try {
     if (!(await platform.isInstalled())) {
-      setUi({ view: 'starting', startedAt: Date.now(), steps: [], label: 'Installing Guaardvark', detail: '' });
+      // A platform that can say what installing involves gets a screen that
+      // shows it and waits for Install; nothing is downloaded or changed
+      // before that. Coming back from the restart setup asked for counts as
+      // already agreed.
+      const resumed = typeof platform.isResumeLaunch === 'function' && platform.isResumeLaunch(process.argv);
+      if (typeof platform.planInstall === 'function' && !installApproved && !resumed) {
+        const plan = await platform.planInstall();
+        if (!current()) return;
+        setUi({ view: 'install', plan: describePlan(plan) });
+        await showLoadingPage();
+        return;
+      }
+      setUi({ view: 'starting', startedAt: Date.now(), steps: [], label: 'Setting up Guaardvark', detail: '' });
       await showLoadingPage();
       await platform.install((evt) => current() && applyProgress(evt));
     }
@@ -343,8 +441,42 @@ async function launch() {
     if (current()) await showStudio(webUrl);
   } catch (err) {
     if (!current()) return;
+    if (err.code === 'RESTART_REQUIRED') {
+      setUi({ view: 'restart', detail: '' });
+      await showLoadingPage();
+      return;
+    }
     await showFailure(err.event || { label: 'Guaardvark did not start', detail: String(err.message || err) });
   }
+}
+
+function sizeText(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+}
+
+// The plan screen's text, from whatever planInstall() returned: its steps and
+// what the person should expect (a permission prompt, a restart, a download).
+function describePlan(plan = {}) {
+  const notes = [];
+  if (plan.download) {
+    const size = sizeText(plan.download.bytes);
+    const from = plan.download.from ? ` from ${plan.download.from}` : '';
+    notes.push(size ? `Downloads ${size}${from}.` : `Downloads Guaardvark's files${from}.`);
+  }
+  if (plan.needsAdmin) notes.push('Your computer will ask for permission to make changes.');
+  if (plan.needsRestart) notes.push('One restart is needed part-way through. Setup carries on by itself after you sign in.');
+  return {
+    steps: (plan.steps || []).map((s) => ({ step: s.id, label: s.label || s.id, state: 'pending' })),
+    notes,
+  };
+}
+
+async function restartComputer() {
+  if (typeof platform.restartComputer !== 'function' || ui.view !== 'restart') return;
+  const ok = await platform.restartComputer();
+  if (ok) { finishQuit(); return; }
+  setUi({ view: 'restart', detail: 'The restart did not begin. Restart from the Start menu; Guaardvark opens again after you sign in.' });
 }
 
 // -------------------------------------------------------------------- quit
@@ -381,7 +513,10 @@ async function beginQuit() {
   }
 
   quitState = 'stopping';
-  if (win && !win.isDestroyed()) {
+  // With keep-alive on, stop() only lets go of the instance; nothing is
+  // stopped, so there is no stopping screen to show.
+  const keeping = !force && hasKeepAlive && platform.getKeepAlive();
+  if (!keeping && win && !win.isDestroyed()) {
     setUi({ view: 'stopping' });
     onLoadingPage = false;
     try {
@@ -432,6 +567,12 @@ if (!app.requestSingleInstanceLock()) {
 
   ipcMain.handle('gv:get-ui', (event) => (fromLoadingPage(event) ? ui : null));
   ipcMain.on('gv:retry', (event) => { if (fromLoadingPage(event) && quitState === 'no') launch(); });
+  ipcMain.on('gv:install', (event) => {
+    if (!fromLoadingPage(event) || quitState !== 'no' || ui.view !== 'install') return;
+    installApproved = true;
+    launch();
+  });
+  ipcMain.on('gv:restart', (event) => { if (fromLoadingPage(event) && quitState === 'no') restartComputer(); });
   ipcMain.on('gv:show-log', (event) => { if (fromLoadingPage(event)) shell.openPath(platform.logPath()); });
   ipcMain.on('gv:quit', (event) => { if (fromLoadingPage(event)) beginQuit(); });
 

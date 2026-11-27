@@ -7,8 +7,8 @@ const VISIBLE_STEPS = 7;
 
 let startedAt = null;
 
-function drawSteps(list, steps) {
-  list.replaceChildren(...(steps || []).slice(-VISIBLE_STEPS).map((step) => {
+function drawSteps(list, steps, visible = VISIBLE_STEPS) {
+  list.replaceChildren(...(steps || []).slice(-visible).map((step) => {
     const li = document.createElement('li');
     li.className = step.state;
     li.textContent = step.label;
@@ -25,7 +25,7 @@ function drawElapsed() {
 function draw(ui) {
   if (!ui) return;
   const view = ui.view === 'checking' ? 'starting' : ui.view;
-  for (const id of ['starting', 'failed', 'stopping']) $(id).hidden = id !== view;
+  for (const id of ['starting', 'failed', 'stopping', 'install', 'restart']) $(id).hidden = id !== view;
   startedAt = view === 'starting' && ui.startedAt ? ui.startedAt : null;
 
   if (view === 'starting') {
@@ -43,12 +43,25 @@ function draw(ui) {
     $('fail-label').textContent = ui.label;
     $('fail-detail').textContent = ui.detail || '';
     drawSteps($('fail-steps'), ui.steps);
+  } else if (view === 'install') {
+    drawSteps($('install-steps'), ui.plan.steps, Infinity);
+    $('install-notes').replaceChildren(...ui.plan.notes.map((note) => {
+      const li = document.createElement('li');
+      li.textContent = note;
+      return li;
+    }));
+  } else if (view === 'restart') {
+    $('restart-detail').textContent = ui.detail || '';
   }
 }
 
 $('retry').addEventListener('click', () => bridge.retry());
 $('show-log').addEventListener('click', () => bridge.showLog());
 $('quit').addEventListener('click', () => bridge.quit());
+$('install-go').addEventListener('click', () => bridge.install());
+$('install-quit').addEventListener('click', () => bridge.quit());
+$('restart-now').addEventListener('click', () => bridge.restart());
+$('restart-later').addEventListener('click', () => bridge.quit());
 
 setInterval(drawElapsed, 500);
 bridge.onUi(draw);

@@ -33,6 +33,15 @@ installer again from the new place.
   and the elapsed time. On `ready` the window switches to the studio. Because `start.sh` has
   its own session, it finishes and Guaardvark keeps running even if the app is killed; the
   next launch finds it through the health check.
+  A step that reports `fail` without the `failed` line after it is drawn as a warning and
+  startup carries on. The app never runs two `start.sh` at once: a new start waits until an
+  earlier one has exited.
+- **First run on a platform that installs.** When the platform module is not installed and
+  offers `planInstall()`, the window shows the plan (its steps, a permission prompt, a restart,
+  the download) and waits for **Install**. If `install()` then stops with `RESTART_REQUIRED`,
+  the window shows a restart screen with **Restart now** and **Later** in place of the failure
+  screen. A launch with `--resume-setup` (the one Windows makes after that restart) carries on
+  with setup without asking again.
 - **Start failed.** The `failed` line's `label` and `detail`, with **Try again**, **Show log**
   (opens the `log` named in that line, or the start script's own output when it names none)
   and **Close**.
@@ -41,6 +50,9 @@ installer again from the new place.
   **Keep it running**, closes only the window. An instance the app started and left running
   (for example after the app was killed) is recognised by the backend's boot id on the next
   launch and is stopped on close like any other it started.
+- **Keep running after closing (Windows).** The app menu has *Keep Guaardvark running after
+  closing* when the platform module has `getKeepAlive()`. It explains that the setting covers
+  every Linux system on the PC and asks before changing anything or restarting the Linux layer.
 - **Window.** Size and position are remembered. The address is always
   `http://localhost:<web port>`, the one a browser uses, because the studio keeps its settings
   per address. The app has its own browser profile, so a sign-in or setting saved in a browser
@@ -97,14 +109,21 @@ sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
 | `GUAARDVARK_INSTALL_ROOT` | The Guaardvark install to run. Default: the checkout this folder is in |
 | `FLASK_PORT`, `VITE_PORT` | Ports, with the precedence `start.sh` uses: environment, then the install's `.env`, then 5000 and 5173 |
 | `GUAARDVARK_DESKTOP_STATE_DIR` | Where the progress file and the start and stop output go. Default: `~/.local/state/guaardvark-desktop` |
+| `GUAARDVARK_DESKTOP_PLATFORM_MODULE` | For development, ignored by a packaged app: a file that exports a platform object to use in place of this system's, so another system's flow can be driven against stand-in tools |
 | `GUAARDVARK_DESKTOP_REQUEST_LOG` | For checks: a file that gets one line per request the window makes, marked `ALLOW` or `REFUSE` |
 | `GUAARDVARK_DESKTOP_READONLY=1` | For checks: also refuses every request that is not a plain read, so the app can look at a studio someone is using without changing anything |
 
 ## For the other platform modules
 
-`main.js` uses two things beyond the interface in `platform/index.js`, both optional:
+`main.js` uses these beyond the interface in `platform/index.js`. All are optional; a module
+without one simply does not get the screen or menu item that goes with it.
 
 - `wasStartedByApp()`: true when the running instance is this app's to stop. Without it,
   `main.js` counts only a start made in the current run.
 - `stop({ force: true })`: stop an instance the app did not start, after the person chose
   **Stop Guaardvark**.
+- `planInstall()` -> `{ steps: [{ id, label }], needsAdmin, needsRestart, download: { from, bytes } }`
+  for the screen before `install()`. It must not download or change anything.
+- `install()` rejecting with `err.code === 'RESTART_REQUIRED'`, and `restartComputer()`.
+- `isResumeLaunch(argv)`: this launch continues a setup the person already agreed to.
+- `getKeepAlive()`, `setKeepAlive(on)` -> `{ needsWslRestart }`, `applyWslSettings()`.

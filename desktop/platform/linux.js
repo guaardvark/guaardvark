@@ -15,7 +15,8 @@ const STOP_TIMEOUT_MS = 180000;
 // How long after start.sh exits a terminal line may still be read from the file.
 const EXIT_GRACE_MS = 1500;
 
-let startChild = null;      // the start.sh run in progress
+let startChild = null;      // the start.sh process this run launched, until it exits
+let starting = false;       // a start() call is in flight
 let startedByApp = false;   // this app (this run or an earlier one) brought Guaardvark up
 let lastFailureLog = null;
 
@@ -129,7 +130,7 @@ async function isRunning() {
   const { webUrl } = describe();
   const [api, web] = await Promise.all([health(), get(webUrl)]);
   const running = Boolean(api && web && web.status < 500);
-  if (running && !startChild) {
+  if (running && !starting) {
     // An instance this app started before (the app was closed without stopping
     // it, or crashed) is still this app's to stop. The backend's boot id tells
     // it apart from one that was restarted by hand since.
@@ -193,8 +194,60 @@ function newProgressFile() {
   return path.join(dir, `${PROGRESS_PREFIX}${Date.now()}.jsonl`);
 }
 
-function start(report) {
-  if (startChild) return Promise.reject(new Error('Guaardvark is already starting'));
+function isStartScript(pid, root) {
+  try {
+    return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').includes(path.join(root, 'start.sh'));
+  } catch {
+    return false;
+  }
+}
+
+// The start.sh still running for this install, if any: the one this run
+// launched, or the one an earlier run of the app recorded before it went away.
+function earlierStartPid() {
+  if (startChild) return startChild.pid;
+  const marker = readMarker();
+  const root = installRoot();
+  if (marker && marker.installRoot === root && Number.isInteger(marker.pid) && isStartScript(marker.pid, root)) {
+    return marker.pid;
+  }
+  return null;
+}
+
+// A second start.sh ends the first one's services (its first step is
+// stop.sh, which also removes start.sh's own lock), so the app never runs
+// two: a new start waits here until the earlier script has exited.
+async function waitForEarlierStart(report) {
+  if (!earlierStartPid()) return false;
+  const evt = { step: 'previous_start', label: 'Waiting for the earlier start to finish' };
+  if (report) report({ ...evt, state: 'start' });
+  while (earlierStartPid()) await new Promise((resolve) => setTimeout(resolve, 300));
+  if (report) report({ ...evt, state: 'ok' });
+  return true;
+}
+
+async function start(report) {
+  if (starting) throw new Error('Guaardvark is already starting');
+  starting = true;
+  try {
+    if (await waitForEarlierStart(report)) {
+      // The script waited for may have brought Guaardvark up (the app was
+      // closed or killed while it ran). Then there is nothing left to start.
+      const { installRoot: root, webUrl, apiUrl } = describe();
+      const [api, web] = await Promise.all([health(), get(webUrl)]);
+      if (api && web && web.status < 500) {
+        startedByApp = true;
+        fs.writeFileSync(markerFile(), JSON.stringify({ installRoot: root, pid: null, t: Date.now() / 1000, bootId: api.boot_id || null }));
+        return { webUrl, apiUrl };
+      }
+    }
+    return await runStartScript(report);
+  } finally {
+    starting = false;
+  }
+}
+
+function runStartScript(report) {
   const { installRoot: root, webUrl, apiUrl } = describe();
   const file = newProgressFile();
   const log = outputLog();
@@ -225,7 +278,6 @@ function start(report) {
       if (settled) return;
       settled = true;
       clearInterval(timer);
-      if (startChild === child) startChild = null;
       fn(value);
     };
 
@@ -273,8 +325,9 @@ function start(report) {
     };
 
     const timer = setInterval(poll, TAIL_INTERVAL_MS);
-    child.on('error', (err) => { exited = { code: 1, signal: null, err }; exitedAt = Date.now() - EXIT_GRACE_MS; });
-    child.on('exit', (code, signal) => { exited = { code, signal }; exitedAt = Date.now(); });
+    const gone = () => { if (startChild === child) startChild = null; };
+    child.on('error', (err) => { gone(); exited = { code: 1, signal: null, err }; exitedAt = Date.now() - EXIT_GRACE_MS; });
+    child.on('exit', (code, signal) => { gone(); exited = { code, signal }; exitedAt = Date.now(); });
   });
 }
 
@@ -287,7 +340,6 @@ function endStartInProgress() {
   } catch {
     // Already gone.
   }
-  startChild = null;
 }
 
 // Stops Guaardvark if this app started it. `force` also stops an instance the

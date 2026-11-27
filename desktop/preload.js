@@ -7,6 +7,8 @@ if (window.location.protocol === 'file:') {
     getUi: () => ipcRenderer.invoke('gv:get-ui'),
     onUi: (handler) => ipcRenderer.on('gv:ui', (_event, ui) => handler(ui)),
     retry: () => ipcRenderer.send('gv:retry'),
+    install: () => ipcRenderer.send('gv:install'),
+    restart: () => ipcRenderer.send('gv:restart'),
     showLog: () => ipcRenderer.send('gv:show-log'),
     quit: () => ipcRenderer.send('gv:quit'),
   });

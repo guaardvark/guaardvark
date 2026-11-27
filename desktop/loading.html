@@ -29,6 +29,27 @@
       </div>
     </section>
 
+    <section id="install" hidden>
+      <h1>Set up Guaardvark</h1>
+      <p class="detail">This is what setup does on this computer. Nothing is downloaded or changed until you press Install.</p>
+      <ol class="steps" id="install-steps"></ol>
+      <ul class="notes" id="install-notes"></ul>
+      <div class="buttons">
+        <button id="install-go" class="primary">Install</button>
+        <button id="install-quit">Close</button>
+      </div>
+    </section>
+
+    <section id="restart" hidden>
+      <h1>Restart Windows to finish setup</h1>
+      <p class="detail">Windows needs one restart to finish turning on its Linux layer. Save your work first. Guaardvark opens again by itself after you sign in.</p>
+      <p class="detail warn" id="restart-detail"></p>
+      <div class="buttons">
+        <button id="restart-now" class="primary">Restart now</button>
+        <button id="restart-later">Later</button>
+      </div>
+    </section>
+
     <section id="stopping" hidden>
       <h1>Stopping Guaardvark...</h1>
       <div class="bar busy"><div></div></div>
