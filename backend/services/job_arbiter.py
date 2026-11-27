@@ -127,13 +127,9 @@ def _owner_alive(pid: Any, started_at: Any) -> bool:
         return False
     if pid == os.getpid():
         return True
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        pass
-    except OSError:
+    from backend.utils.proc_alive import pid_alive
+
+    if not pid_alive(pid):
         return False
     if started_at is None:
         return True
