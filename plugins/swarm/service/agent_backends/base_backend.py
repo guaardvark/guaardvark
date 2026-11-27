@@ -37,6 +37,29 @@ SWARM_OWN_FILES = frozenset({
     ".swarm-run.sh", ".swarm-agent.log", ".swarm-status", ".swarm-result.json", "completion.md"})
 
 
+def pid_running(pid: int) -> bool:
+    """True while ``pid`` runs. Signal 0 alone also succeeds for a zombie (an
+    agent that exited but was never collected), which would show as running
+    forever; an agent this service started is collected here instead."""
+    try:
+        if os.waitpid(pid, os.WNOHANG)[0] == pid:
+            return False
+    except OSError:
+        pass  # not our child
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    try:
+        with open(f"/proc/{pid}/stat", "rb") as f:
+            stat = f.read().decode("ascii", "replace")
+        return stat[stat.rfind(")") + 1:].split()[0] not in ("Z", "X")
+    except (OSError, IndexError):
+        return True
+
+
 def agent_env(keep: tuple[str, ...] = ()) -> dict[str, str]:
     """The environment an agent CLI is started with: this process's, minus
     anything that names a secret. ``keep`` lists the names a backend needs

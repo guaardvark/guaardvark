@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from ..models import AgentStatus, SwarmTask
-from .base_backend import AgentProcess, BaseBackend, agent_env
+from .base_backend import AgentProcess, BaseBackend, agent_env, pid_running
 
 logger = logging.getLogger("swarm.backend.cline")
 
@@ -213,15 +213,18 @@ class ClineBackend(BaseBackend):
                 process.status = AgentStatus.CRASHED
                 return AgentStatus.CRASHED
 
-        # check if the process is still alive
-        if process.pid:
-            try:
-                os.kill(process.pid, 0)
-            except ProcessLookupError:
-                process.status = AgentStatus.CRASHED
-                return AgentStatus.CRASHED
-            except PermissionError:
-                pass
+        # Popen.poll() collects an exited wrapper; without the handle, ask by pid
+        popen = process.metadata.get("popen") if isinstance(process.metadata, dict) else None
+        if popen is not None:
+            if popen.poll() is None:
+                process.status = AgentStatus.RUNNING
+                return AgentStatus.RUNNING
+            process.status = AgentStatus.CRASHED
+            return AgentStatus.CRASHED
+
+        if process.pid and not pid_running(process.pid):
+            process.status = AgentStatus.CRASHED
+            return AgentStatus.CRASHED
 
         process.status = AgentStatus.RUNNING
         return AgentStatus.RUNNING
