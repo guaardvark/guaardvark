@@ -144,10 +144,23 @@ behavior, not a bug. Your desktop compositor also permanently holds
 - **Big GPU, small RAM (cloud shapes):** the system-RAM gate applies no matter
   how large the card is. Z-Image and Krea2 always run with CPU offload, so
   their weights live in system RAM between stages even on a 24 GB GPU. A
-  16 GB-RAM VM such as Google Cloud's `g2-standard-4` (one 24 GB L4) will
-  refuse them with `system RAM too low (not VRAM)`; the 32 GB `g2-standard-8`
-  admits them. On 16 GB of RAM, pick SDXL or SD 1.5 explicitly — Auto resolves
-  to Z-Image. Swap does not count toward the gate.
+  16 GB-RAM VM such as Google Cloud's `g2-standard-4` (one 24 GB L4) can
+  never hold them: a job whose RAM need plus the floor (10% of total RAM, at
+  most 6 GB) is more than all the RAM the system has is refused at once with
+  `Not enough system RAM`, instead of waiting for RAM that cannot come free.
+  The 32 GB `g2-standard-8` admits them. On such a machine Manage Image Models
+  shows each model's RAM need, warns before installing one that cannot fit,
+  and suggests the best one that does (SDXL on 16 GB); Auto renders with an
+  installed model that fits. Swap does not count toward the gate.
+- **Under WSL2 (Windows)** the RAM that counts is what Ubuntu sees (`free -h`
+  in Ubuntu), not the PC's total: WSL gives Ubuntu half of the PC's RAM unless
+  `memory=` is set under `[wsl2]` in `%UserProfile%\.wslconfig`. `./start.sh`
+  prints that figure under its ready card, and the RAM refusal says how to
+  raise it. Steps are in [INSTALL.md](../INSTALL.md#install-windows-11-through-wsl2).
+- **While a picture renders**, it is stopped when free RAM falls below 15% of
+  total RAM, at most 8 GB: 8 GB from about 54 GB of RAM up, 4.8 GB at 32 GB,
+  2.25 GB at 15 GB. Like the admission floor it is a share of total RAM with a
+  cap. `GUAARDVARK_MIN_FREE_RAM_GB` pins it.
 - **Swap:** ≥ 16 GB swap with low swappiness is recommended so a spike
   degrades instead of freezing the desktop — setup commands are in
   [INSTALL.md](../INSTALL.md).
