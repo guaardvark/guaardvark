@@ -14,6 +14,12 @@ const TAIL_INTERVAL_MS = 200;
 const STOP_TIMEOUT_MS = 180000;
 // How long after start.sh exits a terminal line may still be read from the file.
 const EXIT_GRACE_MS = 1500;
+// The label of the `failed` line a start.sh writes when another start.sh is
+// already starting the install (desktop/PROTOCOL.md).
+const ALREADY_STARTING = 'Guaardvark is already starting';
+// How long the other start may be gone, with Guaardvark not answering, before
+// the wait for it is given up.
+const ATTACH_GRACE_MS = 15000;
 
 let startChild = null;      // the start.sh process this run launched, until it exits
 let starting = false;       // a start() call is in flight
@@ -191,12 +197,33 @@ function makeTail(file) {
   };
 }
 
+// True when a running process was started with this path among its arguments
+// (a start.sh still writing the file was given it as --progress-file).
+function heldByLiveProcess(file) {
+  let pids;
+  try {
+    pids = fs.readdirSync('/proc').filter((name) => /^\d+$/.test(name));
+  } catch {
+    return true;   // cannot tell, so leave the file alone
+  }
+  return pids.some((pid) => {
+    try {
+      return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').includes(file);
+    } catch {
+      return false;
+    }
+  });
+}
+
 // The protocol wants a file no other start.sh run has used, so each launch
-// gets its own and the ones from earlier launches are cleared out.
+// gets its own. Files from earlier launches are cleared out, except one a
+// start.sh that is still running was given.
 function newProgressFile() {
   const dir = stateDir();
   for (const name of fs.readdirSync(dir)) {
-    if (name.startsWith(PROGRESS_PREFIX)) fs.rmSync(path.join(dir, name), { force: true });
+    if (!name.startsWith(PROGRESS_PREFIX)) continue;
+    const old = path.join(dir, name);
+    if (!heldByLiveProcess(old)) fs.rmSync(old, { force: true });
   }
   return path.join(dir, `${PROGRESS_PREFIX}${Date.now()}.jsonl`);
 }
@@ -324,10 +351,49 @@ function runStartScript(report) {
       finish(resolve, { webUrl: evt.url || webUrl, apiUrl: evt.api || apiUrl });
     };
 
+    // start.sh refused because another start.sh is already starting this
+    // install (begun in a terminal, say). That start is not this app's, so
+    // the window waits for it to bring Guaardvark up and then shows the
+    // studio as one it found running.
+    let attaching = false;
+    const attach = async (evt) => {
+      attaching = true;
+      startedByApp = false;
+      clearMarker();
+      const other = Number.parseInt((/\(PID (\d+)\)/.exec(evt.detail || '') || [])[1], 10);
+      if (report) {
+        report({
+          step: 'other_start',
+          state: 'start',
+          label: 'Guaardvark is already starting in another window',
+          detail: 'The studio opens here as soon as it is ready.',
+        });
+      }
+      let goneSince = 0;
+      while (!settled) {
+        const [api, web] = await Promise.all([health(), get(webUrl)]);
+        if (api && web && web.status < 500) { finish(resolve, { webUrl, apiUrl }); return; }
+        const alive = Number.isInteger(other) && isStartScript(other, root);
+        if (alive) goneSince = 0; else if (!goneSince) goneSince = Date.now();
+        if (goneSince && Date.now() - goneSince > ATTACH_GRACE_MS) {
+          fail({
+            step: 'failed',
+            state: 'fail',
+            label: 'Guaardvark did not start',
+            detail: 'Another start was under way and ended before Guaardvark was ready.',
+            log: evt.log,
+          });
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    };
+
     let checkingAfterExit = false;
     const poll = async () => {
-      if (settled || checkingAfterExit) return;
+      if (settled || checkingAfterExit || attaching) return;
       for (const evt of readNew()) {
+        if (evt.step === 'failed' && evt.label === ALREADY_STARTING) { attach(evt); return; }
         if (report) report(evt);
         if (evt.step === 'ready') { succeed(evt); return; }
         if (evt.step === 'failed') { fail(evt); return; }

@@ -42,11 +42,9 @@ asar: true
 #   are checked against the hash embedded in the executable at build time.
 # - cookies (the studio's session) are encrypted with the OS key store
 #   (DPAPI on Windows). On from the first release, so no profile predates it.
-# - grantFileProtocolExtraPrivileges stays on: the loading screen is a
-#   file:// page inside app.asar, and with the fuse off Electron no longer
-#   serves file:// from the archive (loading.html fails with
-#   ERR_FILE_NOT_FOUND). Turning it off needs the window to load its pages
-#   through a custom protocol (protocol.handle) instead of loadFile.
+# - file:// gets no extra privileges: the app's own screens are served from
+#   app://guaardvark/ by a handler in main.js that hands out a fixed list of
+#   files, so the window never loads a file:// page.
 electronFuses:
   runAsNode: false
   enableNodeOptionsEnvironmentVariable: false
@@ -54,7 +52,7 @@ electronFuses:
   onlyLoadAppFromAsar: true
   enableEmbeddedAsarIntegrityValidation: true
   enableCookieEncryption: true
-  grantFileProtocolExtraPrivileges: true
+  grantFileProtocolExtraPrivileges: false
 
 # Nothing native to rebuild, and the app has no runtime dependencies.
 npmRebuild: false

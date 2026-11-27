@@ -2,13 +2,57 @@
 // each startup step, then shows the studio. Closing the window stops what the
 // app started.
 
-const { app, BrowserWindow, Menu, dialog, ipcMain, screen, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, powerMonitor, protocol, screen, session, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
-const { pathToFileURL } = require('node:url');
 
-const LOADING_PAGE = path.join(__dirname, 'loading.html');
-const LOADING_URL = pathToFileURL(LOADING_PAGE).href;
+// The app's own screens (loading, install, restart, stopping) are served from
+// app://guaardvark/ by a handler that hands out exactly the files listed
+// here. They are not file:// pages, so the packaged app runs with the
+// grantFileProtocolExtraPrivileges fuse off and nothing in the window can
+// read a file from disk.
+const APP_SCHEME = 'app';
+const APP_HOST = 'guaardvark';
+const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`;
+const APP_FILES = new Map([
+  ['/loading.html', 'text/html; charset=utf-8'],
+  ['/loading.css', 'text/css; charset=utf-8'],
+  ['/loading.js', 'text/javascript; charset=utf-8'],
+  ['/assets/icon-256.png', 'image/png'],
+]);
+const LOADING_URL = `${APP_ORIGIN}/loading.html`;
+// Must happen before the app is ready.
+protocol.registerSchemesAsPrivileged([{ scheme: APP_SCHEME, privileges: { standard: true, secure: true } }]);
+
+function serveAppFiles() {
+  protocol.handle(APP_SCHEME, async (request) => {
+    let url;
+    try {
+      url = new URL(request.url);
+    } catch {
+      return new Response('', { status: 400 });
+    }
+    // The list is the whole of what is served: a path outside it, however it
+    // is spelled, is not found.
+    const type = url.host === APP_HOST && request.method === 'GET' ? APP_FILES.get(url.pathname) : undefined;
+    if (!type) return new Response('', { status: 404 });
+    try {
+      const body = await fs.promises.readFile(path.join(__dirname, url.pathname));
+      return new Response(body, { headers: { 'content-type': type, 'cache-control': 'no-store' } });
+    } catch {
+      return new Response('', { status: 404 });
+    }
+  });
+}
+
+function isAppPage(url) {
+  try {
+    const { protocol: scheme, host } = new URL(url);
+    return scheme === `${APP_SCHEME}:` && host === APP_HOST;
+  } catch {
+    return false;
+  }
+}
 const DEFAULT_BOUNDS = { width: 1440, height: 940 };
 const MIN_SIZE = { width: 960, height: 640 };
 const BACKGROUND = '#0b0c0f';
@@ -68,7 +112,7 @@ function isAllowedRequest(url) {
   try {
     const { protocol, hostname } = new URL(url);
     if (['devtools:', 'blob:', 'data:', 'about:', 'chrome-extension:'].includes(protocol)) return true;
-    if (protocol === 'file:') return url.startsWith(pathToFileURL(__dirname).href);
+    if (protocol === `${APP_SCHEME}:`) return hostname === APP_HOST;
     if (['http:', 'https:', 'ws:', 'wss:'].includes(protocol)) return isLoopbackHost(hostname);
     return false;
   } catch {
@@ -132,6 +176,9 @@ function lockDownSession() {
 // itself never navigates off this computer.
 function guardContents(contents) {
   contents.on('will-navigate', (event, url) => {
+    // Only the app itself puts its own screens in the window; a page cannot
+    // send the window to them.
+    if (isAppPage(url) && !isAppPage(contents.getURL())) { event.preventDefault(); return; }
     if (isAllowedRequest(url)) return;
     event.preventDefault();
     if (isExternalLink(url)) shell.openExternal(url);
@@ -144,7 +191,7 @@ function guardContents(contents) {
       shell.openExternal(url);
       return { action: 'deny' };
     }
-    if (!isAllowedRequest(url) || url.startsWith('file:')) return { action: 'deny' };
+    if (!isAllowedRequest(url) || isAppPage(url)) return { action: 'deny' };
     return {
       action: 'allow',
       overrideBrowserWindowOptions: {
@@ -240,6 +287,8 @@ function createWindow() {
     beginQuit();
   });
   win.on('closed', () => { win = null; });
+  // Windows: logging off, shutting down or restarting.
+  win.on('session-end', () => endForSessionEnd());
 
   win.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
     // -3 is a load this app replaced with another one.
@@ -406,12 +455,12 @@ function setUi(next) {
 async function showLoadingPage() {
   if (!win || win.isDestroyed() || onLoadingPage) return;
   onLoadingPage = true;
-  await win.loadFile(LOADING_PAGE);
+  await win.loadURL(LOADING_URL);
 }
 
 // An install with an API key asks every new browser profile for it once. This
 // window belongs to the person running the install, so the app signs its own
-// profile in through the same route Settings → Access uses: the key goes from
+// profile in through the same route Settings > Access uses: the key goes from
 // the install's .env to the loopback backend, which answers with the session
 // cookie. The key is not logged, shown or stored by the app. Any failure
 // leaves the studio to ask for the key as it would in a browser.
@@ -460,6 +509,9 @@ async function showStudio(url) {
 // is the step that was running. Steps that only warned stay warnings.
 async function showFailure(evt) {
   const steps = (ui.steps || []).map((s) => (s.state === 'running' || s.step === evt.at ? { ...s, state: 'failed' } : s));
+  // No step named and none running: the step that warned last is where it stopped.
+  const last = steps[steps.length - 1];
+  if (last && last.state === 'warned' && !steps.some((s) => s.state === 'failed')) steps[steps.length - 1] = { ...last, state: 'failed' };
   setUi({
     view: 'failed',
     label: evt.label || 'Guaardvark did not start',
@@ -652,16 +704,64 @@ async function beginQuit() {
   }
 }
 
-function finishQuit() {
+// Chromium writes cookies and page storage to disk on a timer; a quit inside
+// that interval would lose a sign-in or a setting made just before it.
+async function flushSession() {
+  const ses = session.defaultSession;
+  try {
+    ses.flushStorageData();
+    await ses.cookies.flushStore();
+  } catch {
+    // Quitting matters more than the flush.
+  }
+}
+
+async function finishQuit() {
   quitState = 'done';
   saveWindowState();
+  await flushSession();
   app.quit();
+}
+
+// The desktop is logging out or shutting down, or the app was sent a
+// termination signal. Nobody is there to answer a question and the system is
+// waiting, so: save the session, stop Guaardvark only if this app started it
+// and it is not set to keep running, and leave within the time allowed
+// whatever happens. A stop.sh that needs longer carries on by itself.
+const SESSION_END_BUDGET_MS = process.platform === 'win32' ? 4000 : 25000;
+let sessionEnding = false;
+
+async function endForSessionEnd() {
+  if (sessionEnding || quitState === 'done') return;
+  sessionEnding = true;
+  const leave = () => { quitState = 'done'; app.exit(0); };
+  setTimeout(leave, SESSION_END_BUDGET_MS);
+  saveWindowState();
+  await flushSession();
+  const keeping = hasKeepAlive && platform.getKeepAlive();
+  // A stop already under way (the window was closing) is left to finish.
+  if (quitState !== 'stopping' && ownsInstance() && !keeping) {
+    quitState = 'stopping';
+    if (win && !win.isDestroyed()) {
+      setUi({ view: 'stopping' });
+      onLoadingPage = false;
+      showLoadingPage().catch(() => {});
+    }
+    try {
+      await platform.stop();
+    } catch {
+      // Leaving is still right.
+    }
+    leave();
+  } else if (quitState !== 'stopping') {
+    leave();
+  }
 }
 
 // --------------------------------------------------------------------- app
 
 function fromLoadingPage(event) {
-  return Boolean(event.senderFrame && event.senderFrame.url.startsWith(LOADING_URL));
+  return Boolean(event.senderFrame && isAppPage(event.senderFrame.url));
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -703,6 +803,16 @@ if (!app.requestSingleInstanceLock()) {
   ipcMain.on('gv:quit', (event) => { if (fromLoadingPage(event)) beginQuit(); });
 
   app.whenReady().then(() => {
+    // Registered here, not earlier: Chromium installs its own handlers for
+    // these signals while it starts, and they turn a signal into an ordinary
+    // quit, which would stop to ask a question nobody is there to answer.
+    for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => endForSessionEnd());
+    // Linux and macOS: the system is shutting down or restarting.
+    powerMonitor.on('shutdown', (event) => {
+      event.preventDefault();
+      endForSessionEnd();
+    });
+    serveAppFiles();
     lockDownSession();
     buildMenu();
     createWindow();
