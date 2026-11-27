@@ -7,6 +7,7 @@ contract (~/.guaardvark/config.json) is a different file and is not touched.
 
 import json
 import os
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -93,6 +94,28 @@ def _health_check_port(port: int, timeout: float = 1.5) -> bool:
         return False
 
 
+def _pid_running(pid: int) -> bool:
+    """True while ``pid`` runs. Signal 0 also succeeds for a zombie (exited,
+    not yet collected by its parent), which has stopped running."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    try:
+        with open(f"/proc/{pid}/stat", "rb") as f:
+            stat = f.read().decode("ascii", "replace")
+        state = stat[stat.rfind(")") + 1:].split()[0]
+    except (OSError, IndexError):
+        try:
+            state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True,
+                                   text=True, timeout=5).stdout.strip()[:1]
+        except (OSError, subprocess.SubprocessError):
+            return True
+    return state not in ("Z", "X")
+
+
 def _discover_runtime_server() -> str | None:
     """Auto-discover the running Guaardvark backend from runtime state file."""
     if not RUNTIME_FILE.exists():
@@ -109,12 +132,8 @@ def _discover_runtime_server() -> str | None:
             return f"http://localhost:{port}"
         pid = runtime.get("backend_pid", 0)
         if pid and pid > 0:
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
+            if not _pid_running(pid):
                 return None
-            except PermissionError:
-                pass
             return f"http://localhost:{port}"
         return None
     except (json.JSONDecodeError, OSError, KeyError, ValueError, TypeError):
