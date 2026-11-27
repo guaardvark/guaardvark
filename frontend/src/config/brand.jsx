@@ -7,8 +7,6 @@
 import GuaardvarkLogo from "../components/branding/GuaardvarkLogo";
 import { catalogToNavGroups, CORE_NAV_CATALOG, WORKSPACES } from "./navCatalog";
 
-const env = import.meta.env;
-
 // Sidebar projection of config/navCatalog.jsx. Reshape navigation there;
 // this file still exposes the grouped list the Sidebar already consumes.
 const navGroups = catalogToNavGroups(CORE_NAV_CATALOG);
@@ -17,10 +15,12 @@ export const brand = {
   // Static fallback name. The DB-backed branding setting (Settings →
   // Branding, /api/settings/branding) still wins at runtime once fetched;
   // this covers pre-fetch render and API-failure states.
-  appName: env.VITE_BRAND_NAME || "Guaardvark",
-  tagline: env.VITE_BRAND_TAGLINE || "",
+  // Each VITE_BRAND_* key is read by name: a bare `import.meta.env` would make
+  // Vite inline every VITE_* variable, serve-time ones like the LAN allowlist too.
+  appName: import.meta.env.VITE_BRAND_NAME || "Guaardvark",
+  tagline: import.meta.env.VITE_BRAND_TAGLINE || "",
   // Key into theme/themes.js registry; used as the default and fallback theme.
-  defaultThemeKey: env.VITE_BRAND_THEME || "guaardvark",
+  defaultThemeKey: import.meta.env.VITE_BRAND_THEME || "guaardvark",
   // React component rendered wherever the product logo appears.
   logo: GuaardvarkLogo,
   // The once-or-twice "star on GitHub" card (components/common/starAskModel.js).
