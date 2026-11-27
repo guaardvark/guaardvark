@@ -2099,7 +2099,8 @@ _redis_check_port=$(echo "$_redis_check_url" | sed -nE 's|^redis://([^@]*@)?[^:]
 _redis_check_pass=$(echo "$_redis_check_url" | sed -n 's|^redis://:\([^@]*\)@.*|\1|p')
 [ -n "$_redis_check_port" ] || _redis_check_port=6379
 if [ -n "$_redis_check_pass" ]; then
-  _redis_pong=$(redis-cli -p "$_redis_check_port" -a "$_redis_check_pass" --no-auth-warning ping 2>/dev/null || true)
+  # REDISCLI_AUTH, not -a: an argument shows the password in every user's ps.
+  _redis_pong=$(REDISCLI_AUTH="$_redis_check_pass" redis-cli -p "$_redis_check_port" ping 2>/dev/null || true)
 else
   _redis_pong=$(redis-cli -p "$_redis_check_port" ping 2>/dev/null || true)
 fi

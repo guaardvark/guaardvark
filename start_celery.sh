@@ -104,7 +104,8 @@ wait_for_broker() {
   vader_info "Waiting for Redis broker on :${port}..."
   while [ "$tries" -lt "$max_tries" ]; do
     if [ -n "$pass" ]; then
-      if redis-cli -p "$port" -a "$pass" --no-auth-warning ping 2>/dev/null | grep -q PONG; then
+      # REDISCLI_AUTH, not -a: an argument shows the password in every user's ps.
+      if REDISCLI_AUTH="$pass" redis-cli -p "$port" ping 2>/dev/null | grep -q PONG; then
         vader_success "Redis broker reachable on :${port}"
         return 0
       fi
