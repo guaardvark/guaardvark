@@ -29,6 +29,16 @@ const { classify, event } = require('./wsl/labels');
 const { lines } = require('./wsl/decode');
 const { createStateStore, systemBootTime, registerResume, clearResume, RESUME_FLAG } = require('./wsl/state');
 
+// The uninstaller starts the app as `Guaardvark.exe --undo-wsl-settings <file>`
+// to undo its changes to .wslconfig with this same code. main.js
+// loads this module at its top, before any window exists, so the app does
+// the undo and exits here without opening.
+{
+  const { runUndo, FLAG } = require('./wsl/wslconfig-undo');
+  const at = process.argv.indexOf(FLAG);
+  if (at >= 0) process.exit(runUndo(process.argv[at + 1]));
+}
+
 const DISTRO = 'Guaardvark';
 // Store WSL 2.x: systemd and GPU passthrough are both there.
 const MIN_WSL = [2, 0, 0];
@@ -128,6 +138,13 @@ function create(opts = {}) {
   const version = opts.guaardvarkVersion || readGuaardvarkVersion();
   const fetchImpl = opts.fetch || image.pickFetch();
   const store = createStateStore(path.join(appDir, 'setup-state.json'));
+  // A stop in progress (see runStop).
+  const stopMarker = path.join(appDir, 'stopping.json');
+  // What turning keep-alive on changed in .wslconfig; read by the uninstaller too.
+  const keepAliveRecord = path.join(appDir, 'keep-alive.json');
+  // What the memory setting changed in .wslconfig; read by the uninstaller too.
+  const memoryRecord = path.join(appDir, 'memory.json');
+  const totalMemBytes = opts.totalMemBytes || os.totalmem();
 
   function log(text) {
     try {
@@ -137,7 +154,7 @@ function create(opts = {}) {
   }
 
   const runner = createRunner({ tools, env, log });
-  const session = { started: false, holder: null, tail: null, starter: null, lastLog: null };
+  const session = { started: false, stopping: false, holder: null, tail: null, starter: null, lastLog: null };
 
   function uncPath(linuxPath) {
     return linuxPath ? `\\\\wsl.localhost\\${DISTRO}${linuxPath.replace(/\//g, '\\')}` : null;
@@ -372,9 +389,13 @@ function create(opts = {}) {
     return { user, home, root, hasStart: start === 'has-start', ports };
   }
 
-  async function install(report) {
+  // options.memory: the person's choice on the plan screen for the memory
+  // setting (see memoryChoice). It is saved, so the launch after the WSL
+  // restart, which skips the plan screen, keeps it.
+  async function install(report, options = {}) {
     const emit = makeReporter(report);
     log(`---- install (Guaardvark ${version || 'unknown version'})`);
+    if (typeof options.memory === 'boolean') store.write({ memoryWanted: options.memory });
 
     emit(event('windows_version', 'start'));
     const build = detect.windowsBuild(osRelease);
@@ -421,6 +442,8 @@ function create(opts = {}) {
       }
       emit(event('wsl_import', 'skip', { detail: 'Already set up' }));
     } else {
+      // Before the distribution first starts, so its first boot has it.
+      await applyMemoryChoice(emit);
       const img = await obtainImage(emit);
       if (img) {
         await importImage(emit, img);
@@ -630,17 +653,93 @@ function create(opts = {}) {
       return;
     }
     const st = store.read();
-    if (session.tail) { session.tail.kill(); session.tail = null; }
-    if (!force && st.keepAlive && keepAlive.isKeepAlive(userProfile)) {
-      log('stop: keep-alive is on; Guaardvark keeps running in the background');
-    } else {
-      log('---- stop');
-      const res = await inDistro('cd "$1" && ./stop.sh', [st.root], { timeoutMs: 180000 });
-      fs.appendFileSync(startLog, `\n--- stop.sh (exit ${res.code})\n${res.stdout}${res.stderr}`);
-      await runner.run('wsl', ['--terminate', DISTRO], { timeoutMs: 60000 });
+    session.stopping = true;
+    try {
+      if (session.tail) { session.tail.kill(); session.tail = null; }
+      if (!force && st.keepAlive && keepAlive.isKeepAlive(userProfile)) {
+        log('stop: keep-alive is on; Guaardvark keeps running in the background');
+      } else {
+        log('---- stop');
+        await runStop(st.root);
+      }
+      if (session.holder) { session.holder.kill(); session.holder = null; }
+      session.started = false;
+    } finally {
+      session.stopping = false;
     }
-    if (session.holder) { session.holder.kill(); session.holder = null; }
-    session.started = false;
+  }
+
+  // A stop is stop.sh inside the distribution, then `wsl --terminate`. While
+  // it runs, stopping.json says which phase it is in, so a launch after the
+  // app was closed or killed part-way knows a stop was cut short; starting
+  // into a half-stopped Guaardvark would fail in odd ways. stop.sh runs by
+  // its full path so it can be found in the distribution's process list.
+  const STOP_SCRIPT = 'cd "$1" && exec "$1/stop.sh"';
+  const STOP_PENDING_TIMEOUT_MS = 180000;
+
+  function readStopMarker() {
+    try {
+      return JSON.parse(fs.readFileSync(stopMarker, 'utf8'));
+    } catch {
+      return null;
+    }
+  }
+
+  function writeStopMarker(root, phase) {
+    fs.mkdirSync(appDir, { recursive: true });
+    fs.writeFileSync(stopMarker, `${JSON.stringify({ root, phase, at: new Date().toISOString(), appPid: process.pid })}\n`);
+  }
+
+  async function runStop(root, timeoutMs = STOP_PENDING_TIMEOUT_MS) {
+    writeStopMarker(root, 'stop');
+    const res = await inDistro(STOP_SCRIPT, [root], { timeoutMs });
+    fs.appendFileSync(startLog, `\n--- stop.sh (exit ${res.code})\n${res.stdout}${res.stderr}`);
+    writeStopMarker(root, 'terminate');
+    await runner.run('wsl', ['--terminate', DISTRO], { timeoutMs: 60000 });
+    fs.rmSync(stopMarker, { force: true });
+    return res;
+  }
+
+  // Truthy when an earlier run of the app began a stop and did not see it
+  // finish. Synchronous: it only reads stopping.json.
+  function pendingWork() {
+    const m = readStopMarker();
+    if (!m) return null;
+    if (m.appPid === process.pid && session.stopping) return null;
+    return 'stopping';
+  }
+
+  // Finishes a stop that was cut short: waits for a stop.sh still running in
+  // the distribution, runs stop.sh again (it does nothing when everything is
+  // already down) unless the earlier one had completed, then stops the
+  // distribution. Rejects with a plain "failed" event after the timeout.
+  async function waitForPendingWork({ timeoutMs = STOP_PENDING_TIMEOUT_MS, report } = {}) {
+    const m = readStopMarker();
+    if (!m) return;
+    const emit = makeReporter(report);
+    const deadline = Date.now() + timeoutMs;
+    log(`---- an earlier stop was cut short in phase ${m.phase} (${m.at}); finishing it`);
+    emit(event('stop_pending', 'start', { detail: 'Guaardvark was still stopping when the app closed.' }));
+    const giveUp = () => fail(emit, 'stop_pending', 'Guaardvark did not finish stopping',
+      `It was still stopping after ${Math.round(timeoutMs / 1000)} seconds. Restart Windows, or in PowerShell run: wsl --terminate ${DISTRO}. Then open Guaardvark again.`);
+    if (m.phase === 'stop') {
+      for (;;) {
+        // pgrep exits 0 while a matching process runs, 1 when none does.
+        const left = deadline - Date.now();
+        if (left <= 0) giveUp();
+        const res = await inDistro('pgrep -f -- "$1/stop.sh" >/dev/null', [m.root], { timeoutMs: Math.min(left, 60000), login: false });
+        if (res.code !== 0) break;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      const left = deadline - Date.now();
+      if (left <= 0) giveUp();
+      const res = await inDistro(STOP_SCRIPT, [m.root], { timeoutMs: left });
+      if (res.code === null) giveUp();
+      fs.appendFileSync(startLog, `\n--- stop.sh, finishing an earlier stop (exit ${res.code})\n${res.stdout}${res.stderr}`);
+    }
+    await runner.run('wsl', ['--terminate', DISTRO], { timeoutMs: 60000 });
+    fs.rmSync(stopMarker, { force: true });
+    emit(event('stop_pending', 'ok'));
   }
 
   function logPath() {
@@ -673,6 +772,91 @@ function create(opts = {}) {
 
   // What install() will do, without changing anything or using the network,
   // for the screen that asks before it starts.
+  // WSL lets its Linux systems use half the PC's RAM unless .wslconfig says
+  // otherwise ([wsl2] memory=). Image and video models need more than half of
+  // a 32 GB PC, so Guaardvark offers the PC's RAM minus 8 GB for Windows, on
+  // by default. On a PC where that is not more than WSL's own half (16 GB or
+  // less) there is nothing to gain and nothing is offered. A memory= the
+  // person set is never replaced.
+  function memoryChoice() {
+    const totalGB = totalMemBytes / 2 ** 30;
+    const defaultGB = Math.floor(totalGB / 2);
+    const want = Math.floor(totalGB - 8);
+    const now = keepAlive.memoryState(userProfile, memoryRecord);
+    const recommendedGB = want > defaultGB ? want : null;
+    const offered = recommendedGB !== null && !now.userValue;
+    return {
+      totalGB: Math.round(totalGB * 10) / 10,
+      defaultGB,
+      recommendedGB,
+      userValue: now.userValue,
+      on: now.ours,
+      value: now.value,
+      offered,
+      defaultOn: offered,
+      label: offered ? `Let Guaardvark use up to ${recommendedGB} GB of memory` : null,
+    };
+  }
+
+  async function applyMemoryChoice(emit) {
+    const mc = memoryChoice();
+    const st = store.read();
+    const wanted = typeof st.memoryWanted === 'boolean' ? st.memoryWanted : mc.defaultOn;
+    if (mc.userValue) {
+      emit(event('wsl_memory', 'skip', { detail: `You set memory=${mc.userValue} in .wslconfig; it stays as you set it.` }));
+      return;
+    }
+    if (!mc.offered) {
+      emit(event('wsl_memory', 'skip', { detail: `WSL's own limit, half of this PC's ${mc.totalGB} GB, is already as much as Guaardvark would ask for.` }));
+      return;
+    }
+    if (!wanted) {
+      emit(event('wsl_memory', 'skip', { detail: `Left at WSL's own limit, ${mc.defaultGB} GB.` }));
+      return;
+    }
+    emit(event('wsl_memory', 'start'));
+    let res;
+    try {
+      res = keepAlive.enableMemory(userProfile, memoryRecord, mc.recommendedGB);
+    } catch (e) {
+      // A warning, not a stop: setup carries on with WSL's own limit.
+      log(`memory: could not write .wslconfig: ${e.message}`);
+      emit(event('wsl_memory', 'fail', { detail: `Could not write ${keepAlive.configPath(userProfile)} (${e.code || e.message}). Linux keeps WSL's own limit, ${mc.defaultGB} GB.` }));
+      return;
+    }
+    log(`memory: ${res.changed ? `wrote memory=${res.value}` : res.reason} (${keepAlive.configPath(userProfile)})`);
+    // .wslconfig is read when the WSL VM starts. Another Linux system running
+    // now keeps the VM up, and the limit then applies from its next start.
+    const running = await detect.distros(runner, { running: true });
+    emit(event('wsl_memory', 'ok', {
+      detail: `Up to ${mc.recommendedGB} GB of this PC's ${mc.totalGB} GB (WSL's own limit is ${mc.defaultGB} GB).`
+        + (running.length ? ' It applies from the next time WSL starts, after the Linux systems running now have stopped.' : ''),
+    }));
+  }
+
+  // For the app menu: the memory setting as it is now.
+  function getMemory() {
+    return memoryChoice();
+  }
+
+  // on=true writes Guaardvark's memory limit (never over the person's own);
+  // on=false undoes exactly what it wrote. Takes effect after
+  // applyWslSettings(), which restarts all of WSL; ask before calling it.
+  function setMemory(on) {
+    const mc = memoryChoice();
+    store.write({ memoryWanted: !!on });
+    let res;
+    if (on) {
+      if (!mc.recommendedGB) return { changed: false, needsWslRestart: false, result: 'not-offered', value: null };
+      res = keepAlive.enableMemory(userProfile, memoryRecord, mc.recommendedGB);
+    } else {
+      res = keepAlive.undoMemory(userProfile, memoryRecord);
+    }
+    const changed = on ? res.changed : res.result !== 'nothing';
+    log(`memory ${on ? 'on' : 'off'}: ${on ? (res.changed ? `wrote memory=${res.value}` : res.reason) : res.result} (${keepAlive.configPath(userProfile)})`);
+    return { changed, needsWslRestart: changed, result: res.result || res.reason, message: res.message, value: res.value || null, userValue: res.userValue || null };
+  }
+
   async function planInstall() {
     const st = store.read();
     const ws = await detect.wslState(runner);
@@ -689,6 +873,7 @@ function create(opts = {}) {
       needsRestart: enable || !!st.restartRequestedAt,
       download: src.kind === 'download' && !names.includes(DISTRO) ? { from: 'GitHub', url: src.url, bytes: opts.imageBytes || null } : null,
       bundledImageBytes: src.kind === 'local' ? (opts.imageBytes || packageField('wslImageBytes')) : null,
+      memory: memoryChoice(),
     };
   }
 
@@ -709,11 +894,16 @@ function create(opts = {}) {
   // on=true: closing the window leaves Guaardvark running. Writes the two
   // WSL idle timeouts (every distribution on the PC) and takes effect after
   // applyWslSettings(), which restarts all of WSL; ask before calling it.
+  // on=false undoes exactly what on=true wrote (wsl/wslconfig.js); a
+  // keep-alive the person set up themselves is left alone. `message`, when
+  // present, is for the person.
   function setKeepAlive(on) {
-    const changed = keepAlive.setKeepAlive(userProfile, !!on);
+    const file = keepAlive.configPath(userProfile);
+    const res = on ? keepAlive.enableKeepAlive(userProfile, keepAliveRecord) : keepAlive.undoKeepAlive(userProfile, keepAliveRecord);
+    const changed = on ? res.changed : res.result !== 'nothing';
     store.write({ keepAlive: !!on });
-    log(`keep-alive ${on ? 'on' : 'off'} (${changed ? 'changed' : 'unchanged'} ${keepAlive.configPath(userProfile)})`);
-    return { changed, needsWslRestart: changed, file: keepAlive.configPath(userProfile) };
+    log(`keep-alive ${on ? 'on' : 'off'}: ${on ? (res.changed ? 'written' : res.reason) : res.result} (${file})`);
+    return { changed, needsWslRestart: changed, file, result: res.result || res.reason, message: res.message };
   }
 
   async function applyWslSettings() {
@@ -732,11 +922,15 @@ function create(opts = {}) {
     logPath,
     wasStartedByApp,
     getApiKey,
+    pendingWork,
+    waitForPendingWork,
     planInstall,
     restartComputer,
     isResumeLaunch,
     getKeepAlive,
     setKeepAlive,
+    getMemory,
+    setMemory,
     applyWslSettings,
     DISTRO,
   };

@@ -21,11 +21,41 @@
   ${EndIf}
 !macroend
 
+; Keep-alive and the memory limit (the app's settings) write lines to the
+; person's %USERPROFILE%\.wslconfig and record exactly what they changed in
+; keep-alive.json and memory.json. The app itself undoes them
+; (Guaardvark.exe --undo-wsl-settings <file> does that and exits without a
+; window): an untouched file is put back as it was, an edited one only loses
+; lines that still hold Guaardvark's values. customUnInstall runs before the
+; template removes the program files, so the executable is still there.
+!macro gvUndoWslSettings
+  ${If} ${FileExists} "${GV_DATA}\keep-alive.json"
+  ${OrIf} ${FileExists} "${GV_DATA}\memory.json"
+    DetailPrint "Undoing Guaardvark's changes to .wslconfig"
+    InitPluginsDir
+    StrCpy $R2 "$PLUGINSDIR\gv-wsl-settings.txt"
+    ExecWait '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" --undo-wsl-settings "$R2"' $R0
+    StrCpy $R1 ""
+    ClearErrors
+    FileOpen $R3 "$R2" r
+    ${IfNot} ${Errors}
+      FileReadUTF16LE $R3 $R1
+      FileClose $R3
+    ${EndIf}
+    ${If} $R0 == "3"
+      MessageBox MB_OK|MB_ICONINFORMATION "$R1" /SD IDOK
+    ${ElseIf} $R0 != "0"
+      MessageBox MB_OK|MB_ICONEXCLAMATION "Guaardvark could not undo its changes to $PROFILE\.wslconfig (code $R0).$\r$\n$\r$\nOpen that file and remove the lines instanceIdleTimeout=-1, vmIdleTimeout=-1 and memory= that you did not add yourself.$\r$\n$\r$\n$R1" /SD IDOK
+    ${EndIf}
+  ${EndIf}
+!macroend
+
 !macro customUnInstall
   ; The restart-and-resume entry from setup, if a restart never came.
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\RunOnce" "GuaardvarkSetup"
 
   ${IfNot} ${isUpdated}
+    !insertmacro gvUndoWslSettings
     ${If} ${FileExists} "${GV_DATA}\wsl\ext4.vhdx"
       MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "Also remove Guaardvark's Linux system?$\r$\n$\r$\nIt holds Guaardvark and everything made or downloaded in it: chats, documents, pictures, videos, models and settings.$\r$\n$\r$\n${GV_DATA}\wsl$\r$\n$\r$\nChoose No to keep it. Installing Guaardvark again picks it up as it was." /SD IDNO IDNO gv_keep_distro
         !insertmacro gvFindWsl $R0

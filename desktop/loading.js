@@ -6,6 +6,7 @@ const $ = (id) => document.getElementById(id);
 const VISIBLE_STEPS = 7;
 
 let startedAt = null;
+let memoryShown = null;
 
 function drawSteps(list, steps, visible = VISIBLE_STEPS) {
   list.replaceChildren(...(steps || []).slice(-visible).map((step) => {
@@ -47,6 +48,14 @@ function draw(ui) {
     $('stopping-detail').textContent = ui.reopening ? 'It will start again as soon as it has stopped.' : '';
   } else if (view === 'install') {
     drawSteps($('install-steps'), ui.plan.steps, Infinity);
+    const memory = ui.plan.memory;
+    $('install-memory').hidden = !memory;
+    if (memory && memoryShown !== memory.label) {
+      // Set once per offer, so a redraw never undoes the person's click.
+      memoryShown = memory.label;
+      $('install-memory-label').textContent = memory.label;
+      $('install-memory-box').checked = memory.on;
+    }
     $('install-notes').replaceChildren(...ui.plan.notes.map((note) => {
       const li = document.createElement('li');
       li.textContent = note;
@@ -60,7 +69,9 @@ function draw(ui) {
 $('retry').addEventListener('click', () => bridge.retry());
 $('show-log').addEventListener('click', () => bridge.showLog());
 $('quit').addEventListener('click', () => bridge.quit());
-$('install-go').addEventListener('click', () => bridge.install());
+$('install-go').addEventListener('click', () => bridge.install({
+  memory: $('install-memory').hidden ? undefined : $('install-memory-box').checked,
+}));
 $('install-quit').addEventListener('click', () => bridge.quit());
 $('restart-now').addEventListener('click', () => bridge.restart());
 $('restart-later').addEventListener('click', () => bridge.quit());

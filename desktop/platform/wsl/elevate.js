@@ -38,12 +38,13 @@ const ELEVATE_SCRIPT = [
 const SAFE_ARG = /^[A-Za-z0-9._:=-]+$/;
 
 async function runElevated(runner, tool, args, outFile) {
+  if (!Object.prototype.hasOwnProperty.call(runner.tools, tool)) throw new Error(`unknown tool: ${tool}`);
   for (const a of args) {
     if (!SAFE_ARG.test(a)) throw new Error(`refusing to elevate an argument with special characters: ${a}`);
   }
   try { fs.rmSync(outFile, { force: true }); } catch { /* not there */ }
   const res = await runner.run('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encodePowerShell(ELEVATE_SCRIPT)], {
-    env: { GV_ELEVATE_EXE: runner.tools[tool] || tool, GV_ELEVATE_ARGS: args.join(' '), GV_ELEVATE_OUT: outFile },
+    env: { GV_ELEVATE_EXE: runner.tools[tool], GV_ELEVATE_ARGS: args.join(' '), GV_ELEVATE_OUT: outFile },
   });
   let output = '';
   try { output = decode(fs.readFileSync(outFile)); } catch { /* the command never ran */ }
