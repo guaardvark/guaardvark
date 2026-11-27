@@ -19,12 +19,19 @@ function defaultTools(env = process.env) {
 }
 
 function createRunner({ tools, env, log }) {
+  // Only the tools named in the table can be started; arguments go to them
+  // as an array, never through a shell.
+  function exeFor(tool) {
+    if (!Object.prototype.hasOwnProperty.call(tools, tool)) throw new Error(`unknown tool: ${tool}`);
+    return tools[tool];
+  }
+
   const baseEnv = { ...process.env, ...env, WSL_UTF8: '1' };
 
   // Resolves with { code, stdout, stderr } (decoded) and never rejects for a
   // non-zero exit; a tool that cannot be started gives code null and `error`.
   function run(tool, args, opts = {}) {
-    const exe = tools[tool] || tool;
+    const exe = exeFor(tool);
     return new Promise((resolve) => {
       let child;
       try {
@@ -77,7 +84,7 @@ function createRunner({ tools, env, log }) {
 
   // Starts a long-running tool and returns the ChildProcess.
   function start(tool, args, opts = {}) {
-    const exe = tools[tool] || tool;
+    const exe = exeFor(tool);
     log?.(`$ ${path.basename(exe)} ${args.join(' ')}  (background)`);
     return spawn(exe, args, {
       env: { ...baseEnv, ...(opts.env || {}) },
