@@ -598,6 +598,7 @@ async function runLaunch() {
     startedThisRun = true;
     const { webUrl } = await platform.start((evt) => current() && applyProgress(evt));
     if (current()) await showStudio(webUrl);
+    if (current()) showStartNotice();
   } catch (err) {
     if (!current()) return;
     if (err.code === 'RESTART_REQUIRED') {
@@ -654,6 +655,16 @@ function describePlan(plan = {}) {
     // Offered when the PC has more memory than WSL gives Linux by default.
     memory: mem && mem.offered ? { label: mem.label, on: Boolean(mem.defaultOn) } : null,
   };
+}
+
+// A message the start left for the person (on Windows, the PyTorch check's
+// note about the graphics card or its driver), shown once over the studio.
+// The loading screen has already shown it as the step's detail.
+function showStartNotice() {
+  const notice = typeof platform.takeNotice === 'function' ? platform.takeNotice() : null;
+  if (!notice || !win || win.isDestroyed()) return;
+  dialog.showMessageBox(win, { type: 'info', title: 'Guaardvark', message: notice.title, detail: notice.text, buttons: ['OK'], noLink: true })
+    .catch(() => {});
 }
 
 async function restartComputer() {

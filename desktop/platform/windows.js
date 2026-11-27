@@ -550,23 +550,96 @@ function create(opts = {}) {
     return holder;
   }
 
-  function start(report) {
+  // The image's PyTorch check (packaging/wsl-image, torch-check.sh). It
+  // matches the backend's PyTorch build to this PC's card and driver: about a
+  // second when it already fits, a ~3 GB download when it does not. It writes
+  // progress lines under the step id gpu_torch (never ready/failed) and
+  // ~/.guaardvark/torch-check.json with `result` and `note`, a sentence for
+  // the person or "". Installs without the image (the Ubuntu fallback) have
+  // no such script and skip this.
+  const TORCH_CHECK = opts.torchCheckPath || '/usr/lib/guaardvark-image/torch-check.sh';
+  const TORCH_ABSENT = 90;
+
+  async function runTorchCheck(emit, st) {
+    const file = `${st.home}/.cache/guaardvark-desktop/torch-check-${Date.now()}.jsonl`;
+    let seen = 0;
+    const handle = (line) => {
+      seen += 1;
+      try { emit(JSON.parse(line)); } catch { log(`torch-check line is not JSON: ${line}`); }
+    };
+    const tail = runner.start('wsl', ['-d', DISTRO, '--exec', 'bash', '-c', 'exec tail -n +1 -F "$1" 2>/dev/null', 'bash', file]);
+    let buf = '';
+    tail.stdout.on('data', (d) => {
+      buf += d.toString('utf8');
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (line) handle(line);
+      }
+    });
+    const res = await inDistro(
+      `[ -x "$1" ] || exit ${TORCH_ABSENT}; mkdir -p "$(dirname "$2")"; exec "$1" --progress-file "$2"`,
+      [TORCH_CHECK, file],
+    );
+    tail.kill();
+    fs.appendFileSync(startLog, `--- torch-check (exit ${res.code})\n${res.stdout}${res.stderr}\n`);
+    if (res.code === TORCH_ABSENT) {
+      log('torch-check: not in this distribution; skipped');
+      return null;
+    }
+    // Lines the tail had not delivered yet.
+    const rest = await inDistro('cat "$1" 2>/dev/null', [file], { login: false, timeoutMs: 30000 });
+    for (const line of lines(rest.stdout).slice(seen)) handle(line.trim());
+    if (res.code !== 0) {
+      // A warning: start.sh still runs, on the PyTorch build already there.
+      emit(event('gpu_torch', 'fail', {
+        label: 'Checking the graphics card',
+        detail: `The PyTorch check ended with code ${res.code}; Guaardvark starts with the build it has.`,
+      }));
+    }
+    const status = await inDistro('cat "$HOME/.guaardvark/torch-check.json" 2>/dev/null', [], { login: false, timeoutMs: 30000 });
+    let result = null;
+    try { result = JSON.parse(status.stdout); } catch { log('torch-check: no readable torch-check.json'); }
+    if (result && result.note) {
+      session.notice = { kind: 'gpu', result: result.result, title: 'Graphics card', text: result.note };
+      emit(event('gpu_torch', 'info', { label: 'Graphics card', detail: result.note, notice: true }));
+    }
+    log(`torch-check: ${result ? result.result : 'unknown'}${result && result.note ? ` (${result.note})` : ''}`);
+    return result;
+  }
+
+  // A message for the person from the last start (today: the PyTorch
+  // check's note), handed out once so the window can show it in the studio.
+  function takeNotice() {
+    const n = session.notice || null;
+    session.notice = null;
+    return n;
+  }
+
+  async function start(report) {
     const emit = makeReporter(report);
     const st = store.read();
-    if (!st.installed) return Promise.reject(new Error('Guaardvark is not set up yet; install() comes first.'));
+    if (!st.installed) throw new Error('Guaardvark is not set up yet; install() comes first.');
     log('---- start');
     fs.mkdirSync(dirs.logs, { recursive: true });
     fs.writeFileSync(startLog, '');
     session.lastLog = startLog;
     session.started = true;
+    session.notice = null;
 
     emit(event('wsl_attach', 'start'));
     if (!session.holder) session.holder = startHolder();
+    await runTorchCheck(emit, st);
+    // The distribution answered the check, so it is attached.
+    emit(event('wsl_attach', 'ok'));
+    return runStartScript(emit, st);
+  }
 
+  function runStartScript(emit, st) {
     const progressFile = `${st.home}/.cache/guaardvark-desktop/progress-${Date.now()}.jsonl`;
     return new Promise((resolve, reject) => {
       let settled = false;
-      let attached = false;
       const logStream = fs.createWriteStream(startLog, { flags: 'a' });
 
       const settle = (ok, value) => {
@@ -640,7 +713,6 @@ function create(opts = {}) {
           if (!line) continue;
           let evt;
           try { evt = JSON.parse(line); } catch { log(`progress line is not JSON: ${line}`); continue; }
-          if (!attached) { attached = true; emit(event('wsl_attach', 'ok')); }
           if (evt.step === 'ready') {
             emit(evt);
             settle(true, { webUrl: evt.url || urls().webUrl, apiUrl: evt.api || urls().apiUrl });
@@ -980,6 +1052,7 @@ function create(opts = {}) {
     stop,
     logPath,
     wasStartedByApp,
+    takeNotice,
     getApiKey,
     pendingWork,
     waitForPendingWork,
