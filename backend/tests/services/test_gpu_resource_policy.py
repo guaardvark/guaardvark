@@ -128,6 +128,10 @@ def test_gpu_session_releases_on_exception(fresh_gate, monkeypatch):
 
 
 def test_gpu_session_ram_admit_uses_custom_weight(fresh_gate, monkeypatch):
+    # A machine big enough for the 32 GB weight, so the "can never fit" refusal
+    # stays out of this test whatever RAM the host running it has.
+    import backend.services.system_load_gate as slg
+    monkeypatch.setattr(slg, "total_ram_gb", lambda: 64.0)
     admitted = []
     monkeypatch.setattr(grp, "_load_admit_or_busy", lambda slot, ram_gb=2.0: admitted.append(ram_gb) or object())
     monkeypatch.setattr(grp, "_orchestrator_request", lambda slot, mb, **kw: None)
