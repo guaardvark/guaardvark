@@ -135,8 +135,8 @@ def test_an_approved_share_draft_is_submitted_to_its_subreddit(
         with app.app_context():
             return fn(*args, **kwargs)
 
-    def record_post(url, json=None, timeout=None):
-        return draft_post.client.post("/api/social-outreach/record-post", json=json)
+    def record_post(url, json=None, headers=None, timeout=None):
+        return draft_post.client.post("/api/social-outreach/record-post", json=json, headers=headers)
 
     monkeypatch.setattr(tasks, "_with_app_context", with_ctx)
     monkeypatch.setattr(kill_switch, "is_enabled", lambda: True)
