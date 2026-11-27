@@ -2319,6 +2319,7 @@ if [ "$FAST_START" -ne 1 ]; then
                     else
                         frontend_build_record $?
                         vader_warn "Frontend rebuild failed. See $SETUP_LOG"
+                        progress_end fail "The build failed here; it runs again before the interface starts."
                     fi
                 else
                     vader_warn "Frontend build is stale (src newer than dist). Run: (cd frontend && npm run build)"
@@ -2335,6 +2336,7 @@ if [ "$FAST_START" -ne 1 ]; then
                     else
                         frontend_build_record $?
                         vader_warn "Frontend build failed. See $SETUP_LOG"
+                        progress_end fail "The build failed here; it runs again before the interface starts."
                     fi
                 else
                     vader_warn "Frontend dist missing. Run: (cd frontend && npm run build)"
@@ -3430,6 +3432,7 @@ elif [ "${FRONTEND_BUILD_RC:-}" = 137 ] && [ ! -f "$FRONTEND_BUILD_STAMP" ]; the
     # No finished dist: none existed, or the killed build had already emptied it.
     frontend_build_failure_note "$FRONTEND_BUILD_RC"
     vader_warn "The production build check could not finish for lack of memory, so frontend/dist is missing or incomplete. The interface is still served from source by the dev server; the check runs again on the next start."
+    progress_end skip "Not enough memory to finish the build check; the interface runs from source and the check runs again next start."
 elif [ -f "$FRONTEND_DIR/dist/index.html" ]; then
     frontend_build_failure_note "$FRONTEND_BUILD_RC"
     vader_error "Frontend build FAILED — serving the LAST-GOOD (stale) dist. Code is NOT current. Fix the build; see $FRONTEND_LOG_FILE"
