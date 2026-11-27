@@ -45,7 +45,7 @@ function readBytes(file) {
 
 function splitText(buf) {
   let text = buf ? buf.toString('utf8') : '';
-  const bom = text.startsWith('﻿');
+  const bom = text.startsWith('\uFEFF');
   if (bom) text = text.slice(1);
   const eol = /\r\n/.test(text) || !buf ? '\r\n' : '\n';
   const lines = text.split(/\r?\n/);
@@ -55,7 +55,7 @@ function splitText(buf) {
 
 function joinText({ lines, bom, eol }) {
   while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
-  return Buffer.from(`${bom ? '﻿' : ''}${lines.join(eol)}${eol}`, 'utf8');
+  return Buffer.from(`${bom ? '\uFEFF' : ''}${lines.join(eol)}${eol}`, 'utf8');
 }
 
 const SECTION = /^\s*\[(.+)\]\s*$/;

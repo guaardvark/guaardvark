@@ -35,7 +35,7 @@ function decode(buf) {
 }
 
 function clean(text) {
-  return text.replace(/^﻿/, '').replace(/\u0000/g, '').replace(/\r\n?/g, '\n');
+  return text.replace(/^\uFEFF/, '').replace(/\u0000/g, '').replace(/\r\n?/g, '\n');
 }
 
 function lines(text) {
