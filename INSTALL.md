@@ -99,13 +99,21 @@ Guaardvark runs on Windows 11 inside WSL2, the Linux system Microsoft ships with
 
 1. Put a current NVIDIA driver on Windows. WSL passes the card through to Ubuntu, so Ubuntu needs no driver of its own.
 2. In PowerShell run `wsl --install` and restart when Windows asks. Ubuntu then opens and asks you to pick a username and password.
-3. In the Ubuntu window:
+3. Give Ubuntu its memory. Ubuntu gets half of the PC's RAM unless your `.wslconfig` says otherwise, and Guaardvark can use only what Ubuntu sees (`free -h` in Ubuntu shows it). Open `%UserProfile%\.wslconfig` in Notepad (create it if it is missing), add these lines with a size that leaves Windows some RAM of its own, save, run `wsl --shutdown` in PowerShell and open Ubuntu again:
+
+   ```ini
+   [wsl2]
+   memory=24GB
+   ```
+
+   Manage Image Models shows each model's RAM need on its card and warns before installing one that needs more than Ubuntu has. Z-Image Turbo needs 21 GB free on top of everything else running, more than a 32 GB PC usually has to spare; there Image Gen suggests a model that fits instead.
+4. In the Ubuntu window:
 
    ```bash
    curl -fsSL https://guaardvark.com/install.sh | bash
    ```
 
-4. Open `http://localhost:5173` in your Windows browser.
+5. Open `http://localhost:5173` in your Windows browser.
 
 **Run it in the background.** Run this once from `~/guaardvark` and Guaardvark keeps running after the Ubuntu window closes:
 
@@ -115,7 +123,7 @@ Guaardvark runs on Windows 11 inside WSL2, the Linux system Microsoft ships with
 
 It sets `instanceIdleTimeout=-1` and `vmIdleTimeout=-1` in your Windows `.wslconfig` and saves the file it found as `.wslconfig.before-guaardvark`. Then run `wsl --shutdown` in PowerShell, open Ubuntu again and run `./start.sh`. From then on `./stop.sh` stops Guaardvark and `wsl --shutdown` stops Ubuntu.
 
-**More memory.** A `memory=` line under `[wsl2]` in the same `.wslconfig` sets how much of the PC's RAM Ubuntu may use; the default is half.
+**More memory.** The `memory=` line from step 3 sits under `[wsl2]` in the same `.wslconfig`. `./start.sh` prints the RAM Ubuntu sees under its ready card, and an image job that needs more than that is refused at once with the same advice.
 
 **Or in containers.** Docker Desktop runs the same studio from the images on Docker Hub; its steps are under [On Windows 11 (Docker Desktop)](#alternative-docker-linux) below. Both ways run on WSL2, so `wsl --install` comes first either way. Pictures and clips from each are at [guaardvark.com/windows](https://guaardvark.com/windows/).
 

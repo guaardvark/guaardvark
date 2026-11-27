@@ -397,6 +397,94 @@ def test_list_auto_prompt_style_follows_what_auto_renders_with(client, monkeypat
     assert data["auto_prompt_style"] in ("natural", "tags")
 
 
+def _ram_rows(monkeypatch, *, total_ram, wsl=False):
+    """The list on a machine with ``total_ram`` GB, with the registry's RAM needs
+    (Z-Image 21, Krea 2 24, FLUX 16, SDXL 10, Realistic Vision 6)."""
+    from backend.services import system_load_gate as slg
+    from backend.services import user_image_models as uim
+
+    monkeypatch.setattr(slg, "total_ram_gb", lambda: total_ram)
+    monkeypatch.setattr(slg, "running_under_wsl", lambda: wsl)
+    monkeypatch.delenv("GUAARDVARK_RAM_HARD_MIN_GB", raising=False)
+    gen = api.get_batch_image_generator().image_generator
+    base = {"downloaded": False, "availability": "downloadable", "selectable": True,
+            "description": "", "user": False, "kind": "diffusers"}
+    gen.get_available_models = lambda probe_remote=True: {
+        "zimage-turbo": {**base, "id": "Tongyi-MAI/Z-Image-Turbo", "label": "Z", "family": "zimage",
+                         "recommended": True, "order": 0, "engine": "offline"},
+        "flux-dev": {**base, "id": "comfy:flux-dev", "label": "FLUX", "family": "flux",
+                     "recommended": False, "order": 1, "engine": "comfy"},
+        "krea2-turbo": {**base, "id": "krea/Krea-2-Turbo", "label": "K", "family": "krea2",
+                        "recommended": False, "order": 2, "engine": "offline"},
+        "sd-xl": {**base, "id": "stabilityai/sdxl", "label": "SDXL", "family": "sdxl",
+                  "recommended": False, "order": 4, "engine": "offline"},
+        "realistic-vision": {**base, "id": "SG161222/rv", "label": "RV", "family": "sd",
+                             "recommended": False, "order": 6, "engine": "offline"},
+    }
+    needs = {"zimage-turbo": 21.0, "flux-dev": 16.0, "krea2-turbo": 24.0, "sd-xl": 10.0,
+             "realistic-vision": 6.0}
+    gen.model_ram_need_gb = needs.get
+    gen.model_vram_need_mb = lambda key: {"zimage-turbo": 11000, "sd-xl": 8000}.get(key)
+    monkeypatch.setattr(uim, "catalog_rows", lambda _g: [])
+    monkeypatch.setattr(uim, "family_choices", lambda: [])
+    return gen
+
+
+def test_list_sends_each_models_ram_and_vram_need_and_the_machine(client, monkeypatch):
+    _ram_rows(monkeypatch, total_ram=15.0, wsl=True)
+    data = client.get("/api/batch-image/models").get_json()["data"]
+    rows = {m["id"]: m for m in data["models"]}
+    assert rows["zimage-turbo"]["ram_gb"] == 21.0
+    assert rows["zimage-turbo"]["vram_mb"] == 11000
+    assert rows["realistic-vision"]["vram_mb"] is None
+    assert rows["zimage-turbo"]["fits_ram"] is False
+    assert rows["flux-dev"]["fits_ram"] is False        # 16 + 1.5 > 15
+    assert rows["sd-xl"]["fits_ram"] is True
+    assert data["machine"] == {"total_ram_gb": 15.0, "ram_floor_gb": 1.5, "wsl": True}
+
+
+def test_the_suggestion_moves_to_the_best_model_that_fits(client, monkeypatch):
+    _ram_rows(monkeypatch, total_ram=15.0)
+    rows = client.get("/api/batch-image/models").get_json()["data"]["models"]
+    # Z-Image and Krea 2 cannot be held; FLUX would fit nothing either and needs
+    # ComfyUI; SDXL is the first offline model by catalog order that fits.
+    assert [m["id"] for m in rows if m["recommended"]] == ["sd-xl"]
+
+
+def test_the_suggestion_is_unchanged_where_the_ram_is_there(client, monkeypatch):
+    _ram_rows(monkeypatch, total_ram=64.0)
+    rows = client.get("/api/batch-image/models").get_json()["data"]["models"]
+    assert [m["id"] for m in rows if m["recommended"]] == ["zimage-turbo"]
+    assert all(m["fits_ram"] for m in rows)
+
+
+def test_the_suggestion_stays_when_nothing_fits(client, monkeypatch):
+    _ram_rows(monkeypatch, total_ram=6.0)
+    rows = client.get("/api/batch-image/models").get_json()["data"]["models"]
+    assert [m["id"] for m in rows if m["recommended"]] == ["zimage-turbo"]
+
+
+@pytest.mark.parametrize("availability, says", [
+    ("comfyui_down", "ComfyUI is not running"),
+    ("no_engine", "ComfyUI is running but has no image engine"),
+])
+def test_the_comfyui_router_row_says_which_of_its_two_reasons(client, monkeypatch, availability, says):
+    from backend.services import user_image_models as uim
+
+    gen = api.get_batch_image_generator().image_generator
+    gen.get_available_models = lambda probe_remote=True: {
+        "comfyui": {"id": "comfy:comfyui", "downloaded": False, "availability": availability,
+                    "selectable": False, "label": "ComfyUI (auto backend)", "description": "",
+                    "recommended": False, "user": False, "family": None, "order": 1, "engine": "comfy"},
+    }
+    monkeypatch.setattr(uim, "catalog_rows", lambda _g: [])
+    monkeypatch.setattr(uim, "family_choices", lambda: [])
+    data = client.get("/api/batch-image/models").get_json()["data"]
+    (row,) = data["unavailable_models"]
+    assert row["reason"].startswith(says)
+    assert "could not be reached" not in row["reason"]
+
+
 def test_dir_bytes_counts_dest_including_incomplete(tmp_path):
     dest = tmp_path / "unet"
     dest.mkdir()

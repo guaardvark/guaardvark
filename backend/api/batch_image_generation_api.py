@@ -269,7 +269,45 @@ _AVAILABILITY_REASONS = {
         "Not downloaded and the source could not be reached. Check network access, "
         "or install the weights manually."
     ),
+    # The "ComfyUI (auto backend)" row (offline_image_generator._comfyui_router_availability).
+    "no_engine": (
+        "ComfyUI is running but has no image engine this row can route to. "
+        "Install FLUX.1 Dev from Manage Image Models."
+    ),
 }
+
+
+def _availability_reason(availability: str) -> str:
+    """The sentence for a model kept out of the picker. A stopped ComfyUI gets
+    the sentence every tool gives for it (plugin_bridge.service_down_message)."""
+    if availability == "comfyui_down":
+        try:
+            from backend.services.plugin_bridge import service_down_message
+            return service_down_message("comfyui", context="image")
+        except Exception:  # noqa: BLE001
+            return "ComfyUI is not running. Start the ComfyUI plugin on the Plugins page."
+    return _AVAILABILITY_REASONS.get(availability, "Unavailable on this machine.")
+
+
+def _suggested_model_id(rows: list, fits) -> Optional[str]:
+    """The model to suggest installing first on this machine: the catalog's
+    recommended one when its RAM need fits, else the first offline model by
+    catalog order that fits. None when nothing fits (the recommended flag then
+    stays where the catalog put it).
+
+    ``fits(row)`` is the shared system_load_gate.ram_fits_machine answer."""
+    recommended = next((r for r in rows if r.get("recommended")), None)
+    if recommended is None or fits(recommended):
+        return recommended["id"] if recommended else None
+    for r in rows:
+        if r.get("user") or r.get("family") is None:
+            continue
+        if r.get("engine") == "comfy":
+            # Needs ComfyUI running; Auto renders offline models only.
+            continue
+        if fits(r):
+            return r["id"]
+    return None
 
 def _resolve_catalog_model(model_ref: str):
     """Map a catalog key (krea2-turbo, krea2-raw) or HF repo id to (key, hf_id)."""
@@ -808,10 +846,21 @@ def list_models():
         check = request.args.get("check", "").lower() in ("1", "true", "yes")
         meta = generator.image_generator.get_available_models(probe_remote=check)
         from backend.services.stills_defaults import prompt_style, prompt_style_for_family
+        from backend.services.system_load_gate import (
+            effective_ram_hard_min_gb, ram_fits_machine, running_under_wsl, total_ram_gb,
+        )
+        image_gen = generator.image_generator
+        total_ram = total_ram_gb()
         models = []
         unavailable = []
         for model_id, info in sorted(meta.items(), key=lambda kv: kv[1].get("order", 99)):
             family = info.get("family")
+            ram_need = vram_need = None
+            try:
+                ram_need = image_gen.model_ram_need_gb(model_id)
+                vram_need = image_gen.model_vram_need_mb(model_id)
+            except Exception as e:  # noqa: BLE001 — a figure missing must not empty the list
+                logger.debug("RAM/VRAM need for %s unavailable: %s", model_id, e)
             row = {
                 "id": model_id,
                 "path": info["id"],
@@ -838,6 +887,14 @@ def list_models():
                 # "tags": CLIP-era models that take the tag suffixes.
                 "prompt_style": prompt_style_for_family(family) if family else prompt_style(model_id),
                 "high_res_ok_pixels": _high_res_ok_pixels(generator.image_generator.model_meta.get(model_id)),
+                # System RAM and VRAM a render is admitted at (default canvas),
+                # from the registry; None where the row has no figure.
+                "ram_gb": round(ram_need, 1) if ram_need is not None else None,
+                "vram_mb": vram_need,
+                # False when the RAM need plus the floor is more than this
+                # system has in all: Install warns, and the suggestion skips it.
+                "fits_ram": ram_fits_machine(ram_need, total_ram) is not False,
+                "engine": info.get("engine"),
             }
             # A model the user cannot actually run must not sit in the picker — that
             # is how a gated Krea 2 got selected and silently produced SD 1.5 output.
@@ -845,10 +902,16 @@ def list_models():
             if info.get("selectable", True):
                 models.append(row)
             else:
-                row["reason"] = _AVAILABILITY_REASONS.get(
-                    row["availability"], "Unavailable on this machine."
-                )
+                row["reason"] = _availability_reason(row["availability"])
                 unavailable.append(row)
+
+        # The suggestion follows this machine's RAM: where the catalog's
+        # recommended model can never be admitted, the best one that can is
+        # flagged instead (Auto makes the same choice among installed models).
+        suggested = _suggested_model_id(models, lambda r: r["fits_ram"])
+        if suggested is not None:
+            for r in models:
+                r["recommended"] = r["id"] == suggested
 
         from backend.services.user_image_models import catalog_rows, encoder_rows, family_choices
         try:
@@ -866,6 +929,13 @@ def list_models():
             # apply before a model is picked.
             "auto_model": auto_model,
             "auto_prompt_style": prompt_style(auto_model or "auto"),
+            # The RAM this system sees (under WSL, what Ubuntu was given) and the
+            # admission floor, for the cards' RAM figures and Install's warning.
+            "machine": {
+                "total_ram_gb": round(total_ram, 1) if total_ram is not None else None,
+                "ram_floor_gb": round(effective_ram_hard_min_gb(total_ram), 1),
+                "wsl": running_under_wsl(),
+            },
             # User LoRAs never enter the picker; the page shows them as chips and
             # the modal lists them with Install / Remove.
             "adapters": catalog_rows(generator.image_generator),

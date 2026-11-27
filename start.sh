@@ -3603,6 +3603,9 @@ vader_ready_card "$DURATION" \
 if [ "$WSL_NAT_LAN" = 1 ]; then
     wsl_network_note "$VITE_PORT"
 fi
+if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && declare -F wsl_memory_note >/dev/null; then
+    wsl_memory_note
+fi
 if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && declare -F wsl_keep_alive_note >/dev/null; then
     wsl_keep_alive_note
 fi

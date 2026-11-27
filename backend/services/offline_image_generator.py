@@ -754,6 +754,19 @@ class OfflineImageGenerator:
         except Exception:
             return False
 
+    @staticmethod
+    def _comfyui_router_availability() -> str:
+        """Why the "ComfyUI (auto backend)" row is not ready: ``comfyui_down``
+        when ComfyUI does not answer, ``no_engine`` when it runs without an
+        image engine this row can route to. Reads the /object_info answer
+        _comfyui_assets_present just cached, so no further request is made."""
+        try:
+            from backend.services.comfyui_image_generator import ComfyUIImageGenerator
+            info = ComfyUIImageGenerator()._object_info()
+        except Exception:  # noqa: BLE001
+            info = None
+        return "comfyui_down" if info is None else "no_engine"
+
     def is_comfy_only_model(self, model_key: str) -> bool:
         key = (model_key or "").strip().lower()
         if key in getattr(self, "comfy_only_models", set()) or key.startswith("flux"):
@@ -1248,6 +1261,35 @@ class OfflineImageGenerator:
             base += extra_mp * slope
         return base
 
+    def model_ram_need_gb(self, model_key: str) -> Optional[float]:
+        """System RAM a render on catalog key ``model_key`` is admitted at, at its
+        default canvas: the registry figure admission uses. None for the ComfyUI
+        router row (its engine is not known until it routes) and unknown keys."""
+        model_id = self.available_models.get(model_key or "")
+        if not model_id or model_key == "comfyui":
+            return None
+        return self._ram_estimate_gb(model_id)
+
+    def model_fits_ram(self, model_key: str, total_gb: Optional[float] = None) -> bool:
+        """False only when ``model_key``'s RAM need can never be admitted on this
+        machine (system_load_gate.ram_fits_machine); unknown counts as fitting."""
+        from backend.services.system_load_gate import ram_fits_machine
+        try:
+            need = self.model_ram_need_gb(model_key)
+        except Exception as e:  # noqa: BLE001 — no figure: never refuse on a guess
+            logger.debug("RAM need for %s unavailable: %s", model_key, e)
+            need = None
+        return ram_fits_machine(need, total_gb) is not False
+
+    def model_vram_need_mb(self, model_key: str) -> Optional[int]:
+        """VRAM a render on ``model_key`` is booked at on this card at its default
+        canvas (the registry price admission uses); None for the ComfyUI router
+        row and unknown keys."""
+        model_id = self.available_models.get(model_key or "")
+        if not model_id or model_key == "comfyui":
+            return None
+        return int(self._vram_estimate_mb(model_id))
+
     def _ensure_vram_for_pipeline(
         self, model_id: str, width: Optional[int] = None, height: Optional[int] = None
     ) -> None:
@@ -1337,17 +1379,17 @@ class OfflineImageGenerator:
         expires while a job runs for minutes — nothing guarded the denoise
         itself. On breach we RAISE (never pipeline._interrupt: interrupt skips
         remaining steps but still runs the VAE decode — potentially the very
-        allocation being fled). Floor: GUAARDVARK_MIN_FREE_RAM_GB, default
-        max(8GB, 6% of total). Returns None when psutil is unavailable.
+        allocation being fled). Floor: system_load_gate.render_ram_stop_gb
+        (GUAARDVARK_MIN_FREE_RAM_GB, else 15% of total RAM capped at 8 GB, a
+        share with a cap like the admission floor). Returns None when psutil
+        is unavailable.
         """
         try:
             import psutil
         except Exception:
             return None
-        try:
-            floor_gb = float(os.environ["GUAARDVARK_MIN_FREE_RAM_GB"])
-        except (KeyError, ValueError):
-            floor_gb = max(8.0, 0.06 * psutil.virtual_memory().total / (1024 ** 3))
+        from backend.services.system_load_gate import render_ram_stop_gb
+        floor_gb = render_ram_stop_gb()
 
         def _cb(pipe, step, timestep, callback_kwargs):
             avail_gb = psutil.virtual_memory().available / (1024 ** 3)
@@ -1572,18 +1614,32 @@ class OfflineImageGenerator:
         else:  # general / complex
             prefs = [lead, second, "sd-xl", "realistic-vision"]
 
-        for key in prefs:
-            model_id = self.available_models.get(key)
-            if model_id and self._is_model_downloaded(model_id):
+        def _installed():
+            for key in prefs:
+                model_id = self.available_models.get(key)
+                if model_id and self._is_model_downloaded(model_id):
+                    yield key
+            # Nothing preferred is downloaded — fall back to any downloaded model.
+            for key, model_id in self.available_models.items():
+                if key in prefs or key in self.comfy_only_models:
+                    continue  # comfy-only: sentinel id, nothing on disk to load
+                if self._is_model_downloaded(model_id):
+                    yield key
+
+        # An installed model whose RAM need this machine can never hold would be
+        # refused at admission; the next installed one that fits renders instead.
+        # With none that fits, the first stays, so the refusal says why.
+        from backend.services.system_load_gate import total_ram_gb
+        total_ram = total_ram_gb()
+        first_installed = None
+        for key in _installed():
+            first_installed = first_installed or key
+            if self.model_fits_ram(key, total_ram):
                 logger.info(f"Auto-router selected '{key}' for prompt: {prompt[:60]}...")
                 return key
-
-        # Nothing preferred is downloaded — fall back to any downloaded model.
-        for key, model_id in self.available_models.items():
-            if key in self.comfy_only_models:
-                continue  # sentinel id, nothing on disk to load
-            if self._is_model_downloaded(model_id):
-                return key
+            logger.info("Auto: skipping %r, its RAM need does not fit this machine", key)
+        if first_installed:
+            return first_installed
         # Genuinely nothing on disk. Returning a model that isn't there would only
         # push the failure downstream, so let the caller report it honestly.
         return None
@@ -4258,6 +4314,8 @@ Negative Prompt: {negative_prompt}""",
           ``downloadable``   not on disk but fetchable — Install fetches it; selecting it does not
           ``needs_token``    gated repo and no HF_TOKEN configured
           ``unreachable``    not on disk and the repo could not be reached
+          ``comfyui_down``   the ComfyUI router row: ComfyUI is not answering
+          ``no_engine``      the ComfyUI router row: ComfyUI runs, with no image engine
 
         A row's ``gated`` is true when a probe found the repo gated while a token is
         configured: still downloadable, with the terms checked at download time.
@@ -4308,6 +4366,10 @@ Negative Prompt: {negative_prompt}""",
                 user_entry = (getattr(self, "user_entries", None) or {}).get(model_key) or {}
                 if user_entry.get("engine") == "comfy" and user_entry.get("role") == "generation":
                     availability = "downloadable"
+                elif model_key == "comfyui":
+                    # The router row has nothing of its own to download: it is
+                    # ready when ComfyUI runs an image engine (_comfyui_assets_present).
+                    availability = self._comfyui_router_availability()
                 else:
                     try:
                         from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY

@@ -129,7 +129,19 @@ def _swap_hard_max_gb() -> float:
 RESERVED_RAM_TTL_S = 60.0
 
 
-def effective_ram_hard_min_gb() -> float:
+def total_ram_gb() -> Optional[float]:
+    """All the RAM this system sees, in GB, or None when psutil cannot say.
+
+    Under WSL this is what the Linux VM was given (half the PC's RAM unless
+    ``memory=`` is set in .wslconfig), not the PC's total: it is the RAM jobs
+    here can use."""
+    try:
+        return psutil.virtual_memory().total / (1024 ** 3)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def effective_ram_hard_min_gb(total_gb: Optional[float] = None) -> float:
     """Hard RAM floor for this machine: RAM_HARD_MIN_GB, capped at 10% of total RAM.
 
     A FIXED 6 GB floor is ~20% of a 32 GB machine but ~5% of a 128 GB one. On 32 GB
@@ -142,6 +154,7 @@ def effective_ram_hard_min_gb() -> float:
     min() means the floor can only ever shrink, never grow.
 
     Override with GUAARDVARK_RAM_HARD_MIN_GB (float, GB) to pin an explicit value.
+    ``total_gb`` prices another machine size (tests, listings); None reads this one.
     """
     override = os.environ.get("GUAARDVARK_RAM_HARD_MIN_GB")
     if override:
@@ -149,11 +162,101 @@ def effective_ram_hard_min_gb() -> float:
             return float(override)
         except ValueError:
             logger.warning("Ignoring non-numeric GUAARDVARK_RAM_HARD_MIN_GB=%r", override)
-    try:
-        total_gb = psutil.virtual_memory().total / (1024 ** 3)
-    except Exception:
+    if total_gb is None:
+        total_gb = total_ram_gb()
+    if total_gb is None:
         return RAM_HARD_MIN_GB
     return min(RAM_HARD_MIN_GB, total_gb * 0.10)
+
+
+# The render-time stop (offline_image_generator's denoise RAM watchdog). 8 GB
+# was set on the 60 GB box the admission floor was tuned on (psutil reports
+# 59.2 GB there). Like the admission floor it is a share of total RAM with a
+# cap: 15% of total, at most 8 GB, so every machine from ~54 GB up keeps 8 GB
+# (or 6% of total once that is more, above ~133 GB), and on smaller ones it
+# stays above the 10% admission floor.
+RENDER_RAM_STOP_GB = 8.0
+RENDER_RAM_STOP_SHARE = 0.15
+
+
+def render_ram_stop_gb(total_gb: Optional[float] = None) -> float:
+    """Free RAM below which a running render is stopped, for this machine.
+
+    A fixed 8 GB meant a 15 GB machine could not keep a render going even when
+    admission let it start (8 GB free is more than half of it). Override with
+    GUAARDVARK_MIN_FREE_RAM_GB."""
+    override = os.environ.get("GUAARDVARK_MIN_FREE_RAM_GB")
+    if override:
+        try:
+            return float(override)
+        except ValueError:
+            logger.warning("Ignoring non-numeric GUAARDVARK_MIN_FREE_RAM_GB=%r", override)
+    if total_gb is None:
+        total_gb = total_ram_gb()
+    if total_gb is None:
+        return RENDER_RAM_STOP_GB
+    return max(min(RENDER_RAM_STOP_GB, total_gb * RENDER_RAM_STOP_SHARE), 0.06 * total_gb)
+
+
+def running_under_wsl() -> bool:
+    """True under WSL1 or WSL2, by the marker scripts/platform/detect.sh reads."""
+    try:
+        with open("/proc/version", encoding="utf-8", errors="replace") as fh:
+            text = fh.read().lower()
+    except OSError:
+        return False
+    return "microsoft" in text or "wsl" in text
+
+
+# How to give Ubuntu more RAM under WSL. %UserProfile% is the Windows variable,
+# shown as the person would type it.
+WSL_MEMORY_HINT = (
+    "WSL gives Ubuntu half of the PC's RAM unless memory= is set: add "
+    "memory=<size>GB under [wsl2] in %UserProfile%\\.wslconfig (for example "
+    "memory=24GB on a 32 GB PC), then run wsl --shutdown in PowerShell and start "
+    "Guaardvark again"
+)
+
+
+def ram_advice(total_gb: Optional[float] = None) -> str:
+    """What to do about a job this system has too little RAM for."""
+    if running_under_wsl():
+        if total_gb is None:
+            total_gb = total_ram_gb()
+        seen = f"Ubuntu sees {total_gb:.1f} GB. " if total_gb else ""
+        return f"pick a lighter model, or give Ubuntu more RAM. {seen}{WSL_MEMORY_HINT}"
+    return "pick a lighter model or add system RAM"
+
+
+def ram_fits_machine(ram_gb: Optional[float], total_gb: Optional[float] = None) -> Optional[bool]:
+    """Whether a job needing ``ram_gb`` can ever be admitted on this machine:
+    its need plus the hard floor within all the RAM the system sees.
+
+    The one answer the admission refusal, the image model cards, the
+    first-install suggestion and Auto's choice share. None when either number
+    is unknown, which callers treat as fitting (never refuse on a guess)."""
+    if ram_gb is None:
+        return None
+    if total_gb is None:
+        total_gb = total_ram_gb()
+    if total_gb is None:
+        return None
+    return float(ram_gb) + effective_ram_hard_min_gb(total_gb) <= total_gb
+
+
+def ram_capacity_refusal(ram_gb: Optional[float], total_gb: Optional[float] = None) -> Optional[str]:
+    """Why a job needing ``ram_gb`` can never run here, or None when it can
+    (or when RAM cannot be read)."""
+    if total_gb is None:
+        total_gb = total_ram_gb()
+    if ram_fits_machine(ram_gb, total_gb) is not False:
+        return None
+    floor = effective_ram_hard_min_gb(total_gb)
+    return (
+        f"this job needs {float(ram_gb):.1f} GB of system RAM (not VRAM) plus a "
+        f"{floor:.1f} GB floor, and this system has {total_gb:.1f} GB in all, so "
+        f"waiting will not help; {ram_advice(total_gb)}"
+    )
 
 GB = 1024 ** 3
 
@@ -286,7 +389,7 @@ class GlobalLoadGate:
                 f"system RAM too low (not VRAM): {eff_ram:.1f} GB available "
                 f"(reserved {reading.reserved_ram_gb:.1f} GB), "
                 f"need {weight.ram_gb:.1f} GB + {ram_floor:.1f} GB floor. "
-                "Swap does not count; pick a lighter model or add system RAM"
+                f"Swap does not count; {ram_advice()}"
             )
         if reading.swap_used_gb > _swap_hard_max_gb():
             return f"swap in use: {reading.swap_used_gb:.1f} GB > {_swap_hard_max_gb():.0f} GB"

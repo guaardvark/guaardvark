@@ -750,6 +750,20 @@ def _load_admit_or_busy(slot: str, *, ram_gb: float = 2.0):
         return None
 
 
+def _raise_if_ram_can_never_fit(ram_gb: float) -> None:
+    """Raise SystemRamCapacityError when ``ram_gb`` plus the RAM floor exceeds
+    all the RAM this system has. Fail-open when RAM cannot be read."""
+    try:
+        from backend.services.system_load_gate import ram_capacity_refusal
+        reason = ram_capacity_refusal(ram_gb)
+    except Exception as e:  # noqa: BLE001 - probe unavailable -> never block gen
+        log.warning("RAM capacity check unavailable (%s); proceeding", e)
+        return
+    if reason:
+        from backend.services.job_operation_gate import SystemRamCapacityError
+        raise SystemRamCapacityError(reason)
+
+
 def _load_release(weight) -> None:
     if weight is None:
         return
@@ -872,6 +886,12 @@ def gpu_session(
 
     from backend.services import job_arbiter
     from backend.services.job_operation_gate import GpuBusyError, get_gate
+
+    # A RAM need no wait can meet is refused before the claim, so it neither
+    # evicts residents nor sits in line, and callers that retry a busy refusal
+    # fail at once (SystemRamCapacityError is a GpuCapacityError).
+    if ram_estimate_gb is not None:
+        _raise_if_ram_can_never_fit(ram_estimate_gb)
 
     gate = get_gate()
     _slot = slot_id or f"{getattr(kind, 'value', kind)}:{op_id}"

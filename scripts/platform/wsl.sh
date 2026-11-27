@@ -75,6 +75,49 @@ wsl_keep_alive_note() {
     echo ""
 }
 
+# The memory= value under [wsl2] in the given .wslconfig, or nothing.
+wsl_memory_setting() {
+    local cfg="$1"
+    [ -f "$cfg" ] || return 1
+    python3 - "$cfg" <<'PY'
+import re, sys
+section = ""
+for raw in open(sys.argv[1], encoding="utf-8-sig", errors="replace"):
+    line = raw.split("#", 1)[0].strip()
+    m = re.match(r"\[(.+)\]$", line)
+    if m:
+        section = m.group(1).strip().lower()
+        continue
+    m = re.match(r"memory\s*=\s*(\S+)", line, re.I)
+    if m and section == "wsl2":
+        print(m.group(1))
+        sys.exit(0)
+sys.exit(1)
+PY
+}
+
+# Printed under the ready card: the RAM this Linux system sees, which is what
+# Image Gen admits jobs against (not the PC's total), and how to raise it.
+wsl_memory_note() {
+    local kb gb cfg setting
+    kb=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null)
+    [ -n "$kb" ] || return 0
+    gb=$(awk -v kb="$kb" 'BEGIN {printf "%.1f", kb / 1048576}')
+    cfg=$(wsl_config_path) || cfg=""
+    setting=""
+    [ -n "$cfg" ] && setting=$(wsl_memory_setting "$cfg")
+    echo ""
+    if [ -n "$setting" ]; then
+        echo "  WSL: Ubuntu sees ${gb} GB of RAM (memory=${setting} in .wslconfig). Image Gen"
+        echo "  refuses a model that needs more; each model's need is on its Manage models card."
+    else
+        echo "  WSL: Ubuntu sees ${gb} GB of RAM. WSL gives it half of the PC's RAM unless"
+        echo "  memory= is set, and Image Gen refuses a model that needs more than Ubuntu has."
+        echo "  To give it more, add under [wsl2] in %UserProfile%\\.wslconfig a line such as"
+        echo "  memory=24GB (leave Windows some), then run  wsl --shutdown  in PowerShell."
+    fi
+}
+
 # Set both idle timeouts to -1 in the Windows user's .wslconfig, keeping every
 # other line. The previous file is saved beside it first.
 wsl_keep_alive_enable() {

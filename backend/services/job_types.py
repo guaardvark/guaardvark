@@ -244,6 +244,7 @@ class RenderErrorKind(str, Enum):
     SERVICE_DOWN = "service_down"              # another plugin the job needs (Audio Foundry, ...) is not running
     NODE_MISSING = "node_missing"              # a custom node the graph uses is not loaded
     CARD_TOO_SMALL = "card_too_small"          # the model can never fit this card
+    RAM_TOO_SMALL = "ram_too_small"            # the job needs more system RAM than this machine has
     VRAM_BUSY = "vram_busy"                    # the card did not free up before the wait ran out
     OOM = "oom"                                # out of memory while rendering
     NODE_ERROR = "node_error"                  # a ComfyUI node raised or rejected its inputs
@@ -289,6 +290,9 @@ RENDER_ERROR_POLICY: dict[RenderErrorKind, dict[str, Any]] = {
     RenderErrorKind.CARD_TOO_SMALL: {
         "label": "Card too small", "retryable": False, "retry_after_s": [],
         "action": "Pick a lighter model or a smaller size."},
+    RenderErrorKind.RAM_TOO_SMALL: {
+        "label": "Not enough system RAM", "retryable": False, "retry_after_s": [],
+        "action": "Pick a lighter model; the message says how to give this system more RAM."},
     RenderErrorKind.VRAM_BUSY: {
         "label": "GPU busy", "retryable": True, "retry_after_s": [60, 180],
         "action": "Another job holds the GPU; retry when it finishes."},

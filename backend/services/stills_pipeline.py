@@ -437,7 +437,7 @@ def _generate_one(
             from backend.services.gpu_resource_policy import (
                 GpuWaitStopped, gpu_session, gpu_session_when_free,
             )
-            from backend.services.job_operation_gate import GpuBusyError
+            from backend.services.job_operation_gate import GpuBusyError, SystemRamCapacityError
             from backend.services.job_types import JobKind
 
             # Resolution-aware estimates + compositor reserve (2026-08-04 client box
@@ -485,7 +485,9 @@ def _generate_one(
                 logger.warning("stills admission refused (%s): %s", source, busy)
                 return StillResult(
                     success=False,
-                    error="GPU is busy with another render right now — try again in a moment.",
+                    # A RAM need this machine can never hold is not a busy GPU.
+                    error=(str(busy) if isinstance(busy, SystemRamCapacityError)
+                           else "GPU is busy with another render right now — try again in a moment."),
                     prompt_used=prompt,
                     enhance_mode=enhance_mode,
                     width=width,

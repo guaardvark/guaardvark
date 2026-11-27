@@ -78,6 +78,16 @@ class SystemLoadBusyError(GpuBusyError):
         self.detail = detail
 
 
+class SystemRamCapacityError(SystemLoadBusyError, GpuCapacityError):
+    """The job's RAM need plus the floor is more than all the RAM this system
+    has (system_load_gate.ram_capacity_refusal), so no wait can admit it. A
+    capacity refusal, raised before the GPU is claimed."""
+
+    def __init__(self, detail: str):
+        GpuBusyError.__init__(self, f"Not enough system RAM — {detail}")
+        self.detail = detail
+
+
 # How a queue panel names the job holding the GPU. VIDEO_RENDER is the general
 # GPU-exclusive kind (stills, edits, songs and storyboards claim it too), so the
 # kind alone does not say what is rendering; the native id does. Batch ids carry
@@ -178,6 +188,8 @@ def classify_render_exception(exc: BaseException):
             return RenderErrorKind.CANCELLED
     except ImportError:  # pragma: no cover
         pass
+    if isinstance(exc, SystemRamCapacityError):
+        return RenderErrorKind.RAM_TOO_SMALL
     if isinstance(exc, GpuCapacityError):
         return RenderErrorKind.CARD_TOO_SMALL
     if isinstance(exc, GpuBusyError):
