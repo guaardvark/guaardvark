@@ -136,10 +136,11 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # + npm + ollama pulls) saturate the link until systemd-resolved DNS lookups
 # time out (Observed on the 24.04 client box install: registry.ollama.ai i/o
 # timeout on 127.0.0.53 while cudnn/nccl wheels pulled at 40MB/s).
-# PID file + liveness check rather than flock: daemons we spawn would inherit
-# a lock fd and block legitimate restarts after this script exits.
-# stop.sh reaps this lock (including Ctrl+Z / STAT=T leftovers). A stopped or
-# foreign pidfile is not a live overlap — take it over.
+# The run lock is a kernel lock where flock exists (scripts/lib/start_lock.sh);
+# the pidfile names the running start.sh for this message and for stop.sh, and
+# is the guard by itself where flock does not exist (macOS). The lock is held
+# until Guaardvark is ready; a start.sh run after that restarts it.
+# A stopped (Ctrl+Z) or foreign pidfile is not a live overlap — take it over.
 START_PID_FILE="$SCRIPT_DIR/.start_cache/start.sh.pid"
 mkdir -p "$SCRIPT_DIR/.start_cache"
 # shellcheck source=scripts/lib/proc_owner.sh
@@ -149,24 +150,37 @@ mkdir -p "$SCRIPT_DIR/.start_cache"
 . "$SCRIPT_DIR/scripts/lib/venv_pins.sh"
 # shellcheck source=scripts/lib/ollama_lifecycle.sh
 . "$SCRIPT_DIR/scripts/lib/ollama_lifecycle.sh"   # ollama_flag_on
-if [ -f "$START_PID_FILE" ]; then
-    _prev_pid=$(cat "$START_PID_FILE" 2>/dev/null)
-    if [ "$(start_lock_guard_decision "$_prev_pid")" = "live" ]; then
-        vader_error "Another ./start.sh (PID $_prev_pid) is still running — refusing to overlap."
-        vader_error "Concurrent runs corrupt installs and starve DNS while big downloads compete."
-        vader_info "Wait for it to finish (watch: tail -f logs/setup.log), or stop everything first: ./stop.sh"
-        exit 1
-    fi
-    if [ -n "$_prev_pid" ] && [ "$_prev_pid" != "$$" ] \
-       && start_lock_is_our_script "$_prev_pid"; then
-        # Abandoned (stopped/zombie) copy of this script — reap so the pid
-        # cannot race us after we write the new pidfile.
+start_lock_acquire
+_prev_pid=$(cat "$START_PID_FILE" 2>/dev/null)
+if [ "$START_LOCK_HELD" = busy ]; then
+    _lock_owner=$(start_lock_owner)
+    [ -n "$_lock_owner" ] && _prev_pid=$_lock_owner
+    if [ -n "$_prev_pid" ] && start_lock_is_our_script "$_prev_pid" && ! start_lock_is_runnable "$_prev_pid"; then
+        # A stopped start.sh still holds the lock through its helper.
         start_lock_kill_pid "$_prev_pid"
+        start_lock_kill_orphan_helper
         vader_info "Reaped abandoned start.sh (PID $_prev_pid)."
+        start_lock_acquire
     fi
 fi
+if [ "$START_LOCK_HELD" = busy ] || [ "$(start_lock_guard_decision "$_prev_pid")" = "live" ]; then
+    start_lock_release
+    vader_error "Another ./start.sh${_prev_pid:+ (PID $_prev_pid)} is still running — refusing to overlap."
+    vader_error "Concurrent runs corrupt installs and starve DNS while big downloads compete."
+    vader_info "Wait for it to finish (watch: tail -f logs/setup.log), or stop everything first: ./stop.sh"
+    progress_failed "Guaardvark is already starting" \
+        "Another start.sh${_prev_pid:+ (PID $_prev_pid)} is starting Guaardvark from this folder. Wait for it to finish, or run ./stop.sh to stop it, then start again."
+    exit 1
+fi
+if [ -n "$_prev_pid" ] && [ "$_prev_pid" != "$$" ] \
+   && start_lock_is_our_script "$_prev_pid"; then
+    # Abandoned (stopped/zombie) copy of this script — reap so the pid
+    # cannot race us after we write the new pidfile.
+    start_lock_kill_pid "$_prev_pid"
+    vader_info "Reaped abandoned start.sh (PID $_prev_pid)."
+fi
 echo $$ > "$START_PID_FILE"
-trap 'progress_on_exit; _vader_fx_stop; rm -f "$START_PID_FILE" 2>/dev/null' EXIT
+trap 'progress_on_exit; _vader_fx_stop; start_lock_drop_pidfile; start_lock_release' EXIT
 
 vader_boot_banner
 
@@ -3728,6 +3742,11 @@ if [ "$TEST_MODE" -eq 0 ] && [ ! -e "$FIRST_START_MARKER" ]; then
     echo ""
     mkdir -p "${HOME}/.guaardvark" && : > "$FIRST_START_MARKER" 2>/dev/null || true
 fi
+
+# Startup is complete: from here a new ./start.sh restarts Guaardvark rather
+# than waiting on this one.
+start_lock_drop_pidfile
+start_lock_release
 
 # Advisory GPU-stack verification — never blocks boot.
 # Checks that each venv (backend + isolated audio/video) can run a real CUDA
