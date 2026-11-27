@@ -429,14 +429,15 @@ class VideoGenerationRouter:
                 return True
             # If launched via plugin, check if PID is still alive
             if self._pid_file.exists():
+                from backend.utils.proc_alive import pid_alive
+
                 try:
                     pid = int(self._pid_file.read_text().strip())
-                    os.kill(pid, 0)  # signal 0 = just check existence
-                except (ProcessLookupError, ValueError):
+                except ValueError:
+                    pid = 0
+                if not pid_alive(pid):
                     logger.error("ComfyUI process died during startup")
                     return False
-                except PermissionError:
-                    pass  # process exists but we can't signal it, that's fine
         logger.error(f"ComfyUI did not become ready within {timeout_seconds} seconds")
         return False
 

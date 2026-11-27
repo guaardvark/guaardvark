@@ -359,15 +359,9 @@ def kept_image_pipeline_marker() -> Path:
 
 
 def _pid_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
+    from backend.utils.proc_alive import pid_alive
+
+    return pid_alive(pid)
 
 
 def release_kept_image_pipeline(image_model: Optional[str] = None) -> bool:
