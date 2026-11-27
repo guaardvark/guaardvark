@@ -1342,6 +1342,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     stopPolling();
     setActiveBatch(prev => prev ? { ...prev, status: 'cancelled' } : null);
     fetchQueue();
+    restoreUnstartedJob(activeBatch.batch_id);
   };
 
   // Stable identity: this is handed to every batch history card, which is memoised.
@@ -1466,6 +1467,29 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     next.delete('doc');
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, handleAdjustRetry]);
+
+  // Queuing empties the form, so a job cancelled before it made any image
+  // hands its prompt and settings back the way Adjust & Retry does. A prompt
+  // already typed for the next job is left alone.
+  const restoreUnstartedJob = async (batchId) => {
+    const typed = promptFlushRef.current ? promptFlushRef.current() : batchItems;
+    if (typed.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE}/batch-image/status/${batchId}`);
+      if (!res.ok) return;
+      const job = (await res.json())?.data;
+      if (!job?.retry_data || job.completed_images || job.failed_images) return;
+    } catch {
+      return;
+    }
+    handleAdjustRetry(batchId);
+  };
+
+  const cancelQueuedJob = async (batchId) => {
+    const ok = await requestCancel(batchId);
+    if (ok) restoreUnstartedJob(batchId);
+    return ok;
+  };
 
   const downloadResults = useCallback(async (batchId) => {
     try {
@@ -1594,7 +1618,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     openHistoryBatchGallery,
     openImageViewer,
     openModels,
-    requestCancel,
+    requestCancel: cancelQueuedJob,
     startGeneration,
     scheduleGeneration,
   });
