@@ -139,7 +139,7 @@
     "title": "Geração de Vídeo"
   },
   "notReady": {
-    "download": "Baixar {{name}}",
+    "download": "Instalar {{name}}...",
     "alert": "<bold>{{name}} não está totalmente instalado.</bold> Gerar agora faria o sistema alternar silenciosamente para um modelo de menor qualidade — por isso, está bloqueado. Instale-o primeiro{{missing}} e tente gerar novamente.",
     "missingFiles_one": "({{count}} arquivo(s) ausente(s))",
     "missingFiles_other": "( {{count}} arquivos faltando)"

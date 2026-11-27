@@ -85,7 +85,7 @@
     "notRunningAlert": "Audio Foundry nie jest uruchomione. Uruchom wtyczkę, a następnie zainstaluj brakujące wagi.",
     "start": "Uruchom",
     "startingAlert": "Audio Foundry się uruchamia. Pierwsze uruchomienie przygotowuje środowiska i może potrwać kilka minut.",
-    "downloadModel": "Pobierz {{name}}",
+    "downloadModel": "Zainstaluj {{name}}...",
     "notInstalledAlert": "<bold>{{name}} nie jest zainstalowane.</bold> Generowanie nie pobierze go w tle — najpierw je zainstaluj.",
     "voiceTab": "Głos",
     "musicTab": "Muzyka",

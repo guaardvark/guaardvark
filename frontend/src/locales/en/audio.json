@@ -85,7 +85,7 @@
     "notRunningAlert": "Audio Foundry is not running. Start the plugin, then install any missing weights.",
     "start": "Start",
     "startingAlert": "Audio Foundry is starting. The first start sets up its environments and can take several minutes.",
-    "downloadModel": "Download {{name}}",
+    "downloadModel": "Install {{name}}...",
     "notInstalledAlert": "<bold>{{name}} is not installed.</bold> Generate will not download it in the background — install it first.",
     "voiceTab": "Voice",
     "musicTab": "Music",

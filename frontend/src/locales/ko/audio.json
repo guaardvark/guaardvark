@@ -85,7 +85,7 @@
     "notRunningAlert": "Audio Foundry가 실행 중이 아닙니다. 플러그인을 시작한 후 누락된 가중치를 설치하세요.",
     "start": "시작",
     "startingAlert": "Audio Foundry를 시작하는 중입니다. 처음 시작할 때는 환경을 구성하므로 몇 분 정도 걸릴 수 있습니다.",
-    "downloadModel": "{{name}} 다운로드",
+    "downloadModel": "{{name}} 설치...",
     "notInstalledAlert": "<bold>{{name}}이(가) 설치되지 않았습니다.</bold> 생성 시 백그라운드에서 다운로드하지 않으므로 먼저 설치해 주세요.",
     "voiceTab": "음성",
     "musicTab": "음악",

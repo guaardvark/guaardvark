@@ -139,7 +139,7 @@
     "title": "Videogenerierung"
   },
   "notReady": {
-    "download": "{{name}} herunterladen",
+    "download": "{{name}} installieren...",
     "alert": "<bold>{{name}} ist noch nicht vollständig installiert.</bold> Eine Generierung würde jetzt stillschweigend auf ein Modell mit geringerer Qualität zurückgreifen – deshalb ist sie gesperrt. Installiere es zuerst{{missing}}, und generiere dann erneut.",
     "missingFiles_one": "({{count}} Datei fehlt)",
     "missingFiles_other": "({{count}} Dateien fehlen)"

@@ -138,7 +138,7 @@
     "title": "비디오 생성"
   },
   "notReady": {
-    "download": "{{name}} 다운로드",
+    "download": "{{name}} 설치...",
     "alert": "<bold>{{name}}이(가) 완전히 설치되지 않았습니다.</bold> 지금 생성하면 품질이 낮은 모델로 자동 전환되어 생성됩니다. 이를 방지하기 위해 기능이 차단되었습니다. 먼저 설치를 완료하신 후{{missing}}, 다시 시도해 주세요.",
     "missingFiles_other": "({{count}} 파일 누락)"
   },

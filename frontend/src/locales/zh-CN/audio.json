@@ -85,7 +85,7 @@
     "notRunningAlert": "Audio Foundry 未运行。请启动插件，然后安装任何缺失的权重。",
     "start": "启动",
     "startingAlert": "Audio Foundry 正在启动。首次启动需要搭建运行环境，可能需要几分钟。",
-    "downloadModel": "下载 {{name}}",
+    "downloadModel": "安装 {{name}}...",
     "notInstalledAlert": "<bold>{{name}} 未安装。</bold> 生成过程中不会在后台下载它 —— 请先安装。",
     "voiceTab": "语音",
     "musicTab": "音乐",

@@ -140,7 +140,7 @@
     "title": "Video Generation"
   },
   "notReady": {
-    "download": "Download {{name}}",
+    "download": "Install {{name}}...",
     "alert": "<bold>{{name}} isn’t fully installed.</bold> Generating now would silently fall back to a lower-quality model — so it’s blocked. Install it first{{missing}}, then generate again.",
     "missingFiles_one": "({{count}} file missing)",
     "missingFiles_other": "({{count}} files missing)"
