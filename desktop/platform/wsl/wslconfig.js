@@ -1,4 +1,5 @@
-// The keep-alive setting in the Windows user's %UserProfile%\.wslconfig.
+// Guaardvark's settings in the Windows user's %UserProfile%\.wslconfig:
+// keep-alive and the memory limit.
 //
 // WSL stops a distribution about 15 s after its last wsl.exe session ends
 // ([general] instanceIdleTimeout, default 15000) and the VM a minute later
@@ -8,13 +9,15 @@
 // Guaardvark on after the window closes. They apply to every distribution
 // on the PC and take effect after `wsl --shutdown`.
 //
-// .wslconfig belongs to the person. Turning keep-alive on writes a record of
-// exactly what changed (the file as it was, the file as written, each line
-// added or replaced), and undoing it uses that record: an untouched file is
-// put back byte for byte; an edited one only loses lines that still hold
+// The memory setting is [wsl2] memory=, offered at install (see
+// windows.js memoryChoice) and undone the same way.
+//
+// .wslconfig belongs to the person. Each setting writes a record of exactly
+// what it changed (the file as it was, the file as written, each line added
+// or replaced), and undoing it uses that record: an untouched file is put
+// back byte for byte; an edited one only loses lines that still hold
 // Guaardvark's value, and anything else the person changed stays. The
-// uninstaller runs the same undo (keepalive-undo.js). This module must keep
-// to Node built-ins: the uninstaller runs it outside the app.
+// uninstaller runs the same undo (wslconfig-undo.js).
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -100,17 +103,15 @@ function readRecord(recordFile) {
   }
 }
 
-// Writes both timeouts as -1 and records what changed. Returns
-// { changed, reason }. Nothing is written when keep-alive is already on.
-function enableKeepAlive(userProfile, recordFile) {
+// Writes the wanted lines and records what changed: the file as it was, the
+// file as written and, per line, the value it replaced. `did` names the
+// change for messages ("turned on keep-alive").
+function applyChanges(userProfile, recordFile, wants, did) {
   const file = configPath(userProfile);
-  if (isKeepAlive(userProfile)) {
-    return { changed: false, reason: readRecord(recordFile) ? 'already-on' : 'set-by-you' };
-  }
   const before = readBytes(file);
   const doc = splitText(before);
   const changes = [];
-  for (const w of WANT) {
+  for (const w of wants) {
     const hit = findKey(doc.lines, w.section, w.key);
     if (hit) {
       changes.push({ ...w, previous: hit.value, sectionCreated: false });
@@ -145,6 +146,7 @@ function enableKeepAlive(userProfile, recordFile) {
   fs.mkdirSync(path.dirname(recordFile), { recursive: true });
   fs.writeFileSync(recordFile, `${JSON.stringify({
     schema: 1,
+    did,
     file,
     at: new Date().toISOString(),
     original: before ? before.toString('base64') : null,
@@ -156,19 +158,51 @@ function enableKeepAlive(userProfile, recordFile) {
   return { changed: true };
 }
 
-// Undoes enableKeepAlive. Returns { result, message, notify }:
+// Writes both timeouts as -1. Returns { changed, reason }. Nothing is
+// written when keep-alive is already on.
+function enableKeepAlive(userProfile, recordFile) {
+  if (isKeepAlive(userProfile)) {
+    return { changed: false, reason: readRecord(recordFile) ? 'already-on' : 'set-by-you' };
+  }
+  return applyChanges(userProfile, recordFile, WANT, 'turned on keep-alive');
+}
+
+// How much memory WSL may give its Linux systems: [wsl2] memory=, default
+// half the PC's RAM. A value the person set themselves is never replaced.
+// Returns { userValue, ours, value }: userValue is a memory= Guaardvark did
+// not write; ours is true while Guaardvark's own line is in place.
+function memoryState(userProfile, recordFile) {
+  const { lines } = splitText(readBytes(configPath(userProfile)));
+  const hit = findKey(lines, 'wsl2', 'memory');
+  const rec = readRecord(recordFile);
+  const mine = rec && rec.changes && rec.changes.find((c) => c.key === 'memory');
+  if (!hit) return { userValue: null, ours: false, value: null };
+  if (mine && hit.value === mine.value) return { userValue: null, ours: true, value: hit.value };
+  return { userValue: hit.value, ours: false, value: hit.value };
+}
+
+// Writes memory=<gb>GB under [wsl2] unless a memory= is already there.
+function enableMemory(userProfile, recordFile, gb) {
+  const now = memoryState(userProfile, recordFile);
+  if (now.ours) return { changed: false, reason: 'already-on', value: now.value };
+  if (now.userValue) return { changed: false, reason: 'set-by-you', userValue: now.userValue };
+  return { ...applyChanges(userProfile, recordFile, [{ section: 'wsl2', key: 'memory', value: `${gb}GB` }], 'set its memory limit'), value: `${gb}GB` };
+}
+
+// Undoes applyChanges for one record. Returns { result, message, notify }:
 //   nothing         no record: Guaardvark changed nothing
 //   restored        the file was as Guaardvark left it; put back exactly
 //   lines-removed   the person edited the file since; only Guaardvark's lines went
 //   partial         some of Guaardvark's lines now hold the person's values; kept
 //   missing         the file is gone; nothing written
 // notify is true when the person should be told what happened.
-function undoKeepAlive(userProfile, recordFile) {
+function undoChanges(userProfile, recordFile) {
   const rec = readRecord(recordFile);
   if (!rec) return { result: 'nothing', notify: false };
   const file = configPath(userProfile);
   const current = readBytes(file);
   const original = rec.original ? Buffer.from(rec.original, 'base64') : null;
+  const did = rec.did || 'turned on keep-alive';
   const done = (out) => {
     fs.rmSync(recordFile, { force: true });
     return out;
@@ -184,7 +218,7 @@ function undoKeepAlive(userProfile, recordFile) {
     return done({
       result: 'missing',
       notify: true,
-      message: `${file} was deleted after Guaardvark turned on keep-alive, so there was nothing to undo.${kept ? ` Your file from before that is kept as ${rec.backup}.` : ''}`,
+      message: `${file} was deleted after Guaardvark ${did}, so there was nothing to undo.${kept ? ` Your file from before that is kept as ${rec.backup}.` : ''}`,
     });
   }
 
@@ -227,11 +261,16 @@ function undoKeepAlive(userProfile, recordFile) {
     return done({
       result: 'partial',
       notify: true,
-      message: `You changed ${keptByYou.join(' and ')} in ${file} after Guaardvark turned on keep-alive, so Guaardvark left ${keptByYou.length > 1 ? 'them' : 'it'} as you set ${keptByYou.length > 1 ? 'them' : 'it'}. Everything else Guaardvark added is removed.${rec.backup && fs.existsSync(rec.backup) ? ` Your file from before keep-alive is kept as ${rec.backup}.` : ''}`,
+      message: `You changed ${keptByYou.join(' and ')} in ${file} after Guaardvark ${did}, so Guaardvark left ${keptByYou.length > 1 ? 'them' : 'it'} as you set ${keptByYou.length > 1 ? 'them' : 'it'}. Everything else Guaardvark added is removed.${rec.backup && fs.existsSync(rec.backup) ? ` Your file from before that is kept as ${rec.backup}.` : ''}`,
     });
   }
   dropOwnBackup();
   return done({ result: 'lines-removed', notify: false });
 }
 
-module.exports = { configPath, isKeepAlive, enableKeepAlive, undoKeepAlive, BACKUP_SUFFIX };
+const undoKeepAlive = undoChanges;
+const undoMemory = undoChanges;
+
+module.exports = {
+  configPath, isKeepAlive, enableKeepAlive, undoKeepAlive, memoryState, enableMemory, undoMemory, undoChanges, BACKUP_SUFFIX,
+};

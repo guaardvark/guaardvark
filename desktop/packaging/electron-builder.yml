@@ -36,8 +36,8 @@ asar: true
 # its own app.asar, as itself:
 # - no ELECTRON_RUN_AS_NODE, NODE_OPTIONS or --inspect/--inspect-brk: the
 #   executable cannot be borrowed as a Node runtime or debugged into from
-#   outside. The uninstaller's keep-alive undo is an app argument
-#   (--undo-keep-alive, platform/windows.js), so it needs none of these.
+#   outside. The uninstaller's .wslconfig undo is an app argument
+#   (--undo-wsl-settings, platform/windows.js), so it needs none of these.
 # - only resources/app.asar is loaded, and on Windows and macOS its contents
 #   are checked against the hash embedded in the executable at build time.
 # - cookies (the studio's session) are encrypted with the OS key store

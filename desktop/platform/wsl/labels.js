@@ -21,6 +21,7 @@ const LABELS = {
   wsl_installed: "Guaardvark's Linux system is ready",
   wsl_attach: "Connecting to Guaardvark's Linux system",
   wsl_keep_alive: 'Keeping Guaardvark running in the background',
+  wsl_memory: 'Setting how much memory Linux may use',
   stop_pending: 'Waiting for Guaardvark to finish stopping',
 };
 

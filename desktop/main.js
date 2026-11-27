@@ -50,6 +50,7 @@ let quitState = 'no';         // no | asking | stopping | done
 let studioUrl = null;
 let launching = false;        // a launch() is between its first and last step
 let installApproved = false;  // the person pressed Install on the plan screen
+let installChoice = {};       // what they chose there (the memory setting)
 let reopenAfterStop = false;  // the app was opened again while it was stopping Guaardvark
 let signInRefused = false;    // the backend turned the install's key down in this run
 
@@ -253,6 +254,22 @@ function createWindow() {
 // Only a platform that can keep Guaardvark running without the window (the
 // Windows module) has the keep-alive calls.
 const hasKeepAlive = typeof platform.getKeepAlive === 'function' && typeof platform.setKeepAlive === 'function';
+const hasMemory = typeof platform.getMemory === 'function' && typeof platform.setMemory === 'function';
+
+// The memory limit WSL gives Guaardvark: a checkbox while Guaardvark's own
+// setting applies or can be offered; a plain line when the person set one.
+function memoryItems() {
+  if (!hasMemory) return [];
+  const mem = platform.getMemory();
+  if (mem.userValue) return [{ label: `Memory for Linux: ${mem.userValue} (your setting)`, enabled: false }];
+  if (!mem.recommendedGB) return [];
+  return [{
+    label: `Memory for Guaardvark: ${mem.recommendedGB} GB`,
+    type: 'checkbox',
+    checked: Boolean(mem.on),
+    click: () => changeMemory(),
+  }];
+}
 
 function buildMenu() {
   const keepAliveItems = hasKeepAlive ? [
@@ -262,6 +279,7 @@ function buildMenu() {
       checked: Boolean(platform.getKeepAlive()),
       click: () => changeKeepAlive(),
     },
+    ...memoryItems(),
     { type: 'separator' },
   ] : [];
   Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -327,6 +345,49 @@ async function changeKeepAlive() {
     return;
   } finally {
     buildMenu();
+  }
+  if (response !== 0 || !result || !result.needsWslRestart || typeof platform.applyWslSettings !== 'function') return;
+  setUi({ view: 'starting', startedAt: Date.now(), steps: [], label: 'Restarting the Linux layer', detail: '' });
+  await showLoadingPage();
+  await platform.applyWslSettings();
+  launch();
+}
+
+// Same shape as keep-alive: a Windows setting every Linux system on the PC
+// shares, applied only when the Linux layer restarts.
+async function changeMemory() {
+  const mem = platform.getMemory();
+  const turnOn = !mem.on;
+  buildMenu();
+  if (!win || win.isDestroyed() || quitState !== 'no') return;
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'question',
+    title: 'Guaardvark',
+    message: turnOn ? `Let Guaardvark use up to ${mem.recommendedGB} GB of memory?` : `Go back to Windows' own memory limit for Linux (${mem.defaultGB} GB)?`,
+    detail: [
+      turnOn
+        ? `Windows gives its Linux layer half of this PC's ${mem.totalGB} GB unless told otherwise. Image and video models often need more; this leaves 8 GB for Windows.`
+        : 'Large image and video models may no longer fit.',
+      'The setting covers every Linux system on this PC, not only Guaardvark.',
+      'The change takes effect when the Linux layer restarts. Restarting it now stops every Linux system that is running on this PC, Guaardvark included; Guaardvark starts again straight away.',
+    ].join('\n\n'),
+    buttons: ['Change it and restart the Linux layer now', 'Change it at the next Windows restart', 'Cancel'],
+    defaultId: 1,
+    cancelId: 2,
+    noLink: true,
+  });
+  if (response === 2) return;
+  let result;
+  try {
+    result = await platform.setMemory(turnOn);
+  } catch (err) {
+    dialog.showMessageBox(win, { type: 'error', title: 'Guaardvark', message: 'The setting could not be changed.', detail: String(err.message || err), buttons: ['OK'] });
+    return;
+  } finally {
+    buildMenu();
+  }
+  if (result && result.message) {
+    await dialog.showMessageBox(win, { type: 'info', title: 'Guaardvark', message: 'Your .wslconfig was edited since Guaardvark changed it.', detail: result.message, buttons: ['OK'] });
   }
   if (response !== 0 || !result || !result.needsWslRestart || typeof platform.applyWslSettings !== 'function') return;
   setUi({ view: 'starting', startedAt: Date.now(), steps: [], label: 'Restarting the Linux layer', detail: '' });
@@ -462,7 +523,7 @@ async function runLaunch() {
       }
       setUi({ view: 'starting', startedAt: Date.now(), steps: [], label: 'Setting up Guaardvark', detail: '' });
       await showLoadingPage();
-      await platform.install((evt) => current() && applyProgress(evt));
+      await platform.install((evt) => current() && applyProgress(evt), installChoice);
     }
     if (!current()) return;
 
@@ -512,9 +573,13 @@ function describePlan(plan = {}) {
   }
   if (plan.needsAdmin) notes.push('Your computer will ask for permission to make changes.');
   if (plan.needsRestart) notes.push('One restart is needed part-way through. Setup carries on by itself after you sign in.');
+  const mem = plan.memory;
+  if (mem && mem.userValue) notes.push(`Your own memory setting for Linux (${mem.userValue}) stays as it is.`);
   return {
     steps: (plan.steps || []).map((s) => ({ step: s.id, label: s.label || s.id, state: 'pending' })),
     notes,
+    // Offered when the PC has more memory than WSL gives Linux by default.
+    memory: mem && mem.offered ? { label: mem.label, on: Boolean(mem.defaultOn) } : null,
   };
 }
 
@@ -627,9 +692,10 @@ if (!app.requestSingleInstanceLock()) {
 
   ipcMain.handle('gv:get-ui', (event) => (fromLoadingPage(event) ? ui : null));
   ipcMain.on('gv:retry', (event) => { if (fromLoadingPage(event) && quitState === 'no') launch(); });
-  ipcMain.on('gv:install', (event) => {
+  ipcMain.on('gv:install', (event, choice) => {
     if (!fromLoadingPage(event) || quitState !== 'no' || ui.view !== 'install') return;
     installApproved = true;
+    installChoice = choice && typeof choice.memory === 'boolean' ? { memory: choice.memory } : {};
     launch();
   });
   ipcMain.on('gv:restart', (event) => { if (fromLoadingPage(event) && quitState === 'no') restartComputer(); });
