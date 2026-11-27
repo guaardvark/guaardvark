@@ -382,8 +382,10 @@ def _ollama_json_chat(system: str, user: str, model: Optional[str] = None) -> Di
     if model is None:
         model = drafter_model()
 
-    from backend.utils.ollama_resource_manager import think_payload
+    from backend.utils.ollama_resource_manager import request_options, think_payload
     try:
+        # Sized num_ctx: unsized, the request runs at whatever window the model
+        # was last loaded with, and the pitch sheet does not fit in 4,096.
         response = ollama.chat(
             model=model,
             messages=[
@@ -391,7 +393,7 @@ def _ollama_json_chat(system: str, user: str, model: Optional[str] = None) -> Di
                 {"role": "user", "content": user},
             ],
             format="json",
-            options={"temperature": 0.6},
+            options=request_options(model, temperature=0.6),
             **think_payload(model),
         )
     except Exception as e:
