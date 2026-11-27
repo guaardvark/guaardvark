@@ -285,19 +285,17 @@ fi
 
 REDIS_PASS=$(get_redis_password)
 ENV_REDIS_PORT=$(get_redis_url_port)
-CONF_PASS=$(redis_conf_password)
+CONF_PASS=""
 REDIS_CONF_WRITTEN=0
 clear_redis_pid_if_dead
 
-# .env must carry the password the system Redis boots with. When it does not,
-# the two can still agree today (a Redis started before the password was
-# written, or a passwordless sidecar on 6380) and then part ways at the next
-# boot, when Celery is locked out of :6379.
-if command_exists redis-cli && [ -n "$CONF_PASS" ] && [ "$CONF_PASS" != "$REDIS_PASS" ]; then
-  if ! redis_auth_required "$PORT" && redis_ping "" "$PORT" && system_redis_unit_present; then
-    vader_info "Redis on :$PORT is running without the password in $REDIS_CONF; restarting it with its config."
-    sudo -n systemctl restart redis-server >/dev/null 2>&1 && sleep 1
-  fi
+# Redis on :6379 wants a password that .env does not have. When that is the
+# password in $REDIS_CONF (an install whose .env lost it), write it back to .env
+# rather than starting a second, passwordless broker on another port. The file
+# is only read here and when provisioning, so healthy installs never call sudo.
+if command_exists redis-cli && redis_auth_required "$PORT" \
+   && ! { [ -n "$REDIS_PASS" ] && redis_ping "$REDIS_PASS" "$PORT"; }; then
+  CONF_PASS=$(redis_conf_password)
   if redis_accepts_password "$CONF_PASS" "$PORT"; then
     write_redis_env_urls "redis://:${CONF_PASS}@localhost:${PORT}/0"
     REDIS_PASS="$CONF_PASS"
