@@ -183,22 +183,13 @@ fi
 echo $$ > "$START_PID_FILE"
 trap 'progress_on_exit; _vader_fx_stop; start_lock_drop_pidfile; start_lock_release' EXIT
 
-# Run by the desktop app (progress file, stdin not a terminal), nobody can answer
-# a sudo password prompt. sudo still asks on a controlling terminal if there is
-# one, and would wait there forever, so every sudo, in child scripts and
-# installers too, runs without prompting; progress_failed names what was refused.
-_no_prompt_dir="$SCRIPT_DIR/scripts/lib/sudo_no_prompt"
-if progress_on && [ ! -t 0 ] && command -v sudo >/dev/null 2>&1; then
-    case ":$PATH:" in
-        *":$_no_prompt_dir:"*) ;;   # a re-run of this script with exec
-        *)
-            GUAARDVARK_REAL_SUDO=$(command -v sudo)
-            GUAARDVARK_SUDO_REFUSED="$SCRIPT_DIR/.start_cache/sudo-refused"
-            : > "$GUAARDVARK_SUDO_REFUSED"
-            PATH="$_no_prompt_dir:$PATH"
-            export GUAARDVARK_REAL_SUDO GUAARDVARK_SUDO_REFUSED PATH
-            ;;
-    esac
+# Run by the desktop app, nobody can answer a sudo password prompt: sudo never
+# asks in this script and its setup scripts (scripts/lib/sudo_no_prompt.sh), and
+# progress_failed names what was refused.
+# shellcheck source=scripts/lib/sudo_no_prompt.sh
+. "$SCRIPT_DIR/scripts/lib/sudo_no_prompt.sh"
+if [ "$GV_SUDO_NO_PROMPT" = 1 ] && [ -z "${GUAARDVARK_SELF_EDIT_RETRY:-}" ]; then
+    : > "$GV_SUDO_REFUSED_FILE"
 fi
 
 vader_boot_banner
@@ -1974,7 +1965,7 @@ if ! command_exists "ollama"; then
         _ollama_install_rc=0
         mkdir -p "$LOGS_DIR"
         _vader_run "$SETUP_LOG" -- curl -fsSL https://ollama.com/install.sh -o "$_ollama_installer" \
-            && _vader_run "$SETUP_LOG" -- sh "$_ollama_installer" \
+            && _vader_run "$SETUP_LOG" -- gv_sudo_external sh "$_ollama_installer" \
             || _ollama_install_rc=$?
         hash -r
         if command_exists "ollama"; then

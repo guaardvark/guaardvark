@@ -165,8 +165,8 @@ progress_failed() {
     local label="$1" detail="${2:-}" log="${3:-$_PROGRESS_LOG}" at="$_PROGRESS_STEP" extra refused
     # sudo was refused for want of a password (start.sh's no-prompt mode): that is
     # what the person has to act on, so it leads.
-    if [ -s "${GUAARDVARK_SUDO_REFUSED:-}" ]; then
-        refused=$(sort -u "$GUAARDVARK_SUDO_REFUSED" 2>/dev/null | head -n 3 | tr '\n' ';')
+    if [ "${GV_SUDO_NO_PROMPT:-0}" = 1 ] && [ -s "${GV_SUDO_REFUSED_FILE:-}" ]; then
+        refused=$(sort -u "$GV_SUDO_REFUSED_FILE" 2>/dev/null | head -n 3 | tr '\n' ';')
         refused=${refused%;}
         label="First-time setup needs your password"
         detail="Installing system software needs administrator rights, and the app cannot ask for your password. Open a terminal and run: cd \"${SCRIPT_DIR:-.}\" && ./start.sh   When it has finished, start Guaardvark again. (Refused: sudo ${refused//;/; sudo }.)${detail:+ $detail}"

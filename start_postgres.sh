@@ -11,6 +11,8 @@ ENV_FILE="$SCRIPT_DIR/.env"
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/lib/terminal_ui.sh"
 # shellcheck source=scripts/lib/apt_install.sh
 . "$SCRIPT_DIR/scripts/lib/apt_install.sh"
+# shellcheck source=scripts/lib/sudo_no_prompt.sh
+. "$SCRIPT_DIR/scripts/lib/sudo_no_prompt.sh"   # sudo never prompts under the desktop app
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 

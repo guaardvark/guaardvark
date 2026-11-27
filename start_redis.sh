@@ -7,6 +7,8 @@
 
 PORT=${REDIS_PORT:-6379}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/lib/sudo_no_prompt.sh
+. "$SCRIPT_DIR/scripts/lib/sudo_no_prompt.sh"   # sudo never prompts under the desktop app
 ENV_FILE="$SCRIPT_DIR/.env"
 REDIS_CONF="/etc/redis/redis.conf"
 PIDS_DIR="$SCRIPT_DIR/pids"

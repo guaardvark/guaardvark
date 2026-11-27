@@ -1,9 +1,8 @@
 #!/bin/sh
-# start.sh puts this folder first on PATH when nobody can type a sudo password:
-# it was run with --progress-file (the desktop app) and stdin is not a terminal.
-# Every sudo then runs as `sudo -n`, so a command that needs the password fails
-# at once instead of waiting on a prompt nobody sees. A refusal is appended to
-# $GUAARDVARK_SUDO_REFUSED, which start.sh names when startup fails.
+# sudo for start.sh's setup when nobody can type a password (the desktop app); see
+# scripts/lib/sudo_no_prompt.sh, which calls this. Runs the real sudo as `sudo -n`,
+# so a command that needs the password fails at once instead of waiting on a
+# prompt nobody sees, and appends a refusal to $GUAARDVARK_SUDO_REFUSED.
 case "${GUAARDVARK_REAL_SUDO:-}" in
     ""|*/sudo_no_prompt/sudo) echo "sudo: GUAARDVARK_REAL_SUDO does not name the system sudo" >&2; exit 1 ;;
 esac
