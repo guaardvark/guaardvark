@@ -108,18 +108,46 @@ async function rebootPending(runner) {
 
 // Windows-side NVIDIA driver. WSL hands the card to Linux through this
 // driver; the Linux system needs no NVIDIA driver of its own.
+//
+// The Guaardvark image's PyTorch needs a driver from the 580 branch or
+// newer. With an older driver the image's first start installs a PyTorch
+// build that matches it (packaging/wsl-image), which is a large extra
+// download, so the install plan asks the person to update first.
+const MIN_NVIDIA_DRIVER = 580;
+
+function driverMajor(version) {
+  const m = /^(\d+)/.exec(version || '');
+  return m ? Number(m[1]) : null;
+}
+
 async function nvidia(runner) {
-  const res = await runner.run('nvidiaSmi', ['--query-gpu=name,driver_version,memory.total', '--format=csv,noheader,nounits'], { timeoutMs: 20000 });
-  if (res.code !== 0) return { present: false };
+  const query = (fields) => runner.run('nvidiaSmi', [`--query-gpu=${fields}`, '--format=csv,noheader,nounits'], { timeoutMs: 20000 });
+  // compute_cap is a newer field; drivers that lack it refuse the whole query.
+  let withCap = true;
+  let res = await query('name,driver_version,memory.total,compute_cap');
+  if (res.code !== 0) {
+    withCap = false;
+    res = await query('name,driver_version,memory.total');
+  }
+  if (res.code !== 0) return { present: false, status: 'none' };
   const gpus = lines(res.stdout).map((l) => {
-    const [name, driver, memMiB] = l.split(',').map((s) => s.trim());
-    return { name, driver, memoryMiB: Number(memMiB) || null };
+    const [name, driver, memMiB, cap] = l.split(',').map((x) => x.trim());
+    return { name, driver, memoryMiB: Number(memMiB) || null, computeCap: withCap ? cap || null : null };
   });
-  return { present: gpus.length > 0, gpus };
+  if (!gpus.length) return { present: false, status: 'none' };
+  const major = driverMajor(gpus[0].driver);
+  return {
+    present: true,
+    gpus,
+    driver: gpus[0].driver,
+    minDriver: MIN_NVIDIA_DRIVER,
+    status: major !== null && major < MIN_NVIDIA_DRIVER ? 'old-driver' : 'ok',
+  };
 }
 
 module.exports = {
   MIN_WINDOWS_BUILD,
+  MIN_NVIDIA_DRIVER,
   REBOOT_KEY,
   windowsBuild,
   parseVersion,

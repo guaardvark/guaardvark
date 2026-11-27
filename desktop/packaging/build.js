@@ -2,10 +2,17 @@
 // Builds the Windows installer, Guaardvark-Setup-<version>-x64.exe, on Linux
 // or Windows. Unsigned.
 //
-//   cd desktop && npm install && node packaging/build.js [--out <dir>] [--wsl-image <dir>] [--dir-only]
+//   cd desktop && npm install && node packaging/build.js [--out <dir>] [--wsl-manifest <file>]
+//                                                        [--wsl-image <dir>] [--dir-only]
 //
 // <version> is the repository's VERSION file, so the installer, the app's
 // About data and the WSL image it downloads all carry the same number.
+//
+// --wsl-manifest <file> is this release's WSL image manifest
+// (guaardvark-wsl-<version>-x64.json from packaging/wsl-image). Its sizes go
+// into the app, so the install plan can show the download size and check
+// the free disk space before anything is fetched. Without it the plan shows
+// no size and the space is checked once the download starts.
 //
 // --wsl-image <dir> bundles a WSL image (manifest.json plus the files it
 // lists) as resources/wsl-image, and the app then installs from it with no
@@ -54,9 +61,20 @@ async function main() {
   if (process.platform !== 'win32') macosVersion.isMacOsCatalina = () => true;
 
   const image = option('wsl-image');
+  const manifestFile = option('wsl-manifest');
   const extraResources = [];
   // author becomes the CompanyName in the .exe's properties.
   const extraMetadata = { version, guaardvarkVersion: version, author: { name: 'Guaardvark' } };
+  if (manifestFile) {
+    const m = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    if (m.version !== version) {
+      console.error(`${manifestFile} is for version ${m.version}; VERSION is ${version}.`);
+      process.exit(2);
+    }
+    extraMetadata.wslImage = { downloadBytes: m.parts.reduce((n, p) => n + p.size, 0), installedBytes: m.installedSize || null };
+  } else if (!image) {
+    console.warn('No --wsl-manifest: the install plan will not show the download size or check disk space up front.');
+  }
   if (image) {
     const manifest = JSON.parse(fs.readFileSync(path.join(image, 'manifest.json'), 'utf8'));
     extraResources.push({ from: path.resolve(image), to: 'wsl-image' });

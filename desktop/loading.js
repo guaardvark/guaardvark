@@ -56,6 +56,13 @@ function draw(ui) {
       $('install-memory-label').textContent = memory.label;
       $('install-memory-box').checked = memory.on;
     }
+    $('install-warnings').replaceChildren(...(ui.plan.warnings || []).map((note) => {
+      const li = document.createElement('li');
+      li.textContent = note;
+      return li;
+    }));
+    $('install-go').textContent = ui.plan.installLabel || 'Install';
+    $('install-go').hidden = Boolean(ui.plan.blocked);
     $('install-notes').replaceChildren(...ui.plan.notes.map((note) => {
       const li = document.createElement('li');
       li.textContent = note;

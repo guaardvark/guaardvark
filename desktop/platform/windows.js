@@ -114,9 +114,15 @@ function readGuaardvarkVersion() {
   }
 }
 
+// Sizes as Windows shows them (1 GB = 1024^3 bytes).
 function gb(bytes) {
-  return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+  return bytes >= 2 ** 30 ? `${(bytes / 2 ** 30).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 2 ** 20))} MB`;
 }
+
+// Room for the AI models start.sh downloads on the first start: the largest
+// pair it picks is gemma4:12b (8.0 GB) and nomic-embed-text (274 MB), as
+// `ollama list` reported them on 2026-11-27.
+const MODELS_ALLOWANCE_BYTES = 9e9;
 
 function create(opts = {}) {
   const env = opts.env || {};
@@ -137,6 +143,7 @@ function create(opts = {}) {
   const resourcesPath = opts.resourcesPath !== undefined ? opts.resourcesPath : process.resourcesPath;
   const version = opts.guaardvarkVersion || readGuaardvarkVersion();
   const fetchImpl = opts.fetch || image.pickFetch();
+  const freeBytesAt = opts.freeBytes || image.freeBytes;
   const store = createStateStore(path.join(appDir, 'setup-state.json'));
   // A stop in progress (see runStop).
   const stopMarker = path.join(appDir, 'stopping.json');
@@ -277,9 +284,9 @@ function create(opts = {}) {
       return null;
     }
     const total = manifest.parts.reduce((n, p) => n + p.size, 0);
-    const need = total + (manifest.installedSize || total * 3);
+    const need = diskNeed({ downloadBytes: total, installedBytes: manifest.installedSize }).neededBytes;
     emit(event('disk_space', 'start'));
-    const free = image.freeBytes(appDir);
+    const free = freeBytesAt(appDir);
     if (free !== null && free < need) {
       fail(emit, 'disk_space', 'Not enough free disk space',
         `Guaardvark needs about ${gb(need)} free on the drive with your user folder; ${gb(free)} is free. Free some space and try again.`);
@@ -421,7 +428,11 @@ function create(opts = {}) {
 
     emit(event('nvidia_driver', 'start'));
     const gpu = await detect.nvidia(runner);
-    if (gpu.present) {
+    if (gpu.present && gpu.status === 'old-driver') {
+      emit(event('nvidia_driver', 'info', {
+        detail: `${gpu.gpus[0].name}, driver ${gpu.driver}. Update the NVIDIA driver to ${gpu.minDriver} or newer (nvidia.com/drivers); until then Guaardvark installs a PyTorch build that matches this driver on its first start.`,
+      }));
+    } else if (gpu.present) {
       const g = gpu.gpus[0];
       emit(event('nvidia_driver', 'ok', { detail: `${g.name}, driver ${g.driver}${g.memoryMiB ? `, ${Math.round(g.memoryMiB / 1024)} GB` : ''}` }));
     } else {
@@ -857,6 +868,31 @@ function create(opts = {}) {
     return { changed, needsWslRestart: changed, result: res.result || res.reason, message: res.message, value: res.value || null, userValue: res.userValue || null };
   }
 
+  // Space the setup needs on the drive with %LOCALAPPDATA%: the download
+  // (its parts stay until the import has finished), the unpacked Linux
+  // system, and the first AI models.
+  function diskNeed({ downloadBytes = 0, installedBytes = 0 } = {}) {
+    const installed = installedBytes || downloadBytes * 3;
+    return {
+      downloadBytes,
+      installedBytes: installed,
+      modelsBytes: MODELS_ALLOWANCE_BYTES,
+      neededBytes: downloadBytes + installed + MODELS_ALLOWANCE_BYTES,
+    };
+  }
+
+  // The image's sizes without the network: a local or bundled manifest, or
+  // the sizes packaging/build.js stamped from this release's manifest.
+  function imageSizes(src) {
+    if (src.kind === 'local') {
+      const m = src.manifest;
+      return { downloadBytes: 0, installedBytes: m.installedSize || m.size * 3, source: 'local' };
+    }
+    const stamped = opts.imageSizes || packageField('wslImage');
+    if (stamped && stamped.downloadBytes) return { downloadBytes: stamped.downloadBytes, installedBytes: stamped.installedBytes, source: 'release' };
+    return null;
+  }
+
   async function planInstall() {
     const st = store.read();
     const ws = await detect.wslState(runner);
@@ -864,6 +900,21 @@ function create(opts = {}) {
     const src = image.locate({ env: { ...process.env, ...env }, resourcesPath, version });
     const steps = [];
     const enable = ws.state !== 'ready';
+    const needsDistro = !names.includes(DISTRO);
+    const sizes = needsDistro ? imageSizes(src) : null;
+    let disk = null;
+    if (sizes) {
+      const need = diskNeed(sizes);
+      const free = freeBytesAt(appDir);
+      disk = {
+        ...need,
+        drive: path.win32.parse(appDir).root || path.parse(appDir).root,
+        freeBytes: free,
+        enough: free === null || free >= need.neededBytes,
+        text: { needed: gb(need.neededBytes), free: free === null ? null : gb(free), download: need.downloadBytes ? gb(need.downloadBytes) : null },
+      };
+    }
+    const gpu = await detect.nvidia(runner);
     if (enable) steps.push('wsl_enable', 'restart_needed');
     if (!names.includes(DISTRO)) steps.push(src.kind === 'download' ? 'wsl_image_download' : null, 'wsl_import');
     steps.push('wsl_first_boot');
@@ -871,7 +922,15 @@ function create(opts = {}) {
       steps: steps.filter(Boolean).map((id) => ({ id, label: event(id, 'start').label })),
       needsAdmin: enable,
       needsRestart: enable || !!st.restartRequestedAt,
-      download: src.kind === 'download' && !names.includes(DISTRO) ? { from: 'GitHub', url: src.url, bytes: opts.imageBytes || null } : null,
+      download: src.kind === 'download' && needsDistro ? { from: 'GitHub', url: src.url, bytes: (sizes && sizes.downloadBytes) || opts.imageBytes || null } : null,
+      disk,
+      gpu: {
+        status: gpu.status,
+        name: gpu.present ? gpu.gpus[0].name : null,
+        driver: gpu.driver || null,
+        computeCap: gpu.present ? gpu.gpus[0].computeCap : null,
+        minDriver: detect.MIN_NVIDIA_DRIVER,
+      },
       bundledImageBytes: src.kind === 'local' ? (opts.imageBytes || packageField('wslImageBytes')) : null,
       memory: memoryChoice(),
     };

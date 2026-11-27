@@ -611,7 +611,8 @@ async function runLaunch() {
 
 function sizeText(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '';
-  return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+  // As Windows shows sizes: 1 GB = 1024^3 bytes.
+  return bytes >= 2 ** 30 ? `${(bytes / 2 ** 30).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 2 ** 20))} MB`;
 }
 
 // The plan screen's text, from whatever planInstall() returned: its steps and
@@ -627,9 +628,29 @@ function describePlan(plan = {}) {
   if (plan.needsRestart) notes.push('One restart is needed part-way through. Setup carries on by itself after you sign in.');
   const mem = plan.memory;
   if (mem && mem.userValue) notes.push(`Your own memory setting for Linux (${mem.userValue}) stays as it is.`);
+  // Checked before anything is downloaded: the graphics card and driver,
+  // and the free space. A warning lets the person go on; too little space
+  // does not.
+  const warnings = [];
+  const gpu = plan.gpu;
+  if (gpu && gpu.status === 'none') {
+    warnings.push('No NVIDIA graphics card was found. On Windows, Guaardvark needs an NVIDIA card to make pictures and video. Chat still works, on the processor.');
+  } else if (gpu && gpu.status === 'old-driver') {
+    warnings.push(`Your NVIDIA driver is version ${gpu.driver}. Update your NVIDIA driver to ${gpu.minDriver} or newer (nvidia.com/drivers), then run Guaardvark again. If you continue now, setup also downloads a version of PyTorch that works with this driver.`);
+  }
+  const disk = plan.disk;
+  let blocked = null;
+  if (disk && !disk.enough) {
+    blocked = `Not enough free disk space on ${disk.drive}: Guaardvark needs about ${disk.text.needed} (the download, its Linux system and the first AI models) and ${disk.text.free} is free. Free some space, then open Guaardvark again.`;
+  } else if (disk && disk.text.free) {
+    notes.push(`Needs about ${disk.text.needed} of free space on ${disk.drive}; ${disk.text.free} is free.`);
+  }
   return {
     steps: (plan.steps || []).map((s) => ({ step: s.id, label: s.label || s.id, state: 'pending' })),
     notes,
+    warnings: blocked ? [blocked, ...warnings] : warnings,
+    blocked: Boolean(blocked),
+    installLabel: warnings.length ? 'Continue anyway' : 'Install',
     // Offered when the PC has more memory than WSL gives Linux by default.
     memory: mem && mem.offered ? { label: mem.label, on: Boolean(mem.defaultOn) } : null,
   };
@@ -793,7 +814,7 @@ if (!app.requestSingleInstanceLock()) {
   ipcMain.handle('gv:get-ui', (event) => (fromLoadingPage(event) ? ui : null));
   ipcMain.on('gv:retry', (event) => { if (fromLoadingPage(event) && quitState === 'no') launch(); });
   ipcMain.on('gv:install', (event, choice) => {
-    if (!fromLoadingPage(event) || quitState !== 'no' || ui.view !== 'install') return;
+    if (!fromLoadingPage(event) || quitState !== 'no' || ui.view !== 'install' || ui.plan.blocked) return;
     installApproved = true;
     installChoice = choice && typeof choice.memory === 'boolean' ? { memory: choice.memory } : {};
     launch();

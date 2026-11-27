@@ -151,3 +151,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   cursor: pointer;
 }
 .choice input { margin-right: 6px; vertical-align: -2px; }
+
+.notes.warn {
+  color: var(--text, inherit);
+  border-color: var(--warn);
+}
