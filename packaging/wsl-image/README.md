@@ -20,7 +20,7 @@ passwords and keys.
 | Part | Where it comes from |
 |---|---|
 | Base | `ubuntu-26.04.1-wsl-amd64.wsl` from releases.ubuntu.com, the file Microsoft's distribution manifest (`microsoft/WSL`, `distributions/DistributionInfo.json`) lists for the default `Ubuntu`. Its SHA-256 is pinned in `build.sh`; update the URL and hash together when the default moves. |
-| Guaardvark | `install.sh` from the requested ref (`--ref`, a branch or tag), run as the default user with no terminal, exactly as `curl … \| bash` runs it, with `GUAARDVARK_BOOTSTRAP_MODELS=0` (no model weights in the image) and the settings in `lib/image.env` set for that run. The checkout is `~/guaardvark` and its `origin` is the public repository. |
+| Guaardvark | `install.sh` from the requested ref (`--ref`, a branch or tag), run as the default user with no terminal, exactly as `curl … \| bash` runs it, with `GUAARDVARK_BOOTSTRAP_MODELS=0` (no model weights in the image) set for that run only. The checkout is `~/guaardvark` and its `origin` is the public repository. |
 | PyTorch | The CUDA build install.sh gives an NVIDIA PC (see below). |
 | User | `guaardvark`, uid 1000, the groups Ubuntu's own first-run script gives (`adm cdrom sudo dip plugdev`), no password. |
 | `/etc/wsl.conf` | `[boot] systemd=true`, `[user] default=guaardvark`. |
@@ -50,7 +50,7 @@ Result in the image: `torch 2.14.1+cu132`, `torch.version.cuda` 13.2. In a
 container without a GPU `torch.cuda.is_available()` is `False` and the backend
 runs on the CPU; that is also what a Windows PC without an NVIDIA card would see.
 
-On first start on a PC with a card, nothing replaces it: the venv carries
+On first start on a PC with a card that `cu132` fits, nothing replaces it (see `torch-check.sh` below for the rest): the venv carries
 install.sh's completion stamp with the current requirements' fingerprint, so
 start.sh skips the dependency bootstrap, and install_pytorch.sh only runs from that
 bootstrap (or `scripts/heal_backend_venv.sh`, or a requirements change after an
@@ -63,12 +63,45 @@ install). Ollama's CUDA libraries are already in the image. The downloads on tha
 first start are the models: hardware_policy picks the chat model by VRAM
 (`gemma4:12b` for a 12 GB+ card) plus `nomic-embed-text`.
 
-Cards this does not fit: Pascal and Volta (GTX 10, Titan V) need `cu126`; CUDA 13
-wheels have no kernels for them. A driver older than 580 cannot run CUDA 13. On
-either, torch imports but CUDA stays unavailable and start.sh's preflight warns;
-`bash scripts/install_pytorch.sh` inside the distribution
-installs the right build. The app could check the Windows driver version before
-install.
+### Cards and drivers `cu132` does not fit: `torch-check.sh`
+
+`cu132` needs driver 580+ and a Turing or newer card. Elsewhere it imports without
+CUDA and Guaardvark would run on the CPU without a word: GTX 10 and Volta need
+`cu126`; RTX 50 on a driver before 580 needs `cu128`; RTX 20-40 on 525-579 need
+`cu126`; anything before 525 needs `cu118`.
+
+`/usr/lib/guaardvark-image/torch-check.sh` (from `lib/torch-check.sh`) settles
+this on the PC. Run it as the default user before every `start.sh`:
+
+```bash
+/usr/lib/guaardvark-image/torch-check.sh --progress-file <path>   # or GUAARDVARK_PROGRESS_FILE
+```
+
+It reads the card through the real `nvidia-smi`, asks
+`hardware_policy.torch_channel` (the table install.sh uses) for the channel, and
+compares it with the installed build's tag (`2.14.1+cu132` → `cu132`, read from
+package metadata). When they match it is done in about a second. When they differ
+it runs `scripts/install_pytorch.sh` for that channel (about 3 GB, staged before
+the old build is removed), re-asserts the numpy and setuptools pins as start.sh
+does after it, and deletes the wheel cache. It writes progress lines in the
+startup protocol's format under the step id `gpu_torch` (`start`, `info`, then
+`ok`, `skip` or `fail`; never `ready` or `failed`, which stay start.sh's), and
+`~/.guaardvark/torch-check.json`:
+
+| `result` | When | Torch | `note` for the app |
+|---|---|---|---|
+| `match` | channel already right | kept | "" |
+| `installed` | swapped to the card's channel | replaced | "" |
+| `no_gpu` | no NVIDIA card answers | kept (CUDA build runs on the CPU) | "" |
+| `card_unsupported` | compute capability below 6.0 | kept | "This graphics card (…) is too old for GPU acceleration. Guaardvark runs on the processor." |
+| `driver_too_old` | driver older than 452, below every channel | kept | "Update your NVIDIA driver to 580 or newer from nvidia.com, then restart Guaardvark." |
+| `install_failed` | the download or install failed (exit 1) | previous build kept | says it runs on the CPU for now and retries next start |
+
+It runs every start rather than once, so a later driver update or card swap is
+picked up the same way, and a failed download is retried. start.sh's bootstrap
+stamp covers the requirements files only, so a swap neither re-runs the bootstrap
+nor is undone by it; and when start.sh does bootstrap (after an update),
+install_pytorch.sh asks the same policy and keeps a build that already fits.
 
 ### Passwordless sudo, and why
 
@@ -91,7 +124,7 @@ code a fresh install uses:
 |---|---|---|
 | `SECRET_KEY` | removed from `.env` | start.sh (`secrets.token_hex(32)`) |
 | PostgreSQL password | `DATABASE_URL` removed from `.env`, role password set to NULL; schema and seed rows kept | start_postgres.sh (no `DATABASE_URL` → new random password, `ALTER USER`, written to `.env`) |
-| Redis password | `/etc/redis/redis.conf` back to the package's file, `redis-server` unit disabled, URLs removed from `.env` | start_redis.sh (Redis down and no password → new random password, config written, Redis started) |
+| Redis password | `/etc/redis/guaardvark.conf` and the `redis-server.service.d/guaardvark.conf` drop-in deleted; `/etc/redis/redis.conf` the packaged file (restored from the `.deb` if an older start_redis.sh rewrote it); `redis-server` unit disabled; URLs removed from `.env` | start_redis.sh (Redis down and no password → new random password, config written, Redis started) |
 | PostgreSQL TLS key (ssl-cert "snakeoil") | deleted | `guaardvark-firstboot.service`, once, before PostgreSQL starts (openssl directly: `make-ssl-cert` goes through debconf, which Ubuntu's landscape-config holds at first boot, and failed there) |
 | `/etc/machine-id` | empty | systemd on first boot |
 | Ollama key (`/usr/share/ollama/.ollama/id_ed25519`) | deleted | Ollama on first serve |
@@ -100,28 +133,12 @@ code a fresh install uses:
 | Ollama tuning drop-in rendered for the build hardware | deleted | start.sh (rendered for this machine; Ollama picks it up on its next restart, as on a fresh install) |
 | Saved chat model (`settings.active_model_name`, `data/active_model.json`) | deleted | backend, on first boot, for this machine |
 
-`.env` in the image holds `PYTHON_CMD=python3.12` and the image's fixed settings
-from `lib/image.env`, nothing else.
+`.env` in the image holds `PYTHON_CMD=python3.12` and nothing else.
 
-### One fixed setting: `VITE_ALLOWED_HOSTS=localhost`
-
-start.sh allows the machine's LAN address in the Vite server and folds every
-`VITE_*` variable into the frontend build's fingerprint. Under WSL's default NAT
-networking that address is a VM address only the PC itself can reach, and it
-usually changes when WSL restarts. So on every PC the first start rebuilt the
-frontend, and so would every start after `wsl --shutdown`. That build is not just
-slow: `vite build` peaked at 5.9-6.4 GB of memory here, on top of the backend,
-the workers and a chat model warming up. In a 12 GB container that ran out of
-memory on every first start once the models were downloaded (see Measurements),
-and WSL gives Linux half the PC's RAM by default, 8 GB on a 16 GB PC.
-
-The image therefore runs its build with `VITE_ALLOWED_HOSTS=localhost` and writes
-the same into `.env`. start.sh keeps a value `.env` sets, the fingerprint matches
-the build's, and no start rebuilds the frontend unless the code changes. The
-Windows browser uses `localhost`; vite.config.js still allows the machine's own
-hostname. The one thing lost is reaching the studio by LAN address from another
-device under mirrored networking; adding that address to `VITE_ALLOWED_HOSTS` in
-`.env` restores it.
+finalize-root.sh ends with an audit and the build fails if any `requirepass`
+line is left anywhere under `/etc`, any `redis://:<password>@` URL under `/etc` or
+in `.env`, or any of `SECRET_KEY`, `DATABASE_URL`, `REDIS_URL` and the Celery
+URLs in `.env`.
 
 Also removed: pip, npm and apt download caches (`data/piptmp` alone was 3.6 GB),
 logs, pid files, shell histories, `/tmp`, the journal, the add-apt-repository
@@ -136,6 +153,23 @@ through start_redis.sh, which start.sh runs anyway.
 
 The old PostgreSQL role's password hash may survive in the cluster's files as a
 dead row until vacuum; it belongs to a password no copy of the image uses.
+
+### No frontend rebuild on first start
+
+start.sh builds the frontend as a check and skips the build when its fingerprint
+matches the last good one. That fingerprint used to include every `VITE_*`
+variable, among them `VITE_ALLOWED_HOSTS`, which carries the machine's LAN
+address: different on every PC, and under WSL's NAT networking usually different
+after every `wsl --shutdown`. So the image's first start on each PC rebuilt the
+frontend, and `vite build` peaked at 5.9-6.4 GB of memory on top of the backend,
+the workers and a chat model warming up; in a 12 GB container that ran out of
+memory on every first start once the models were downloaded (see Measurements).
+WSL gives Linux half the PC's RAM by default, 8 GB on a 16 GB PC.
+
+start.sh now fingerprints only the frontend's own inputs and leaves
+`VITE_ALLOWED_HOSTS` and `VITE_PORT` out, so the
+image needs no setting of its own and LAN access works as on any install. Build
+the image from a ref that has that change.
 
 ## Building
 
@@ -225,8 +259,9 @@ none ran the PyTorch installer or a dependency bootstrap. PyTorch read
 the starts. The downloaded model answered through Ollama (`reply: 'ready'`).
 The container peaked at 6.04 GiB.
 
-Before `VITE_ALLOWED_HOSTS` was fixed, the same first start ran out of the
-container's 12 GB on every attempt, with the CPU-PyTorch image too: `vite build`
+These runs used a build that pinned `VITE_ALLOWED_HOSTS=localhost` in `.env`,
+a stand-in for start.sh's fingerprint fix described above. Without either, the
+same first start ran out of the container's 12 GB on every attempt, with the CPU-PyTorch image too: `vite build`
 reached 5.9-6.4 GB while the chat model held 3.8 GB on the CPU and the backend and
 workers about 2.5 GB. CUDA PyTorch itself adds about 0.36 GB to the backend
 process (1.09 against 0.73 GB).
@@ -300,9 +335,9 @@ download.
   small model whatever the card, and WSL gets half the PC's RAM by default, so a
   16 GB PC gets `qwen3.5:4b` even with a 16 GB card unless `.wslconfig` raises
   `memory=`.
-- **Cards and drivers CUDA 13 does not cover** (Pascal, Volta, drivers before
-  580) get a PyTorch that imports without CUDA. The app could check the Windows
-  NVIDIA driver version before installing.
+- **The app has to run `torch-check.sh`** before `start.sh` (see above); nothing
+  runs it otherwise. On a card that needs another channel the first start then
+  adds a ~3 GB download.
 - **Two things seen in stock start scripts while building this** (not changed
   here; both affect any fresh WSL install, not only the image):
   - start_postgres.sh asks `systemctl is-active postgresql`, which is Ubuntu's
@@ -318,10 +353,6 @@ download.
     matches, and start_redis.sh moves to a passwordless broker on port 6380.
     This is read from the code; docker cannot run the unit to confirm it, so it
     needs a check on a Windows PC.
-  - A stock WSL install also rebuilds the frontend whenever WSL's NAT address
-    changes (see "One fixed setting" above). A core fix would leave
-    `VITE_ALLOWED_HOSTS` out of the frontend build fingerprint in start.sh; it
-    only governs the dev server's host check.
 - `scripts/dep_reconciler` keys its state file by hostname
   (`data/dep_reconciler/state-guaardvark.json` in the image). Under WSL the
   hostname is the PC's name, so the first reconcile there (only plugin enables and

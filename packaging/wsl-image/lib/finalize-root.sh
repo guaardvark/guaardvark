@@ -38,32 +38,38 @@ if [ -f "$ENV_FILE" ]; then
     chown "$USER_NAME:$USER_NAME" "$ENV_FILE.new"
     chmod 600 "$ENV_FILE.new"
     mv "$ENV_FILE.new" "$ENV_FILE"
-    # The image's fixed settings (lib/image.env), the values the build ran with.
-    grep -E '^[A-Z_]+=' /usr/lib/guaardvark-image/image.env | while IFS= read -r line; do
-        grep -q "^${line%%=*}=" "$ENV_FILE" || echo "$line" >> "$ENV_FILE"
-    done
     say ".env keys kept: $(cut -d= -f1 "$ENV_FILE" | grep -v '^#' | grep -v '^$' | tr '\n' ' ')"
 fi
 
-# Redis: start_redis.sh wrote its password into /etc/redis/redis.conf. Put the
-# package's own file back and leave the unit disabled, so on first start Redis is
-# down and start_redis.sh provisions a new password and starts it, as it does on
-# a machine that has never had Redis. (Enabled, the package config would come up
-# without a password at boot and start_redis.sh would adopt it as is.)
+# Redis. Older start_redis.sh wrote its password into the packaged
+# /etc/redis/redis.conf; newer ones leave that file alone and keep the password in
+# /etc/redis/guaardvark.conf, loaded through a redis-server drop-in. Either way the
+# image ships the packaged redis.conf unchanged and neither Guaardvark file, and
+# the unit disabled, so on first start Redis is down and start_redis.sh provisions
+# a new password and starts it, as it does on a machine that has never had Redis.
+# (Enabled, the package config would come up without a password at boot and
+# start_redis.sh would adopt it as is.)
+rm -f /etc/redis/guaardvark.conf /etc/systemd/system/redis-server.service.d/guaardvark.conf
+rmdir /etc/systemd/system/redis-server.service.d 2>/dev/null || true
+systemctl daemon-reload 2>/dev/null || true
 pristine="$(mktemp)"
-deb="$(ls /var/cache/apt/archives/redis-server_*.deb 2>/dev/null | head -1)"
+deb="$(ls /var/cache/apt/archives/redis-server_*.deb 2>/dev/null | head -1 || true)"
 if [ -z "$deb" ]; then
-    (cd /tmp && apt-get download -q redis-server >/dev/null) && deb="$(ls /tmp/redis-server_*.deb | head -1)"
+    (cd /tmp && apt-get download -q redis-server >/dev/null 2>&1) && deb="$(ls /tmp/redis-server_*.deb 2>/dev/null | head -1 || true)"
 fi
 if [ -n "$deb" ] && dpkg-deb --fsys-tarfile "$deb" | tar -xO ./etc/redis/redis.conf > "$pristine" && [ -s "$pristine" ]; then
-    install -m 0640 -o redis -g redis "$pristine" /etc/redis/redis.conf
-    say "redis.conf restored from $(basename "$deb")"
+    if cmp -s "$pristine" /etc/redis/redis.conf; then
+        say "redis.conf is the packaged file"
+    else
+        install -m 0640 -o redis -g redis "$pristine" /etc/redis/redis.conf
+        say "redis.conf restored from $(basename "$deb")"
+    fi
 else
-    sed -i '/^requirepass /d' /etc/redis/redis.conf
+    sed -i '/^[[:space:]]*requirepass[[:space:]]/d' /etc/redis/redis.conf
     say "redis.conf: requirepass line removed (package file not found)"
 fi
 rm -f "$pristine"
-grep -q '^requirepass ' /etc/redis/redis.conf && { say "redis.conf still has a password"; exit 1; }
+say "dpkg --verify redis-server: $(dpkg --verify redis-server 2>&1 | tr '\n' ' ')"
 systemctl disable redis-server 2>/dev/null || true
 
 # ── Build-time nvidia-smi stand-in ───────────────────────────────────────────
@@ -144,6 +150,18 @@ find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' -o -name '*.old' \) -de
 # directories such as /var/log/postgresql.
 find /var/log -type f -exec truncate -c -s 0 {} + || say "some logs could not be emptied"
 rm -rf /var/log/journal/* /tmp/* /tmp/.[!.]* /var/tmp/* /var/crash/* 2>/dev/null || true
+
+# ── Audit: no Redis or database credential may leave the build ───────────────
+leaks="$(grep -rIlE '^[[:space:]]*requirepass[[:space:]]' /etc 2>/dev/null || true)"
+grep -qE '^(REDIS_URL|CELERY_BROKER_URL|CELERY_RESULT_BACKEND|DATABASE_URL|SECRET_KEY)=' "$ENV_FILE" 2>/dev/null \
+    && leaks="$leaks $ENV_FILE"
+leaks="$leaks $(grep -rIlE 'redis://:[^@[:space:]]+@' /etc "$ENV_FILE" 2>/dev/null || true)"
+leaks="$(echo $leaks)"
+if [ -n "$leaks" ]; then
+    say "credentials left in: $leaks"
+    exit 1
+fi
+say "audit: no requirepass under /etc, no credentials in .env"
 
 # Stop the services so their files are consistent on disk for the export.
 systemctl stop ollama redis-server postgresql 2>/dev/null || true
