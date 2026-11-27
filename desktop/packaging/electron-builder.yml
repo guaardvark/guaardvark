@@ -19,6 +19,16 @@ files:
   - assets/**
   - platform/**
 
+# NSIS 3.12 instead of electron-builder 26's default 3.0.4.1 (2019). The
+# newer NSIS isolates the uninstaller's temporary folder (3.09), recreates a
+# restricted $PLUGINSDIR when one was planted (3.11) and stops using the
+# low-integrity temp folder when elevated (3.12); see NSIS's changelog.
+# "1.2.1" is electron-builder's unified bundle, pinned by sha256 in
+# app-builder-lib/out/toolsets/windows.js; electron-builder 27 makes a newer
+# bundle the default.
+toolsets:
+  nsis: "1.2.1"
+
 asar: true
 # Nothing native to rebuild, and the app has no runtime dependencies.
 npmRebuild: false

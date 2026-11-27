@@ -21,11 +21,40 @@
   ${EndIf}
 !macroend
 
+; Keep-alive (the app's setting) writes two lines to the person's
+; %USERPROFILE%\.wslconfig and records exactly what it changed in
+; keep-alive.json. The app itself undoes it (Guaardvark.exe
+; --undo-keep-alive <file> does that and exits without a window): an
+; untouched file is put back as it was, an edited one only loses lines that
+; still hold Guaardvark's values. customUnInstall runs before the template
+; removes the program files, so the executable is still there.
+!macro gvUndoKeepAlive
+  ${If} ${FileExists} "${GV_DATA}\keep-alive.json"
+    DetailPrint "Undoing Guaardvark's change to .wslconfig"
+    InitPluginsDir
+    StrCpy $R2 "$PLUGINSDIR\gv-keep-alive.txt"
+    ExecWait '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" --undo-keep-alive "$R2"' $R0
+    StrCpy $R1 ""
+    ClearErrors
+    FileOpen $R3 "$R2" r
+    ${IfNot} ${Errors}
+      FileReadUTF16LE $R3 $R1
+      FileClose $R3
+    ${EndIf}
+    ${If} $R0 == "3"
+      MessageBox MB_OK|MB_ICONINFORMATION "$R1" /SD IDOK
+    ${ElseIf} $R0 != "0"
+      MessageBox MB_OK|MB_ICONEXCLAMATION "Guaardvark could not undo its keep-alive change to $PROFILE\.wslconfig (code $R0).$\r$\n$\r$\nIf you do not want WSL to keep running in the background, remove the lines instanceIdleTimeout=-1 and vmIdleTimeout=-1 from that file.$\r$\n$\r$\n$R1" /SD IDOK
+    ${EndIf}
+  ${EndIf}
+!macroend
+
 !macro customUnInstall
   ; The restart-and-resume entry from setup, if a restart never came.
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\RunOnce" "GuaardvarkSetup"
 
   ${IfNot} ${isUpdated}
+    !insertmacro gvUndoKeepAlive
     ${If} ${FileExists} "${GV_DATA}\wsl\ext4.vhdx"
       MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "Also remove Guaardvark's Linux system?$\r$\n$\r$\nIt holds Guaardvark and everything made or downloaded in it: chats, documents, pictures, videos, models and settings.$\r$\n$\r$\n${GV_DATA}\wsl$\r$\n$\r$\nChoose No to keep it. Installing Guaardvark again picks it up as it was." /SD IDNO IDNO gv_keep_distro
         !insertmacro gvFindWsl $R0

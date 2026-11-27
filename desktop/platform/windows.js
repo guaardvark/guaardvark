@@ -29,6 +29,16 @@ const { classify, event } = require('./wsl/labels');
 const { lines } = require('./wsl/decode');
 const { createStateStore, systemBootTime, registerResume, clearResume, RESUME_FLAG } = require('./wsl/state');
 
+// The uninstaller starts the app as `Guaardvark.exe --undo-keep-alive <file>`
+// to undo the keep-alive change to .wslconfig with this same code. main.js
+// loads this module at its top, before any window exists, so the app does
+// the undo and exits here without opening.
+{
+  const { runUndo, FLAG } = require('./wsl/keepalive-undo');
+  const at = process.argv.indexOf(FLAG);
+  if (at >= 0) process.exit(runUndo(process.argv[at + 1]));
+}
+
 const DISTRO = 'Guaardvark';
 // Store WSL 2.x: systemd and GPU passthrough are both there.
 const MIN_WSL = [2, 0, 0];
@@ -128,6 +138,8 @@ function create(opts = {}) {
   const version = opts.guaardvarkVersion || readGuaardvarkVersion();
   const fetchImpl = opts.fetch || image.pickFetch();
   const store = createStateStore(path.join(appDir, 'setup-state.json'));
+  // What turning keep-alive on changed in .wslconfig; read by the uninstaller too.
+  const keepAliveRecord = path.join(appDir, 'keep-alive.json');
 
   function log(text) {
     try {
@@ -697,11 +709,16 @@ function create(opts = {}) {
   // on=true: closing the window leaves Guaardvark running. Writes the two
   // WSL idle timeouts (every distribution on the PC) and takes effect after
   // applyWslSettings(), which restarts all of WSL; ask before calling it.
+  // on=false undoes exactly what on=true wrote (wsl/wslconfig.js); a
+  // keep-alive the person set up themselves is left alone. `message`, when
+  // present, is for the person.
   function setKeepAlive(on) {
-    const changed = keepAlive.setKeepAlive(userProfile, !!on);
+    const file = keepAlive.configPath(userProfile);
+    const res = on ? keepAlive.enableKeepAlive(userProfile, keepAliveRecord) : keepAlive.undoKeepAlive(userProfile, keepAliveRecord);
+    const changed = on ? res.changed : res.result !== 'nothing';
     store.write({ keepAlive: !!on });
-    log(`keep-alive ${on ? 'on' : 'off'} (${changed ? 'changed' : 'unchanged'} ${keepAlive.configPath(userProfile)})`);
-    return { changed, needsWslRestart: changed, file: keepAlive.configPath(userProfile) };
+    log(`keep-alive ${on ? 'on' : 'off'}: ${on ? (res.changed ? 'written' : res.reason) : res.result} (${file})`);
+    return { changed, needsWslRestart: changed, file, result: res.result || res.reason, message: res.message };
   }
 
   async function applyWslSettings() {
