@@ -30,6 +30,32 @@ toolsets:
   nsis: "1.2.1"
 
 asar: true
+
+# Electron fuses, flipped in the built executable before packaging
+# (https://www.electronjs.org/docs/latest/tutorial/fuses). The app runs only
+# its own app.asar, as itself:
+# - no ELECTRON_RUN_AS_NODE, NODE_OPTIONS or --inspect/--inspect-brk: the
+#   executable cannot be borrowed as a Node runtime or debugged into from
+#   outside. The uninstaller's keep-alive undo is an app argument
+#   (--undo-keep-alive, platform/windows.js), so it needs none of these.
+# - only resources/app.asar is loaded, and on Windows and macOS its contents
+#   are checked against the hash embedded in the executable at build time.
+# - cookies (the studio's session) are encrypted with the OS key store
+#   (DPAPI on Windows). On from the first release, so no profile predates it.
+# - grantFileProtocolExtraPrivileges stays on: the loading screen is a
+#   file:// page inside app.asar, and with the fuse off Electron no longer
+#   serves file:// from the archive (loading.html fails with
+#   ERR_FILE_NOT_FOUND). Turning it off needs the window to load its pages
+#   through a custom protocol (protocol.handle) instead of loadFile.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
+  enableCookieEncryption: true
+  grantFileProtocolExtraPrivileges: true
+
 # Nothing native to rebuild, and the app has no runtime dependencies.
 npmRebuild: false
 # No update feed: a new version comes from a new installer.
