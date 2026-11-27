@@ -702,3 +702,60 @@ def test_status_shape(world):
     assert done["started_at"] and done["finished_at"]
     assert len(done["log_tail"]) <= cus.LOG_TAIL_LINES
     assert all(re.match(r"\d{4}-\d{2}-\d{2}T", line) for line in done["log_tail"])
+
+
+# ── the start step's progress lines ────────────────────────────────────
+
+def _slow_start(controller, seconds):
+    inner = controller.start
+
+    def start():
+        import time as _time
+        _time.sleep(seconds)
+        return inner()
+    controller.start = start
+
+
+def _start_block(log_text):
+    """The lines logged between the [start] and [post-check] phase lines."""
+    lines = log_text.splitlines()
+    first = next(i for i, ln in enumerate(lines) if " [start] " in ln)
+    last = next(i for i, ln in enumerate(lines) if " [post-check] " in ln)
+    return lines[first + 1:last]
+
+
+def test_update_start_names_comfyui_log_and_beats_while_start_runs(world):
+    world.svc.heartbeat_s = 0.02
+    _slow_start(world.controller, 0.2)
+    status = world.svc.start(background=False)
+    assert status["state"] == "succeeded", status
+    block = _start_block(world.log.read_text())
+    assert "starting the ComfyUI plugin" in block[0]
+    assert str(world.log.parent / "comfyui.log") in block[0]
+    beats = [ln for ln in block if "still starting ComfyUI" in ln]
+    assert beats, block
+    assert all(str(world.log.parent / "comfyui.log") in ln for ln in beats)
+
+
+def test_no_heartbeat_after_start_returns(world):
+    world.svc.heartbeat_s = 0.02
+    status = world.svc.start(background=False)
+    assert status["state"] == "succeeded", status
+    import time as _time
+    _time.sleep(0.1)
+    assert "still starting ComfyUI" not in world.log.read_text()
+
+
+def test_install_start_names_comfyui_log_and_beats(world):
+    import shutil as _shutil
+    _shutil.rmtree(world.root / "ComfyUI")
+    (world.root / ".requirements_installed").unlink()
+    world.controller.running = False
+    world.controller.enable = lambda: {"success": True}
+    world.svc.heartbeat_s = 0.02
+    _slow_start(world.controller, 0.2)
+    status = world.svc.install(background=False)
+    assert status["state"] == "succeeded", status
+    block = _start_block(world.log.read_text())
+    assert "starting the ComfyUI plugin" in block[0]
+    assert any("still starting ComfyUI" in ln for ln in block), block
