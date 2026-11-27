@@ -2038,7 +2038,7 @@ if ! command_exists "ollama"; then
         _ollama_install_rc=0
         mkdir -p "$LOGS_DIR"
         _vader_run "$SETUP_LOG" -- curl -fsSL https://ollama.com/install.sh -o "$_ollama_installer" \
-            && _vader_run "$SETUP_LOG" -- gv_sudo_external sh "$_ollama_installer" \
+            && _vader_run "$SETUP_LOG" -- gv_sudo_external bash "$SCRIPT_DIR/scripts/run_ollama_installer.sh" "$_ollama_installer" \
             || _ollama_install_rc=$?
         hash -r
         if command_exists "ollama"; then
