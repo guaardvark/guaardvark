@@ -141,6 +141,12 @@ async function isRunning() {
   return running;
 }
 
+// The install's API key, for signing the app's own window in. Empty when the
+// install has none. The caller sends it to the loopback backend and nowhere else.
+async function getApiKey() {
+  return (readDotEnv(installRoot()).GUAARDVARK_API_KEY || '').trim();
+}
+
 function wasStartedByApp() {
   return startedByApp;
 }
@@ -370,5 +376,5 @@ function logPath() {
 
 module.exports = {
   describe, isInstalled, install, isRunning, start, stop, logPath,
-  wasStartedByApp,
+  wasStartedByApp, getApiKey,
 };

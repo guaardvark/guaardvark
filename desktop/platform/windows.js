@@ -152,8 +152,8 @@ function create(opts = {}) {
     };
   }
 
-  function inDistro(script, args = [], { user, timeoutMs, input, login = true } = {}) {
-    return runner.run('wsl', ['-d', DISTRO, ...(user ? ['-u', user] : []), '--exec', 'bash', login ? '-lc' : '-c', script, 'bash', ...args], { timeoutMs, input });
+  function inDistro(script, args = [], { user, timeoutMs, input, login = true, secret = false } = {}) {
+    return runner.run('wsl', ['-d', DISTRO, ...(user ? ['-u', user] : []), '--exec', 'bash', login ? '-lc' : '-c', script, 'bash', ...args], { timeoutMs, input, secret });
   }
 
   function makeReporter(report) {
@@ -647,6 +647,18 @@ function create(opts = {}) {
     return session.lastLog || setupLog;
   }
 
+  // The install's API key from its .env inside the distribution, for signing
+  // the app's own window in; empty when the install has none. It is read with
+  // its output kept out of the setup log, and the caller sends it only to the
+  // loopback backend.
+  async function getApiKey() {
+    const st = store.read();
+    if (!st.root) return '';
+    const res = await inDistro('sed -n "s/^GUAARDVARK_API_KEY=//p" "$1/.env" 2>/dev/null | tail -n 1', [st.root], { timeoutMs: 15000, login: false, secret: true });
+    if (res.code !== 0) return '';
+    return res.stdout.trim().replace(/^(['"])(.*)\1$/, '$2');
+  }
+
   // True when this app ran start.sh in the distribution during this session.
   function wasStartedByApp() {
     return session.started;
@@ -719,6 +731,7 @@ function create(opts = {}) {
     stop,
     logPath,
     wasStartedByApp,
+    getApiKey,
     planInstall,
     restartComputer,
     isResumeLaunch,

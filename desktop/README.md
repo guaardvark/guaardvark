@@ -55,8 +55,13 @@ installer again from the new place.
   every Linux system on the PC and asks before changing anything or restarting the Linux layer.
 - **Window.** Size and position are remembered. The address is always
   `http://localhost:<web port>`, the one a browser uses, because the studio keeps its settings
-  per address. The app has its own browser profile, so a sign-in or setting saved in a browser
-  is entered once more here.
+  per address. The app has its own browser profile, so a setting saved in a browser is set
+  once more here.
+- **Sign-in.** An install with an API key asks each new browser for it. The app signs its own
+  window in instead: it reads `GUAARDVARK_API_KEY` from the install's `.env` (`getApiKey()` in
+  the platform module) and sends it to `POST /api/auth/session` on the loopback backend, the
+  route Settings → Access uses, which answers with the session cookie. The key is not logged,
+  shown or saved by the app. If that fails, the studio asks for the key as it does in a browser.
 
 ## Network
 
@@ -126,4 +131,5 @@ without one simply does not get the screen or menu item that goes with it.
   for the screen before `install()`. It must not download or change anything.
 - `install()` rejecting with `err.code === 'RESTART_REQUIRED'`, and `restartComputer()`.
 - `isResumeLaunch(argv)`: this launch continues a setup the person already agreed to.
+- `getApiKey()` -> the install's API key or `''`, read without logging it.
 - `getKeepAlive()`, `setKeepAlive(on)` -> `{ needsWslRestart }`, `applyWslSettings()`.

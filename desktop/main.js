@@ -346,9 +346,41 @@ async function showLoadingPage() {
   await win.loadFile(LOADING_PAGE);
 }
 
+// An install with an API key asks every new browser profile for it once. This
+// window belongs to the person running the install, so the app signs its own
+// profile in through the same route Settings → Access uses: the key goes from
+// the install's .env to the loopback backend, which answers with the session
+// cookie. The key is not logged, shown or stored by the app. Any failure
+// leaves the studio to ask for the key as it would in a browser.
+async function signInOwnWindow(url) {
+  if (typeof platform.getApiKey !== 'function') return;
+  try {
+    if (!isLoopbackHost(new URL(url).hostname)) return;
+    const ses = session.defaultSession;
+    const status = await ses.fetch(`${url}/api/auth/status`, { credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(5000) });
+    if (!status.ok) return;
+    const { key_required: keyRequired, session_ok: signedIn } = await status.json();
+    if (!keyRequired || signedIn) return;
+    const key = await platform.getApiKey();
+    if (!key) return;
+    await ses.fetch(`${url}/api/auth/session`, {
+      method: 'POST',
+      credentials: 'include',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key }),
+    });
+  } catch {
+    // The studio's own sign-in prompt covers it.
+  }
+}
+
 async function showStudio(url) {
   if (!win || win.isDestroyed()) return;
   studioUrl = url;
+  await signInOwnWindow(url);
+  if (!win || win.isDestroyed()) return;
   onLoadingPage = false;
   try {
     await win.loadURL(url);

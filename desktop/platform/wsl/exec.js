@@ -47,7 +47,8 @@ function createRunner({ tools, env, log }) {
         if (timer) clearTimeout(timer);
         log?.(`$ ${path.basename(exe)} ${args.join(' ')}  -> ${result.code}${result.error ? ` (${result.error.message})` : ''}`);
         const text = `${result.stdout}${result.stderr}`.trim();
-        if (text) log?.(text.split('\n').map((l) => `    ${l}`).join('\n'));
+        // `secret` keeps what the tool printed out of the log.
+        if (text && !opts.secret) log?.(text.split('\n').map((l) => `    ${l}`).join('\n'));
         resolve(result);
       };
       child.stdout.on('data', (d) => { out.push(d); opts.onStdout?.(d); });
