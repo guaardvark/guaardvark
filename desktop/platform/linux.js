@@ -272,9 +272,9 @@ function earlierStartPid() {
   return null;
 }
 
-// A second start.sh ends the first one's services (its first step is
-// stop.sh, which also removes start.sh's own lock), so the app never runs
-// two: a new start waits here until the earlier script has exited.
+// start.sh refuses to run while another one is starting the same install
+// (scripts/lib/start_lock.sh), so a new start waits here until the earlier
+// script has exited instead of failing on that refusal.
 async function waitForEarlierStart(report) {
   if (!earlierStartPid()) return false;
   const evt = { step: 'previous_start', label: 'Waiting for the earlier start to finish' };
