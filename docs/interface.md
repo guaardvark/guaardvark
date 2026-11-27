@@ -5,6 +5,11 @@ page covers the parts of the interface that are easy to miss: menus behind a
 right-click, cards you can move and resize, drag and drop, voice, and keyboard
 shortcuts. For what each feature does, see [CAPABILITIES.md](../CAPABILITIES.md).
 
+To give it its own window and a desktop icon, install it as an app: in Chrome or Edge,
+open http://localhost:5173 and click the install icon in the address bar. It opens like
+any other program and needs no account or internet connection. Browsers offer the install only on
+`localhost` or an https address, so install it on the machine that runs Guaardvark.
+
 - [Navigation: sidebar or workspaces](#navigation-sidebar-or-workspaces)
 - [Right-click menus](#right-click-menus)
 - [Cards you can move and resize](#cards-you-can-move-and-resize)
