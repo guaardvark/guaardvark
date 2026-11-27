@@ -436,6 +436,15 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
           </Alert>
         )}
 
+        {/* A plugin whose manifest allows a long start (config.start_timeout)
+            builds its environments on the first one: say so while it starts,
+            so a quiet "Starting" is not mistaken for a hang. */}
+        {plugin.status === 'starting' && Number(plugin.config?.start_timeout) > 0 && (
+          <Alert severity="info" variant="outlined" sx={{ mb: 2 }} data-testid={`plugin-first-start-note-${plugin.id}`}>
+            {t('plugins.card.firstStartNote')}
+          </Alert>
+        )}
+
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mb: 1 }}>
           <Chip size="small" label={`v${plugin.version}`} variant="outlined" />
           {comfy.installed && (

@@ -71,6 +71,7 @@
     "cameraStarted": "Camera started",
     "cameraFailed": "Camera action failed",
     "noDescription": "No description available.",
+    "firstStartNote": "The first start sets up its environments and can take several minutes. The Logs panel shows its progress.",
     "port": "Port {{port}}",
     "vramEstimate": "~{{size}} GB VRAM",
     "category": "Category: {{category}}",
