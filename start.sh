@@ -850,6 +850,14 @@ check_frontend_build() {
         return 2
     fi
 
+    # A matching stamp means the inputs are exactly those of the last good
+    # build, whatever the mtimes say (a sync or checkout rewrites them).
+    local fp
+    fp="$(frontend_build_fp)"
+    if [ -n "$fp" ] && [ "$(cat "$FRONTEND_DIR/dist/.build_fp" 2>/dev/null)" = "$fp" ]; then
+        return 0
+    fi
+
     local src_mtime
     local dist_mtime
     src_mtime=$(find "$FRONTEND_DIR/src" -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
@@ -863,6 +871,53 @@ check_frontend_build() {
     fi
 
     return 0
+}
+
+# Fingerprint of everything the production bundle is built from: the frontend
+# tree, extension frontends, and the VITE_* environment. VITE_ALLOWED_HOSTS and
+# VITE_PORT are left out: they configure the server at serve time, never reach
+# the bundle, and differ per machine and network. Empty outside a git checkout.
+frontend_build_fp() {
+    git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+    {
+        git -C "$SCRIPT_DIR" rev-parse HEAD:frontend
+        git -C "$SCRIPT_DIR" diff HEAD --binary -- frontend
+        git -C "$SCRIPT_DIR" ls-files -z --others --exclude-standard -- frontend \
+            | (cd "$SCRIPT_DIR" && xargs -0 -r sha256sum)
+        (
+            cd "$SCRIPT_DIR" || exit 0
+            find frontend -maxdepth 1 -name '.env*' -type f -print0
+            # Extension folders may be symlinks into other checkouts.
+            for d in extensions/[!_.]*/frontend; do
+                [ -d "$d" ] && find -L "$d" -name node_modules -prune -o -type f -print0
+            done
+        ) | sort -z | (cd "$SCRIPT_DIR" && xargs -0 -r sha256sum)
+        env | grep '^VITE_' | grep -vE '^VITE_(ALLOWED_HOSTS|PORT)=' | sort
+    } 2>/dev/null | sha256sum | cut -d' ' -f1
+}
+
+frontend_build_stamp_write() {
+    local fp
+    fp="$(frontend_build_fp)"
+    [ -n "$fp" ] && printf '%s\n' "$fp" > "$FRONTEND_DIR/dist/.build_fp"
+    return 0
+}
+
+# Explains a failed production build. Exit 137 means the process was killed,
+# almost always by the kernel for lack of memory; vite.config.js makes the
+# build the first thing the kernel picks, so the database and backend survive.
+frontend_build_failure_note() {
+    local rc="$1"
+    if [ "$rc" = 137 ]; then
+        vader_warn "The frontend build ran out of memory and was stopped (exit 137)."
+        if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ]; then
+            vader_warn "Give WSL more memory (memory= under [wsl2] in %UserProfile%\\.wslconfig, then wsl --shutdown) or close other programs, and start again."
+        else
+            vader_warn "Close other programs to free memory and start again."
+        fi
+    elif [ -n "$rc" ]; then
+        vader_warn "The frontend build exited with code $rc."
+    fi
 }
 
 # get_lan_ips - return space-separated list of private LAN IPv4 addresses suitable
@@ -2181,6 +2236,7 @@ if [ "$FAST_START" -ne 1 ]; then
                     vader_info "Frontend changes detected - rebuilding..."
                     if (cd "$FRONTEND_DIR" && $NPM_CMD run build >> "$SETUP_LOG" 2>&1); then
                         vader_success "Frontend rebuilt successfully"
+                        frontend_build_stamp_write
                     else
                         vader_warn "Frontend rebuild failed. See $SETUP_LOG"
                     fi
@@ -2193,6 +2249,7 @@ if [ "$FAST_START" -ne 1 ]; then
                     vader_info "Frontend dist missing - building..."
                     if (cd "$FRONTEND_DIR" && $NPM_CMD run build >> "$SETUP_LOG" 2>&1); then
                         vader_success "Frontend built successfully"
+                        frontend_build_stamp_write
                     else
                         vader_warn "Frontend build failed. See $SETUP_LOG"
                     fi
@@ -3239,17 +3296,19 @@ fi
 # compiles and keeps a last-good dist. Skip it when neither the code, the
 # lockfile nor the build-time VITE_* env changed since the last good build.
 FRONTEND_BUILD_STAMP="$FRONTEND_DIR/dist/.build_fp"
-FRONTEND_FP="$(code_fingerprint "$(sha256sum "$FRONTEND_DIR/package-lock.json" 2>/dev/null)" "$(env | grep '^VITE_' | sort)")"
+FRONTEND_FP="$(frontend_build_fp)"
 if [ "$FORCE_CLEAN" -eq 0 ] && [ -n "$FRONTEND_FP" ] && [ -f "$FRONTEND_DIR/dist/index.html" ] \
    && [ "$(cat "$FRONTEND_BUILD_STAMP" 2>/dev/null)" = "$FRONTEND_FP" ]; then
     vader_info "Frontend unchanged since the last good build — skipping the build"
 elif vader_info "Building frontend (production) before serving..." \
-   && _vader_run "$FRONTEND_LOG_FILE" -- bash -c 'cd "$1" && exec "$2" run build' _ "$FRONTEND_DIR" "$NPM_CMD"; then
+   && { _vader_run "$FRONTEND_LOG_FILE" -- bash -c 'cd "$1" && exec "$2" run build' _ "$FRONTEND_DIR" "$NPM_CMD"; FRONTEND_BUILD_RC=$?; [ "$FRONTEND_BUILD_RC" -eq 0 ]; }; then
     vader_success "Frontend build complete"
     [ -n "$FRONTEND_FP" ] && printf '%s\n' "$FRONTEND_FP" > "$FRONTEND_BUILD_STAMP"
 elif [ -f "$FRONTEND_DIR/dist/index.html" ]; then
+    frontend_build_failure_note "$FRONTEND_BUILD_RC"
     vader_error "Frontend build FAILED — serving the LAST-GOOD (stale) dist. Code is NOT current. Fix the build; see $FRONTEND_LOG_FILE"
 else
+    frontend_build_failure_note "$FRONTEND_BUILD_RC"
     vader_error "Frontend build FAILED and no prior dist exists — cannot serve frontend. See $FRONTEND_LOG_FILE"
     FRONTEND_CAN_SERVE=0
 fi
