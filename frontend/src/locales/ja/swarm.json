@@ -26,7 +26,7 @@
     "logsFailed": "ログを取得できませんでした",
     "templateLoadFailed": "テンプレートの読み込みに失敗しました",
     "filenameAndContentRequired": "ファイル名と内容が必要です",
-    "planSaved": "プランをテンプレートに保存しました",
+    "planSaved": "プランを保存しました",
     "saveFailed": "保存に失敗しました",
     "enterGoal": "達成したい目標を入力してください",
     "planGenerated": "AIによってプランが生成されました！",
@@ -66,8 +66,10 @@
   "taskCount": "{{count}} タスク",
   "flightMode": "フライトモード",
   "history": {
-    "freeLocal": "解放 (ローカル)",
     "cleanUp": "クリーンアップ"
+  },
+  "usage": {
+    "tokens": "{{tokens}} トークン"
   },
   "empty": {
     "title": "実行中のSwarmなし",
@@ -83,12 +85,34 @@
     "planPath": "プランファイルのパス",
     "planPathPlaceholder": "path/to/plan.md または上のテンプレートを選択",
     "planPathHelp": "GUAARDVARK_ROOTからの相対パスまたは絶対パス",
+    "repoPath": "リポジトリ（任意）",
+    "repoPathPlaceholder": "~/projects/my-repo",
+    "repoPathHelp": "このインストールの独自のコードで作業する場合は空のままにします。それ以外の場合は、gitリポジトリのフルパスを入力してください。~ はホームフォルダを指します。",
     "maxAgents": "最大同時エージェント数",
     "autoMerge": "自動マージ",
     "flightModeInfo": "フライトモード: オフラインバックエンドのみ (Ollama)。競合は自動的にシリアル化されます。",
     "cancel": "キャンセル",
     "launchFlightMode": "起動 (Flight Mode)",
-    "launch": "起動"
+    "launch": "起動",
+    "dirtyTree": "このインストールにはコミットされていない変更が含まれています。エージェントは最後のコミットから開始するため、それらの変更は反映されません。続行するには再度「起動」を押してください。",
+    "scheduledName": "Swarm: {{plan}}"
+  },
+  "runOn": {
+    "label": "実行先",
+    "choose": "このSwarmのタスクを実行するエージェントを選択してください。",
+    "hosted": "{{name}} (ホスト)",
+    "local": "{{name}} (このマシン上)",
+    "names": {
+      "guaardvark": "Guaardvark エージェント",
+      "claude": "Claude Code",
+      "cline": "Cline"
+    },
+    "hostedNote": "各タスクとそれに関連するコードは、このエージェントのプロバイダーに送信されます。",
+    "notes": {
+      "claude": "各タスクとそれに関連するコードはAnthropicに送信されます。"
+    },
+    "none": "まだ実行可能なエージェントがありません。Guaardvark自体のエージェントを使用するには、ツール呼び出しが可能なチャットモデルをOllama（設定 → モデル）にインストールする必要があります。",
+    "noneOffline": "フライトモードはGuaardvark自体のエージェントで動作します。これにはツール呼び出しが可能なチャットモデルをOllama（設定 → モデル）にインストールする必要があります。"
   },
   "editor": {
     "title": "Swarm プランエディタ",
@@ -120,7 +144,8 @@
   },
   "card": {
     "progress": "{{done}}/{{total}} タスク",
-    "free": "空き",
+    "waitingOn": "待機中: {{reason}}",
+    "repository": "このSwarmが動作するリポジトリ",
     "activeAgents": "{{count}} 稼働中",
     "diskUsage": "{{size}} MB",
     "dependencyGraph": "依存関係グラフ",

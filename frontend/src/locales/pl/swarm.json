@@ -26,7 +26,7 @@
     "logsFailed": "Nie można pobrać logów",
     "templateLoadFailed": "Błąd ładowania szablonu",
     "filenameAndContentRequired": "Wymagane są nazwa pliku i zawartość",
-    "planSaved": "Plan zapisany w szablonach",
+    "planSaved": "Plan zapisany",
     "saveFailed": "Błąd zapisu",
     "enterGoal": "Wprowadź cel, który chcesz osiągnąć",
     "planGenerated": "Plan wygenerowany przez AI!",
@@ -66,8 +66,10 @@
   "taskCount": "{{count}} zadań",
   "flightMode": "Tryb lotu",
   "history": {
-    "freeLocal": "Wolne (lokalne)",
     "cleanUp": "Sprzątnij"
+  },
+  "usage": {
+    "tokens": "{{tokens}} tokenów"
   },
   "empty": {
     "title": "Brak uruchomionych Swarmów",
@@ -83,12 +85,34 @@
     "planPath": "Ścieżka do pliku planu",
     "planPathPlaceholder": "path/to/plan.md lub wybierz szablon powyżej",
     "planPathHelp": "Względna do GUAARDVARK_ROOT lub ścieżka absolutna",
+    "repoPath": "Repozytorium (opcjonalnie)",
+    "repoPathPlaceholder": "~/projects/my-repo",
+    "repoPathHelp": "Zostaw puste, aby pracować na kodzie własnym tej instalacji. W przeciwnym razie podaj pełną ścieżkę repozytorium git; ~ to Twój folder domowy.",
     "maxAgents": "Max. jednoczesnych Agenców",
     "autoMerge": "Automatyczne łączenie",
     "flightModeInfo": "Tryb lotu: tylko lokalne backendy (Ollama). Konflikty zostaną automatycznie szeregowane.",
     "cancel": "Anuluj",
     "launchFlightMode": "Uruchom (Tryb lotu)",
-    "launch": "Uruchom"
+    "launch": "Uruchom",
+    "dirtyTree": "Ta instalacja zawiera zmiany, które nie zostały zatwierdzone. Agenci zaczynają od ostatniego commita, więc nie zobaczą tych zmian. Kliknij Launch ponownie, aby kontynuować.",
+    "scheduledName": "Swarm: {{plan}}"
+  },
+  "runOn": {
+    "label": "Uruchom na",
+    "choose": "Wybierz agenta, który wykona zadania tego swarmu.",
+    "hosted": "{{name}} (hostowany)",
+    "local": "{{name}} (na tej maszynie)",
+    "names": {
+      "guaardvark": "Agent Guaardvark",
+      "claude": "Claude Code",
+      "cline": "Cline"
+    },
+    "hostedNote": "Każde zadanie i kod, na którym pracuje, są przesyłane do dostawcy tego agenta.",
+    "notes": {
+      "claude": "Każde zadanie i kod, na którym pracuje, są przesyłane do Anthropic."
+    },
+    "none": "Żaden agent nie może tu jeszcze działać. Własny agent Guaardvark wymaga modelu czatu obsługującego narzędzia, zainstalowanego w Ollama (Ustawienia → Modele).",
+    "noneOffline": "Tryb samolotowy działa na własnym agencie Guaardvark, który wymaga modelu czatu obsługującego narzędzia, zainstalowanego w Ollama (Ustawienia → Modele)."
   },
   "editor": {
     "title": "Edytor planu Swarm",
@@ -120,7 +144,8 @@
   },
   "card": {
     "progress": "{{done}}/{{total}} zadań",
-    "free": "Wolne",
+    "waitingOn": "Oczekiwanie: {{reason}}",
+    "repository": "Repozytorium, na którym pracuje ten swarm",
     "activeAgents": "{{count}} aktywnych",
     "diskUsage": "{{size}} MB",
     "dependencyGraph": "GRAF ZALEJNOŚCI",

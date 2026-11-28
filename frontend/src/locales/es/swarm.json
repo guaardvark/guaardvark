@@ -26,7 +26,7 @@
     "logsFailed": "No se pudieron obtener los registros",
     "templateLoadFailed": "Error al cargar la plantilla",
     "filenameAndContentRequired": "Se requieren el nombre del archivo y el contenido",
-    "planSaved": "Plan guardado en plantillas",
+    "planSaved": "Plan guardado",
     "saveFailed": "Error al guardar",
     "enterGoal": "Introduce lo que quieres lograr",
     "planGenerated": "¡Plan generado por IA!",
@@ -66,8 +66,10 @@
   "taskCount": "{{count}} tareas",
   "flightMode": "Modo de vuelo",
   "history": {
-    "freeLocal": "Libre (local)",
     "cleanUp": "Limpiar"
+  },
+  "usage": {
+    "tokens": "{{tokens}} tokens"
   },
   "empty": {
     "title": "No hay Swarms en ejecución",
@@ -83,12 +85,34 @@
     "planPath": "Ruta del archivo de plan",
     "planPathPlaceholder": "path/to/plan.md o selecciona una plantilla arriba",
     "planPathHelp": "Relativo a GUAARDVARK_ROOT o ruta absoluta",
+    "repoPath": "Repositorio (opcional)",
+    "repoPathPlaceholder": "~/projects/my-repo",
+    "repoPathHelp": "Déjalo vacío para trabajar con el código de esta instalación. De lo contrario, pon la ruta completa de un repositorio git; ~ es tu carpeta personal.",
     "maxAgents": "Máximo de agentes concurrentes",
     "autoMerge": "Auto-combinar",
     "flightModeInfo": "Modo de vuelo: solo backends fuera de línea (Ollama). Los conflictos se serializarán automáticamente.",
     "cancel": "Cancelar",
     "launchFlightMode": "Lanzar (Modo de vuelo)",
-    "launch": "Lanzar"
+    "launch": "Lanzar",
+    "dirtyTree": "Esta instalación tiene cambios que no se han confirmado. Los Agentes empiezan desde el último commit, por lo que no verán esos cambios. Pulsa Launch de nuevo para continuar.",
+    "scheduledName": "Swarm: {{plan}}"
+  },
+  "runOn": {
+    "label": "Ejecutar en",
+    "choose": "Elige el agente que ejecutará las tareas de este swarm.",
+    "hosted": "{{name}} (alojado)",
+    "local": "{{name}} (en esta máquina)",
+    "names": {
+      "guaardvark": "Agente Guaardvark",
+      "claude": "Claude Code",
+      "cline": "Cline"
+    },
+    "hostedNote": "Cada tarea y el código en el que trabaja se envían al proveedor de este agente.",
+    "notes": {
+      "claude": "Cada tarea y el código en el que trabaja se envían a Anthropic."
+    },
+    "none": "Aún no hay ningún agente que pueda ejecutarse aquí. El propio agente de Guaardvark necesita un modelo de chat que pueda llamar a herramientas, instalado en Ollama (Ajustes → Modelos).",
+    "noneOffline": "Flight Mode se ejecuta en el propio agente de Guaardvark, que necesita un modelo de chat que pueda llamar a herramientas, instalado en Ollama (Ajustes → Modelos)."
   },
   "editor": {
     "title": "Editor del plan de Swarm",
@@ -120,7 +144,8 @@
   },
   "card": {
     "progress": "{{done}}/{{total}} tareas",
-    "free": "Libre",
+    "waitingOn": "Esperando: {{reason}}",
+    "repository": "Repositorio en el que trabaja este swarm",
     "activeAgents": "{{count}} activos",
     "diskUsage": "{{size}} MB",
     "dependencyGraph": "GRÁFICO DE DEPENDENCIAS",

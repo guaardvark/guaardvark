@@ -26,7 +26,7 @@
     "logsFailed": "로그를 가져올 수 없음",
     "templateLoadFailed": "템플릿 로드 실패",
     "filenameAndContentRequired": "파일명과 내용이 필요합니다",
-    "planSaved": "템플릿에 계획이 저장되었습니다",
+    "planSaved": "계획 저장됨",
     "saveFailed": "저장 실패",
     "enterGoal": "달성하고자 하는 목표를 입력하세요",
     "planGenerated": "AI에 의해 계획이 생성되었습니다!",
@@ -66,8 +66,10 @@
   "taskCount": "{{count}} 작업",
   "flightMode": "비행 모드",
   "history": {
-    "freeLocal": "무료 (로컬)",
     "cleanUp": "정리"
+  },
+  "usage": {
+    "tokens": "{{tokens}} 토큰"
   },
   "empty": {
     "title": "실행 중인 Swarm 없음",
@@ -83,12 +85,34 @@
     "planPath": "계획 파일 경로",
     "planPathPlaceholder": "path/to/plan.md 또는 위에서 템플릿 선택",
     "planPathHelp": "GUAARDVARK_ROOT 기준 상대 경로 또는 절대 경로",
+    "repoPath": "저장소 (선택 사항)",
+    "repoPathPlaceholder": "~/projects/my-repo",
+    "repoPathHelp": "이 설치본의 자체 코드로 작업하려면 비워 두세요. 그렇지 않으면 git 저장소의 전체 경로를 입력하세요. ~는 홈 폴더를 의미합니다.",
     "maxAgents": "최대 동시 에이전트",
     "autoMerge": "자동 병합",
     "flightModeInfo": "비행 모드: 오프라인 백엔드 전용 (Ollama). 충돌 시 자동 직렬화됩니다.",
     "cancel": "취소",
     "launchFlightMode": "실행 (비행 모드)",
-    "launch": "실행"
+    "launch": "실행",
+    "dirtyTree": "이 설치본에 커밋되지 않은 변경 사항이 있습니다. 에이전트는 마지막 커밋부터 시작하므로 해당 변경 사항을 인식하지 못합니다. 계속하려면 다시 실행을 누르세요.",
+    "scheduledName": "Swarm: {{plan}}"
+  },
+  "runOn": {
+    "label": "실행 위치",
+    "choose": "이 Swarm의 작업을 실행할 에이전트를 선택하세요.",
+    "hosted": "{{name}} (호스팅)",
+    "local": "{{name}} (이 기기에서)",
+    "names": {
+      "guaardvark": "Guaardvark 에이전트",
+      "claude": "Claude Code",
+      "cline": "Cline"
+    },
+    "hostedNote": "각 작업과 해당 코드는 이 에이전트의 제공업체로 전송됩니다.",
+    "notes": {
+      "claude": "각 작업과 해당 코드는 Anthropic으로 전송됩니다."
+    },
+    "none": "아직 실행 가능한 에이전트가 없습니다. Guaardvark 자체 에이전트를 사용하려면 도구 호출이 가능한 채팅 모델을 Ollama(설정 → 모델)에 설치해야 합니다.",
+    "noneOffline": "비행 모드는 Guaardvark 자체 에이전트에서 실행됩니다. 이를 위해 도구 호출이 가능한 채팅 모델을 Ollama(설정 → 모델)에 설치해야 합니다."
   },
   "editor": {
     "title": "Swarm 계획 편집기",
@@ -120,7 +144,8 @@
   },
   "card": {
     "progress": "{{done}}/{{total}} 작업 완료",
-    "free": "여유",
+    "waitingOn": "대기 중: {{reason}}",
+    "repository": "이 Swarm이 작업하는 저장소",
     "activeAgents": "{{count}}개 활성",
     "diskUsage": "{{size}} MB",
     "dependencyGraph": "의존성 그래프",
