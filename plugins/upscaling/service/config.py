@@ -19,7 +19,7 @@ class UpscalingConfig:
     timeout: int = 30
     fallback_enabled: bool = False
     # Model
-    default_model: str = "RealESRGAN_x4plus"
+    default_model: str = "4x_foolhardy_Remacri"
     precision: str = "bf16"
     compile_model: bool = True
     max_tile_size: str = "auto"
@@ -35,12 +35,27 @@ class UpscalingConfig:
     callback_url: str = ""
 
 
+# The order a request that names no model falls back in when the configured
+# default is not installed; installed models not listed here follow in listing order.
+DEFAULT_FALLBACK_ORDER = (
+    "4x_foolhardy_Remacri",
+    "4x-UltraSharp",
+    "4x_NMKD-Superscale-SP_178000_G",
+    "RealESRGAN_x4plus",
+    "realesr-general-x4v3",
+)
+
+
 def resolve_default_model(configured: str, installed: Sequence[str]) -> str:
     """The model a request that names none runs on: the configured default when
-    it is installed, else the first installed model, else the configured
-    default, so the refusal names what to install."""
+    it is installed, else the first installed model in DEFAULT_FALLBACK_ORDER,
+    else the first installed model, else the configured default, so the
+    refusal names what to install."""
     if configured in installed or not installed:
         return configured
+    for name in DEFAULT_FALLBACK_ORDER:
+        if name in installed:
+            return name
     return installed[0]
 
 

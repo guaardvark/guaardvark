@@ -35,7 +35,7 @@ def test_load_config_defaults(tmp_path):
     plugin_json.write_text(json.dumps(manifest))
 
     config = load_config(str(tmp_path))
-    assert config.default_model == "RealESRGAN_x4plus"
+    assert config.default_model == "4x_foolhardy_Remacri"
     assert config.precision == "bf16"
     assert config.compile_model is True
     assert config.target_width == 3840
@@ -45,5 +45,5 @@ def test_load_config_defaults(tmp_path):
 def test_load_config_missing_file(tmp_path):
     """Config uses all defaults when plugin.json is missing."""
     config = load_config(str(tmp_path))
-    assert config.default_model == "RealESRGAN_x4plus"
+    assert config.default_model == "4x_foolhardy_Remacri"
     assert config.port == 8202

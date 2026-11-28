@@ -9,14 +9,14 @@ description: >-
 # Upscaling with Guaardvark
 
 Read `setup` first; needs the `upscaling` plugin (`POST /api/plugins/upscaling/start`).
-`B=${GUAARDVARK_URL:-http://localhost:5000}`. Models: `GET $B/api/upscaling/models` (default `HAT-L_SRx4`);
+`B=${GUAARDVARK_URL:-http://localhost:5000}`. Models: `GET $B/api/upscaling/models` (default `4x_foolhardy_Remacri`);
 install one with `POST $B/api/upscaling/models/download {"model": "<id>"}` only after the user says so.
 
 ## One image (synchronous, seconds)
 
 ```bash
 curl -s -X POST $B/api/upscaling/upscale/image \
-  -F file=@/abs/path/in.png -F model=HAT-L_SRx4 -F scale=4 -F sharpen=0.2 -F denoise_strength=0.1
+  -F file=@/abs/path/in.png -F model=4x_foolhardy_Remacri -F scale=4 -F sharpen=0.2 -F denoise_strength=0.1
 ```
 Returns the finished file (`output_path`, served under `GET $B/api/upscaling/output/image/<filename>`).
 Form options: `model`, `scale`, `sharpen`, `denoise_strength`.
@@ -24,7 +24,7 @@ Form options: `model`, `scale`, `sharpen`, `denoise_strength`.
 ## Many images (queued)
 
 ```bash
-curl -s -X POST $B/api/upscaling/upscale/images -F files=@a.png -F files=@b.png -F model=HAT-L_SRx4 -F scale=2
+curl -s -X POST $B/api/upscaling/upscale/images -F files=@a.png -F files=@b.png -F model=4x_foolhardy_Remacri -F scale=2
 ```
 Returns a job id; poll `GET $B/api/upscaling/jobs/<job_id>`; `GET $B/api/upscaling/jobs` lists all.
 
@@ -41,6 +41,6 @@ at 1080p on a 16 GB card. Say so before queuing.
 ## Rules
 
 - Preview first when in doubt: `POST $B/api/upscaling/preview` (multipart, same form fields) runs a crop.
-- Pick the model for the content: HAT-L for photos, Real-ESRGAN x2 for video, anime models for
-  line art. The models list carries descriptions.
+- Pick the model for the content: the default (4x Foolhardy Remacri) for photos and video, anime
+  models for line art, HAT-L when a still needs transformer restoration. The models list carries descriptions.
 - The GPU is exclusive; a running video upscale blocks image and video generation until it finishes.

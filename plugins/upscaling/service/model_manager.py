@@ -122,6 +122,10 @@ MODEL_REGISTRY: List[Dict[str, Any]] = [
         "url": "https://huggingface.co/gemasai/4x_NMKD-Superscale-SP_178000_G/resolve/main/4x_NMKD-Superscale-SP_178000_G.pth",
     },
     {
+        # The default (plugin.json default_model), chosen as the default 2026-11-28
+        # against one 5 s 1280x720 clip taken to 4K on a 16 GB consumer GPU:
+        # HAT-L took about 29 min (0.094 fps) and is black at fp16 (2026-11-25);
+        # realesr-general-x4v3 smoothed bark and cloth to a waxy look.
         "name": "4x_foolhardy_Remacri",
         "scale": 4,
         "size_mb": 67,

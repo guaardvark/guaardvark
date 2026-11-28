@@ -212,8 +212,17 @@ def test_resolve_default_model_prefers_the_configured_one():
     from service.config import resolve_default_model
 
     assert resolve_default_model("HAT-L_SRx4", ["4x-UltraSharp", "HAT-L_SRx4"]) == "HAT-L_SRx4"
-    assert resolve_default_model("HAT-L_SRx4", ["realesr-general-x4v3", "4x-UltraSharp"]) == "realesr-general-x4v3"
     assert resolve_default_model("HAT-L_SRx4", []) == "HAT-L_SRx4"
+
+
+def test_resolve_default_model_falls_back_in_the_declared_order():
+    from service.config import resolve_default_model
+
+    remacri = "4x_foolhardy_Remacri"
+    assert resolve_default_model(remacri, ["HAT-L_SRx4", "realesr-general-x4v3", "4x-UltraSharp"]) == "4x-UltraSharp"
+    assert resolve_default_model(remacri, ["HAT-L_SRx4", "realesr-general-x4v3"]) == "realesr-general-x4v3"
+    assert resolve_default_model("HAT-L_SRx4", ["realesr-general-x4v3", remacri]) == remacri
+    assert resolve_default_model(remacri, ["HAT-L_SRx4", "my-own-model"]) == "HAT-L_SRx4"
 
 
 def test_a_queued_job_records_the_refusal_as_its_error(client, monkeypatch, tmp_path):
