@@ -141,9 +141,14 @@ const CardBoard = ({
       ref={setBox}
       sx={{
         width: "100%",
+        // Card z-indexes are ordered among themselves only; page chrome and
+        // floating tips stay above every card however often cards are raised.
+        isolation: "isolate",
         [`&.${GESTURE_CLASS}, &.${GESTURE_CLASS} *`]: { userSelect: "none !important" },
         "& .react-grid-item": {
           transition: "transform 0.2s ease-out !important",
+          // What a card raises inside itself stays inside it.
+          isolation: "isolate",
           ...(cardInset > 0 && { padding: `${cardInset}px`, boxSizing: "border-box" }),
           "&.react-draggable-dragging": {
             transition: "none !important",
@@ -179,13 +184,17 @@ const CardBoard = ({
         draggableCancel={dragCancel}
         onDragStart={(_layout, item) => {
           beginGesture();
+          stacking.raise(item.i);
           onDragStart?.(item.i);
         }}
         onDragStop={(reported, _before, item) => {
           endGesture();
           onDragStop?.(placed(reported, item));
         }}
-        onResizeStart={beginGesture}
+        onResizeStart={(_layout, item) => {
+          beginGesture();
+          stacking.raise(item.i);
+        }}
         onResizeStop={(reported, _before, item) => {
           endGesture();
           onResizeStop?.(placed(reported, item));
@@ -206,8 +215,12 @@ const CardBoard = ({
                 overflow: "hidden",
               }}
               {...(cardProps ? cardProps(cardId) : null)}
-              onMouseDown={() => stacking.raise(cardId)}
-              onMouseUp={stacking.reapply}
+              // Capture phase, and not onMouseDown/onMouseUp: the grid's drag
+              // wrapper replaces those two on this element, and a control
+              // inside the card may stop the event before it bubbles here.
+              onPointerDownCapture={() => stacking.raise(cardId)}
+              onFocusCapture={() => stacking.raise(cardId)}
+              onPointerUpCapture={stacking.reapply}
             >
               {renderCard(item, isMinimized)}
             </div>
