@@ -129,16 +129,11 @@ _linux_ensure_python_via_uv() {
 }
 
 _linux_apt_install_python312() {
-    local use_deadsnakes="${1:-0}"
     if ! command -v apt-get >/dev/null 2>&1; then
         return 1
     fi
     if ! _linux_sudo_available; then
         return 1
-    fi
-    if [ "$use_deadsnakes" = "1" ]; then
-        vader_info "Adding deadsnakes PPA for Python 3.12..."
-        sudo add-apt-repository -y ppa:deadsnakes/ppa >/dev/null 2>&1 || return 1
     fi
     vader_info "Installing Python 3.12 via apt..."
     sudo apt-get update -qq >/dev/null 2>&1 || true
@@ -194,20 +189,23 @@ platform_ensure_python() {
     if command -v apt-get >/dev/null 2>&1 && _linux_sudo_available; then
         # Ubuntu 24.04 ships python3.12 in main repos
         if [ "$_LINUX_OS_ID" = ubuntu ] && [ "$_LINUX_OS_VERSION" = "24.04" ]; then
-            if _linux_apt_install_python312 0; then
+            if _linux_apt_install_python312; then
                 _linux_persist_python_cmd
                 return 0
             fi
         else
-            # 22.04, 26.04, and other derivatives: try plain apt, then deadsnakes
-            if _linux_apt_install_python312 0 || _linux_apt_install_python312 1; then
+            # 22.04, 26.04 and other releases: apt only when a source the system
+            # already trusts carries python3.12. No package source is added: one
+            # added here would be trusted by apt for every package on the
+            # machine and outlive an uninstall. Otherwise uv below.
+            if apt-cache show python3.12 >/dev/null 2>&1 && _linux_apt_install_python312; then
                 _linux_persist_python_cmd
                 return 0
             fi
         fi
     fi
 
-    # No sudo or apt failed — uv fallback
+    # No sudo, or apt has no python3.12: uv's own build, kept in the user's home
     if _linux_ensure_python_via_uv; then
         _linux_persist_python_cmd
         return 0

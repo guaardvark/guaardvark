@@ -266,7 +266,7 @@ if [ -f "$MANAGER_SCRIPT" ]; then
 fi
 
 # Interpreter used for the version gate and venv creation. Override when the
-# system `python3` isn't 3.12 (e.g. deadsnakes installs `python3.12` side-by-side
+# system `python3` isn't 3.12 (e.g. an apt or uv `python3.12` installed side-by-side
 # without repointing the symlink): `PYTHON_CMD=python3.12 ./start.sh` (or set it in .env).
 PYTHON_CMD="${PYTHON_CMD:-python3}"
 NPM_CMD="npm"
@@ -594,7 +594,7 @@ check_python_version() {
     case "${GUAARDVARK_OS:-linux}/${GUAARDVARK_ARCH:-x86_64}" in
         macos/*) py_hint="macOS: 'brew install python@3.12', then re-run with 'PYTHON_CMD=python3.12 ./start.sh'." ;;
         */arm64) py_hint="Raspberry Pi / ARM (no apt python3.12): 'uv python install 3.12' (or pyenv), then 'PYTHON_CMD=\$(uv python find 3.12) ./start.sh'." ;;
-        *)       py_hint="On Ubuntu 26.04+ ./start.sh installs Python 3.12 automatically (deadsnakes or uv). Manual: 'sudo apt-get install -y python3.12 python3.12-venv python3.12-dev' or uv python install 3.12." ;;
+        *)       py_hint="On Ubuntu 26.04+ ./start.sh installs Python 3.12 automatically (uv). Manual: 'sudo apt-get install -y python3.12 python3.12-venv python3.12-dev' or uv python install 3.12." ;;
     esac
     if [ "$major" -ne 3 ] || [ "$minor" -lt 12 ]; then
         vader_error "Python 3.12 is required (found $ver). $py_hint"
