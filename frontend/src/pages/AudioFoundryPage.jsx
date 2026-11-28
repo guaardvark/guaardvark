@@ -451,6 +451,7 @@ const AudioFoundryPage = () => {
   }, [searchParams, setSearchParams]);
   const music3Ready = catalog.find((m) => m.id === "minimax-music3-int8")?.installed ?? null;
   const ace15Ready = catalog.find((m) => m.id === "ace-step-1.5")?.installed ?? null;
+  const aceV1Ready = catalog.find((m) => m.id === "ace-step")?.installed ?? null;
   const [musicPolish, setMusicPolish] = useState(true);
   const [musicPreview, setMusicPreview] = useState(null);
   const [musicPolishing, setMusicPolishing] = useState(false);
@@ -1579,7 +1580,9 @@ const AudioFoundryPage = () => {
                         select: { native: true }
                       }}
                     >
-                      <option value="ace-step">ACE-Step v1 (Audio Foundry)</option>
+                      <option value="ace-step" disabled={aceV1Ready === false}>
+                        {aceV1Ready === false ? t("audio.music.installInModels", { model: "ACE-Step v1" }) : "ACE-Step v1 (Audio Foundry)"}
+                      </option>
                       <option value="ace-step-1.5" disabled={ace15Ready === false}>
                         {ace15Ready === false ? t("audio.music.installInModels", { model: "ACE-Step 1.5" }) : "ACE-Step 1.5 (Audio Foundry)"}
                       </option>
