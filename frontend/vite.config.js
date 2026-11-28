@@ -4,7 +4,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createLogger, defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
-import rollupNodePolyFill from "rollup-plugin-polyfill-node";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -200,7 +199,23 @@ const VENDOR_CHUNKS = Object.fromEntries([
   ...['zustand', 'react-grid-layout', 'react-markdown', 'react-syntax-highlighter'].map((n) => [n, 'utils']),
 ]);
 
-export default defineConfig(({ mode }) => {
+// Production bundles drop console.debug calls; error, warn and log stay.
+const PRODUCTION_TREESHAKE = { manualPureFunctions: ["console.debug"] };
+
+// If memory runs out during a build, the Linux OOM killer should stop the build
+// rather than the database, the backend or the browser: start.sh carries on
+// without the new bundle and the build can simply run again. Raising one's own
+// score needs no privileges; elsewhere the file is absent and this does nothing.
+function offerBuildToOomKiller() {
+  try {
+    fs.writeFileSync("/proc/self/oom_score_adj", "1000");
+  } catch {
+    // Not Linux, or /proc not writable.
+  }
+}
+
+export default defineConfig(({ mode, command }) => {
+  if (command === "build") offerBuildToOomKiller();
   const rootEnv = loadEnv(mode, REPO_ROOT, "");
   const { flaskPort, vitePort } = resolvePorts(mode);
   const allowedHosts = resolveAllowedHosts(rootEnv);
@@ -250,8 +265,8 @@ export default defineConfig(({ mode }) => {
     ],
     // Vite 8 pre-bundles with Rolldown, which takes no esbuild plugins: the
     // esbuild-only Node polyfill plugins made every dependency scan fail and
-    // left the dev server with no pre-bundled deps at all. The build keeps its
-    // rollup polyfill below; `global` is defined once at the top level.
+    // left the dev server with no pre-bundled deps at all. `global` is defined
+    // once at the top level for both the dev server and the build.
   },
   define: {
     global: "globalThis",
@@ -259,9 +274,13 @@ export default defineConfig(({ mode }) => {
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
-      plugins: [rollupNodePolyFill()],
-      // Rolldown's timing report names the terser pass on every build. That
-      // cost is expected for this bundle, so the report is only noise.
+      // No Node polyfill plugin here. rollup-plugin-polyfill-node swapped every
+      // `process` for a stub with an empty env, so React and the other libraries
+      // that branch on process.env.NODE_ENV shipped and ran their development
+      // builds; its pass over all ~17k modules also cost ~2.6 GB of build memory.
+      // Nothing in the bundle needs Node built-ins, and the dev server never had it.
+      treeshake: PRODUCTION_TREESHAKE,
+      // Keeps Rolldown's slow-plugin timing report out of the build log.
       checks: { bundlerTimings: false },
       output: {
         // Function form: Vite 8 bundles with Rolldown, which does not accept
@@ -277,18 +296,17 @@ export default defineConfig(({ mode }) => {
       }
     },
     sourcemap: false,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: false,
-        drop_debugger: true,
-        pure_funcs: ['console.debug'],  // Only strip debug, keep error/warn/log
-      },
-    },
+    // Oxc, not terser. Measured on this bundle (Vite 8.3, 16 cores): terser
+    // peaked at 8.7 GB RSS in 29 s, oxc at 3.1 GB in 3 s, and oxc's output is
+    // ~2% smaller gzipped. Terser's worker pool grows with the core count and
+    // got the build OOM-killed on 8 GB machines. Oxc drops `debugger` and
+    // keeps console calls by default.
+    minify: 'oxc',
   },
   // Web workers are bundled separately and do not inherit build.rollupOptions.
   worker: {
     rolldownOptions: {
+      treeshake: PRODUCTION_TREESHAKE,
       checks: { bundlerTimings: false },
     },
   },

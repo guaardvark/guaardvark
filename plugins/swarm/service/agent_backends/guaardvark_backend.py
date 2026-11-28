@@ -22,7 +22,7 @@ from typing import Any
 import requests
 
 from ..models import AgentStatus, SwarmTask
-from .base_backend import SWARM_OWN_FILES, AgentProcess, BaseBackend, agent_env
+from .base_backend import SWARM_OWN_FILES, AgentProcess, BaseBackend, agent_env, pid_running
 
 logger = logging.getLogger("swarm.backend.guaardvark")
 
@@ -209,14 +209,9 @@ class GuaardvarkBackend(BaseBackend):
             process.status = AgentStatus.CRASHED
             return AgentStatus.CRASHED
 
-        if process.pid:
-            try:
-                os.kill(process.pid, 0)
-            except ProcessLookupError:
-                process.status = AgentStatus.CRASHED
-                return AgentStatus.CRASHED
-            except PermissionError:
-                pass
+        if process.pid and not pid_running(process.pid):
+            process.status = AgentStatus.CRASHED
+            return AgentStatus.CRASHED
         process.status = AgentStatus.RUNNING
         return AgentStatus.RUNNING
 

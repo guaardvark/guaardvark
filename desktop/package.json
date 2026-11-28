@@ -1,0 +1,15 @@
+{
+  "name": "guaardvark-desktop",
+  "productName": "Guaardvark",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Desktop app: starts Guaardvark and shows it in its own window",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "45.3.1",
+    "electron-builder": "26.18.1"
+  }
+}

@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -87,6 +88,28 @@ def _reexec_with_venv_python(repo: Path) -> None:
 _SYNC_MARKER_MAX_AGE_S = 3600
 
 
+def _pid_running(pid: int) -> bool:
+    """True while ``pid`` runs. Signal 0 also succeeds for a zombie (exited,
+    not yet collected by its parent), which has stopped running."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    try:
+        with open(f"/proc/{pid}/stat", "rb") as f:
+            stat = f.read().decode("ascii", "replace")
+        state = stat[stat.rfind(")") + 1:].split()[0]
+    except (OSError, IndexError):
+        try:
+            state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True,
+                                   text=True, timeout=5).stdout.strip()[:1]
+        except (OSError, subprocess.SubprocessError):
+            return True
+    return state not in ("Z", "X")
+
+
 def _sync_still_running(sentinel: Path) -> bool:
     """True while the process that wrote the sync marker is alive.
 
@@ -103,13 +126,7 @@ def _sync_still_running(sentinel: Path) -> bool:
         return False
     if not text.isdigit():
         return True
-    try:
-        os.kill(int(text), 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
+    return _pid_running(int(text))
 
 
 def main(argv: list[str] | None = None) -> int:

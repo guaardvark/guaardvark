@@ -174,13 +174,9 @@ def close_agent_firefox(profile_dir: Optional[str] = None, wait_s: float = 6.0) 
 
 
 def _alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
+    from backend.utils.proc_alive import pid_alive
+
+    return pid_alive(pid)
 
 
 def enforce(allowed: bool, reason: str = "") -> Dict[str, object]:

@@ -5,6 +5,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$SCRIPT_DIR/scripts/lib/proc_owner.sh"   # proc_alive
 export GUAARDVARK_ROOT="$SCRIPT_DIR"
 
 echo "=== GUAARDVARK KILL SWITCH ACTIVATED ==="
@@ -48,7 +50,7 @@ if [ -n "$worker_pids" ]; then
     while :; do
         alive=""
         for pid in $worker_pids; do
-            if kill -0 "$pid" 2>/dev/null; then alive="$alive $pid"; fi
+            if proc_alive "$pid"; then alive="$alive $pid"; fi
         done
         if [ -z "$alive" ] || [ "$waited" -ge "$WORKER_GRACE_S" ]; then break; fi
         sleep 1
@@ -69,7 +71,7 @@ if [ -d "$GUAARDVARK_ROOT/pids" ]; then
     for pidfile in "$GUAARDVARK_ROOT/pids"/*.pid; do
         [ -f "$pidfile" ] || continue
         pid=$(cat "$pidfile")
-        if kill -0 "$pid" 2>/dev/null; then
+        if proc_alive "$pid"; then
             kill "$pid" 2>/dev/null
             echo "  Killed process $pid ($(basename "$pidfile"))"
         fi

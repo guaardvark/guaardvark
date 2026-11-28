@@ -293,10 +293,12 @@ def check_redis_broker():
         return True
 
     cmd = [redis_cli, "-p", str(port), "ping"]
+    env = None
     if password:
-        cmd = [redis_cli, "-p", str(port), "-a", password, "--no-auth-warning", "ping"]
+        # REDISCLI_AUTH, not -a: an argument shows the password in every user's ps.
+        env = {**os.environ, "REDISCLI_AUTH": password}
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5, env=env)
     except (subprocess.TimeoutExpired, OSError) as e:
         print(f"  {FAIL} Redis broker PING failed ({url}): {e}")
         errors.append(

@@ -5,6 +5,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
+# shellcheck source=scripts/lib/proc_owner.sh
+. "$PROJECT_ROOT/scripts/lib/proc_owner.sh"   # proc_alive
 SERVICE_PORT=8210
 
 # Load env
@@ -19,7 +21,7 @@ PID_FILE="$PROJECT_ROOT/pids/swarm.pid"
 # outlives a reboot or a crash, and by then the number can belong to another
 # process: one this script must neither report as the service nor signal.
 pid_is_service() {
-    kill -0 "$1" 2>/dev/null || return 1
+    proc_alive "$1" || return 1
     local args=""
     if [ -r "/proc/$1/cmdline" ]; then
         args=$(tr '\0' ' ' < "/proc/$1/cmdline" 2>/dev/null) || args=""

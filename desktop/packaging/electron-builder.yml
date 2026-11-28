@@ -1,0 +1,89 @@
+# Windows installer for the desktop app. Build it with packaging/build.js,
+# which fills in the version and runs this on Linux without wine.
+appId: com.guaardvark.desktop
+productName: Guaardvark
+copyright: Copyright (c) 2025-2026 Albenze, Inc.
+
+directories:
+  output: dist
+  # Icons and installer resources; not copied into the app.
+  buildResources: build
+
+files:
+  - package.json
+  - main.js
+  - preload.js
+  - loading.html
+  - loading.css
+  - loading.js
+  - assets/**
+  - platform/**
+
+# NSIS 3.12 instead of electron-builder 26's default 3.0.4.1 (2019). The
+# newer NSIS isolates the uninstaller's temporary folder (3.09), recreates a
+# restricted $PLUGINSDIR when one was planted (3.11) and stops using the
+# low-integrity temp folder when elevated (3.12); see NSIS's changelog.
+# "1.2.1" is electron-builder's unified bundle, pinned by sha256 in
+# app-builder-lib/out/toolsets/windows.js; electron-builder 27 makes a newer
+# bundle the default.
+toolsets:
+  nsis: "1.2.1"
+
+asar: true
+
+# Electron fuses, flipped in the built executable before packaging
+# (https://www.electronjs.org/docs/latest/tutorial/fuses). The app runs only
+# its own app.asar, as itself:
+# - no ELECTRON_RUN_AS_NODE, NODE_OPTIONS or --inspect/--inspect-brk: the
+#   executable cannot be borrowed as a Node runtime or debugged into from
+#   outside. The uninstaller's .wslconfig undo is an app argument
+#   (--undo-wsl-settings, platform/windows.js), so it needs none of these.
+# - only resources/app.asar is loaded, and on Windows and macOS its contents
+#   are checked against the hash embedded in the executable at build time.
+# - cookies (the studio's session) are encrypted with the OS key store
+#   (DPAPI on Windows). On from the first release, so no profile predates it.
+# - file:// gets no extra privileges: the app's own screens are served from
+#   app://guaardvark/ by a handler in main.js that hands out a fixed list of
+#   files, so the window never loads a file:// page.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
+  enableCookieEncryption: true
+  grantFileProtocolExtraPrivileges: false
+
+# Nothing native to rebuild, and the app has no runtime dependencies.
+npmRebuild: false
+# No update feed: a new version comes from a new installer.
+publish: null
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  # Unsigned for now; Windows SmartScreen warns on first run. To sign, add
+  # signtoolOptions or azureSignOptions here.
+  signAndEditExecutable: true
+  verifyUpdateCodeSignature: false
+
+nsis:
+  # One click, for the current user only: no administrator prompt to install.
+  # Turning on WSL asks for permission later, from inside the app.
+  oneClick: true
+  perMachine: false
+  runAfterFinish: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Guaardvark
+  uninstallDisplayName: Guaardvark
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  # The window's own profile (%APPDATA%\Guaardvark) stays; the Linux system
+  # is asked about in installer.nsh.
+  deleteAppDataOnUninstall: false
+  differentialPackage: false
+  include: packaging/installer.nsh
+  artifactName: Guaardvark-Setup-${version}-x64.${ext}

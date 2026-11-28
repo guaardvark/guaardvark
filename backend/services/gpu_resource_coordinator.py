@@ -123,12 +123,10 @@ class GPUResourceCoordinator:
             self._release_lock_file()
 
     def _is_process_alive(self, pid: int) -> bool:
-        """Check if a process with given PID is still running."""
-        try:
-            os.kill(pid, 0)
-            return True
-        except (OSError, ProcessLookupError):
-            return False
+        """Check if a process with given PID is still running (a zombie is not)."""
+        from backend.utils.proc_alive import pid_alive
+
+        return pid_alive(pid)
 
     @staticmethod
     def _process_started_at(pid: int) -> Optional[float]:
