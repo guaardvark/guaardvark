@@ -92,6 +92,13 @@ def test_failure_text_says_what_to_do_and_whether_to_retry():
     assert failure_text(None, "boom").startswith("Render failed: boom Next:")
 
 
+def test_failure_text_does_not_repeat_the_label():
+    assert failure_text(K.CANCELLED, "Cancelled") == "Cancelled"
+    assert failure_text(K.CANCELLED, " cancelled ") == "Cancelled"
+    assert failure_text(K.CANCELLED, "cancelled before start") == "Cancelled before start"
+    assert failure_text(K.CANCELLED, "Stopped from the Jobs page") == "Cancelled: Stopped from the Jobs page"
+
+
 # ── One test per kind, through generate_video ────────────────────────────────
 
 def test_comfyui_down_before_the_render(comfy):
