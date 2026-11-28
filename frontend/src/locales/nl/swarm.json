@@ -26,7 +26,7 @@
     "logsFailed": "Logs konden niet worden opgehaald",
     "templateLoadFailed": "Template laden mislukt",
     "filenameAndContentRequired": "Bestandsnaam en inhoud zijn vereist",
-    "planSaved": "Plan opgeslagen in templates",
+    "planSaved": "Plan opgeslagen",
     "saveFailed": "Opslaan mislukt",
     "enterGoal": "Voer in wat je wilt bereiken",
     "planGenerated": "Plan gegenereerd door AI!",
@@ -66,8 +66,10 @@
   "taskCount": "{{count}} taken",
   "flightMode": "Vliegtuigmodus",
   "history": {
-    "freeLocal": "Gratis (lokaal)",
     "cleanUp": "Opruimen"
+  },
+  "usage": {
+    "tokens": "{{tokens}} tokens"
   },
   "empty": {
     "title": "Geen actieve Swarms",
@@ -83,12 +85,34 @@
     "planPath": "Pad naar planbestand",
     "planPathPlaceholder": "pad/naar/plan.md of selecteer een template hierboven",
     "planPathHelp": "Relatief aan GUAARDVARK_ROOT of absoluut pad",
+    "repoPath": "Repository (optioneel)",
+    "repoPathPlaceholder": "~/projects/my-repo",
+    "repoPathHelp": "Laat leeg om te werken aan de eigen code van deze installatie. Anders de volledige pad van een git-repository; ~ is je home-folder.",
     "maxAgents": "Max. gelijktijdige agenten",
     "autoMerge": "Automatisch samenvoegen",
     "flightModeInfo": "Vliegtuigmodus: alleen offline backends (Ollama). Conflicten worden automatisch geserialiseerd.",
     "cancel": "Annuleren",
     "launchFlightMode": "Lanceren (Vluchtmodus)",
-    "launch": "Lanceren"
+    "launch": "Lanceren",
+    "dirtyTree": "Deze installatie bevat wijzigingen die niet zijn vastgelegd. Agents starten bij de laatste commit, dus ze zullen die wijzigingen niet zien. Druk nogmaals op Launch om door te gaan.",
+    "scheduledName": "Swarm: {{plan}}"
+  },
+  "runOn": {
+    "label": "Uitvoeren op",
+    "choose": "Kies de agent die de taken van deze swarm uitvoert.",
+    "hosted": "{{name}} (gehost)",
+    "local": "{{name}} (op deze machine)",
+    "names": {
+      "guaardvark": "Guaardvark agent",
+      "claude": "Claude Code",
+      "cline": "Cline"
+    },
+    "hostedNote": "Elke taak en de code waar het op werkt, worden naar de provider van deze agent verzonden.",
+    "notes": {
+      "claude": "Elke taak en de code waar het op werkt, worden naar Anthropic verzonden."
+    },
+    "none": "Er kan nog geen agent hier draaien. De eigen agent van Guaardvark heeft een chatmodel nodig dat tools kan aanroepen, geïnstalleerd in Ollama (Instellingen → Modellen).",
+    "noneOffline": "Flight Mode draait op de eigen agent van Guaardvark, die een chatmodel nodig heeft dat tools kan aanroepen, geïnstalleerd in Ollama (Instellingen → Modellen)."
   },
   "editor": {
     "title": "Swarm Plan Editor",
@@ -120,7 +144,8 @@
   },
   "card": {
     "progress": "{{done}}/{{total}} taken",
-    "free": "Vrij",
+    "waitingOn": "Wachten: {{reason}}",
+    "repository": "Repository waarop deze swarm werkt",
     "activeAgents": "{{count}} actief",
     "diskUsage": "{{size}} MB",
     "dependencyGraph": "AFHANKELIJKHEIDSGRAF",

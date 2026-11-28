@@ -270,7 +270,7 @@ GUAARDVARK_MCP_ENABLED=true
 |------|---------|
 | `logs/backend.log` | Flask 应用程序 |
 | `logs/celery.log` | Celery 任务工作进程 |
-| `logs/frontend.log` | Vite 开发服务器 |
+| `logs/frontend.log` | 前端构建与前端服务器 |
 | `logs/setup.log` | 依赖项安装 |
 | `logs/test_results/` | 测试执行输出 |
 

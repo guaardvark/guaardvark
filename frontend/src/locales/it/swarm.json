@@ -26,7 +26,7 @@
     "logsFailed": "Impossibile recuperare i log",
     "templateLoadFailed": "Caricamento modello fallito",
     "filenameAndContentRequired": "Nome file e contenuto sono richiesti",
-    "planSaved": "Piano salvato nei modelli",
+    "planSaved": "Piano salvato",
     "saveFailed": "Salvataggio fallito",
     "enterGoal": "Inserisci cosa vuoi ottenere",
     "planGenerated": "Piano generato dall'IA!",
@@ -66,8 +66,10 @@
   "taskCount": "{{count}} task",
   "flightMode": "Modalità Volo",
   "history": {
-    "freeLocal": "Libero (locale)",
     "cleanUp": "Pulisci"
+  },
+  "usage": {
+    "tokens": "{{tokens}} token"
   },
   "empty": {
     "title": "Nessun Swarm in Esecuzione",
@@ -83,12 +85,34 @@
     "planPath": "Percorso file piano",
     "planPathPlaceholder": "path/to/plan.md o seleziona un modello sopra",
     "planPathHelp": "Relativo a GUAARDVARK_ROOT o percorso assoluto",
+    "repoPath": "Repository (opzionale)",
+    "repoPathPlaceholder": "~/projects/my-repo",
+    "repoPathHelp": "Lascia vuoto per lavorare sul Codice di questa installazione. Altrimenti, inserisci il percorso completo di un repository git; ~ è la tua cartella home.",
     "maxAgents": "Max Agenti concorrenti",
     "autoMerge": "Auto-merge",
     "flightModeInfo": "Modalità Volo: solo backend offline (Ollama). I conflitti saranno serializzati automaticamente.",
     "cancel": "Annulla",
     "launchFlightMode": "Lancia (Modalità Volo)",
-    "launch": "Lancia"
+    "launch": "Lancia",
+    "dirtyTree": "Questa installazione ha modifiche non ancora committate. Gli Agenti partono dall'ultimo commit, quindi non vedranno quelle modifiche. Premi di nuovo Avvia per procedere.",
+    "scheduledName": "Swarm: {{plan}}"
+  },
+  "runOn": {
+    "label": "Esegui su",
+    "choose": "Scegli l'agente che esegue i compiti di questo swarm.",
+    "hosted": "{{name}} (hostato)",
+    "local": "{{name}} (su questa macchina)",
+    "names": {
+      "guaardvark": "Agente Guaardvark",
+      "claude": "Claude Code",
+      "cline": "Cline"
+    },
+    "hostedNote": "Ogni compito e il Codice su cui lavora vengono inviati al fornitore di questo agente.",
+    "notes": {
+      "claude": "Ogni compito e il Codice su cui lavora vengono inviati ad Anthropic."
+    },
+    "none": "Nessun agente può essere eseguito qui per ora. L'agente di Guaardvark richiede un modello di chat in grado di chiamare strumenti, installato in Ollama (Impostazioni → Modelli).",
+    "noneOffline": "Flight Mode viene eseguito sull'agente di Guaardvark, che richiede un modello di chat in grado di chiamare strumenti, installato in Ollama (Impostazioni → Modelli)."
   },
   "editor": {
     "title": "Editor Piano Swarm",
@@ -120,7 +144,8 @@
   },
   "card": {
     "progress": "{{done}}/{{total}} task",
-    "free": "Libero",
+    "waitingOn": "In attesa: {{reason}}",
+    "repository": "Repository su cui lavora questo swarm",
     "activeAgents": "{{count}} attivi",
     "diskUsage": "{{size}} MB",
     "dependencyGraph": "GRAFO DELLE DIPENDENZE",

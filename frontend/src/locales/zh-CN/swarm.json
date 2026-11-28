@@ -26,7 +26,7 @@
     "logsFailed": "无法获取日志",
     "templateLoadFailed": "加载模板失败",
     "filenameAndContentRequired": "需要提供文件名和内容",
-    "planSaved": "计划已保存至模板",
+    "planSaved": "计划已保存",
     "saveFailed": "保存失败",
     "enterGoal": "输入您想要达成的目标",
     "planGenerated": "AI 已生成计划！",
@@ -66,8 +66,10 @@
   "taskCount": "{{count}} 个任务",
   "flightMode": "飞行模式",
   "history": {
-    "freeLocal": "免费 (本地)",
     "cleanUp": "清理"
+  },
+  "usage": {
+    "tokens": "{{tokens}} token"
   },
   "empty": {
     "title": "暂无运行中的 Swarm",
@@ -83,12 +85,34 @@
     "planPath": "计划文件路径",
     "planPathPlaceholder": "path/to/plan.md 或在上方选择一个模板",
     "planPathHelp": "相对于 GUAARDVARK_ROOT 或绝对路径",
+    "repoPath": "仓库 (可选)",
+    "repoPathPlaceholder": "~/projects/my-repo",
+    "repoPathHelp": "留空以在当前安装的代码上工作。否则，请输入 git 仓库的完整路径；~ 代表您的主页文件夹。",
     "maxAgents": "最大并发智能体数量",
     "autoMerge": "自动合并",
     "flightModeInfo": "飞行模式：仅限离线后端 (Ollama)。冲突将自动串行化。",
     "cancel": "取消",
     "launchFlightMode": "启动 (飞行模式)",
-    "launch": "启动"
+    "launch": "启动",
+    "dirtyTree": "此安装包含未提交的更改。智能体从最后一次提交开始，因此将无法看到这些更改。请再次点击“启动”以继续。",
+    "scheduledName": "Swarm: {{plan}}"
+  },
+  "runOn": {
+    "label": "运行于",
+    "choose": "选择运行此 Swarm 任务的智能体。",
+    "hosted": "{{name}} (托管)",
+    "local": "{{name}} (本机)",
+    "names": {
+      "guaardvark": "Guaardvark 智能体",
+      "claude": "Claude Code",
+      "cline": "Cline"
+    },
+    "hostedNote": "每个任务及其对应的代码都将发送到该智能体的提供商处。",
+    "notes": {
+      "claude": "每个任务及其对应的代码都将发送到 Anthropic。"
+    },
+    "none": "目前尚无智能体可在此运行。Guaardvark 自带的智能体需要一个可调用工具的对话模型，请在 Ollama 中安装（设置 → 模型）。",
+    "noneOffline": "飞行模式运行在 Guaardvark 自带的智能体上，该智能体需要一个可调用工具的对话模型，请在 Ollama 中安装（设置 → 模型）。"
   },
   "editor": {
     "title": "Swarm 计划编辑器",
@@ -120,7 +144,8 @@
   },
   "card": {
     "progress": "{{done}}/{{total}} 个任务",
-    "free": "空闲",
+    "waitingOn": "等待中：{{reason}}",
+    "repository": "此 Swarm 所操作的仓库",
     "activeAgents": "{{count}} 个活跃中",
     "diskUsage": "{{size}} MB",
     "dependencyGraph": "依赖关系图",

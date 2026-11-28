@@ -33659,8 +33659,8 @@
       "out": "824402fba0ea"
     },
     "messages.planSaved": {
-      "en": "cc96afbb9f30",
-      "out": "f088d5c03365"
+      "en": "e502f4fd4ef2",
+      "out": "bd26889d4a21"
     },
     "messages.saveFailed": {
       "en": "0a4444676244",
@@ -33778,13 +33778,13 @@
       "en": "a25f94140842",
       "out": "599fbf62aed3"
     },
-    "history.freeLocal": {
-      "en": "d793b97c907c",
-      "out": "ef5698469ecc"
-    },
     "history.cleanUp": {
       "en": "f9489b32546b",
       "out": "907c3945d8c5"
+    },
+    "usage.tokens": {
+      "en": "930ee269678c",
+      "out": "773550f69b3c"
     },
     "empty.title": {
       "en": "9bad3d367f61",
@@ -33830,6 +33830,18 @@
       "en": "cd23f51a0a1e",
       "out": "c460412c01d7"
     },
+    "launchDialog.repoPath": {
+      "en": "f0b52dbc84d3",
+      "out": "597909b941c1"
+    },
+    "launchDialog.repoPathPlaceholder": {
+      "en": "cc7b3b838951",
+      "out": "cc7b3b838951"
+    },
+    "launchDialog.repoPathHelp": {
+      "en": "82b58810571d",
+      "out": "3edb93aafb45"
+    },
     "launchDialog.maxAgents": {
       "en": "a1750b93c2b2",
       "out": "c4d0e7a4cd0d"
@@ -33853,6 +33865,58 @@
     "launchDialog.launch": {
       "en": "4ad48a02590f",
       "out": "ebd26da42171"
+    },
+    "launchDialog.dirtyTree": {
+      "en": "eb3d12409c3e",
+      "out": "b037a0a54df7"
+    },
+    "launchDialog.scheduledName": {
+      "en": "8247df96b13a",
+      "out": "8247df96b13a"
+    },
+    "runOn.label": {
+      "en": "c58e8a1e27fb",
+      "out": "849bb8bd8eac"
+    },
+    "runOn.choose": {
+      "en": "30110d963dfb",
+      "out": "d527d8c81dc5"
+    },
+    "runOn.hosted": {
+      "en": "732ac4335380",
+      "out": "afa04ac4ce27"
+    },
+    "runOn.local": {
+      "en": "ef6d82b29d0a",
+      "out": "b6afcbab4478"
+    },
+    "runOn.names.guaardvark": {
+      "en": "72bc24b2f97a",
+      "out": "1e4aa722b869"
+    },
+    "runOn.names.claude": {
+      "en": "61f2de21bc4e",
+      "out": "61f2de21bc4e"
+    },
+    "runOn.names.cline": {
+      "en": "f406a965fa3b",
+      "out": "f406a965fa3b"
+    },
+    "runOn.hostedNote": {
+      "en": "1841e0a82f30",
+      "out": "28c6fe0c83b5"
+    },
+    "runOn.notes.claude": {
+      "en": "ea0261ccc11d",
+      "out": "82700d9257d3"
+    },
+    "runOn.none": {
+      "en": "c4fcb2e3fb3f",
+      "out": "b7b9a86f4a70"
+    },
+    "runOn.noneOffline": {
+      "en": "f67468831201",
+      "out": "56264d0d8ec5"
     },
     "editor.title": {
       "en": "4ab2d8b0d299",
@@ -33946,9 +34010,13 @@
       "en": "8f33357f6eac",
       "out": "68229e1da7ef"
     },
-    "card.free": {
-      "en": "75f527181b57",
-      "out": "837e7a109abf"
+    "card.waitingOn": {
+      "en": "52acb6ce525e",
+      "out": "f8144e86ed1e"
+    },
+    "card.repository": {
+      "en": "ac3a45bc520c",
+      "out": "047715125e08"
     },
     "card.activeAgents": {
       "en": "8eaf4563b05d",
