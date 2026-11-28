@@ -20,11 +20,13 @@ const getStatusColor = (status, stage) => {
   return 'info';
 };
 
+const sentenceCase = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+
 const chipLabel = (p) => {
   if (p.status?.startsWith('failed')) {
-    return translate('filmCrew.list.failedAt', { stage: (p.current_stage || '').replace(/_/g, ' ') });
+    return sentenceCase(translate('filmCrew.list.failedAt', { stage: (p.current_stage || '').replace(/_/g, ' ') }));
   }
-  return (p.current_stage || p.status || '').replace(/_/g, ' ');
+  return sentenceCase((p.current_stage || p.status || '').replace(/_/g, ' '));
 };
 
 const ProductionList = ({ productions, selectedId, onSelect }) => {

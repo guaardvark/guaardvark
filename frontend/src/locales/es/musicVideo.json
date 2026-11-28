@@ -93,10 +93,18 @@
     "close": "Cerrar"
   },
   "stage": {
-    "needsAnalysis": "requiere análisis",
-    "analysisFailed": "análisis fallido",
-    "cancelledNoPlan": "cancelado (sin plan)",
-    "unknown": "desconocido"
+    "needsAnalysis": "Requiere análisis",
+    "analysisFailed": "Análisis fallido",
+    "cancelledNoPlan": "Cancelado (sin plan)",
+    "unknown": "Desconocido",
+    "draft": "Borrador",
+    "analyzing": "Analizando",
+    "awaiting_approval": "Esperando aprobación",
+    "generating": "Generando",
+    "assembling": "Montando",
+    "complete": "Completado",
+    "cancelled": "Cancelado",
+    "failed": "Fallido"
   },
   "page": {
     "projectsFailed": "No se pudieron cargar los Proyectos, por lo que el selector de proyectos está vacío: {{reason}}",

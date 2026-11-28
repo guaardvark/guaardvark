@@ -96,7 +96,15 @@
     "needsAnalysis": "분석 필요",
     "analysisFailed": "분석 실패",
     "cancelledNoPlan": "취소됨 (계획 없음)",
-    "unknown": "알 수 없음"
+    "unknown": "알 수 없음",
+    "draft": "초안",
+    "analyzing": "분석 중",
+    "awaiting_approval": "승인 대기 중",
+    "generating": "생성 중",
+    "assembling": "조립 중",
+    "complete": "완료",
+    "cancelled": "취소됨",
+    "failed": "실패"
   },
   "page": {
     "projectsFailed": "프로젝트를 불러올 수 없어 프로젝트 선택기가 비어 있습니다: {{reason}}",

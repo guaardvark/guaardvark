@@ -93,10 +93,18 @@
     "close": "Zamknij"
   },
   "stage": {
-    "needsAnalysis": "wymaga analizy",
-    "analysisFailed": "analiza nieudana",
-    "cancelledNoPlan": "anulowane (brak planu)",
-    "unknown": "nieznany"
+    "needsAnalysis": "Wymaga analizy",
+    "analysisFailed": "Analiza nieudana",
+    "cancelledNoPlan": "Anulowane (brak planu)",
+    "unknown": "Nieznany",
+    "draft": "Szkic",
+    "analyzing": "Analizowanie",
+    "awaiting_approval": "Oczekuje na zatwierdzenie",
+    "generating": "Generowanie",
+    "assembling": "Składanie",
+    "complete": "Ukończono",
+    "cancelled": "Anulowano",
+    "failed": "Niepowodzenie"
   },
   "page": {
     "projectsFailed": "Nie udało się załadować Projektów, więc wybór projektów jest pusty: {{reason}}",

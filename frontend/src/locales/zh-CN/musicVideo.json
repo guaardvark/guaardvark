@@ -96,7 +96,15 @@
     "needsAnalysis": "需要分析",
     "analysisFailed": "分析失败",
     "cancelledNoPlan": "已取消（无计划）",
-    "unknown": "未知"
+    "unknown": "未知",
+    "draft": "草稿",
+    "analyzing": "分析中",
+    "awaiting_approval": "等待批准",
+    "generating": "生成中",
+    "assembling": "合成中",
+    "complete": "已完成",
+    "cancelled": "已取消",
+    "failed": "失败"
   },
   "page": {
     "projectsFailed": "无法加载项目，因此项目选择器为空：{{reason}}",
