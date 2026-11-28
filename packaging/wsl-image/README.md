@@ -133,7 +133,7 @@ code a fresh install uses:
 | Ollama tuning drop-in rendered for the build hardware | deleted | start.sh (rendered for this machine; Ollama picks it up on its next restart, as on a fresh install) |
 | Saved chat model (`settings.active_model_name`, `data/active_model.json`) | deleted | backend, on first boot, for this machine |
 
-`.env` in the image holds `PYTHON_CMD=python3.12` and nothing else.
+`.env` in the image holds `PYTHON_CMD`, the path of uv's Python 3.12 under the user's home, and nothing else.
 
 finalize-root.sh ends with an audit and the build fails if any `requirepass`
 line is left anywhere under `/etc`, any `redis://:<password>@` URL under `/etc` or

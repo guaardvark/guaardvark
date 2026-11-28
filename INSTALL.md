@@ -33,7 +33,7 @@ chmod +x start.sh start-docker.sh
 
 The startup script handles everything: Python 3.12 (auto-installed if needed), dependencies, database, frontend build, and all services.
 
-**Ubuntu 26.04 and other distros with Python 3.13+:** Your system `python3` may be 3.14 — that is fine. `./start.sh` installs Python 3.12 automatically via apt (deadsnakes PPA) or [uv](https://github.com/astral-sh/uv) when sudo is unavailable.
+**Ubuntu 26.04 and other distros with Python 3.13+:** Your system `python3` may be 3.14 — that is fine. `./start.sh` installs Python 3.12 automatically with [uv](https://github.com/astral-sh/uv), inside your home folder, without adding a package source to your system.
 
 | Service | URL |
 |---------|-----|
