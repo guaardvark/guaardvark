@@ -55,6 +55,7 @@ import ChoiceChips from "../components/settings/ui/ChoiceChips";
 import { AtTimeDialog } from "../components/jobs/ScheduleButton";
 import { NIGHT_SHIFT_CHANGED_EVENT, WHEN } from "../api/nightShiftService";
 import { translate, uiLocale, useUiTranslation, Trans } from "../i18n";
+import { draftWords } from "../utils/outreachDraftText";
 
 // Per-platform character soft-caps used by the pre-flight panel.
 // Sources: reddit (10000 comment), youtube (~10000), discord (2000),
@@ -1117,7 +1118,7 @@ const OutreachPage = () => {
                       }
                       secondary={
                         <Typography variant="caption" sx={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                          {row.draft_text || t("outreach.queue.emptyDraft")}
+                          {draftWords(row) || t("outreach.queue.emptyDraft")}
                         </Typography>
                       }
                     />

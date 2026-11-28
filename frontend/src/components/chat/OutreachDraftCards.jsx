@@ -33,6 +33,7 @@ import {
 import OutreachDraftImage from "../outreach/OutreachDraftImage";
 import { useAppStore } from "../../stores/useAppStore";
 import { useUiTranslation } from "../../i18n";
+import { draftWords, shareDraftText, shareParts } from "../../utils/outreachDraftText";
 
 // A scout reads a few pages and drafts with the local model; this is how
 // often the chat asks whether it has ended.
@@ -43,7 +44,11 @@ const IN_FLIGHT = ["approved", "processing", "submitting"];
 
 const DraftCard = ({ draft, watched, onChanged, review }) => {
   const { t } = useUiTranslation();
-  const [text, setText] = useState(draft.text || "");
+  // A share is edited as its title and its text, and stored back as one document.
+  const share = shareParts(draft);
+  const words = share ? share.body : draft.text || "";
+  const [text, setText] = useState(words);
+  const [title, setTitle] = useState(share ? share.title : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -51,8 +56,16 @@ const DraftCard = ({ draft, watched, onChanged, review }) => {
 
   // Another draft's text replaces this one only when the row itself changes.
   useEffect(() => {
-    setText(draft.text || "");
+    setText(words);
+    setTitle(share ? share.title : "");
   }, [draft.id, draft.text]);
+
+  const editedDraftText = () => {
+    if (share) {
+      return title !== share.title || text !== share.body ? shareDraftText(share, { title, body: text }) : null;
+    }
+    return text !== words ? text : null;
+  };
 
   const run = async (action) => {
     setBusy(true);
@@ -125,18 +138,35 @@ const DraftCard = ({ draft, watched, onChanged, review }) => {
       )}
 
       {status === "drafted" ? (
-        <TextField
-          label={t("approvals.outreach.textLabel")}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          multiline
-          minRows={3}
-          fullWidth
-          size="small"
-        />
+        <>
+          {share && (
+            <TextField
+              label={t("social.postFields.title")}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              fullWidth
+              size="small"
+              sx={{ mb: 1 }}
+            />
+          )}
+          <TextField
+            label={share ? t("social.postFields.text") : t("approvals.outreach.textLabel")}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            multiline
+            minRows={3}
+            fullWidth
+            size="small"
+          />
+        </>
       ) : (
         <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-          {(status === "posted" && draft.posted_text) || draft.text || t("approvals.noText")}
+          {(status === "posted" && draft.posted_text) || draftWords(draft) || t("approvals.noText")}
+        </Typography>
+      )}
+      {share?.link && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, wordBreak: "break-all" }}>
+          {t("social.postFields.link")}: {share.link}
         </Typography>
       )}
       <OutreachDraftImage draft={draft} sx={{ mt: 1 }} />
@@ -187,10 +217,10 @@ const DraftCard = ({ draft, watched, onChanged, review }) => {
               variant="contained"
               size="small"
               startIcon={<CheckCircleIcon />}
-              disabled={busy || !text.trim()}
+              disabled={busy || !(share ? title : text).trim()}
               onClick={() =>
                 run(async () => {
-                  const row = await approveDraft(draft.id, text !== (draft.text || "") ? text : null);
+                  const row = await approveDraft(draft.id, editedDraftText());
                   return { message: t("approvals.outreach.approvedNext", { next: row?.next || "" }).trim() };
                 })
               }

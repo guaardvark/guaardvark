@@ -32,6 +32,7 @@ import { approveDraft, fetchWatchedPost, postNow, rejectDraft } from "../../api/
 import OutreachDraftImage from "../outreach/OutreachDraftImage";
 import { useAppStore } from "../../stores/useAppStore";
 import { translate, uiLocale, useUiTranslation } from "../../i18n";
+import { draftWords, shareDraftText, shareParts } from "../../utils/outreachDraftText";
 
 // While this panel is open it follows the Agent Screen and a running post
 // closely enough for the button to follow the viewer being opened or closed.
@@ -63,14 +64,11 @@ const draftStatusLabel = (status) =>
     unsupported: translate("approvals.outreach.status.unsupported"),
   })[status] ?? status;
 
-// What a person reads and edits. A reply's draft_text is a JSON envelope that
-// also names the comment it answers; the API sends the words as `text`.
-const draftWords = (d) => d?.text ?? d?.draft_text ?? "";
-
 const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChanged, showMessage }) => {
   const { t } = useUiTranslation();
   const [selectedId, setSelectedId] = useState(null);
   const [text, setText] = useState("");
+  const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [watched, setWatched] = useState(null);
@@ -96,19 +94,29 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
     waiting.find((d) => d.id === selectedId) ||
     null;
   const isWaiting = selected?.status === "approved";
+  // A share is edited as its title and its text, and stored back as one document.
+  const share = shareParts(selected);
 
   // Reset the editable text only when another draft is picked, not on every poll.
   useEffect(() => {
-    setText(draftWords(selected));
+    setTitle(share ? share.title : "");
+    setText(share ? share.body : draftWords(selected));
     setError(null);
   }, [selectedId]);
+
+  const editedDraftText = () => {
+    if (share) {
+      return title !== share.title || text !== share.body ? shareDraftText(share, { title, body: text }) : null;
+    }
+    return text !== draftWords(selected) ? text : null;
+  };
 
   const act = async (approve) => {
     setBusy(true);
     setError(null);
     try {
       if (approve) {
-        const row = await approveDraft(selected.id, text !== draftWords(selected) ? text : null);
+        const row = await approveDraft(selected.id, editedDraftText());
         showMessage?.(t("approvals.outreach.approvedNext", { next: row?.next || "" }).trim());
       } else {
         await rejectDraft(selected.id);
@@ -202,8 +210,13 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
     const watching = Boolean(watched?.watching) || byApi;
     return (
       <>
-        <Paper variant="outlined" sx={{ p: 2, mt: 2, whiteSpace: "pre-wrap" }}>
+        <Paper variant="outlined" sx={{ p: 2, mt: 2, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
           <Typography variant="body2">{draftWords(selected) || t("approvals.noText")}</Typography>
+          {share?.link && (
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
+              {t("social.postFields.link")}: {share.link}
+            </Typography>
+          )}
         </Paper>
         <Alert severity="info" icon={<DesktopWindowsIcon />} sx={{ mt: 2 }}>
           {byApi ? t("approvals.outreach.postNowApiNote") : t("approvals.outreach.postNowNote")}
@@ -291,21 +304,35 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
           renderPostNow()
         ) : (
           <>
+            {share && (
+              <TextField
+                label={t("social.postFields.title")}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                fullWidth
+                sx={{ mb: 2 }}
+              />
+            )}
             <TextField
-              label={t("approvals.outreach.textLabel")}
+              label={share ? t("social.postFields.text") : t("approvals.outreach.textLabel")}
               value={text}
               onChange={(e) => setText(e.target.value)}
               multiline
               minRows={5}
               fullWidth
             />
+            {share?.link && (
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1, wordBreak: "break-all" }}>
+                {t("social.postFields.link")}: {share.link}
+              </Typography>
+            )}
             {error && (
               <Alert severity="error" sx={{ mt: 2 }}>
                 {error}
               </Alert>
             )}
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 2 }}>
-              <Button variant="contained" startIcon={<CheckCircleIcon />} disabled={busy || !text.trim()} onClick={() => act(true)}>
+              <Button variant="contained" startIcon={<CheckCircleIcon />} disabled={busy || !(share ? title : text).trim()} onClick={() => act(true)}>
                 {busy ? t("approvals.working") : t("approvals.outreach.approve")}
               </Button>
               <Button color="error" startIcon={<CancelIcon />} disabled={busy} onClick={() => act(false)}>

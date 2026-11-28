@@ -13,6 +13,7 @@ import { approveDraft, rejectDraft } from "../../api/outreachService";
 import OutreachDraftImage from "../outreach/OutreachDraftImage";
 import { useSnackbar } from "../common/SnackbarProvider";
 import { translate, uiLocale, useUiTranslation } from "../../i18n";
+import { draftWords, shareParts } from "../../utils/outreachDraftText";
 
 export const APPROVALS_PATH = "/approvals";
 const tabPath = (tab) => `${APPROVALS_PATH}?tab=${tab}`;
@@ -31,9 +32,6 @@ const formatWhen = (iso) => {
   if (hours < 24) return translate("approvals.when.hoursAgo", { hours });
   return new Date(iso).toLocaleDateString(uiLocale());
 };
-
-// The words that would post; `text` is the API's reading of a reply's envelope.
-const draftWords = (draft) => draft?.text ?? draft?.draft_text ?? "";
 
 // A guard verdict as shown; the value stays the one compared.
 const verdictLabel = (verdict) =>
@@ -201,7 +199,8 @@ const ApprovalsCard = React.forwardRef(
           <>
             <SectionHeading label={t("dashboard.approvals.sections.outreach")} count={outreach.length} />
             {outreach.slice(0, SECTION_LIMIT).map((draft) => {
-              const words = draftWords(draft);
+              const share = shareParts(draft);
+              const words = share ? share.body : draftWords(draft);
               const expanded = expandedId === draft.id;
               const busy = busyId === draft.id;
               return (
@@ -219,20 +218,32 @@ const ApprovalsCard = React.forwardRef(
                       {formatWhen(draft.created_at)}
                     </Typography>
                   </Stack>
-                  <Typography
-                    variant="body2"
-                    onClick={() => setExpandedId(expanded ? null : draft.id)}
-                    title={expanded ? "" : t("dashboard.approvals.showAll")}
-                    sx={{
-                      fontSize: "0.78rem",
-                      whiteSpace: "pre-wrap",
-                      overflowWrap: "anywhere",
-                      cursor: "pointer",
-                      ...(expanded ? {} : clamp(4)),
-                    }}
-                  >
-                    {words || t("approvals.noText")}
-                  </Typography>
+                  {share?.title && (
+                    <Typography variant="body2" sx={{ fontSize: "0.78rem", fontWeight: 600, overflowWrap: "anywhere" }}>
+                      {share.title}
+                    </Typography>
+                  )}
+                  {(words || !share?.title) && (
+                    <Typography
+                      variant="body2"
+                      onClick={() => setExpandedId(expanded ? null : draft.id)}
+                      title={expanded ? "" : t("dashboard.approvals.showAll")}
+                      sx={{
+                        fontSize: "0.78rem",
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                        cursor: "pointer",
+                        ...(expanded ? {} : clamp(4)),
+                      }}
+                    >
+                      {words || t("approvals.noText")}
+                    </Typography>
+                  )}
+                  {share?.link && (
+                    <Typography variant="caption" noWrap sx={{ display: "block", mt: 0.25, color: "text.secondary" }}>
+                      {t("social.postFields.link")}: {share.link}
+                    </Typography>
+                  )}
                   <OutreachDraftImage draft={draft} sx={{ mt: 0.5 }} />
                   {draft.target_url && (
                     <Link
