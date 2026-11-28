@@ -2,7 +2,7 @@
   "id": "discord",
   "name": "Discord Bot",
   "version": "1.0.0",
-  "description": "Discord bot integration for chat, image generation, and search via Guaardvark backend",
+  "description": "Discord bot for chat, /imagine images and search against your own Guaardvark install.",
   "author": "GUAARDVARK Team",
   "type": "service",
   "category": "integration",

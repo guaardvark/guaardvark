@@ -2,7 +2,7 @@
   "id": "lora_trainer",
   "name": "LoRA Trainer",
   "version": "0.1.0",
-  "description": "Trains character/environment/prop LoRAs for the Film Crew. Production uses real Diffusers training in venv-torch; mock trainer is pytest-only (NO-MOCKS policy).",
+  "description": "Trains character, environment and prop LoRAs from the reference photos in the Cast Library, on your own GPU. Z-Image Turbo is the default base model, with SDXL for older setups.",
   "author": "Guaardvark",
   "type": "tool",
   "category": "training",
