@@ -93,10 +93,18 @@
     "close": "Sluiten"
   },
   "stage": {
-    "needsAnalysis": "analyse nodig",
-    "analysisFailed": "analyse mislukt",
-    "cancelledNoPlan": "geannuleerd (geen plan)",
-    "unknown": "onbekend"
+    "needsAnalysis": "Analyse nodig",
+    "analysisFailed": "Analyse mislukt",
+    "cancelledNoPlan": "Geannuleerd (geen plan)",
+    "unknown": "Onbekend",
+    "draft": "Concept",
+    "analyzing": "Analyseren",
+    "awaiting_approval": "Wacht op goedkeuring",
+    "generating": "Genereren",
+    "assembling": "Samenstellen",
+    "complete": "Voltooid",
+    "cancelled": "Geannuleerd",
+    "failed": "Mislukt"
   },
   "page": {
     "projectsFailed": "Projecten konden niet worden geladen, dus is de projectkiezer leeg: {{reason}}",

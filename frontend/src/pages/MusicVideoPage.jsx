@@ -992,6 +992,9 @@ const isRunning = (mv) =>
   ["analyzing", "generating", "assembling"].includes(mv?.current_stage)
   && !/^(failed|cancelled)/.test(mv?.status || "");
 
+// Stages and statuses with a label under musicVideo.stage.
+const STAGE_LABEL_KEYS = ["draft", "analyzing", "awaiting_approval", "generating", "assembling", "complete", "cancelled", "failed"];
+
 const stageLabel = (mv) => {
   if (!mv) return "";
   if (needsAnalysis(mv) && mv.current_stage === "awaiting_approval") return translate("musicVideo.stage.needsAnalysis");
@@ -999,7 +1002,12 @@ const stageLabel = (mv) => {
   if (needsAnalysis(mv) && ((mv.status || "").startsWith("cancelled") || mv.current_stage === "cancelled")) {
     return translate("musicVideo.stage.cancelledNoPlan");
   }
-  return mv.current_stage || mv.status || translate("musicVideo.stage.unknown");
+  // A failed or cancelled status outranks the stage it stopped in, as in stageColor.
+  const stopped = /^(failed|cancelled)/.exec(mv.status || "")?.[1];
+  const raw = stopped || mv.current_stage || mv.status;
+  if (!raw) return translate("musicVideo.stage.unknown");
+  const key = STAGE_LABEL_KEYS.find((k) => raw === k);
+  return key ? translate(`musicVideo.stage.${key}`) : raw.replace(/_/g, " ");
 };
 
 // The new-video settings the page remembers between visits (utils/savedSettings),

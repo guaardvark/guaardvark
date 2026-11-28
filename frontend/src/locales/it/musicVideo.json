@@ -93,10 +93,18 @@
     "close": "Chiudi"
   },
   "stage": {
-    "needsAnalysis": "richiede analisi",
-    "analysisFailed": "analisi fallita",
-    "cancelledNoPlan": "annullato (nessun piano)",
-    "unknown": "sconosciuto"
+    "needsAnalysis": "Richiede analisi",
+    "analysisFailed": "Analisi fallita",
+    "cancelledNoPlan": "Annullato (nessun piano)",
+    "unknown": "Sconosciuto",
+    "draft": "Bozza",
+    "analyzing": "Analisi in corso",
+    "awaiting_approval": "In attesa di approvazione",
+    "generating": "Generazione in corso",
+    "assembling": "Assemblaggio in corso",
+    "complete": "Completato",
+    "cancelled": "Annullato",
+    "failed": "Non riuscito"
   },
   "page": {
     "projectsFailed": "I Progetti non sono stati caricati, quindi il selettore progetti è vuoto: {{reason}}",

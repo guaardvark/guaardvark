@@ -118,7 +118,7 @@ describe("SoftwareNav", () => {
     renderNav("/code-editor");
     expect(screen.getByRole("button", { name: "Code" })).toHaveAttribute("aria-current", "page");
     const tabs = screen.getAllByRole("tab").map((tab) => tab.textContent);
-    expect(tabs).toEqual(["Code Editor", "Swarm", "System Map", "Self-improvement"]);
+    expect(tabs).toEqual(["Code Editor", "Swarm", "System Map", "Self-Improvement"]);
     expect(screen.getByRole("tab", { name: /Code Editor/ })).toHaveAttribute("aria-selected", "true");
   });
 

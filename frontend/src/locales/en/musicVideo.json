@@ -93,10 +93,18 @@
     "close": "Close"
   },
   "stage": {
-    "needsAnalysis": "needs analysis",
-    "analysisFailed": "analysis failed",
-    "cancelledNoPlan": "cancelled (no plan)",
-    "unknown": "unknown"
+    "needsAnalysis": "Needs analysis",
+    "analysisFailed": "Analysis failed",
+    "cancelledNoPlan": "Cancelled (no plan)",
+    "unknown": "Unknown",
+    "draft": "Draft",
+    "analyzing": "Analyzing",
+    "awaiting_approval": "Awaiting approval",
+    "generating": "Generating",
+    "assembling": "Assembling",
+    "complete": "Complete",
+    "cancelled": "Cancelled",
+    "failed": "Failed"
   },
   "page": {
     "projectsFailed": "Projects could not be loaded, so the project picker is empty: {{reason}}",

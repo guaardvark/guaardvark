@@ -93,10 +93,18 @@
     "close": "Закрыть"
   },
   "stage": {
-    "needsAnalysis": "требуется анализ",
-    "analysisFailed": "ошибка анализа",
-    "cancelledNoPlan": "отменено (нет плана)",
-    "unknown": "неизвестно"
+    "needsAnalysis": "Требуется анализ",
+    "analysisFailed": "Ошибка анализа",
+    "cancelledNoPlan": "Отменено (нет плана)",
+    "unknown": "Неизвестно",
+    "draft": "Черновик",
+    "analyzing": "Анализ",
+    "awaiting_approval": "Ожидает утверждения",
+    "generating": "Генерация",
+    "assembling": "Сборка",
+    "complete": "Готово",
+    "cancelled": "Отменено",
+    "failed": "Ошибка"
   },
   "page": {
     "projectsFailed": "Не удалось загрузить Проекты, поэтому выборщик пуст: {{reason}}",

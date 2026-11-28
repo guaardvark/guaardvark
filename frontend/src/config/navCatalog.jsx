@@ -179,7 +179,7 @@ export const CORE_NAV_CATALOG = Object.freeze([
   page({
     id: "self-improvement",
     path: "/self-improvement",
-    label: "Self-improvement",
+    label: "Self-Improvement",
     icon: <HealingIcon />,
     sidebarGroup: "Code",
     menu: "Agents",
@@ -425,7 +425,7 @@ export const CORE_NAV_CATALOG = Object.freeze([
   page({
     id: "filegen",
     path: "/file-generation",
-    label: "FileGen",
+    label: "File Gen",
     icon: <PetsIcon />,
     sidebarGroup: "Configuration",
     menu: "Agents",
@@ -435,7 +435,7 @@ export const CORE_NAV_CATALOG = Object.freeze([
   page({
     id: "csvgen",
     path: "/content-library",
-    label: "CSVGen",
+    label: "CSV Gen",
     icon: <LibraryBooksIcon />,
     sidebarGroup: "Configuration",
     menu: "Library",

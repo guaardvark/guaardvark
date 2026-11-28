@@ -388,6 +388,7 @@ const ImageEditPage = () => {
   const pollingRef = useRef(null);
 
   const strengthRestored = useRef(opening.restored);
+  const openingModeChecked = useRef(false);
   const defaultStrength = useRef(SETTING_DEFAULTS.strength);
   // Saved once the capabilities have had their say on restored engines.
   useSaveSettings(
@@ -412,6 +413,13 @@ const ImageEditPage = () => {
       const res = await getCapabilities();
       setCaps(res.data);
       setCapsError(null);
+      // The page opens on a mode that works here; a later pick is left alone.
+      if (!openingModeChecked.current) {
+        openingModeChecked.current = true;
+        const modes = res.data?.modes || {};
+        const firstAvailable = MODES.find((m) => modes[m]?.available);
+        if (firstAvailable) setMode((current) => (modes[current]?.available ? current : firstAvailable));
+      }
       const defaults = res.data?.modes?.identity?.defaults;
       // The engine's own strength, unless the person's is being restored.
       if (defaults?.weight && !strengthRestored.current) setStrength(Number(defaults.weight));

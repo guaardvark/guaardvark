@@ -96,7 +96,15 @@
     "needsAnalysis": "解析が必要",
     "analysisFailed": "解析に失敗しました",
     "cancelledNoPlan": "キャンセル済み（プランなし）",
-    "unknown": "不明"
+    "unknown": "不明",
+    "draft": "下書き",
+    "analyzing": "解析中",
+    "awaiting_approval": "承認待ち",
+    "generating": "生成中",
+    "assembling": "組み立て中",
+    "complete": "完了",
+    "cancelled": "キャンセル済み",
+    "failed": "失敗"
   },
   "page": {
     "projectsFailed": "プロジェクトを読み込めなかったため、プロジェクト選択画面が空です：{{reason}}",

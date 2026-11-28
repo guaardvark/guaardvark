@@ -95,8 +95,16 @@
   "stage": {
     "needsAnalysis": "Analyse erforderlich",
     "analysisFailed": "Analyse fehlgeschlagen",
-    "cancelledNoPlan": "abgebrochen (kein Plan)",
-    "unknown": "unbekannt"
+    "cancelledNoPlan": "Abgebrochen (kein Plan)",
+    "unknown": "Unbekannt",
+    "draft": "Entwurf",
+    "analyzing": "Analyse läuft",
+    "awaiting_approval": "Wartet auf Freigabe",
+    "generating": "Wird generiert",
+    "assembling": "Wird zusammengestellt",
+    "complete": "Abgeschlossen",
+    "cancelled": "Abgebrochen",
+    "failed": "Fehlgeschlagen"
   },
   "page": {
     "projectsFailed": "Projekte konnten nicht geladen werden, daher ist die Projektwahl leer: {{reason}}",

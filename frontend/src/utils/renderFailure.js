@@ -5,13 +5,17 @@ import { formatUiError } from "./uiError";
 import { translate } from "../i18n";
 
 /**
- * One line for a failure record: "Label: message Next: action".
+ * One line for a failure record: "Label: message Next: action". A message
+ * that already opens with the label stands alone ("Cancelled by user").
  * @param {object} failure  {kind, label, message, action, retryable}
  * @returns {string}
  */
 export function failureText(failure) {
   if (!failure) return "";
-  let text = failure.message ? `${failure.label}: ${failure.message}` : failure.label || "";
+  const label = String(failure.label || "").trim();
+  const message = String(failure.message || "").trim();
+  const repeatsLabel = label && message.toLowerCase().startsWith(label.toLowerCase());
+  let text = message && label && !repeatsLabel ? `${label}: ${message}` : message || label;
   if (failure.action) text = translate("messages.renderFailure.withNext", { text, action: failure.action });
   if (failure.retryable) text = translate("messages.renderFailure.retryable", { text });
   return text;

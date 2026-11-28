@@ -93,10 +93,18 @@
     "close": "Fechar"
   },
   "stage": {
-    "needsAnalysis": "precisa de análise",
-    "analysisFailed": "análise falhou",
-    "cancelledNoPlan": "cancelado (sem plano)",
-    "unknown": "desconhecido"
+    "needsAnalysis": "Precisa de análise",
+    "analysisFailed": "Análise falhou",
+    "cancelledNoPlan": "Cancelado (sem plano)",
+    "unknown": "Desconhecido",
+    "draft": "Rascunho",
+    "analyzing": "Analisando",
+    "awaiting_approval": "Aguardando aprovação",
+    "generating": "Gerando",
+    "assembling": "Montando",
+    "complete": "Concluído",
+    "cancelled": "Cancelado",
+    "failed": "Falhou"
   },
   "page": {
     "projectsFailed": "Os Projetos não puderam ser carregados, então o seletor de projetos está vazio: {{reason}}",
