@@ -813,7 +813,9 @@ class EditCodeTool(BaseTool):
                 metadata={"self_edit": record, "filepath": filepath},
             )
         effect = ("It takes effect after a restart; the restart banner offers one."
-                  if record.get("restart_needed") else "It is live now.")
+                  if record.get("restart_needed")
+                  else "The interface is being rebuilt; a notice offers a page reload when it is ready."
+                  if record.get("reload_needed") else "It is live now.")
         return ToolResult(
             success=True,
             output=(f"Changed {rel} (change {record['id']}). Checks: {checks}. {effect} "

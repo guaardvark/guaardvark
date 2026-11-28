@@ -342,6 +342,7 @@
   "selfEdit": {
     "appliedRestart": "Guaardvark zmieniło swój Kod ({{files}}). Zmiana zacznie działać po restarcie.",
     "appliedLive": "Guaardvark zmieniło swój Kod ({{files}}). Zmiana jest aktywna.",
+    "appliedReload": "Guaardvark zmieniło swój Kod ({{files}}). Interfejs jest budowany na nowo; gdy będzie gotowy, powiadomienie zaproponuje przeładowanie strony.",
     "live": "Zmiana w {{files}} jest aktywna.",
     "undone": "Zmiana w {{files}} nie przeszła testów i została cofnięta: {{error}}",
     "autoReverted": "Zmiana w {{files}} uniemożliwiła uruchomienie Guaardvark, dlatego została cofnięta.",

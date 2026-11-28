@@ -326,6 +326,7 @@
   "selfEdit": {
     "appliedRestart": "Guaardvarkが自身のコード（{{files}}）を変更しました。再起動後に反映されます。",
     "appliedLive": "Guaardvarkが自身のコード（{{files}}）を変更しました。現在反映されています。",
+    "appliedReload": "Guaardvarkが自身のコード（{{files}}）を変更しました。インターフェースを再ビルドしています。準備ができると、ページの再読み込みを促す通知が表示されます。",
     "live": "{{files}} への変更が反映されました。",
     "undone": "{{files}} への変更がチェックに失敗したため、取り消されました：{{error}}",
     "autoReverted": "{{files}} の変更によりGuaardvarkの起動が妨げられたため、取り消されました。",

@@ -553,7 +553,7 @@ def _is_localhost(addr: str) -> bool:
 def _effective_client_ip():
     """Real client IP, accounting for the trusted local Vite proxy.
 
-    `start.sh` serves the production UI via `vite preview`, whose proxy forwards
+    `start.sh` serves the UI through Vite (`vite preview`, or the dev server), whose proxy forwards
     /api and /socket.io to Flask from 127.0.0.1 — so a LAN device's request would
     otherwise look local and bypass this guard entirely. The Vite proxy sets
     X-Forwarded-For (xfwd) with the originating client. We trust that header ONLY

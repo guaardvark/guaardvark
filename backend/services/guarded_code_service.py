@@ -829,6 +829,10 @@ def apply_exact_replacement(
         inbound_guard_service.landed([str(file_path)], source=origin, subject=f"{origin}: {relative_path}",
                                      verdict=verdict)
 
+    if origin != "self_edit":
+        # self_edit reports its own change, after its checks have passed.
+        _interface_file_changed(file_path)
+
     return GuardedEditResult(
         file_path=str(file_path),
         relative_path=relative_path,
@@ -843,6 +847,25 @@ def apply_exact_replacement(
         },
     )
 
+
+
+def _interface_file_changed(file_path: Path) -> None:
+    """After a write to this install's own frontend/: when a build is served,
+    rebuild it and let the update notice offer the reload."""
+    root = default_repo_root()
+    try:
+        relative = file_path.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return  # another checkout (an agent's worktree, an indexed repository)
+    if not relative.startswith("frontend/"):
+        return
+    try:
+        from backend.utils import frontend_serve, update_state
+
+        if frontend_serve.serves_build(root):
+            update_state.record_update_applied(root, [relative])
+    except Exception:
+        logger.debug("interface rebuild not requested", exc_info=True)
 
 
 def _inbound_gate(file_path: Path, relative_path: str, current: str, old_text: str, new_text: str, *,

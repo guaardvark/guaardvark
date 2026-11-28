@@ -47,7 +47,7 @@ _SENTINEL_FILE = _SENTINEL_DIR / ".sync_in_progress"
 # an atomic write.
 SYNC_TEMP_SUFFIX = ".sync-tmp"
 
-# Applied last: rewriting it restarts the Vite dev server, which reloads open pages.
+# Applied last: rewriting it restarts a Vite dev server, which reloads open pages.
 _WRITE_LAST = "frontend/vite.config.js"
 
 # The tracked part of the top-level extensions/ folder. Every other folder in it
@@ -244,6 +244,8 @@ class InterconnectorFileSyncService:
             "backend/pids/",
             "frontend/node_modules/",
             "frontend/dist/",
+            "frontend/dist.next/",
+            "frontend/dist.old/",
             "frontend/.env",
             "backend/tools/voice/whisper.cpp/",
             "backend/tools/voice/piper-models/",

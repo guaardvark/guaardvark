@@ -313,7 +313,8 @@ def apply_fix(fix_id):
                     f"The fix was applied, failed its checks and was undone: {record.get('error')} ({checks})",
                     409, error_code="FIX_FAILED_CHECKS", data={"self_edit": record})
             applied = {"relative_path": record["files"][0]["path"], "self_edit_id": record["id"],
-                       "restart_needed": record.get("restart_needed", False), "checks": record["checks"]}
+                       "restart_needed": record.get("restart_needed", False),
+                       "reload_needed": record.get("reload_needed", False), "checks": record["checks"]}
             summary = f"Checks: {checks}. Change {record['id']} can be reverted."
         else:
             apply_result = apply_exact_replacement(

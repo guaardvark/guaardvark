@@ -12,6 +12,8 @@ __pycache__/
 # Node
 frontend/node_modules/
 frontend/dist/
+frontend/dist.next/
+frontend/dist.old/
 
 # Data (mounted as volumes). The tracked defaults below go into the image as
 # /app/.data-dist and docker/seed_data.py copies them onto the data volume. One

@@ -25,6 +25,14 @@ const writeDismissed = (key) => {
   }
 };
 
+// When a reload started showing the update's interface files: `ui_ts`, which
+// is null while a served build is being rebuilt. A backend that predates the
+// field reports only `ts`.
+const interfaceTs = (update) => {
+  if (!update) return null;
+  return update.ui_ts === undefined ? update.ts ?? null : update.ui_ts;
+};
+
 /**
  * Which update notice the health payload calls for, if any.
  *
@@ -66,11 +74,13 @@ export function describeUpdate(health, baseline) {
       message: translate("layoutCommon.updateNotice.restarted"),
     };
   }
-  // An update this page loaded after is already in it.
-  if (update?.frontend_changed && update.ts !== baseline.updateTs) {
+  // An update this page loaded after is already in it. While a served build
+  // is still being rebuilt there is nothing new to reload into yet.
+  const uiTs = interfaceTs(update);
+  if (update?.frontend_changed && uiTs != null && uiTs !== baseline.updateTs) {
     return {
       kind: "reload",
-      key: `reload:${health.boot_id}:${update.ts}`,
+      key: `reload:${health.boot_id}:${uiTs}`,
       message: update.files
         ? translate("layoutCommon.updateNotice.reloadFiles", { count: update.files })
         : translate("layoutCommon.updateNotice.reload"),
@@ -95,7 +105,7 @@ const UpdateAppliedBanner = () => {
 
   useEffect(() => {
     if (!baseline && health?.boot_id) {
-      setBaseline({ bootId: health.boot_id, updateTs: health.update?.ts ?? null });
+      setBaseline({ bootId: health.boot_id, updateTs: interfaceTs(health.update) });
     }
   }, [baseline, health]);
 

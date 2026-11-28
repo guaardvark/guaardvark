@@ -334,6 +334,7 @@
   "selfEdit": {
     "appliedRestart": "Guaardvark heeft zijn eigen code gewijzigd ({{files}}). Dit treden in werking na een herstart.",
     "appliedLive": "Guaardvark heeft zijn eigen code gewijzigd ({{files}}). Dit is nu live.",
+    "appliedReload": "Guaardvark heeft zijn eigen code gewijzigd ({{files}}). De interface wordt opnieuw gebouwd; een melding biedt aan de pagina te herladen zodra die klaar is.",
     "live": "Wijziging aan {{files}} is live.",
     "undone": "De wijziging aan {{files}} is niet door de controles gekomen en is ongedaan gemaakt: {{error}}",
     "autoReverted": "De wijziging aan {{files}} verhinderde Guaardvark om te starten, dus is deze ongedaan gemaakt.",

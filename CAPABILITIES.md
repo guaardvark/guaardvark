@@ -871,7 +871,7 @@ First run:
 5. Builds Whisper.cpp from source
 6. Runs database migrations
 7. Builds frontend
-8. Starts Flask, Celery workers, and Vite dev server
+8. Starts Flask, Celery workers, and the frontend server (the production build; `--dev-server` serves from source)
 9. Runs health checks
 10. Agent virtual display (`:99`) starts **on demand** when you open Agent Screen or when agent tools need it — not at boot (5-minute idle shutdown after the viewer closes)
 
@@ -907,7 +907,7 @@ All logs in `logs/`:
 - `celery_main.log` — Main Celery worker (indexing, generation, health)
 - `celery_training.log` — Training/GPU worker
 - `celery_research.log` — Research worker (autoresearch runs; present only once a run has been started)
-- `frontend.log` — Vite dev server
+- `frontend.log` — Frontend build and server
 - `setup.log` — Dependency installation
 - `xfce_agent.log` — Agent's XFCE session output
 - `x11vnc_agent.log` — VNC server for the agent display
