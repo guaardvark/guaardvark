@@ -35,7 +35,11 @@ const SelfEditNotice = ({ edit }) => {
   };
 
   const line = {
-    applied: edit.restart_needed ? t("chat.selfEdit.appliedRestart", { files }) : t("chat.selfEdit.appliedLive", { files }),
+    applied: edit.restart_needed
+      ? t("chat.selfEdit.appliedRestart", { files })
+      : edit.reload_needed
+        ? t("chat.selfEdit.appliedReload", { files })
+        : t("chat.selfEdit.appliedLive", { files }),
     live: t("chat.selfEdit.live", { files }),
     failed_checks: t("chat.selfEdit.undone", { files, error: edit.error || "" }),
     auto_reverted: t("chat.selfEdit.autoReverted", { files }),

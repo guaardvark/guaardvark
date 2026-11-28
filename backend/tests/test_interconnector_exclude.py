@@ -53,6 +53,7 @@ def test_all_venv_dirs_excluded(svc, path):
 # --- real directories that MUST still be excluded (no regression) ---
 @pytest.mark.parametrize("path", [
     "frontend/dist/assets/index-abc.js",       # dist/
+    "frontend/dist.next/index.html",           # a rebuild in progress
     "backend/venv/lib/python3.12/site.py",     # backend/venv/
     "data/training/loras/Serenity_Kane_v1.json",  # data/
     "logs/backend.log",                        # logs/ (and *.log)

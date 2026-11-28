@@ -111,6 +111,13 @@ def _needs_restart(rel: str) -> bool:
     return rel.endswith(".py") and not rel.startswith(("frontend/", "scripts/"))
 
 
+def _needs_reload(rel: str) -> bool:
+    """An interface file under a served build shows after dist is rebuilt and
+    the page reloaded; the dev server puts it in open pages by itself."""
+    from backend.utils.frontend_serve import serves_build
+    return rel.startswith("frontend/") and serves_build(repo_root())
+
+
 # ---------------------------------------------------------------------------
 # Checks
 # ---------------------------------------------------------------------------
@@ -266,6 +273,7 @@ def apply_change(path: str, old_text: str, new_text: str, *, group: str, title: 
             "files": [{"path": rel, "before": "before_0" if before is not None else None,
                        "before_sha": _sha(before), "after_sha": _sha(after), "created": before is None}],
             "restart_needed": _needs_restart(rel),
+            "reload_needed": _needs_reload(rel),
             "checks": [],
         }
         _write_json(_manifest_path(edit_id), record)
@@ -308,7 +316,8 @@ def apply_change(path: str, old_text: str, new_text: str, *, group: str, title: 
         _write_json(_manifest_path(edit_id), record)
         _mark_pending(record)
         logger.info("Self-edit %s on %s applied (%s)", edit_id, rel,
-                    "restart to apply" if record["restart_needed"] else "live now")
+                    "restart to apply" if record["restart_needed"]
+                    else "reload to apply" if record["reload_needed"] else "live now")
         return record
 
 
@@ -356,8 +365,9 @@ def _unlist_pending(edit_id: str) -> None:
 
 def _mark_pending(record: Dict[str, Any]) -> None:
     """Note a backend edit no start has proven yet, and tell the UI a restart
-    is due."""
-    if not record.get("restart_needed"):
+    is due; for an interface edit under a served build, start the rebuild that
+    ends in the reload notice."""
+    if not (record.get("restart_needed") or record.get("reload_needed")):
         return
     _list_pending(record)
     try:
@@ -415,7 +425,7 @@ def revert(edit_or_group: str, *, force: bool = False) -> Dict[str, Any]:
             _write_json(_manifest_path(r["id"]), r)
             reverted.append(r["id"])
             restart = restart or r.get("restart_needed", False)
-        if restart:
+        if restart or any(r.get("reload_needed") for r in records):
             try:
                 from backend.utils.update_state import record_update_applied
                 record_update_applied(str(root), sorted({f["path"] for r in records for f in r["files"]}))

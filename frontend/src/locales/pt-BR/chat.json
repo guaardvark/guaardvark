@@ -334,6 +334,7 @@
   "selfEdit": {
     "appliedRestart": "O Guaardvark alterou seu próprio código ({{files}}). Entrará em vigor após reiniciar.",
     "appliedLive": "O Guaardvark alterou seu próprio código ({{files}}). Já está ativo.",
+    "appliedReload": "O Guaardvark alterou seu próprio código ({{files}}). A interface está sendo reconstruída; um aviso oferecerá recarregar a página quando estiver pronta.",
     "live": "A alteração em {{files}} está ativa.",
     "undone": "A alteração em {{files}} falhou nas verificações e foi desfeita: {{error}}",
     "autoReverted": "A alteração em {{files}} impediu o Guaardvark de iniciar, então foi desfeita.",

@@ -149,7 +149,7 @@ npm install
 npm run dev -- --host --port=5173
 ```
 
-Hot module replacement is enabled — changes appear instantly in the browser.
+Hot module replacement is enabled — changes appear instantly in the browser. `./start.sh` serves the production build, which does not; `./start.sh --dev-server` starts everything with this dev server instead, and `GUAARDVARK_FRONTEND_SERVE=dev` in `.env` keeps it that way.
 
 ### Backend Development
 

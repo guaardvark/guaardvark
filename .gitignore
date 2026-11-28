@@ -156,6 +156,9 @@ plugins/upscaling/test_gfpgan.py
 
 # Frontend build
 frontend/dist/
+# A rebuild made while Guaardvark runs (scripts/frontend_rebuild.py)
+frontend/dist.next/
+frontend/dist.old/
 frontend/.vite/
 
 # Databases

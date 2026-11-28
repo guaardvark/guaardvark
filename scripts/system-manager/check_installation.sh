@@ -259,9 +259,9 @@ fi
 
 # Check Frontend (using detected port)
 if port_in_use "$VITE_PORT"; then
-    echo -e "  ${CHECK_MARK} Frontend dev server running (http://localhost:${VITE_PORT})"
+    echo -e "  ${CHECK_MARK} Frontend server running (http://localhost:${VITE_PORT})"
 else
-    echo -e "  ${WARNING} Frontend dev server NOT running"
+    echo -e "  ${WARNING} Frontend server NOT running"
     echo -e "     Expected port: ${VITE_PORT}"
     echo -e "     Start: ./start.sh"
     WARNINGS=$((WARNINGS + 1))

@@ -36,6 +36,20 @@ describe("describeUpdate", () => {
     expect(describeUpdate({ status: "ok" }, null)).toBeNull();
   });
 
+  it("waits for a served build to be rebuilt before offering the reload", () => {
+    const baseline = { bootId: "boot-a", updateTs: null };
+    const building = health({ update: { ...frontendUpdate(100), ui_ts: null } });
+    expect(describeUpdate(building, baseline)).toBeNull();
+
+    const rebuilt = health({ update: { ...frontendUpdate(100), ui_ts: 130 } });
+    expect(describeUpdate(rebuilt, baseline)).toMatchObject({ kind: "reload", key: "reload:boot-a:130" });
+  });
+
+  it("is quiet on a page that loaded after the rebuild", () => {
+    const rebuilt = health({ update: { ...frontendUpdate(100), ui_ts: 130 } });
+    expect(describeUpdate(rebuilt, { bootId: "boot-a", updateTs: 130 })).toBeNull();
+  });
+
   it("offers a restart when the GPU faulted, ahead of any update notice", () => {
     const notice = describeUpdate(
       health({

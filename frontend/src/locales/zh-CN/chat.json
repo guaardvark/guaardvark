@@ -326,6 +326,7 @@
   "selfEdit": {
     "appliedRestart": "Guaardvark 修改了其自身的代码 ({{files}})。重启后生效。",
     "appliedLive": "Guaardvark 修改了其自身的代码 ({{files}})。现已生效。",
+    "appliedReload": "Guaardvark 修改了其自身的代码 ({{files}})。界面正在重新构建；就绪后会有通知提示重新加载页面。",
     "live": "对 {{files}} 的更改已生效。",
     "undone": "对 {{files}} 的更改未通过检查并已撤销：{{error}}",
     "autoReverted": "对 {{files}} 的更改导致 Guaardvark 无法启动，因此已撤销。",

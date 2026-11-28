@@ -22,6 +22,7 @@ FORCE_PORTS=1
 FORCE_PORTS_TYPED=0
 BUILD_CHECK=1
 AUTO_BUILD_FRONTEND=1
+DEV_SERVER_FLAG=0
 LAUNCH_BROWSER=0
 if [ "${GUAARDVARK_APP_MODE}" = "true" ] || [ "${GUAARDVARK_APP_MODE}" = "1" ]; then
   LAUNCH_BROWSER=1
@@ -58,6 +59,9 @@ for arg in "$@"; do
       echo "  --no-build-check    Skip build verification"
       echo "  --build-frontend   Enable automatic frontend rebuild"
       echo "  --no-auto-build    Disable automatic frontend rebuild"
+      echo "  --dev-server       Serve the interface from source with the Vite dev server, so an"
+      echo "                     edit to frontend/src shows in open pages at once (for working on"
+      echo "                     the interface; GUAARDVARK_FRONTEND_SERVE=dev in .env keeps it on)"
       echo "  --skip-migrations  Skip database migration checks"
       echo "  --skip-postgres    Skip PostgreSQL setup (for external DB users)"
       echo "  --external-ollama  Use an Ollama you run yourself: never start it, never stop it"
@@ -89,6 +93,7 @@ for arg in "$@"; do
     --no-build-check) BUILD_CHECK=0 ;;
     --build-frontend) AUTO_BUILD_FRONTEND=1 ;;
     --no-auto-build) AUTO_BUILD_FRONTEND=0 ;;
+    --dev-server) DEV_SERVER_FLAG=1 ;;
     --skip-migrations) export GUAARDVARK_SKIP_MIGRATIONS=1 ;;
     --skip-postgres) export GUAARDVARK_SKIP_POSTGRES=1 ;;
     --app-mode) LAUNCH_BROWSER=1 ;;
@@ -148,6 +153,7 @@ mkdir -p "$SCRIPT_DIR/.start_cache"
 # shellcheck source=scripts/lib/start_lock.sh
 . "$SCRIPT_DIR/scripts/lib/start_lock.sh"
 . "$SCRIPT_DIR/scripts/lib/venv_pins.sh"
+. "$SCRIPT_DIR/scripts/lib/frontend_build_fp.sh"   # frontend_build_fp
 . "$SCRIPT_DIR/scripts/lib/apt_install.sh"   # gv_apt_install
 # shellcheck source=scripts/lib/ollama_lifecycle.sh
 . "$SCRIPT_DIR/scripts/lib/ollama_lifecycle.sh"   # ollama_flag_on
@@ -917,29 +923,6 @@ check_frontend_build() {
     fi
 
     return 0
-}
-
-# Fingerprint of everything the production bundle is built from: the frontend
-# tree, extension frontends, and the VITE_* environment. VITE_ALLOWED_HOSTS and
-# VITE_PORT are left out: they configure the server at serve time, never reach
-# the bundle, and differ per machine and network. Empty outside a git checkout.
-frontend_build_fp() {
-    git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
-    {
-        git -C "$SCRIPT_DIR" rev-parse HEAD:frontend
-        git -C "$SCRIPT_DIR" diff HEAD --binary -- frontend
-        git -C "$SCRIPT_DIR" ls-files -z --others --exclude-standard -- frontend \
-            | (cd "$SCRIPT_DIR" && xargs -0 -r sha256sum)
-        (
-            cd "$SCRIPT_DIR" || exit 0
-            find frontend -maxdepth 1 -name '.env*' -type f -print0
-            # Extension folders may be symlinks into other checkouts.
-            for d in extensions/[!_.]*/frontend; do
-                [ -d "$d" ] && find -L "$d" -name node_modules -prune -o -type f -print0
-            done
-        ) | sort -z | (cd "$SCRIPT_DIR" && xargs -0 -r sha256sum)
-        env | grep '^VITE_' | grep -vE '^VITE_(ALLOWED_HOSTS|PORT)=' | sort
-    } 2>/dev/null | sha256sum | cut -d' ' -f1
 }
 
 # Records a production build attempt for /api/health/frontend in
@@ -3366,25 +3349,39 @@ export VITE_PORT
 # watch/HMR — if we skip the build, it happily serves whatever stale bundle is on disk.
 # The earlier mtime-gated check is a best-effort optimization; this is the guarantee.
 # On build failure the behavior is HONEST, not silent:
-#   - if a previous dist exists, it is kept and the failure is reported loudly; the
-#     dev server still serves the current src/, so what is stale is only dist/;
+#   - if a previous dist exists, it is kept and the failure is reported loudly; this
+#     start serves the current src/ with the dev server instead, so what is stale
+#     is only dist/;
 #   - if there is NO dist at all, we abort the launch, except when the build was
 #     killed for lack of memory (exit 137): that says nothing about the code, and
 #     the dev server serves src/ without a dist, so it launches with a warning.
 FRONTEND_CAN_SERVE=1
+
+# Which server answers on $VITE_PORT:
+#   build  `vite preview` over frontend/dist: React's production build in a few
+#          minified files. The default.
+#   dev    the Vite dev server over frontend/src, where an edit to the interface's
+#          code shows in open pages at once. Chosen with --dev-server or
+#          GUAARDVARK_FRONTEND_SERVE=dev in .env, and used for one start whenever
+#          the build below does not finish.
+# Both proxy /api and /socket.io to Flask (frontend/vite.config.js).
+FRONTEND_SERVE=build
+if [ "$DEV_SERVER_FLAG" -eq 1 ] || [ "${GUAARDVARK_FRONTEND_SERVE:-}" = dev ]; then
+    FRONTEND_SERVE=dev
+fi
 # Belt-and-suspenders: make sure node_modules are present before the guaranteed build
 ensure_frontend_deps
 
-# LAN awareness for the preview (static) frontend bundle.
-# `vite preview` now carries its own proxy + host allowlist (see the `preview:`
-# block in frontend/vite.config.js, reconciled from PR #40): relative /api and
-# /socket.io requests from a page loaded at a LAN IP are proxied server-side to
-# Flask, and WebSockets upgrade through it. So we do NOT bake an absolute
+# LAN awareness for the frontend server.
+# `vite preview` and the dev server share one proxy + host allowlist (the `preview:`
+# and `server:` blocks in frontend/vite.config.js, reconciled from PR #40): relative
+# /api and /socket.io requests from a page loaded at a LAN IP are proxied server-side
+# to Flask, and WebSockets upgrade through it. So we do NOT bake an absolute
 # http://<lan-ip>:<FLASK> into the bundle anymore — that hardcoded a single
 # build-time IP and broke on multi-NIC / DHCP-change boxes. Relative URLs through
-# the preview proxy are robust to whichever host the client actually reaches.
+# the proxy are robust to whichever host the client actually reaches.
 #
-# The one thing the preview server needs is permission to serve a non-localhost
+# The one thing the server needs is permission to serve a non-localhost
 # Host header (otherwise Vite answers "Blocked request"). Opt the detected LAN IP
 # into VITE_ALLOWED_HOSTS so the normal start.sh path just works on the LAN, while
 # a bare `vite preview`/`vite` run stays localhost-only by default (PR #40 policy).
@@ -3399,21 +3396,22 @@ if [ -n "$PRIMARY_LAN_IP" ]; then
     _default_hosts="$PRIMARY_LAN_IP"
     [ -n "$SELF_HOSTNAME" ] && _default_hosts="${_default_hosts},${SELF_HOSTNAME},${SELF_HOSTNAME}.local"
     export VITE_ALLOWED_HOSTS="${VITE_ALLOWED_HOSTS:-$_default_hosts}"
-    vader_info "LAN IP detected (${PRIMARY_LAN_IP}); allowing it in vite preview (VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS}). Frontend uses relative URLs proxied to Flask."
+    vader_info "LAN IP detected (${PRIMARY_LAN_IP}); allowing it in the frontend server (VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS}). Frontend uses relative URLs proxied to Flask."
 else
     # No LAN IP found — still allow this box's own hostname so the operator isn't
     # locked out with an opaque browser "403 Forbidden / Blocked request" (#41).
     if [ -n "$SELF_HOSTNAME" ]; then
         export VITE_ALLOWED_HOSTS="${VITE_ALLOWED_HOSTS:-${SELF_HOSTNAME},${SELF_HOSTNAME}.local}"
-        vader_info "No private LAN IP detected; allowing localhost + this host (${SELF_HOSTNAME}/.local) in vite preview. A browser '403 Forbidden / Blocked request' means the host you typed isn't allowed — set VITE_ALLOWED_HOSTS=<your-ip-or-name> in .env to add it."
+        vader_info "No private LAN IP detected; allowing localhost + this host (${SELF_HOSTNAME}/.local) in the frontend server. A browser '403 Forbidden / Blocked request' means the host you typed isn't allowed — set VITE_ALLOWED_HOSTS=<your-ip-or-name> in .env to add it."
     else
-        vader_info "No private LAN IP detected; preview stays localhost-only. A browser '403 Forbidden / Blocked request' means the host you typed isn't allowed — set VITE_ALLOWED_HOSTS=<your-ip-or-name> in .env to enable LAN access."
+        vader_info "No private LAN IP detected; the frontend server stays localhost-only. A browser '403 Forbidden / Blocked request' means the host you typed isn't allowed — set VITE_ALLOWED_HOSTS=<your-ip-or-name> in .env to enable LAN access."
     fi
 fi
 
-# The dev server below serves src/ directly; this build proves the code still
-# compiles and keeps a last-good dist. Skip it when neither the code, the
-# lockfile nor the build-time VITE_* env changed since the last good build.
+# Skip the build when neither the code, the lockfile nor the build-time VITE_*
+# env changed since the last good build. With the dev server chosen the build
+# still runs: it proves the code compiles and keeps dist current for the next
+# start without it.
 FRONTEND_BUILD_STAMP="$FRONTEND_DIR/dist/.build_fp"
 FRONTEND_FP="$(frontend_build_fp)"
 if [ "$FORCE_CLEAN" -eq 0 ] && [ -n "$FRONTEND_FP" ] && [ -f "$FRONTEND_DIR/dist/index.html" ] \
@@ -3431,12 +3429,14 @@ elif vader_info "Building frontend (production) before serving..." \
 elif [ "${FRONTEND_BUILD_RC:-}" = 137 ] && [ ! -f "$FRONTEND_BUILD_STAMP" ]; then
     # No finished dist: none existed, or the killed build had already emptied it.
     frontend_build_failure_note "$FRONTEND_BUILD_RC"
-    vader_warn "The production build check could not finish for lack of memory, so frontend/dist is missing or incomplete. The interface is still served from source by the dev server; the check runs again on the next start."
-    progress_end skip "Not enough memory to finish the build check; the interface runs from source and the check runs again next start."
+    FRONTEND_SERVE=dev
+    vader_warn "The production build could not finish for lack of memory, so frontend/dist is missing or incomplete. This start serves the interface from source with the dev server instead; the build runs again on the next start."
+    progress_end skip "Not enough memory to finish the build; the interface runs from source and the build runs again next start."
 elif [ -f "$FRONTEND_DIR/dist/index.html" ]; then
+    FRONTEND_SERVE=dev
     frontend_build_failure_note "$FRONTEND_BUILD_RC"
-    vader_error "Frontend build FAILED — frontend/dist still holds the last good build, which is older than the code. The interface is served from the current source by the dev server, where an error in the code shows too. Fix the build; see $FRONTEND_LOG_FILE"
-    progress_end fail "The interface's build check failed; it is served from the current source. See the log."
+    vader_error "Frontend build FAILED — frontend/dist still holds the last good build, which is older than the code. This start serves the interface from the current source with the dev server instead, where an error in the code shows too. Fix the build; see $FRONTEND_LOG_FILE"
+    progress_end fail "The interface's build failed; it is served from the current source. See the log."
 else
     frontend_build_failure_note "$FRONTEND_BUILD_RC"
     vader_error "Frontend build FAILED and no prior dist exists — cannot serve frontend. See $FRONTEND_LOG_FILE"
@@ -3446,22 +3446,25 @@ fi
 progress_step frontend "Starting the interface" 93
 
 if [ "$FRONTEND_CAN_SERVE" -eq 1 ]; then
-    # Serve via the Vite DEV server (not `vite preview`). The dev server's
-    # `/socket.io` ws:true proxy reliably handles the WebSocket upgrade, which
-    # `vite preview` does not — that broke realtime chat (Socket.IO connect_error
-    # transport: websocket → no live thinking steps / stuck stop icon). This
-    # matches the long-standing serving model (see good_phase backup, whose
-    # vite.config had only the dev `server:` block). The build above is kept as a
-    # belt-and-suspenders correctness check, but the dev server serves src/ directly.
-    vader_info "Launching frontend (Vite dev server, reliable WS proxy) in background..."
-    # Vite's dev server exits when its terminal hangs up or its stdin closes, and
+    if [ "$FRONTEND_SERVE" = build ]; then
+        FRONTEND_NPM_SCRIPT=preview
+        vader_info "Launching frontend (production build) in background..."
+    else
+        FRONTEND_NPM_SCRIPT=dev
+        vader_info "Launching frontend (Vite dev server, from source) in background..."
+    fi
+    # The backend reads this to know whether a change to frontend files needs
+    # dist rebuilt before a page reload shows it (backend/utils/frontend_serve.py).
+    mkdir -p "$SCRIPT_DIR/.start_cache"
+    printf '%s\n' "$FRONTEND_SERVE" > "$SCRIPT_DIR/.start_cache/frontend_serve"
+    # A Vite server exits when its terminal hangs up or its stdin closes, and
     # npm does not pass nohup's ignore on to it. On WSL that takes the studio down
     # with the window, so there it runs in its own session with stdin detached;
     # CI=true is Vite's own switch for "do not watch stdin".
     if [ "${GUAARDVARK_IS_WSL:-0}" = 1 ] && command -v setsid >/dev/null 2>&1; then
-        setsid nohup env CI=true $NPM_CMD run dev -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 < /dev/null &
+        setsid nohup env CI=true $NPM_CMD run "$FRONTEND_NPM_SCRIPT" -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 < /dev/null &
     else
-        nohup $NPM_CMD run dev -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 &
+        nohup $NPM_CMD run "$FRONTEND_NPM_SCRIPT" -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 &
     fi
     FRONTEND_PID=$!
     echo "$FRONTEND_PID" > "$SCRIPT_DIR/pids/frontend.pid"

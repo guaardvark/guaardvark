@@ -20,6 +20,8 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
+from backend.utils import frontend_serve
+
 _VERSION_FILE = Path(__file__).resolve().parents[2] / "VERSION"
 
 PENDING_RESTART_RELPATH = Path("data") / "interconnector" / "pending_restart.json"
@@ -98,6 +100,7 @@ def record_update_applied(
     """
     now = time.time() if now is None else now
     paths = {str(p).replace("\\", "/") for p in changed_paths if p}
+    frontend_touched = classify_changed_paths(paths)["frontend_changed"]
     previous = _pending_since_boot(root, boot_time)
     if previous:
         paths.update(previous.get("paths") or [])
@@ -117,6 +120,9 @@ def record_update_applied(
         os.replace(tmp, target)
     finally:
         tmp.unlink(missing_ok=True)
+    if frontend_touched:
+        # A served build shows the change only once dist is rebuilt.
+        frontend_serve.request_rebuild(root)
     return record
 
 
@@ -130,8 +136,10 @@ def restart_state(
 
     ``restart_required`` covers backend code, dependency files and a VERSION
     that differs from the one this process started with. A frontend-only update
-    sets ``update`` without it: the dev server serves the new files, so a page
-    reload is enough.
+    sets ``update`` without it: a page reload is enough, from the moment in
+    ``update["ui_ts"]``. That is the update itself under the dev server and the
+    end of the rebuild when a build is served (None until then); a rebuild that
+    failed leaves the change to a restart.
     """
     disk_version = read_disk_version()
     pending = _pending_since_boot(root, boot_time)
@@ -150,6 +158,12 @@ def restart_state(
             key: pending.get(key)
             for key in ("ts", "files", "backend_changed", "frontend_changed", "deps_changed")
         }
+        update["ui_ts"] = None
+        if pending.get("frontend_changed"):
+            interface = frontend_serve.interface_state(root, float(pending.get("ts") or 0))
+            update["ui_ts"] = interface["ready_ts"]
+            if interface["failed"]:
+                reasons.append(interface["failed"])
     return {
         "boot_id": BOOT_ID,
         "disk_version": disk_version,

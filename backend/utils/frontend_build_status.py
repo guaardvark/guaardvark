@@ -1,10 +1,12 @@
 """What frontend/dist holds, for /api/health/frontend.
 
-start.sh records every production build attempt in .start_cache/frontend_build.json
-and writes frontend/dist/.build_fp only after a build has finished, so a dist
-without that stamp did not come from a finished start.sh build. The UI that
-start.sh serves comes from the Vite dev server, which does not read dist; dist is
-what the production images serve.
+start.sh and scripts/frontend_rebuild.py (a rebuild made while Guaardvark runs)
+record every production build attempt in .start_cache/frontend_build.json and
+write frontend/dist/.build_fp only after a build has finished, so a dist without
+that stamp did not come from a finished build of theirs. start.sh serves dist
+with `vite preview`; when it was started with the dev server, or its build did
+not finish, the interface comes from frontend/src instead and dist is not read
+(backend/utils/frontend_serve.py says which).
 
 Statuses:
   ok           dist is a finished build of the code start.sh last checked
@@ -37,7 +39,9 @@ def _read_attempt(path):
     return data if isinstance(data, dict) else None
 
 
-def _failure_reason(code):
+def _failure_reason(code, reason=None):
+    if reason:
+        return reason
     if code == OOM_EXIT_CODE:
         return "the last production build ran out of memory (exit code 137)"
     return f"the last production build failed (exit code {code})"
@@ -59,12 +63,13 @@ def frontend_build_status(repo_root):
         }
     state = (attempt or {}).get("state")
     code = (attempt or {}).get("exit_code")
+    why = (attempt or {}).get("reason")
 
     if not os.path.exists(index_path):
         if state == "failed" and code == OOM_EXIT_CODE:
-            reason = "production check did not finish (out of memory); interface served by the dev server"
+            reason = "the production build did not finish (out of memory); interface served by the dev server"
         elif state == "failed":
-            reason = _failure_reason(code)
+            reason = _failure_reason(code, why)
         elif state == "running":
             reason = "a production build started and has not finished"
         else:
@@ -95,7 +100,7 @@ def frontend_build_status(repo_root):
     # A finished build exists; its stamp was written when that build completed.
     payload["build_timestamp"] = _iso_mtime(stamp_path)
     if state == "failed":
-        payload.update(status="stale", error=_failure_reason(code) + "; frontend/dist is an earlier build")
+        payload.update(status="stale", error=_failure_reason(code, why) + "; frontend/dist is an earlier build")
     elif state == "running":
         payload.update(status="building", error="a production build started and has not finished")
     elif attempt and attempt.get("fingerprint") != stamp:

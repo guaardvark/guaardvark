@@ -2720,6 +2720,7 @@ def _self_edit_summary(res) -> Optional[Dict[str, Any]]:
         "status": record.get("status"),
         "files": [f.get("path") for f in record.get("files") or []],
         "restart_needed": bool(record.get("restart_needed")),
+        "reload_needed": bool(record.get("reload_needed")),
         "checks": record.get("checks") or [],
         "error": record.get("error"),
     }
