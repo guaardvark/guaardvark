@@ -2947,10 +2947,7 @@ cd "$FRONTEND_DIR" || { vader_error "Failed to cd to $FRONTEND_DIR"; exit 1; }
 # We now ensure frontend deps are present before any build (using the same
 # npm ci strategy as the dep_reconciler). This fixes the "vite not found"
 # and "no node_modules" class of failures on first run / after clean.
-# The small ensure_npm_package calls below are for specific dev deps only.
 ensure_frontend_deps
-
-ensure_npm_package rollup-plugin-polyfill-node
 
 if [ ! -f ".eslintrc.json" ]; then
     cat > .eslintrc.json <<'EOF'
