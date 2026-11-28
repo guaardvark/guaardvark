@@ -405,8 +405,17 @@ def failure_text(kind: "RenderErrorKind | str | None", message: str | None,
 
 def record_text(record: dict[str, Any]) -> str:
     """One line for a failure record describe_failure built: its own label,
-    message and next step (the record already has the job kind's wording)."""
-    text = f"{record['label']}: {record['message']}" if record.get("message") else record["label"]
+    message and next step (the record already has the job kind's wording).
+    A message that repeats the label or opens with it is not prefixed with it
+    ("Cancelled", "Cancelled by user")."""
+    label = record["label"]
+    message = str(record.get("message") or "").strip()
+    if message.casefold().startswith(label.casefold()):
+        text = label + message[len(label):]
+    elif message:
+        text = f"{label}: {message}"
+    else:
+        text = label
     if record.get("action"):
         text += f" Next: {record['action']}"
     if record.get("retryable"):

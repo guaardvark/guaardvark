@@ -213,7 +213,7 @@ Train your own LoRAs on your own GPU and keep the same character, place or objec
 - **New scene, same face** on the Image Edit page: up to three photos of one person, a face check and consent step for each, a measured likeness score on the result, and a way to put the face on one person in a group scene.
 - **Photo editing** by instruction (Qwen-Image-Edit, FLUX.1 Kontext), inpainting, outpainting and background removal, from the Images pages or straight from chat.
 - **Add any Hugging Face model** (checkpoint or LoRA) from its URL.
-- **4K and 8K upscaling** on the GPU with nine models, from HAT-L (maximum-quality restoration) to anime-tuned Real-ESRGAN variants: two-pass mode, FP16/BF16 with optional `torch.compile`, frame-by-frame video upscaling, and an optional watch folder. The model table is in [CAPABILITIES.md](CAPABILITIES.md#gpu-image--video-upscaling).
+- **4K and 8K upscaling** on the GPU with nine models. 4x Foolhardy Remacri is the default, and HAT-L, 4x-UltraSharp and anime-tuned Real-ESRGAN variants install from the Upscaling page: two-pass mode, FP16/BF16 with optional `torch.compile`, frame-by-frame video upscaling, and an optional watch folder. The model table is in [CAPABILITIES.md](CAPABILITIES.md#gpu-image--video-upscaling).
 
 ### Music, sound and voice
 

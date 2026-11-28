@@ -502,6 +502,7 @@ Dedicated upscaling plugin for sharpening generated content to 4K/8K.
 
 | Model | Scale | Size | Best For |
 |-------|-------|------|----------|
+| 4x Foolhardy Remacri (default) | 4x | 67 MB | Texture-focused upscaling |
 | HAT-L SRx4 | 4x | 159 MB | Maximum quality restoration |
 | RealESRGAN x4plus | 4x | 64 MB | General-purpose, photorealistic |
 | RealESRGAN x2plus | 2x | 64 MB | Mild upscaling |
@@ -510,7 +511,6 @@ Dedicated upscaling plugin for sharpening generated content to 4K/8K.
 | realesr-general-x4v3 | 4x | 6 MB | Lightweight general-purpose (Real-ESRGAN Compact) |
 | 4x-UltraSharp | 4x | 67 MB | Enhanced sharpness |
 | 4x NMKD-Superscale | 4x | 67 MB | Advanced super-scaling |
-| 4x Foolhardy Remacri | 4x | 67 MB | Texture-focused upscaling |
 
 ### Models
 - **Real-ESRGAN 2x / 4x** — proven anime/photo upscaler

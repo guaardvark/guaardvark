@@ -2,7 +2,7 @@
   "id": "video_editor",
   "name": "Video Editor",
   "version": "0.1.0",
-  "description": "MLT/Shotcut + auto-editor backend for the Guaardvark Video Editor. Builds beat-synced timelines (librosa) and renders via melt. CPU pipeline; no VRAM required by default.",
+  "description": "Backend for the Video Editor page: cuts clips to the beats of a song, trims them with auto-editor, and renders MLT projects to MP4 with melt. Runs on the CPU.",
   "author": "Guaardvark",
   "type": "service",
   "category": "editing",
