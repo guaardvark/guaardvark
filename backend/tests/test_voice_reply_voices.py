@@ -98,3 +98,29 @@ def test_no_voice_installed_is_one_plain_message(client, monkeypatch, tmp_path):
     body = resp.get_json()
     assert body["code"] == "no_voice_installed"
     assert "Voice Settings" in body["error"] and "Kokoro voice pack" in body["error"]
+
+
+def _only_piper_voice(monkeypatch, installed):
+    """Make exactly one catalog voice's model count as present."""
+    wanted = voice_api.PIPER_VOICES[installed]["model"] if installed else None
+    monkeypatch.setattr(voice_api, "file_complete", lambda path: bool(wanted) and str(path).endswith(wanted))
+
+
+def test_status_reports_speech_with_one_installed_piper_voice(client, foundry_off, monkeypatch):
+    # A fresh install has the default voice only, not the whole catalog.
+    _only_piper_voice(monkeypatch, voice_api.DEFAULT_VOICE)
+    body = client.get("/api/voice/status").get_json()
+    assert body["text_to_speech"] is True
+    assert body["available_voices"] == [voice_api.DEFAULT_VOICE]
+
+
+def test_status_reports_speech_while_kokoro_speaks_without_any_piper_voice(client, foundry_running, two_kokoro_packs, monkeypatch):
+    _only_piper_voice(monkeypatch, None)
+    body = client.get("/api/voice/status").get_json()
+    assert body["text_to_speech"] is True
+    assert "kokoro" in body["engine"]
+
+
+def test_status_reports_no_speech_when_nothing_can_speak(client, foundry_off, monkeypatch):
+    _only_piper_voice(monkeypatch, None)
+    assert client.get("/api/voice/status").get_json()["text_to_speech"] is False
