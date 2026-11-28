@@ -262,6 +262,7 @@ const CardWorkspace = ({ boardKey, version = 1, cards, presets }) => {
         width={width}
         grid={gridSettings}
         spacing={SPACING}
+        overlap={false}
         layout={shown}
         minimized={minimized}
         stacking={stacking}

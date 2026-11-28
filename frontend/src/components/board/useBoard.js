@@ -39,31 +39,38 @@ const gridItemOf = (cardId) => {
 };
 
 /**
- * Click-to-top stacking. Cards overlap freely, so the one pressed last is
- * raised above the rest. The grid rewrites its items' inline styles when a
- * drag ends, so the board re-applies the order after each render.
+ * Last-touch stacking. The card touched last is drawn above the rest, and the
+ * others keep the order they were touched in; a card never touched stays under
+ * every touched one. The order lives in memory only. It is written to the grid
+ * items as z-index 1..n, and the grid rewrites its items' inline styles, so the
+ * board re-applies it after each render. The board isolates its own stacking,
+ * so these values never compete with anything outside it.
  */
 export function useCardStacking() {
-  const order = useRef({});
-  const top = useRef(0);
-
-  const raise = useCallback((cardId) => {
-    top.current += 1;
-    order.current = { ...order.current, [cardId]: top.current };
-    const item = gridItemOf(cardId);
-    if (item) item.style.zIndex = top.current;
-  }, []);
+  const order = useRef([]);
 
   const reapply = useCallback(() => {
-    Object.entries(order.current).forEach(([cardId, z]) => {
+    order.current.forEach((cardId, idx) => {
       const item = gridItemOf(cardId);
-      if (item) item.style.zIndex = z;
+      if (item) item.style.zIndex = idx + 1;
     });
   }, []);
 
+  const raise = useCallback(
+    (cardId) => {
+      const last = order.current[order.current.length - 1];
+      if (last !== cardId) order.current = [...order.current.filter((id) => id !== cardId), cardId];
+      reapply();
+    },
+    [reapply],
+  );
+
   const reset = useCallback(() => {
-    order.current = {};
-    top.current = 0;
+    order.current.forEach((cardId) => {
+      const item = gridItemOf(cardId);
+      if (item) item.style.zIndex = "";
+    });
+    order.current = [];
   }, []);
 
   return useMemo(() => ({ raise, reapply, reset }), [raise, reapply, reset]);
