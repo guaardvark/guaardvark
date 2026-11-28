@@ -155,3 +155,36 @@ def test_memory_wait_gives_up_after_the_deadline():
     assert rebuild._wait_for_memory(needed=10, wait_s=0, available=lambda: 5, sleep=lambda s: None) is False
     assert rebuild._wait_for_memory(needed=10, wait_s=0, available=lambda: 10, sleep=lambda s: None) is True
     assert rebuild._wait_for_memory(needed=10, wait_s=0, available=lambda: None, sleep=lambda s: None) is True
+
+
+@pytest.fixture
+def own_checkout(tmp_path, monkeypatch):
+    """A stand-in install root that records what a guarded write reports."""
+    from backend.services import guarded_code_service
+
+    reported = []
+    monkeypatch.setattr(guarded_code_service, "default_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(update_state, "record_update_applied", lambda root, paths: reported.append(list(paths)))
+    return guarded_code_service, tmp_path, reported
+
+
+def test_guarded_write_to_the_interface_reports_it_when_a_build_is_served(own_checkout):
+    service, root, reported = own_checkout
+    _serve(root, "build")
+    service._interface_file_changed(root / "frontend" / "src" / "App.jsx")
+    assert reported == [["frontend/src/App.jsx"]]
+
+
+def test_guarded_write_reports_nothing_under_the_dev_server(own_checkout):
+    service, root, reported = own_checkout
+    _serve(root, "dev")
+    service._interface_file_changed(root / "frontend" / "src" / "App.jsx")
+    assert reported == []
+
+
+def test_guarded_write_outside_the_interface_or_the_install_reports_nothing(own_checkout, tmp_path_factory):
+    service, root, reported = own_checkout
+    _serve(root, "build")
+    service._interface_file_changed(root / "backend" / "app.py")
+    service._interface_file_changed(tmp_path_factory.mktemp("worktree") / "frontend" / "src" / "App.jsx")
+    assert reported == []

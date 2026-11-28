@@ -96,6 +96,43 @@ const pauseHmrDuringSync = () => {
   };
 };
 
+// The preview server answers any path it has no file for with index.html, which
+// is right for a page route and wrong for a build file: a tab opened before a
+// rebuild asks for a chunk that no longer exists and would get HTML with a 200.
+// Such a request gets a 404 here, which the page's stale-chunk reload handles
+// (src/main.jsx, src/utils/lazyWithReload.js). Build files carry a content hash
+// in their name, so the ones that exist never change and may be cached for good;
+// index.html, which names them, keeps the server's revalidate-every-time default.
+const BUILD_ASSETS_URL = "/assets/";
+const IMMUTABLE = "public, max-age=31536000, immutable";
+
+const servedBuildAssets = () => ({
+  name: "served-build-assets",
+  configurePreviewServer(server) {
+    const assetsDir = path.resolve(server.config.root, server.config.build.outDir, server.config.build.assetsDir);
+    server.middlewares.use((req, res, next) => {
+      const url = (req.url || "").split("?")[0];
+      if (!url.startsWith(BUILD_ASSETS_URL)) return next();
+      let file;
+      try {
+        file = path.resolve(assetsDir, decodeURIComponent(url.slice(BUILD_ASSETS_URL.length)));
+      } catch {
+        file = "";
+      }
+      const inside = file.startsWith(assetsDir + path.sep);
+      if (!inside || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+        res.statusCode = 404;
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.end("Not found");
+        return;
+      }
+      res.setHeader("Cache-Control", IMMUTABLE);
+      next();
+    });
+  },
+});
+
 // Socket.IO disconnects (page refresh, backend restart, transport retry) reset the
 // proxied TCP socket; Vite logs that as "ws proxy error: ECONNRESET" even though
 // the client reconnects fine via polling/websocket. Filter the benign noise only.
@@ -229,7 +266,7 @@ export default defineConfig(({ mode, command }) => {
 
   return {
   customLogger: viteLogger,
-  plugins: [react(), extensionsNodeModules(), pauseHmrDuringSync()],
+  plugins: [react(), extensionsNodeModules(), pauseHmrDuringSync(), servedBuildAssets()],
   resolve: {
     // `@` is core: extensions import it as `@/api/apiClient` instead of
     // counting `../` up to wherever core sits.
