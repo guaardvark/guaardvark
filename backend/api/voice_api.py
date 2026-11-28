@@ -2054,15 +2054,12 @@ def voice_status():
         # Check FFmpeg availability
         ffmpeg_available = shutil.which("ffmpeg") is not None
 
-        # Check Piper TTS availability
-        piper_available = True
+        # Installed Piper voices
         available_voices = []
         for voice_id, voice_config in PIPER_VOICES.items():
             model_path = os.path.join(backend_path, voice_config["model"])
             if file_complete(model_path):
                 available_voices.append(voice_id)
-            else:
-                piper_available = False
 
         # Test Piper import
         try:
@@ -2070,10 +2067,15 @@ def voice_status():
             piper_import_ok = True
         except ImportError:
             piper_import_ok = False
-            piper_available = False
 
-        status = "available" if (whisper_available and piper_available) else "partial"
-        if not whisper_available and not piper_available:
+        # /text-to-speech speaks with Kokoro while Audio Foundry has a voice
+        # pack, else with any installed Piper voice (_installed_piper_voice).
+        # A catalog voice this machine never downloaded stops neither.
+        tts_engine = reply_tts_engine()
+        tts_available = tts_engine == "kokoro" or (piper_import_ok and bool(available_voices))
+
+        status = "available" if (whisper_available and tts_available) else "partial"
+        if not whisper_available and not tts_available:
             status = "unavailable"
 
         whisper_build = _whisper_build_dep_status() if not whisper_cli_available else {
@@ -2086,7 +2088,7 @@ def voice_status():
         return jsonify({
             "status": status,
             "speech_recognition": whisper_available,
-            "text_to_speech": piper_available,
+            "text_to_speech": tts_available,
             "piper_import": piper_import_ok,
             "whisper_installed": whisper_cli_available,
             "whisper_source_available": whisper_source_available,
@@ -2096,7 +2098,7 @@ def voice_status():
             "ffmpeg_available": ffmpeg_available,
             "supported_formats": list(SUPPORTED_AUDIO_FORMATS),
             "available_voices": available_voices,
-            "engine": f"local (whisper + {reply_tts_engine()})",
+            "engine": f"local (whisper + {tts_engine})",
             "missing_build_packages": whisper_build["missing_build_packages"],
             "can_auto_install": whisper_build["can_auto_install"],
             "install_method": whisper_build["install_method"],
