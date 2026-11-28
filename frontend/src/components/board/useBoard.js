@@ -39,8 +39,8 @@ const gridItemOf = (cardId) => {
 };
 
 /**
- * Click-to-top stacking. Cards overlap freely, so the one pressed last is
- * raised above the rest. The grid rewrites its items' inline styles when a
+ * Click-to-top stacking. The card pressed last is raised above the rest, which
+ * shows on a board whose cards may overlap and while a card is dragged over others. The grid rewrites its items' inline styles when a
  * drag ends, so the board re-applies the order after each render.
  */
 export function useCardStacking() {

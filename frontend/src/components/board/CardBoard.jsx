@@ -1,6 +1,7 @@
 // The board every card page is drawn on: a free-placement grid where cards are
-// dragged by their bar, resized from any edge, overlap, stack by last touch and
-// minimize to their bar. The page owns which cards exist, what they show and
+// dragged by their bar, resized from any edge and minimize to their bar. On a
+// board of loose items (Notes) they overlap and stack by last touch; a page of
+// cards passes `overlap={false}` and its cards move clear of the one just placed. The page owns which cards exist, what they show and
 // where the layout is saved; the board owns how they behave.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -9,7 +10,7 @@ import { Box, useTheme } from "@mui/material";
 import ReactGridLayout from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { CARD_BAR_PX, barRows, gridLayout } from "./boardGeometry";
+import { CARD_BAR_PX, barRows, gridLayout, resolveOverlaps } from "./boardGeometry";
 
 const RESIZE_HANDLES = ["s", "w", "e", "n", "sw", "nw", "se", "ne"];
 
@@ -32,6 +33,9 @@ export const TILED = { marginScale: 1 / 20, paddingScale: 1 / 10, barPx: 48 };
  * @param {boolean} fitWidth  measure the board's own container and follow it
  * @param {object} spacing  {marginScale, paddingScale, barPx} over the grid's defaults, e.g. TILED
  * @param {number} maxRows  cards cannot be dragged or resized below this row
+ * @param {boolean} overlap  cards may cover each other. When false a stored layout is shown with its
+ *   overlaps resolved, and a card dropped or resized onto others stays there while they move clear;
+ *   onDragStop and onResizeStop are then given the layout after that.
  * @param {object} grid   LayoutContext gridSettings
  * @param {Array} layout  stored layout of the cards to show, in stacking order (later draws over earlier)
  * @param {Record<string, boolean>} minimized  cards showing only their bar
@@ -65,6 +69,7 @@ const CardBoard = ({
   fitWidth = false,
   spacing,
   maxRows,
+  overlap = true,
 }) => {
   const theme = useTheme();
   const { COLS_COUNT, ROW_HEIGHT_PX, CARD_MARGIN_PX, CONTAINER_PADDING_PX } = grid;
@@ -117,7 +122,14 @@ const CardBoard = ({
   // apart from a minimized card's slot, which also holds the strip.
   const cardInset = spacing === TILED ? theme.board?.cardInset ?? 0 : 0;
   const rows = barRows(ROW_HEIGHT_PX, margin, (spacing?.barPx ?? CARD_BAR_PX) + 2 * cardInset);
-  const shown = useMemo(() => gridLayout(layout, minimized, rows), [layout, minimized, rows]);
+  const shown = useMemo(() => {
+    const drawn = gridLayout(layout, minimized, rows);
+    return overlap ? drawn : resolveOverlaps(drawn, COLS_COUNT);
+  }, [layout, minimized, rows, overlap, COLS_COUNT]);
+
+  // What the grid reports after a gesture, with the cards under the one just
+  // placed moved clear of it. The grid itself lets a card pass over others.
+  const placed = (reported, item) => (overlap ? reported : resolveOverlaps(reported, COLS_COUNT, item?.i));
 
   // The grid resets its items' inline styles; put the stacking order back.
   useEffect(() => {
@@ -169,14 +181,14 @@ const CardBoard = ({
           beginGesture();
           onDragStart?.(item.i);
         }}
-        onDragStop={(reported) => {
+        onDragStop={(reported, _before, item) => {
           endGesture();
-          onDragStop?.(reported);
+          onDragStop?.(placed(reported, item));
         }}
         onResizeStart={beginGesture}
-        onResizeStop={(reported) => {
+        onResizeStop={(reported, _before, item) => {
           endGesture();
-          onResizeStop?.(reported);
+          onResizeStop?.(placed(reported, item));
         }}
         resizeHandles={RESIZE_HANDLES}
       >
@@ -225,6 +237,7 @@ CardBoard.propTypes = {
   fitWidth: PropTypes.bool,
   spacing: PropTypes.object,
   maxRows: PropTypes.number,
+  overlap: PropTypes.bool,
 };
 
 export default CardBoard;

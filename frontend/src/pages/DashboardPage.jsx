@@ -589,6 +589,7 @@ const DashboardPage = () => {
           width={gridWidth}
           grid={gridSettings}
           layout={boardLayout}
+          overlap={false}
           minimized={minimizedCards}
           stacking={stacking}
           locked={isNarrow}

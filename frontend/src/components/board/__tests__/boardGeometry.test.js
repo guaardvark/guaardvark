@@ -8,6 +8,7 @@ import {
   narrowReflow,
   nextMode,
   repackRows,
+  resolveOverlaps,
 } from "../boardGeometry";
 
 const grid = {
@@ -90,6 +91,62 @@ describe("board geometry", () => {
       { i: "b", x: 87, y: 0, w: 87, h: 30, minW: 1, isDraggable: false, isResizable: false },
       { i: "c", x: 0, y: 30, w: 87, h: 10, minW: 1, isDraggable: false, isResizable: false },
     ]);
+  });
+
+  it("steps a card sideways when only its edges cross its neighbours", () => {
+    const layout = [
+      { i: "photos", x: 0, y: 0, w: 55, h: 78 },
+      { i: "settings", x: 53, y: 7, w: 55, h: 78 },
+      { i: "result", x: 104, y: 0, w: 65, h: 78 },
+    ];
+    expect(resolveOverlaps(layout, 175)).toEqual([
+      layout[0],
+      { i: "settings", x: 55, y: 7, w: 55, h: 78 },
+      { i: "result", x: 110, y: 0, w: 65, h: 78 },
+    ]);
+  });
+
+  it("drops a card laid on another to the first free place under it", () => {
+    const layout = [
+      { i: "active", x: 0, y: 0, w: 107, h: 49 },
+      { i: "templates", x: 110, y: 0, w: 65, h: 45 },
+      { i: "history", x: 58, y: 27, w: 57, h: 22 },
+    ];
+    expect(resolveOverlaps(layout, 175)).toEqual([layout[0], layout[1], { i: "history", x: 58, y: 49, w: 57, h: 22 }]);
+  });
+
+  it("drops a card whose sideways step would leave the board", () => {
+    const layout = [
+      { i: "a", x: 0, y: 0, w: 90, h: 40 },
+      { i: "b", x: 88, y: 0, w: 87, h: 40 },
+    ];
+    expect(resolveOverlaps(layout, 175)).toEqual([layout[0], { i: "b", x: 88, y: 40, w: 87, h: 40 }]);
+  });
+
+  it("keeps the list in its order, which is how cards stack", () => {
+    const layout = [
+      { i: "low", x: 0, y: 30, w: 30, h: 20 },
+      { i: "high", x: 10, y: 0, w: 30, h: 40 },
+      { i: "apart", x: 100, y: 0, w: 30, h: 20 },
+    ];
+    expect(resolveOverlaps(layout, 175)).toEqual([{ i: "low", x: 0, y: 40, w: 30, h: 20 }, layout[1], layout[2]]);
+  });
+
+  it("leaves the card just placed where it is and moves the ones under it", () => {
+    const layout = [
+      { i: "active", x: 0, y: 0, w: 107, h: 49 },
+      { i: "templates", x: 22, y: 7, w: 65, h: 45 },
+    ];
+    expect(resolveOverlaps(layout, 175, "templates")).toEqual([{ i: "active", x: 0, y: 52, w: 107, h: 49 }, layout[1]]);
+  });
+
+  it("returns a layout without overlaps as it is", () => {
+    const layout = [
+      { i: "a", x: 0, y: 0, w: 35, h: 49 },
+      { i: "b", x: 35, y: 0, w: 35, h: 49 },
+      { i: "c", x: 0, y: 49, w: 70, h: 49 },
+    ];
+    expect(resolveOverlaps(layout, 175)).toBe(layout);
   });
 
   it("cycles modes", () => {

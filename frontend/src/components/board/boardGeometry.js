@@ -86,6 +86,63 @@ export function gridLayout(layout, minimized, rows) {
   });
 }
 
+const collide = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+// Two cards overlapping by no more than this share of the narrower one are
+// neighbours whose edges cross, not one card laid on another.
+const SLIVER = 1 / 4;
+
+/**
+ * Reading order: rows from the top, each left to right. A card belongs to the
+ * row of the highest card left when it starts in that card's top quarter.
+ */
+function readingOrder(layout) {
+  const rest = [...layout].sort((a, b) => a.y - b.y || a.x - b.x);
+  const out = [];
+  while (rest.length) {
+    const head = rest[0];
+    const row = rest.filter((item) => item.y < head.y + head.h / 4).sort((a, b) => a.x - b.x || a.y - b.y);
+    out.push(...row);
+    row.forEach((item) => rest.splice(rest.indexOf(item), 1));
+  }
+  return out;
+}
+
+/**
+ * A layout in which no two cards cover each other. Cards are settled in reading
+ * order, after the card named in `keep` (the one a person has just placed, which
+ * stays where it was put). One that would land on a card already settled steps sideways off it
+ * when only their edges cross and the place beside it is free; otherwise it
+ * drops straight down to the first free place, keeping its column. Sizes are
+ * never changed. A stored layout can hold overlaps the grid never resolves by
+ * itself: saved while cards could be piled up, a card added since the save
+ * taking its default place, a minimized card opening over its neighbours.
+ *
+ * Takes the heights the grid draws (see gridLayout). Items keep their order,
+ * and the same array comes back when nothing had to move.
+ * @param {number} cols  the board's column count; a sideways step stays inside it
+ * @param {string} [keep]  id of the card that is not to move
+ */
+export function resolveOverlaps(layout, cols, keep) {
+  const settled = [];
+  const moved = new Map();
+  const firstHit = (at) => settled.find((other) => collide(at, other));
+  const ordered = readingOrder(layout);
+  [...ordered.filter((item) => item.i === keep), ...ordered.filter((item) => item.i !== keep)].forEach((item) => {
+    let at = item;
+    for (let hit = firstHit(at); hit; hit = firstHit(at)) {
+      const crossing = Math.min(at.x + at.w, hit.x + hit.w) - Math.max(at.x, hit.x);
+      const toRight = at.x + at.w / 2 >= hit.x + hit.w / 2;
+      const beside = { ...at, x: toRight ? hit.x + hit.w : hit.x - at.w };
+      const fits = beside.x >= 0 && beside.x + beside.w <= cols && !firstHit(beside);
+      at = crossing <= Math.min(at.w, hit.w) * SLIVER && fits ? beside : { ...at, y: hit.y + hit.h };
+    }
+    settled.push(at);
+    if (at !== item) moved.set(item, at);
+  });
+  return moved.size ? layout.map((item) => moved.get(item) || item) : layout;
+}
+
 /**
  * The stored layout after the grid reports a drag or resize. Each reported item
  * keeps its stored props and takes the new place and width; it takes the new
