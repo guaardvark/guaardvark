@@ -25,7 +25,7 @@ const createUISlice = (set, get) => ({
   setSidebarExpanded: (expanded) => set({ sidebarExpanded: expanded }),
   toggleSidebar: () => set((state) => ({ sidebarExpanded: !state.sidebarExpanded })),
 
-  navChrome: "sidebar",
+  navChrome: "software",
   setNavChrome: (chrome) => {
     if (chrome !== "sidebar" && chrome !== "software") return;
     set({ navChrome: chrome });

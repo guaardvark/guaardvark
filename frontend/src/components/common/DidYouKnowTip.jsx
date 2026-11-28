@@ -193,7 +193,7 @@ const DidYouKnowTip = ({
 
   if ((!tip && !starAsk) || !tipsEnabled || updateNoticeVisible || onChatPage) return null;
 
-  const left = navChromeWidth(navChrome || NAV_CHROME.SIDEBAR, sidebarExpanded) + GAP;
+  const left = navChromeWidth(navChrome || NAV_CHROME.SOFTWARE, sidebarExpanded) + GAP;
   const cardSx = (theme) => ({
     position: "fixed",
     left,

@@ -113,7 +113,7 @@ const AppLayout = ({ children }) => {
   const { pathname } = useLocation();
 
   const sidebarExpanded = useAppStore((state) => state.sidebarExpanded);
-  const navChrome = useAppStore((state) => state.navChrome) || NAV_CHROME.SIDEBAR;
+  const navChrome = useAppStore((state) => state.navChrome) || NAV_CHROME.SOFTWARE;
   const isSoftware = navChrome === NAV_CHROME.SOFTWARE;
   const drawerWidth = navChromeWidth(navChrome, sidebarExpanded);
   // Layout slot: an extension may add a header bar above every page.
